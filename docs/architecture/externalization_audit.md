@@ -6,6 +6,11 @@ Statut : recommandation LSP réalisée par l'ADR-0016. Le paquet principal
 expose désormais `kairos.engine`; le protocole, l'adaptateur et l'exécutable
 appartiennent au paquet `kairos-lsp`.
 
+La séparation de la seconde surface de livraison est réalisée par l'ADR-0017 :
+le paquet `kairos-cli` fournit l'exécutable `kairos`, tandis que le paquet
+`kairos` ne contient plus que le moteur embarquable. Cette frontière retire
+1 327 lignes OCaml de livraison CLI du paquet moteur.
+
 ## Objet
 
 Cet audit cherche les prochaines séparations qui diminuent réellement la

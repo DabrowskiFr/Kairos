@@ -13,13 +13,14 @@ digraph {
     fontcolor="#444444"
     fillcolor="#444444"
 
-    10 [id=10,shape=rect, label=<<font point-size="34">Kairos frontend</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Parses the surface language<br />and elaborates it to the core<br />verification model.</font>>, style=filled, color="#5628a5", fillcolor="#7c3aed", fontcolor="#ffffff"]
-    11 [id=11,shape=rect, label=<<font point-size="34">Application use-cases</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Ports and use-cases that<br />define verification flows<br />independently from concrete<br />adapters.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
-    12 [id=12,shape=rect, label=<<font point-size="34">Domain core</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Core syntax, verification<br />model, shared IR, temporal<br />layout, and formula utilities.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
-    13 [id=13,shape=rect, label=<<font point-size="34">Reference<br />verification kernel</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
-    21 [id=21,shape=rect, label=<<font point-size="34">Runtime orchestration</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Coordinates prepared programs,<br />supplied automata, snapshots,<br />outputs, and proof execution.</font>>, style=filled, color="#7d3a06", fillcolor="#b45309", fontcolor="#ffffff"]
-    27 [id=27,shape=rect, label=<<font point-size="34">Why3 backend</font><br /><font point-size="19">[Container: OCaml / Why3]</font><br /><br /><font point-size="24">Projects proof obligations to<br />Why3, performs backend-only<br />representation choices, and<br />calls proof services.</font>>, style=filled, color="#850c2a", fillcolor="#be123c", fontcolor="#ffffff"]
-    29 [id=29,shape=rect, label=<<font point-size="34">External tool<br />adapters</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Adapter layer for Spot, Why3,<br />Z3, Graphviz, and timing<br />services.</font>>, style=filled, color="#4a4f59", fillcolor="#6b7280", fontcolor="#ffffff"]
+    10 [id=10,shape=rect, label=<<font point-size="34">Engine facade</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Stable in-process API used by<br />optional delivery adapters.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
+    11 [id=11,shape=rect, label=<<font point-size="34">Kairos frontend</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Parses the surface language<br />and elaborates it to the core<br />verification model.</font>>, style=filled, color="#5628a5", fillcolor="#7c3aed", fontcolor="#ffffff"]
+    12 [id=12,shape=rect, label=<<font point-size="34">Application use-cases</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Ports and use-cases that<br />define verification flows<br />independently from concrete<br />adapters.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
+    13 [id=13,shape=rect, label=<<font point-size="34">Domain core</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Core syntax, verification<br />model, shared IR, temporal<br />layout, and formula utilities.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
+    14 [id=14,shape=rect, label=<<font point-size="34">Reference<br />verification kernel</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
+    22 [id=22,shape=rect, label=<<font point-size="34">Runtime orchestration</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Coordinates prepared programs,<br />supplied automata, snapshots,<br />outputs, and proof execution.</font>>, style=filled, color="#7d3a06", fillcolor="#b45309", fontcolor="#ffffff"]
+    28 [id=28,shape=rect, label=<<font point-size="34">Why3 backend</font><br /><font point-size="19">[Container: OCaml / Why3]</font><br /><br /><font point-size="24">Projects proof obligations to<br />Why3, performs backend-only<br />representation choices, and<br />calls proof services.</font>>, style=filled, color="#850c2a", fillcolor="#be123c", fontcolor="#ffffff"]
+    31 [id=31,shape=rect, label=<<font point-size="34">External tool<br />adapters</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Adapter layer for Spot, Why3,<br />Z3, Graphviz, and timing<br />services.</font>>, style=filled, color="#4a4f59", fillcolor="#6b7280", fontcolor="#ffffff"]
     8 [id=8,shape=rect, label=<<font point-size="34">CLI</font><br /><font point-size="19">[Container: OCaml / Cmdliner]</font><br /><br /><font point-size="24">Command-line entry point for<br />checking, dumping, and proving<br />Kairos programs.</font>>, style=filled, color="#5628a5", fillcolor="#7c3aed", fontcolor="#ffffff"]
   }
 
@@ -28,17 +29,18 @@ digraph {
   4 [id=4,shape=rect, label=<<font point-size="34">Why3</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External VC generation and<br />proof-task infrastructure.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
   5 [id=5,shape=rect, label=<<font point-size="34">Z3</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External SMT solver used<br />through Why3 and selected<br />internal experiments.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
 
-  1 -> 8 [id=30, label=<<font point-size="24">1. runs --prove</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  8 -> 11 [id=33, label=<<font point-size="24">2. invokes verification<br />use-case</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  11 -> 10 [id=35, label=<<font point-size="24">3. parses and elaborates</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  10 -> 12 [id=37, label=<<font point-size="24">4. produces core model</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  11 -> 21 [id=36, label=<<font point-size="24">5. requests snapshot and<br />proof output</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  21 -> 29 [id=43, label=<<font point-size="24">6. produces supplied<br />automata through Spot<br />adapter</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  29 -> 3 [id=52, label=<<font point-size="24">7. builds property<br />automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  21 -> 13 [id=39, label=<<font point-size="24">8. builds reference<br />product and IR</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  21 -> 27 [id=42, label=<<font point-size="24">9. projects proof<br />obligations</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  27 -> 29 [id=49, label=<<font point-size="24">10. calls Why3/provers</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  29 -> 4 [id=54, label=<<font point-size="24">11. submits proof tasks</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  29 -> 5 [id=56, label=<<font point-size="24">12. uses SMT solver<br />through proof stack</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  1 -> 8 [id=32, label=<<font point-size="24">1. runs --prove</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  8 -> 10 [id=35, label=<<font point-size="24">2. invokes public engine<br />facade</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  10 -> 12 [id=37, label=<<font point-size="24">3. invokes verification<br />use-case</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  12 -> 11 [id=40, label=<<font point-size="24">4. parses and elaborates</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  11 -> 13 [id=42, label=<<font point-size="24">5. produces core model</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  12 -> 22 [id=41, label=<<font point-size="24">6. requests snapshot and<br />proof output</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  22 -> 31 [id=48, label=<<font point-size="24">7. produces supplied<br />automata through Spot<br />adapter</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  31 -> 3 [id=58, label=<<font point-size="24">8. builds property<br />automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  22 -> 14 [id=44, label=<<font point-size="24">9. builds reference<br />product and IR</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  22 -> 28 [id=47, label=<<font point-size="24">10. projects proof<br />obligations</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  28 -> 31 [id=54, label=<<font point-size="24">11. calls Why3/provers</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  31 -> 4 [id=60, label=<<font point-size="24">12. submits proof tasks</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  31 -> 5 [id=62, label=<<font point-size="24">13. uses SMT solver<br />through proof stack</font>>, style="dashed", color="#444444", fontcolor="#444444"]
 
 }

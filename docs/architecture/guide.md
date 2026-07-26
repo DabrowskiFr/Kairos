@@ -68,7 +68,7 @@ elle ne doit pas changer la sortie kernel.
 
 | Bloc | Chemins | Role | Rocq |
 | --- | --- | --- | --- |
-| CLI / LSP | `bin/cli`, `bin/lsp` | Entrees utilisateur | Non |
+| CLI / LSP | paquets `kairos-cli`, `kairos-lsp` | Entrees utilisateur via `kairos.engine` | Non |
 | Frontend | `lib/adapters/in/kairos_lang` | Parse et elabore le langage de surface | Pas encore, sauf theoreme d'elaboration futur |
 | Application | `lib/application` | Ports et use-cases | Non |
 | Domain core | `lib/domain/core` | Syntaxe, modeles, IR, temporal layout | Oui |

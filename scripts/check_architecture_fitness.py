@@ -166,9 +166,9 @@ def check_minimal_prove_path(repo: Path) -> None:
         encoding="utf-8", errors="replace"
     )
     if not re.search(
-        r"opt\s+int\s+\(Pipeline_types\.default_proof_jobs\s*\(\)\)", cli
+        r"opt\s+int\s+\(Pipeline\.default_proof_jobs\s*\(\)\)", cli
     ):
-        fail("CLI --proof-jobs default must call Pipeline_types.default_proof_jobs")
+        fail("CLI --proof-jobs default must call the kairos.engine pipeline default")
 
     lsp_files = [
         "bin/lsp/lsp_run_config.ml",
@@ -4049,6 +4049,58 @@ def check_lsp_package_boundary(repo: Path) -> None:
         )
 
 
+def check_cli_package_boundary(repo: Path) -> None:
+    main_opam = (repo / "kairos.opam").read_text(encoding="utf-8")
+    if '"cmdliner"' in main_opam:
+        fail("kairos.opam must not depend on the optional CLI dependency cmdliner")
+
+    cli_opam = (repo / "kairos-cli.opam").read_text(encoding="utf-8")
+    for dependency in ['"kairos"', '"cmdliner"']:
+        if dependency not in cli_opam:
+            fail(f"kairos-cli.opam is missing dependency {dependency}")
+
+    cli_dune = (repo / "bin/cli/dune").read_text(encoding="utf-8")
+    if "(package kairos-cli)" not in cli_dune:
+        fail("kairos executable must belong to the kairos-cli package")
+    if "kairos_engine" not in cli_dune:
+        fail("kairos CLI must depend on kairos.engine")
+    for forbidden in [
+        "kairos_application",
+        "kairos_composition",
+        "kairos_c_codegen",
+        "kairos_input_lang",
+    ]:
+        if forbidden in cli_dune:
+            fail(f"kairos CLI bypasses kairos.engine through {forbidden}")
+
+    forbidden_references = [
+        r"\bPipeline_types\b",
+        r"\bApplication_ports\b",
+        r"\bVerification_model\b",
+        r"\bVerification_flow_usecases\b",
+        r"\bKairos_usecase_wiring\b",
+        r"\bKairos_frontend\b",
+        r"\bKairos_c_codegen\b",
+        r"\bKx_ast\b",
+        r"\bKx_parse_api\b",
+    ]
+    violations: list[str] = []
+    for path in (repo / "bin/cli").rglob("*"):
+        if path.suffix not in {".ml", ".mli"}:
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            if any(re.search(pattern, line) for pattern in forbidden_references):
+                violations.append(
+                    f"{path.relative_to(repo)}:{line_no}: {line.strip()}"
+                )
+    if violations:
+        fail(
+            "CLI sources bypass the public kairos.engine facade:\n  - "
+            + "\n  - ".join(violations)
+        )
+
+
 def main() -> int:
     repo = Path(__file__).resolve().parents[1]
     check_no_legacy_kobj(repo)
@@ -4074,6 +4126,7 @@ def main() -> int:
     check_external_why3_prover_boundaries(repo)
     check_external_timing_boundaries(repo)
     check_lsp_package_boundary(repo)
+    check_cli_package_boundary(repo)
     check_runtime_diagnostics_boundaries(repo)
     check_input_adapters_stay_thin(repo)
     print("[architecture-fitness] OK: architecture fitness checks passed")

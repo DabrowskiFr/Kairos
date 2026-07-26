@@ -18,16 +18,17 @@
 
 open Cli_types
 
-module C_codegen = Kairos_c_codegen.C_codegen
-module Usecases = Verification_flow_usecases.Make (Kairos_usecase_wiring.Ports)
+module Engine = Kairos_engine.Api
+module Pipeline = Engine.Types
 
 let proof_optimizations_of_args args =
   let base =
-    if args.no_proof_optimizations then Pipeline_types.reference_proof_optimizations
-    else Pipeline_types.default_proof_optimizations
+    if args.no_proof_optimizations then
+      Pipeline.reference_proof_optimizations
+    else Pipeline.default_proof_optimizations
   in
   {
-    Pipeline_types.group_public_non_w_guarantees =
+    Pipeline.group_public_non_w_guarantees =
       base.group_public_non_w_guarantees && not args.no_proof_grouping;
     share_why3_facts = base.share_why3_facts && not args.no_why3_fact_sharing;
     simplify_why3_formulas =
@@ -71,7 +72,7 @@ let proof_optimizations_of_args args =
     smt_text : string;
     flow_meta : flow_meta;
     goals : goal_info list;
-    proof_traces : Pipeline_types.proof_trace list;
+    proof_traces : Pipeline.proof_trace list;
   }
 
   type frontend_check_data = {
@@ -80,12 +81,12 @@ let proof_optimizations_of_args args =
     guarantee_count : int;
   }
 
-  type c_generation_data = C_codegen.generated_file list
+  type c_generation_data = Engine.generated_file list
 
-  let instrumentation_pass = Usecases.instrumentation_pass
-  let why_pass = Usecases.why_pass
-  let obligations_pass = Usecases.obligations_pass
-  let cost_report = Usecases.cost_report
+  let instrumentation_pass = Engine.instrumentation_pass
+  let why_pass = Engine.why_pass_with_options
+  let obligations_pass = Engine.obligations_pass_with_options
+  let cost_report = Engine.cost_report
 
   let automata_dump_data ~input_file =
     match instrumentation_pass ~generate_png:false ~input_file with
@@ -119,99 +120,35 @@ let proof_optimizations_of_args args =
     | Error _ as e -> e
     | Ok out -> Ok out.cost_report_json
 
-  let normalized_program = Usecases.normalized_program
-  let ir_pretty_dump = Usecases.ir_pretty_dump
-  let run = Usecases.run
-
-  let structured_frontend_error (err : Kx_frontend_error.t) =
-    match err.kind with
-    | Kx_frontend_error.Parse -> Pipeline_types.Parse_error err.message
-    | Kx_frontend_error.Elaboration -> Pipeline_types.Elaboration_error err.message
-    | Kx_frontend_error.Type -> Pipeline_types.Type_error err.message
-    | Kx_frontend_error.Well_formedness ->
-        Pipeline_types.Well_formedness_error err.message
-    | Kx_frontend_error.Internal -> Pipeline_types.Internal_error err.message
-
-  let read_text_for_dump input_file =
-    try
-      let ic = open_in_bin input_file in
-      let len = in_channel_length ic in
-      let text = really_input_string ic len in
-      close_in ic;
-      Ok text
-    with exn -> Error (Pipeline_types.Io_error (Printexc.to_string exn))
-
-  let surface_dump ~input_file =
-    match read_text_for_dump input_file with
-    | Error _ as e -> e
-    | Ok text -> (
-        try
-          let surface, _ =
-            Kx_parse_api.parse_surface_text_with_info ~filename:input_file ~text
-          in
-          Ok (Kx_parse_api.surface_source_to_json surface)
-        with
-        | Kx_frontend_error.Error err -> Error (structured_frontend_error err)
-        | exn -> Error (Pipeline_types.Internal_error (Printexc.to_string exn)))
-
-  let elaborated_dump ~input_file =
-    match read_text_for_dump input_file with
-    | Error _ as e -> e
-    | Ok text -> (
-        try
-          let source, _ = Kx_parse_api.parse_source_text_with_info ~filename:input_file ~text in
-          Ok (Kx_parse_api.source_to_json source)
-        with
-        | Kx_frontend_error.Error err -> Error (structured_frontend_error err)
-        | exn -> Error (Pipeline_types.Internal_error (Printexc.to_string exn)))
+  let normalized_program = Engine.normalized_program_with_options
+  let ir_pretty_dump = Engine.ir_pretty_dump_with_options
+  let run = Engine.run
+  let surface_dump = Engine.surface_dump
+  let elaborated_dump = Engine.elaborated_dump
 
   let frontend_check ~input_file =
-    match Kairos_frontend.parse_input ~input_file with
+    match Engine.frontend_summary ~input_file with
     | Error _ as e -> e
-    | Ok frontend ->
-        let nodes = frontend.Application_ports.verification_model in
-        let assume_count =
-          nodes |> List.map (fun (n : Verification_model.node_model) -> List.length n.assumes)
-          |> List.fold_left ( + ) 0
-        in
-        let guarantee_count =
-          nodes |> List.map (fun (n : Verification_model.node_model) -> List.length n.guarantees)
-          |> List.fold_left ( + ) 0
-        in
-        Ok { node_count = List.length nodes; assume_count; guarantee_count }
+    | Ok summary ->
+        Ok
+          {
+            node_count = summary.node_count;
+            assume_count = summary.assume_count;
+            guarantee_count = summary.guarantee_count;
+          }
 
-  let c_generation ~input_file =
-    match Kairos_frontend.parse_input ~input_file with
-    | Error _ as e -> e
-    | Ok frontend -> (
-        match C_codegen.emit_program frontend.Application_ports.verification_model with
-        | Ok files -> Ok files
-        | Error msg -> Error (Pipeline_types.Flow_error msg))
+  let c_generation = Engine.generate_c
 
   let run_dump_data ~input_file ~timeout_s ~prove ~generate_why_text
       ~generate_vc_text ~generate_smt_text ~dump_failed_smt ~proof_progress_path
       ~collect_ir_metrics ~stop_on_first_nonvalid ~proof_jobs ~proof_encoding
       ~proof_optimizations =
     let cfg =
-      {
-        Pipeline_types.input_file;
-        wp_only = false;
-        smoke_tests = false;
-        timeout_s;
-        compute_proof_diagnostics = false;
-        prove;
-        proof_jobs;
-        generate_why_text;
-        generate_vc_text;
-        generate_smt_text;
-        generate_dot_png = false;
-        dump_failed_smt;
-        collect_ir_metrics;
-        proof_progress_path;
-        stop_on_first_nonvalid;
-        proof_encoding;
-        proof_optimizations;
-      }
+      Engine.make_config ~input_file ~wp_only:false ~smoke_tests:false
+        ~timeout_s ~compute_proof_diagnostics:false ~prove ~proof_jobs
+        ~dump_failed_smt ~collect_ir_metrics ?proof_progress_path
+        ~stop_on_first_nonvalid ~proof_encoding ~proof_optimizations
+        ~generate_vc_text ~generate_smt_text ~generate_dot_png:false ()
     in
     match run cfg with
     | Error _ as e -> e

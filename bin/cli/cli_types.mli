@@ -10,13 +10,15 @@
 
 (** Parsed CLI command model. *)
 
+module Pipeline = Kairos_engine.Api.Types
+
 type cli_args = {
   file : string;
   check_frontend : bool;
   prove : bool;
   timeout_s : int;
   proof_jobs : int;
-  proof_encoding : Pipeline_types.proof_encoding;
+  proof_encoding : Pipeline.proof_encoding;
   stop_on_first_nonvalid : bool;
   no_proof_optimizations : bool;
   no_proof_grouping : bool;

@@ -8,8 +8,12 @@ let default_proof_jobs = Types.default_proof_jobs
 let error_to_string = Types.error_to_string
 
 let make_config ~input_file ~wp_only ~smoke_tests ~timeout_s
-    ~compute_proof_diagnostics ~prove ?proof_jobs ~generate_vc_text
-    ~generate_smt_text ~generate_dot_png () =
+    ~compute_proof_diagnostics ~prove ?proof_jobs
+    ?(dump_failed_smt = false) ?(collect_ir_metrics = false)
+    ?proof_progress_path ?(stop_on_first_nonvalid = false)
+    ?(proof_encoding = Types.default_proof_encoding)
+    ?(proof_optimizations = Types.default_proof_optimizations)
+    ~generate_vc_text ~generate_smt_text ~generate_dot_png () =
   {
     Types.input_file;
     wp_only;
@@ -22,12 +26,12 @@ let make_config ~input_file ~wp_only ~smoke_tests ~timeout_s
     generate_vc_text;
     generate_smt_text;
     generate_dot_png;
-    dump_failed_smt = false;
-    collect_ir_metrics = false;
-    proof_progress_path = None;
-    stop_on_first_nonvalid = false;
-    proof_encoding = Types.default_proof_encoding;
-    proof_optimizations = Types.default_proof_optimizations;
+    dump_failed_smt;
+    collect_ir_metrics;
+    proof_progress_path;
+    stop_on_first_nonvalid;
+    proof_encoding;
+    proof_optimizations;
   }
 
 let instrumentation_pass = Usecases.instrumentation_pass
@@ -36,9 +40,14 @@ let why_pass ~input_file =
   Usecases.why_pass ~proof_encoding:Types.default_proof_encoding
     ~proof_optimizations:Types.default_proof_optimizations ~input_file
 
+let why_pass_with_options = Usecases.why_pass
+
 let obligations_pass ~input_file =
   Usecases.obligations_pass ~proof_encoding:Types.default_proof_encoding
     ~proof_optimizations:Types.default_proof_optimizations ~input_file
+
+let obligations_pass_with_options = Usecases.obligations_pass
+let cost_report = Usecases.cost_report
 
 let normalized_program ~input_file =
   Usecases.normalized_program ~proof_encoding:Types.default_proof_encoding
@@ -47,6 +56,9 @@ let normalized_program ~input_file =
 let ir_pretty_dump ~input_file =
   Usecases.ir_pretty_dump ~proof_encoding:Types.default_proof_encoding
     ~proof_optimizations:Types.default_proof_optimizations ~input_file
+
+let normalized_program_with_options = Usecases.normalized_program
+let ir_pretty_dump_with_options = Usecases.ir_pretty_dump
 
 let run = Usecases.run
 let run_with_callbacks = Usecases.run_with_callbacks
@@ -179,3 +191,99 @@ let semantic_symbols ~text =
         variables = keys variables;
       }
   with _ -> None
+
+type frontend_summary = {
+  node_count : int;
+  assume_count : int;
+  guarantee_count : int;
+}
+
+let structured_frontend_error (error : Kx_frontend_error.t) =
+  match error.kind with
+  | Kx_frontend_error.Parse -> Types.Parse_error error.message
+  | Kx_frontend_error.Elaboration ->
+      Types.Elaboration_error error.message
+  | Kx_frontend_error.Type -> Types.Type_error error.message
+  | Kx_frontend_error.Well_formedness ->
+      Types.Well_formedness_error error.message
+  | Kx_frontend_error.Internal -> Types.Internal_error error.message
+
+let read_text input_file =
+  try
+    let channel = open_in_bin input_file in
+    let length = in_channel_length channel in
+    let text = really_input_string channel length in
+    close_in channel;
+    Ok text
+  with exn -> Error (Types.Io_error (Printexc.to_string exn))
+
+let surface_dump ~input_file =
+  match read_text input_file with
+  | Error _ as error -> error
+  | Ok text -> (
+      try
+        let surface, _ =
+          Kx_parse_api.parse_surface_text_with_info ~filename:input_file
+            ~text
+        in
+        Ok (Kx_parse_api.surface_source_to_json surface)
+      with
+      | Kx_frontend_error.Error error ->
+          Error (structured_frontend_error error)
+      | exn -> Error (Types.Internal_error (Printexc.to_string exn)))
+
+let elaborated_dump ~input_file =
+  match read_text input_file with
+  | Error _ as error -> error
+  | Ok text -> (
+      try
+        let source, _ =
+          Kx_parse_api.parse_source_text_with_info ~filename:input_file ~text
+        in
+        Ok (Kx_parse_api.source_to_json source)
+      with
+      | Kx_frontend_error.Error error ->
+          Error (structured_frontend_error error)
+      | exn -> Error (Types.Internal_error (Printexc.to_string exn)))
+
+let frontend_summary ~input_file =
+  match Kairos_frontend.parse_input ~input_file with
+  | Error _ as error -> error
+  | Ok frontend ->
+      let nodes = frontend.Application_ports.verification_model in
+      let count_contracts select =
+        nodes
+        |> List.map (fun (node : Verification_model.node_model) ->
+               List.length (select node))
+        |> List.fold_left ( + ) 0
+      in
+      Ok
+        {
+          node_count = List.length nodes;
+          assume_count = count_contracts (fun node -> node.assumes);
+          guarantee_count = count_contracts (fun node -> node.guarantees);
+        }
+
+type generated_file = {
+  file_name : string;
+  contents : string;
+}
+
+let generate_c ~input_file =
+  match Kairos_frontend.parse_input ~input_file with
+  | Error _ as error -> error
+  | Ok frontend -> (
+      match
+        Kairos_c_codegen.C_codegen.emit_program
+          frontend.Application_ports.verification_model
+      with
+      | Error message -> Error (Types.Flow_error message)
+      | Ok files ->
+          Ok
+            (List.map
+               (fun (file : Kairos_c_codegen.C_codegen.generated_file) ->
+                 {
+                   file_name = file.file_name;
+                   contents = file.contents;
+                 })
+               files))

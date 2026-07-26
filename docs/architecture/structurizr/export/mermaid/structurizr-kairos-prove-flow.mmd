@@ -7,20 +7,22 @@ graph TB
     subgraph 7 ["Kairos"]
       style 7 fill:#ffffff,stroke:#0a524d,color:#0a524d
 
-      10["<div style='font-weight: bold'>Kairos frontend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Parses the surface language<br />and elaborates it to the core<br />verification model.</div>"]
-      style 10 fill:#7c3aed,stroke:#5628a5,color:#ffffff
-      11["<div style='font-weight: bold'>Application use-cases</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Ports and use-cases that<br />define verification flows<br />independently from concrete<br />adapters.</div>"]
-      style 11 fill:#075985,stroke:#043e5d,color:#ffffff
-      12["<div style='font-weight: bold'>Domain core</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Core syntax, verification<br />model, shared IR, temporal<br />layout, and formula<br />utilities.</div>"]
-      style 12 fill:#166534,stroke:#0f4624,color:#ffffff
-      13["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</div>"]
+      10["<div style='font-weight: bold'>Engine facade</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Stable in-process API used by<br />optional delivery adapters.</div>"]
+      style 10 fill:#075985,stroke:#043e5d,color:#ffffff
+      11["<div style='font-weight: bold'>Kairos frontend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Parses the surface language<br />and elaborates it to the core<br />verification model.</div>"]
+      style 11 fill:#7c3aed,stroke:#5628a5,color:#ffffff
+      12["<div style='font-weight: bold'>Application use-cases</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Ports and use-cases that<br />define verification flows<br />independently from concrete<br />adapters.</div>"]
+      style 12 fill:#075985,stroke:#043e5d,color:#ffffff
+      13["<div style='font-weight: bold'>Domain core</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Core syntax, verification<br />model, shared IR, temporal<br />layout, and formula<br />utilities.</div>"]
       style 13 fill:#166534,stroke:#0f4624,color:#ffffff
-      21["<div style='font-weight: bold'>Runtime orchestration</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Coordinates prepared<br />programs, supplied automata,<br />snapshots, outputs, and proof<br />execution.</div>"]
-      style 21 fill:#b45309,stroke:#7d3a06,color:#ffffff
-      27["<div style='font-weight: bold'>Why3 backend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / Why3]</div><div style='font-size: 80%; margin-top:10px'>Projects proof obligations to<br />Why3, performs backend-only<br />representation choices, and<br />calls proof services.</div>"]
-      style 27 fill:#be123c,stroke:#850c2a,color:#ffffff
-      29["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Adapter layer for Spot, Why3,<br />Z3, Graphviz, and timing<br />services.</div>"]
-      style 29 fill:#6b7280,stroke:#4a4f59,color:#ffffff
+      14["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</div>"]
+      style 14 fill:#166534,stroke:#0f4624,color:#ffffff
+      22["<div style='font-weight: bold'>Runtime orchestration</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Coordinates prepared<br />programs, supplied automata,<br />snapshots, outputs, and proof<br />execution.</div>"]
+      style 22 fill:#b45309,stroke:#7d3a06,color:#ffffff
+      28["<div style='font-weight: bold'>Why3 backend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / Why3]</div><div style='font-size: 80%; margin-top:10px'>Projects proof obligations to<br />Why3, performs backend-only<br />representation choices, and<br />calls proof services.</div>"]
+      style 28 fill:#be123c,stroke:#850c2a,color:#ffffff
+      31["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Adapter layer for Spot, Why3,<br />Z3, Graphviz, and timing<br />services.</div>"]
+      style 31 fill:#6b7280,stroke:#4a4f59,color:#ffffff
       8["<div style='font-weight: bold'>CLI</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / Cmdliner]</div><div style='font-size: 80%; margin-top:10px'>Command-line entry point for<br />checking, dumping, and<br />proving Kairos programs.</div>"]
       style 8 fill:#7c3aed,stroke:#5628a5,color:#ffffff
     end
@@ -35,16 +37,17 @@ graph TB
     style 5 fill:#374151,stroke:#262d38,color:#ffffff
 
     1-. "<div>1. runs --prove</div><div style='font-size: 70%'></div>" .->8
-    8-. "<div>2. invokes verification<br />use-case</div><div style='font-size: 70%'></div>" .->11
-    11-. "<div>3. parses and elaborates</div><div style='font-size: 70%'></div>" .->10
-    10-. "<div>4. produces core model</div><div style='font-size: 70%'></div>" .->12
-    11-. "<div>5. requests snapshot and<br />proof output</div><div style='font-size: 70%'></div>" .->21
-    21-. "<div>6. produces supplied automata<br />through Spot adapter</div><div style='font-size: 70%'></div>" .->29
-    29-. "<div>7. builds property automata</div><div style='font-size: 70%'></div>" .->3
-    21-. "<div>8. builds reference product<br />and IR</div><div style='font-size: 70%'></div>" .->13
-    21-. "<div>9. projects proof obligations</div><div style='font-size: 70%'></div>" .->27
-    27-. "<div>10. calls Why3/provers</div><div style='font-size: 70%'></div>" .->29
-    29-. "<div>11. submits proof tasks</div><div style='font-size: 70%'></div>" .->4
-    29-. "<div>12. uses SMT solver through<br />proof stack</div><div style='font-size: 70%'></div>" .->5
+    8-. "<div>2. invokes public engine<br />facade</div><div style='font-size: 70%'></div>" .->10
+    10-. "<div>3. invokes verification<br />use-case</div><div style='font-size: 70%'></div>" .->12
+    12-. "<div>4. parses and elaborates</div><div style='font-size: 70%'></div>" .->11
+    11-. "<div>5. produces core model</div><div style='font-size: 70%'></div>" .->13
+    12-. "<div>6. requests snapshot and<br />proof output</div><div style='font-size: 70%'></div>" .->22
+    22-. "<div>7. produces supplied automata<br />through Spot adapter</div><div style='font-size: 70%'></div>" .->31
+    31-. "<div>8. builds property automata</div><div style='font-size: 70%'></div>" .->3
+    22-. "<div>9. builds reference product<br />and IR</div><div style='font-size: 70%'></div>" .->14
+    22-. "<div>10. projects proof<br />obligations</div><div style='font-size: 70%'></div>" .->28
+    28-. "<div>11. calls Why3/provers</div><div style='font-size: 70%'></div>" .->31
+    31-. "<div>12. submits proof tasks</div><div style='font-size: 70%'></div>" .->4
+    31-. "<div>13. uses SMT solver through<br />proof stack</div><div style='font-size: 70%'></div>" .->5
 
   end

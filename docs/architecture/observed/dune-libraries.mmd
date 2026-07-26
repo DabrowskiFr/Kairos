@@ -142,7 +142,6 @@ flowchart TD
   end
   subgraph 902546259 ["(local)"]
 
-    id39758403(["kairos_c_codegen"])
     id360346707(["kairos.verification_unit"])
     id41381939(["kairos.shared"])
     id667085455(["kairos.sequential_ir"])
@@ -161,6 +160,7 @@ flowchart TD
     id248638701(["kairos.internal.runtime_automata"])
     id16686930(["kairos.internal.input_lang"])
     id962147077(["kairos.internal.composition"])
+    id614824427(["kairos.internal.c_codegen"])
     id958243360(["kairos.internal.artifact_text_render"])
     id266353272(["kairos.internal.artifact_graph_render"])
     id1070284156(["kairos.internal.application"])
@@ -188,8 +188,7 @@ flowchart TD
     style id268189549 fill:#BBB
   end
   id976590762-->id746976749
-  id976590762-->id962147077
-  id976590762-->id39758403
+  id976590762-->id97846301
   id839032564-->id312940537
   id839032564-->id890026226
   id1060604959-->id475016005
@@ -256,11 +255,13 @@ flowchart TD
   id1025403665-->id268189549
   id35199649-->id930986246
   id930986246-->id1025403665
+  id97846301-->id614824427
   id97846301-->id962147077
   id1070284156-->id1025403665
   id1070284156-->id41381939
   id266353272-->id930986246
   id958243360-->id1025403665
+  id614824427-->id1025403665
   id962147077-->id16686930
   id962147077-->id356889899
   id16686930-->id550106276
@@ -299,4 +300,3 @@ flowchart TD
   id667085455-->id268189549
   id41381939-->id445558595
   id360346707-->id745393601
-  id39758403-->id1025403665

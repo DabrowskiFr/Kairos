@@ -16,14 +16,14 @@
 <text xml:space="preserve" text-anchor="start" x="1933.43" y="-69.95" font-family="Arial" font-size="19.00" fill="#444444">[Software System]</text>
 </g>
 <g id="clust2" class="cluster">
-<title>cluster_13</title>
+<title>cluster_14</title>
 <polygon fill="none" stroke="#444444" points="724.1,-164 724.1,-519 3282.25,-519 3282.25,-164 724.1,-164"/>
 <text xml:space="preserve" text-anchor="start" x="1849.8" y="-189.2" font-family="Arial" font-size="24.00" fill="#444444">Reference verification kernel</text>
 <text xml:space="preserve" text-anchor="start" x="1922.18" y="-169.95" font-family="Arial" font-size="19.00" fill="#444444">[Container: OCaml]</text>
 </g>
-<!-- 14 -->
-<g id="14" class="node">
-<title>14</title>
+<!-- 15 -->
+<g id="15" class="node">
+<title>15</title>
 <polygon fill="#ffffff" stroke="#444444" points="1148.7,-494.1 749.1,-494.1 749.1,-263.9 1148.7,-263.9 1148.7,-494.1"/>
 <text xml:space="preserve" text-anchor="start" x="793.65" y="-441.2" font-family="Arial" font-size="34.00" fill="#444444">Product construction</text>
 <text xml:space="preserve" text-anchor="start" x="860.03" y="-421.45" font-family="Arial" font-size="19.00" fill="#444444">[Component: OCaml]</text>
@@ -33,9 +33,9 @@
 <text xml:space="preserve" text-anchor="start" x="787.65" y="-311.7" font-family="Arial" font-size="24.00" fill="#444444">summaries from program plus</text>
 <text xml:space="preserve" text-anchor="start" x="894.9" y="-287.7" font-family="Arial" font-size="24.00" fill="#444444">automata.</text>
 </g>
-<!-- 15 -->
-<g id="15" class="node">
-<title>15</title>
+<!-- 16 -->
+<g id="16" class="node">
+<title>16</title>
 <polygon fill="#ffffff" stroke="#444444" points="1919.55,-494.1 1535.7,-494.1 1535.7,-263.9 1919.55,-263.9 1919.55,-494.1"/>
 <text xml:space="preserve" text-anchor="start" x="1590.38" y="-441.2" font-family="Arial" font-size="34.00" fill="#444444">Reference passes</text>
 <text xml:space="preserve" text-anchor="start" x="1638.75" y="-421.45" font-family="Arial" font-size="19.00" fill="#444444">[Component: OCaml]</text>
@@ -45,16 +45,16 @@
 <text xml:space="preserve" text-anchor="start" x="1607.63" y="-311.7" font-family="Arial" font-size="24.00" fill="#444444">correction/progression</text>
 <text xml:space="preserve" text-anchor="start" x="1666.5" y="-287.7" font-family="Arial" font-size="24.00" fill="#444444">obligations.</text>
 </g>
-<!-- 14&#45;&gt;15 -->
-<g id="63" class="edge">
-<title>14&#45;&gt;15</title>
+<!-- 15&#45;&gt;16 -->
+<g id="69" class="edge">
+<title>15&#45;&gt;16</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1149.04,-363.58C1161.1,-362.96 1173.06,-362.42 1184.7,-362 1324.61,-356.94 1359.8,-356.77 1499.7,-362 1507.71,-362.3 1515.87,-362.66 1524.11,-363.06"/>
 <polygon fill="#444444" stroke="#444444" points="1523.72,-366.55 1533.88,-363.57 1524.08,-359.56 1523.72,-366.55"/>
 <text xml:space="preserve" text-anchor="start" x="1184.7" y="-367.25" font-family="Arial" font-size="24.00" fill="#444444">Produces product summaries</text>
 </g>
-<!-- 16 -->
-<g id="16" class="node">
-<title>16</title>
+<!-- 17 -->
+<g id="17" class="node">
+<title>17</title>
 <polygon fill="#ffffff" stroke="#444444" points="2625.9,-486.1 2291.55,-486.1 2291.55,-293.9 2625.9,-293.9 2625.9,-486.1"/>
 <text xml:space="preserve" text-anchor="start" x="2388.98" y="-433.2" font-family="Arial" font-size="34.00" fill="#444444">Temporal</text>
 <text xml:space="preserve" text-anchor="start" x="2357.85" y="-399.2" font-family="Arial" font-size="34.00" fill="#444444">normalization</text>
@@ -62,17 +62,17 @@
 <text xml:space="preserve" text-anchor="start" x="2320.35" y="-341.7" font-family="Arial" font-size="24.00" fill="#444444">Lowers pre/pre_k through</text>
 <text xml:space="preserve" text-anchor="start" x="2332.35" y="-317.7" font-family="Arial" font-size="24.00" fill="#444444">explicit temporal layout.</text>
 </g>
-<!-- 15&#45;&gt;16 -->
-<g id="64" class="edge">
-<title>15&#45;&gt;16</title>
+<!-- 16&#45;&gt;17 -->
+<g id="70" class="edge">
+<title>16&#45;&gt;17</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1919.87,-341.04C1931.91,-339.45 1943.88,-338.07 1955.55,-337 2088.33,-324.82 2123.31,-319.95 2255.55,-337 2263.59,-338.04 2271.77,-339.3 2280,-340.73"/>
 <polygon fill="#444444" stroke="#444444" points="2279.29,-344.16 2289.75,-342.52 2280.55,-337.27 2279.29,-344.16"/>
 <text xml:space="preserve" text-anchor="start" x="1955.55" y="-369.25" font-family="Arial" font-size="24.00" fill="#444444">Produces obligation&#45;shaped</text>
 <text xml:space="preserve" text-anchor="start" x="2093.55" y="-342.25" font-family="Arial" font-size="24.00" fill="#444444">IR</text>
 </g>
-<!-- 17 -->
-<g id="17" class="node">
-<title>17</title>
+<!-- 18 -->
+<g id="18" class="node">
+<title>18</title>
 <polygon fill="#ffffff" stroke="#444444" points="3257.25,-492.1 2918.4,-492.1 2918.4,-309.9 3257.25,-309.9 3257.25,-492.1"/>
 <text xml:space="preserve" text-anchor="start" x="2965.2" y="-439.2" font-family="Arial" font-size="34.00" fill="#444444">Formula sharing</text>
 <text xml:space="preserve" text-anchor="start" x="2998.95" y="-419.45" font-family="Arial" font-size="19.00" fill="#444444">[Component: OCaml]</text>
@@ -80,17 +80,17 @@
 <text xml:space="preserve" text-anchor="start" x="2947.2" y="-357.7" font-family="Arial" font-size="24.00" fill="#444444">formulas without changing</text>
 <text xml:space="preserve" text-anchor="start" x="3026.7" y="-333.7" font-family="Arial" font-size="24.00" fill="#444444">obligations.</text>
 </g>
-<!-- 16&#45;&gt;17 -->
-<g id="65" class="edge">
-<title>16&#45;&gt;17</title>
+<!-- 17&#45;&gt;18 -->
+<g id="71" class="edge">
+<title>17&#45;&gt;18</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M2626.21,-354.4C2638.25,-352.65 2650.24,-351.14 2661.9,-350 2759.43,-340.44 2785.13,-338.05 2882.4,-350 2890.45,-350.99 2898.64,-352.19 2906.88,-353.56"/>
 <polygon fill="#444444" stroke="#444444" points="2906.2,-356.99 2916.66,-355.26 2907.41,-350.1 2906.2,-356.99"/>
 <text xml:space="preserve" text-anchor="start" x="2661.9" y="-382.25" font-family="Arial" font-size="24.00" fill="#444444">Produces temporally</text>
 <text xml:space="preserve" text-anchor="start" x="2685.53" y="-355.25" font-family="Arial" font-size="24.00" fill="#444444">explicit formulas</text>
 </g>
-<!-- 18 -->
-<g id="18" class="node">
-<title>18</title>
+<!-- 19 -->
+<g id="19" class="node">
+<title>19</title>
 <polygon fill="#075985" stroke="#043e5d" points="3987.6,-688.1 3603.75,-688.1 3603.75,-481.9 3987.6,-481.9 3987.6,-688.1"/>
 <text xml:space="preserve" text-anchor="start" x="3651.3" y="-635.2" font-family="Arial" font-size="34.00" fill="#ffffff">Proof&#45;kernel export</text>
 <text xml:space="preserve" text-anchor="start" x="3681.3" y="-615.45" font-family="Arial" font-size="19.00" fill="#ffffff">[Container: OCaml / JSON]</text>
@@ -99,17 +99,17 @@
 <text xml:space="preserve" text-anchor="start" x="3632.55" y="-529.7" font-family="Arial" font-size="24.00" fill="#ffffff">possible Rocq synchronization</text>
 <text xml:space="preserve" text-anchor="start" x="3647.55" y="-505.7" font-family="Arial" font-size="24.00" fill="#ffffff">after an adequacy decision.</text>
 </g>
-<!-- 17&#45;&gt;18 -->
-<g id="67" class="edge">
-<title>17&#45;&gt;18</title>
+<!-- 18&#45;&gt;19 -->
+<g id="73" class="edge">
+<title>18&#45;&gt;19</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M3257.45,-444.96C3358.08,-471.19 3486.51,-504.67 3592.56,-532.31"/>
 <polygon fill="#444444" stroke="#444444" points="3591.38,-535.62 3601.94,-534.76 3593.15,-528.85 3591.38,-535.62"/>
 <text xml:space="preserve" text-anchor="start" x="3293.25" y="-557.73" font-family="Arial" font-size="24.00" fill="#444444">Provides exchange&#45;ready</text>
 <text xml:space="preserve" text-anchor="start" x="3351.75" y="-530.73" font-family="Arial" font-size="24.00" fill="#444444">reference view</text>
 </g>
-<!-- 21 -->
-<g id="21" class="node">
-<title>21</title>
+<!-- 22 -->
+<g id="22" class="node">
+<title>22</title>
 <polygon fill="#b45309" stroke="#7d3a06" points="441.6,-729.1 33,-729.1 33,-546.9 441.6,-546.9 441.6,-729.1"/>
 <text xml:space="preserve" text-anchor="start" x="70.8" y="-676.2" font-family="Arial" font-size="34.00" fill="#ffffff">Runtime orchestration</text>
 <text xml:space="preserve" text-anchor="start" x="156.3" y="-656.45" font-family="Arial" font-size="19.00" fill="#ffffff">[Container: OCaml]</text>
@@ -117,24 +117,24 @@
 <text xml:space="preserve" text-anchor="start" x="73.05" y="-594.7" font-family="Arial" font-size="24.00" fill="#ffffff">supplied automata, snapshots,</text>
 <text xml:space="preserve" text-anchor="start" x="80.93" y="-570.7" font-family="Arial" font-size="24.00" fill="#ffffff">outputs, and proof execution.</text>
 </g>
-<!-- 21&#45;&gt;14 -->
-<g id="75" class="edge">
-<title>21&#45;&gt;14</title>
+<!-- 22&#45;&gt;15 -->
+<g id="81" class="edge">
+<title>22&#45;&gt;15</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M441.64,-563.78C534.51,-529.88 644.42,-489.77 738.06,-455.59"/>
 <polygon fill="#444444" stroke="#444444" points="739.2,-458.9 747.39,-452.18 736.8,-452.32 739.2,-458.9"/>
 <text xml:space="preserve" text-anchor="start" x="477.6" y="-579.08" font-family="Arial" font-size="24.00" fill="#444444">Supplies automata for</text>
 <text xml:space="preserve" text-anchor="start" x="544.35" y="-552.08" font-family="Arial" font-size="24.00" fill="#444444">validation</text>
 </g>
-<!-- 21&#45;&gt;15 -->
-<g id="79" class="edge">
-<title>21&#45;&gt;15</title>
+<!-- 22&#45;&gt;16 -->
+<g id="85" class="edge">
+<title>22&#45;&gt;16</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M441.91,-637.06C526.1,-634.8 624.55,-629.75 713.1,-619 999.23,-584.28 1321.98,-499.75 1524.81,-440.9"/>
 <polygon fill="#444444" stroke="#444444" points="1525.51,-444.34 1534.13,-438.19 1523.55,-437.62 1525.51,-444.34"/>
 <text xml:space="preserve" text-anchor="start" x="827.4" y="-622.34" font-family="Arial" font-size="24.00" fill="#444444">Builds instrumented IR</text>
 </g>
-<!-- 21&#45;&gt;18 -->
-<g id="40" class="edge">
-<title>21&#45;&gt;18</title>
+<!-- 22&#45;&gt;19 -->
+<g id="45" class="edge">
+<title>22&#45;&gt;19</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M442.08,-650.31C528.96,-654.98 631.45,-659.71 724.1,-662 912.75,-666.66 960.01,-664.53 1148.7,-662 2224.12,-647.55 2493.08,-639.85 3567.75,-597 3575.74,-596.68 3583.9,-596.34 3592.13,-595.98"/>
 <polygon fill="#444444" stroke="#444444" points="3592.06,-599.48 3601.89,-595.54 3591.75,-592.49 3592.06,-599.48"/>
 <text xml:space="preserve" text-anchor="start" x="1980.68" y="-681.63" font-family="Arial" font-size="24.00" fill="#444444">Builds kernel exchange</text>

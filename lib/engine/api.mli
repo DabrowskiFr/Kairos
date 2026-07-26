@@ -16,6 +16,12 @@ val make_config :
   compute_proof_diagnostics:bool ->
   prove:bool ->
   ?proof_jobs:int ->
+  ?dump_failed_smt:bool ->
+  ?collect_ir_metrics:bool ->
+  ?proof_progress_path:string ->
+  ?stop_on_first_nonvalid:bool ->
+  ?proof_encoding:Types.proof_encoding ->
+  ?proof_optimizations:Types.proof_optimizations ->
   generate_vc_text:bool ->
   generate_smt_text:bool ->
   generate_dot_png:bool ->
@@ -32,12 +38,43 @@ val instrumentation_pass :
 
 val why_pass : input_file:string -> (Types.why_outputs, error) result
 
+val why_pass_with_options :
+  proof_encoding:Types.proof_encoding ->
+  proof_optimizations:Types.proof_optimizations ->
+  input_file:string ->
+  (Types.why_outputs, error) result
+
 val obligations_pass :
   input_file:string ->
   (Types.obligations_outputs, error) result
 
+val obligations_pass_with_options :
+  proof_encoding:Types.proof_encoding ->
+  proof_optimizations:Types.proof_optimizations ->
+  input_file:string ->
+  (Types.obligations_outputs, error) result
+
+val cost_report :
+  proof_encoding:Types.proof_encoding ->
+  proof_optimizations:Types.proof_optimizations ->
+  input_file:string ->
+  (Types.cost_report_outputs, error) result
+
 val normalized_program : input_file:string -> (string, error) result
 val ir_pretty_dump : input_file:string -> (string, error) result
+
+val normalized_program_with_options :
+  proof_encoding:Types.proof_encoding ->
+  proof_optimizations:Types.proof_optimizations ->
+  input_file:string ->
+  (string, error) result
+
+val ir_pretty_dump_with_options :
+  proof_encoding:Types.proof_encoding ->
+  proof_optimizations:Types.proof_optimizations ->
+  input_file:string ->
+  (string, error) result
+
 val run : config -> (Types.outputs, error) result
 
 val run_with_callbacks :
@@ -77,3 +114,20 @@ type semantic_symbols = {
 }
 
 val semantic_symbols : text:string -> semantic_symbols option
+
+type frontend_summary = {
+  node_count : int;
+  assume_count : int;
+  guarantee_count : int;
+}
+
+val surface_dump : input_file:string -> (string, error) result
+val elaborated_dump : input_file:string -> (string, error) result
+val frontend_summary : input_file:string -> (frontend_summary, error) result
+
+type generated_file = {
+  file_name : string;
+  contents : string;
+}
+
+val generate_c : input_file:string -> (generated_file list, error) result

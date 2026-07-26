@@ -28,8 +28,10 @@ let docs_frontend = "FRONTEND"
 
 open Cli_types
 
+module Pipeline = Kairos_engine.Api.Types
+
 let proof_encoding_parser s =
-  match Pipeline_types.proof_encoding_of_string s with
+  match Pipeline.proof_encoding_of_string s with
   | Some encoding -> Ok encoding
   | None ->
       Error
@@ -38,7 +40,7 @@ let proof_encoding_parser s =
              "unsupported proof encoding '%s' (available: explicit-product)" s))
 
 let proof_encoding_printer fmt encoding =
-  Format.pp_print_string fmt (Pipeline_types.string_of_proof_encoding encoding)
+  Format.pp_print_string fmt (Pipeline.string_of_proof_encoding encoding)
 
 let proof_encoding_conv =
   Cmdliner.Arg.conv (proof_encoding_parser, proof_encoding_printer)
@@ -180,7 +182,7 @@ let cmd =
   in
   let proof_jobs =
     Arg.(
-      value & opt int (Pipeline_types.default_proof_jobs ())
+      value & opt int (Pipeline.default_proof_jobs ())
       & info [ "proof-jobs" ] ~docs:docs_proof ~docv:"JOBS"
           ~doc:
             "Maximum number of Why3 prover calls to keep in flight. The default \
@@ -191,7 +193,7 @@ let cmd =
   let proof_encoding =
     Arg.(
       value
-      & opt proof_encoding_conv Pipeline_types.default_proof_encoding
+      & opt proof_encoding_conv Pipeline.default_proof_encoding
       & info [ "proof-encoding" ] ~docs:docs_proof ~docv:"ENCODING"
           ~doc:
             "Select the proof-obligation encoding. Currently available: explicit-product.")
@@ -343,7 +345,10 @@ let cmd =
       `S Manpage.s_common_options;
     ]
   in
-  let info = Cmd.info "kairos" ~doc:"CLI backed by the Kairos LSP service layer" ~man:man in
+  let info =
+    Cmd.info "kairos" ~doc:"Command-line adapter for the Kairos engine"
+      ~man
+  in
   Cmd.v info term
 
 let run () = exit (Cmd.eval cmd)

@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 module Pipeline_service = Cli_pipeline_service
-module C_codegen = Kairos_c_codegen.C_codegen
+module Engine = Kairos_engine.Api
 
 let write_target out text =
   match out with
@@ -89,12 +89,12 @@ let write_text_output out text =
   write_target out text;
   `Ok ()
 
-let write_generated_files ~out_dir (files : C_codegen.generated_file list) =
+let write_generated_files ~out_dir (files : Engine.generated_file list) =
   match Bos.OS.Dir.create ~path:true (Fpath.v out_dir) with
   | Error (`Msg msg) -> `Error (false, msg)
   | Ok _ ->
       List.iter
-        (fun (file : C_codegen.generated_file) ->
+        (fun (file : Engine.generated_file) ->
           write_target Fpath.(to_string (v out_dir / file.file_name)) file.contents)
         files;
       `Ok ()
@@ -135,7 +135,7 @@ let csv_escape field =
     Buffer.add_char b '"';
     Buffer.contents b
 
-let write_goals_dump out (traces : Pipeline_types.proof_trace list) =
+let write_goals_dump out (traces : Engine.Types.proof_trace list) =
   let header =
     "index,name,status,time_s,why3_prepare_s,why3_print_s,why3_spawn_s,\
      why3_wait_s,why3_solver_s,dump_path,vcid,node,transition,obligation_kind,\
@@ -143,7 +143,7 @@ let write_goals_dump out (traces : Pipeline_types.proof_trace list) =
   in
   let rows =
     List.mapi
-      (fun idx (trace : Pipeline_types.proof_trace) ->
+      (fun idx (trace : Engine.Types.proof_trace) ->
         [
           string_of_int (idx + 1);
           trace.goal_name;

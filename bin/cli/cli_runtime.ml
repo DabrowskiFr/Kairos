@@ -20,9 +20,11 @@ open Cli_types
 open Cli_output
 
 module Pipeline_service = Cli_pipeline_service
+module Engine = Kairos_engine.Api
+
 let proof_optimizations_of_args = Cli_pipeline_service.proof_optimizations_of_args
 
-let map_error e = Pipeline_types.error_to_string e
+let map_error = Engine.error_to_string
 
 (* Thin wrappers around backend passes so the execution layer can focus on the
    selected action instead of repeating result/error plumbing. *)

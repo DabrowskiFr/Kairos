@@ -13,12 +13,13 @@ digraph {
     fontcolor="#444444"
     fillcolor="#444444"
 
-    11 [id=11,shape=rect, label=<<font point-size="34">Application use-cases</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Ports and use-cases that<br />define verification flows<br />independently from concrete<br />adapters.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
-    13 [id=13,shape=rect, label=<<font point-size="34">Reference<br />verification kernel</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
-    18 [id=18,shape=rect, label=<<font point-size="34">Proof-kernel export</font><br /><font point-size="19">[Container: OCaml / JSON]</font><br /><br /><font point-size="24">Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
-    21 [id=21,shape=rect, label=<<font point-size="34">Runtime orchestration</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Coordinates prepared programs,<br />supplied automata, snapshots,<br />outputs, and proof execution.</font>>, style=filled, color="#7d3a06", fillcolor="#b45309", fontcolor="#ffffff"]
-    28 [id=28,shape=rect, label=<<font point-size="34">Artifact renderers</font><br /><font point-size="19">[Container: OCaml / DOT / JSON]</font><br /><br /><font point-size="24">Renders graphs, text views,<br />cost reports, and diagnostic<br />artifacts.</font>>, style=filled, color="#850c2a", fillcolor="#be123c", fontcolor="#ffffff"]
-    29 [id=29,shape=rect, label=<<font point-size="34">External tool<br />adapters</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Adapter layer for Spot, Why3,<br />Z3, Graphviz, and timing<br />services.</font>>, style=filled, color="#4a4f59", fillcolor="#6b7280", fontcolor="#ffffff"]
+    10 [id=10,shape=rect, label=<<font point-size="34">Engine facade</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Stable in-process API used by<br />optional delivery adapters.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
+    12 [id=12,shape=rect, label=<<font point-size="34">Application use-cases</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Ports and use-cases that<br />define verification flows<br />independently from concrete<br />adapters.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
+    14 [id=14,shape=rect, label=<<font point-size="34">Reference<br />verification kernel</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
+    19 [id=19,shape=rect, label=<<font point-size="34">Proof-kernel export</font><br /><font point-size="19">[Container: OCaml / JSON]</font><br /><br /><font point-size="24">Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
+    22 [id=22,shape=rect, label=<<font point-size="34">Runtime orchestration</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Coordinates prepared programs,<br />supplied automata, snapshots,<br />outputs, and proof execution.</font>>, style=filled, color="#7d3a06", fillcolor="#b45309", fontcolor="#ffffff"]
+    30 [id=30,shape=rect, label=<<font point-size="34">Artifact renderers</font><br /><font point-size="19">[Container: OCaml / DOT / JSON]</font><br /><br /><font point-size="24">Renders graphs, text views,<br />cost reports, and diagnostic<br />artifacts.</font>>, style=filled, color="#850c2a", fillcolor="#be123c", fontcolor="#ffffff"]
+    31 [id=31,shape=rect, label=<<font point-size="34">External tool<br />adapters</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Adapter layer for Spot, Why3,<br />Z3, Graphviz, and timing<br />services.</font>>, style=filled, color="#4a4f59", fillcolor="#6b7280", fontcolor="#ffffff"]
     8 [id=8,shape=rect, label=<<font point-size="34">CLI</font><br /><font point-size="19">[Container: OCaml / Cmdliner]</font><br /><br /><font point-size="24">Command-line entry point for<br />checking, dumping, and proving<br />Kairos programs.</font>>, style=filled, color="#5628a5", fillcolor="#7c3aed", fontcolor="#ffffff"]
   }
 
@@ -26,15 +27,16 @@ digraph {
   3 [id=3,shape=rect, label=<<font point-size="34">Spot</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External tool used to<br />construct temporal-property<br />automata.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
   6 [id=6,shape=rect, label=<<font point-size="34">Graphviz</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External renderer for graph<br />artifacts.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
 
-  1 -> 8 [id=30, label=<<font point-size="24">1. requests diagnostic<br />dump</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  8 -> 11 [id=33, label=<<font point-size="24">2. invokes dump use-case</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  11 -> 21 [id=36, label=<<font point-size="24">3. builds snapshot and<br />artifacts</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  21 -> 29 [id=43, label=<<font point-size="24">4. produces supplied<br />automata through Spot<br />adapter</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  29 -> 3 [id=52, label=<<font point-size="24">5. builds property<br />automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  21 -> 13 [id=39, label=<<font point-size="24">6. builds reference<br />product</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  21 -> 18 [id=40, label=<<font point-size="24">7. builds proof-kernel<br />diagnostic view</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  21 -> 28 [id=41, label=<<font point-size="24">8. renders text/graph<br />outputs</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  28 -> 29 [id=51, label=<<font point-size="24">9. uses Graphviz when<br />needed</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  29 -> 6 [id=58, label=<<font point-size="24">10. renders graph images</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  1 -> 8 [id=32, label=<<font point-size="24">1. requests diagnostic<br />dump</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  8 -> 10 [id=35, label=<<font point-size="24">2. invokes public engine<br />facade</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  10 -> 12 [id=37, label=<<font point-size="24">3. invokes dump use-case</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  12 -> 22 [id=41, label=<<font point-size="24">4. builds snapshot and<br />artifacts</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  22 -> 31 [id=48, label=<<font point-size="24">5. produces supplied<br />automata through Spot<br />adapter</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  31 -> 3 [id=58, label=<<font point-size="24">6. builds property<br />automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  22 -> 14 [id=44, label=<<font point-size="24">7. builds reference<br />product</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  22 -> 19 [id=45, label=<<font point-size="24">8. builds proof-kernel<br />diagnostic view</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  22 -> 30 [id=46, label=<<font point-size="24">9. renders text/graph<br />outputs</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  30 -> 31 [id=57, label=<<font point-size="24">10. uses Graphviz when<br />needed</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  31 -> 6 [id=64, label=<<font point-size="24">11. renders graph images</font>>, style="dashed", color="#444444", fontcolor="#444444"]
 
 }

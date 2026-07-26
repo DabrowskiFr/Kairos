@@ -62,6 +62,7 @@ digraph G {
   "kairos.internal.application";
   "kairos.internal.artifact_graph_render";
   "kairos.internal.artifact_text_render";
+  "kairos.internal.c_codegen";
   "kairos.internal.composition";
   "kairos.internal.input_lang";
   "kairos.internal.runtime_automata";
@@ -80,7 +81,6 @@ digraph G {
   "kairos.sequential_ir";
   "kairos.shared";
   "kairos.verification_unit";
-  "kairos_c_codegen";
   "kairos__Cli_output" [label="Cli_output", shape=box, ];
   "kairos__Cli_pipeline_service" [label="Cli_pipeline_service", shape=box, ];
   "kairos__Cli_runtime" [label="Cli_runtime", shape=box, ];
@@ -396,6 +396,27 @@ digraph G {
   label="Ir_text_program_view_render", shape=box, ];
   "kairos.internal.artifact_text_render__Ir_text_proof_view_render" [
   label="Ir_text_proof_view_render", shape=box, ];
+  "kairos.internal.c_codegen__C_codegen" [label="C_codegen", shape=box, ];
+  "kairos.internal.c_codegen__C_codegen_common" [label="C_codegen_common",
+                                                 shape=box, ];
+  "kairos.internal.c_codegen__C_codegen_env" [label="C_codegen_env",
+                                              shape=box, ];
+  "kairos.internal.c_codegen__C_codegen_expr" [label="C_codegen_expr",
+                                               shape=box, ];
+  "kairos.internal.c_codegen__C_codegen_functions" [label="C_codegen_functions",
+                                                    shape=box, ];
+  "kairos.internal.c_codegen__C_codegen_names" [label="C_codegen_names",
+                                                shape=box, ];
+  "kairos.internal.c_codegen__C_codegen_node" [label="C_codegen_node",
+                                               shape=box, ];
+  "kairos.internal.c_codegen__C_codegen_program" [label="C_codegen_program",
+                                                  shape=box, ];
+  "kairos.internal.c_codegen__C_codegen_stmt" [label="C_codegen_stmt",
+                                               shape=box, ];
+  "kairos.internal.c_codegen__C_codegen_types" [label="C_codegen_types",
+                                                shape=box, ];
+  "kairos.internal.c_codegen__Kairos_c_codegen" [label="Kairos_c_codegen",
+                                                 shape=box, ];
   "kairos.internal.composition__Kairos_usecase_wiring" [label="Kairos_usecase_wiring",
                                                         shape=box, ];
   "kairos.internal.input_lang__Kairos_frontend" [label="Kairos_frontend",
@@ -645,19 +666,6 @@ digraph G {
                                                         shape=box, ];
   "kairos.verification_unit__Verification_unit" [label="Verification_unit",
                                                  shape=box, ];
-  "kairos_c_codegen__C_codegen" [label="C_codegen", shape=box, ];
-  "kairos_c_codegen__C_codegen_common" [label="C_codegen_common", shape=box, ];
-  "kairos_c_codegen__C_codegen_env" [label="C_codegen_env", shape=box, ];
-  "kairos_c_codegen__C_codegen_expr" [label="C_codegen_expr", shape=box, ];
-  "kairos_c_codegen__C_codegen_functions" [label="C_codegen_functions",
-                                           shape=box, ];
-  "kairos_c_codegen__C_codegen_names" [label="C_codegen_names", shape=box, ];
-  "kairos_c_codegen__C_codegen_node" [label="C_codegen_node", shape=box, ];
-  "kairos_c_codegen__C_codegen_program" [label="C_codegen_program",
-                                         shape=box, ];
-  "kairos_c_codegen__C_codegen_stmt" [label="C_codegen_stmt", shape=box, ];
-  "kairos_c_codegen__C_codegen_types" [label="C_codegen_types", shape=box, ];
-  "kairos_c_codegen__Kairos_c_codegen" [label="Kairos_c_codegen", shape=box, ];
   "local_package__" [label="", height=0.000000, width=0.000000,
                      fixedsize=true, style="invis", ];
 
@@ -745,8 +753,6 @@ digraph G {
        };
     subgraph cluster_456626572 { label="kairos.internal.why3_compile"; "kairos.internal.why3_compile__Why_compile_step";"kairos.internal.why3_compile__Why_compile_ptree_terms";"kairos.internal.why3_compile__Why_compile_ptree_names";"kairos.internal.why3_compile__Why_compile_ptree_helpers";"kairos.internal.why3_compile__Why_compile_ptree_binders";"kairos.internal.why3_compile__Why_compile_product_specs";"kairos.internal.why3_compile__Why_compile_product_spec_terms";"kairos.internal.why3_compile__Why_compile_product_spec_labels";"kairos.internal.why3_compile__Why_compile_product_plan_metrics";"kairos.internal.why3_compile__Why_compile_product_plan";"kairos.internal.why3_compile__Why_compile_product_pipeline";"kairos.internal.why3_compile__Why_compile_product_metrics";"kairos.internal.why3_compile__Why_compile_product_layout";"kairos.internal.why3_compile__Why_compile_product_individual_helper";"kairos.internal.why3_compile__Why_compile_product_helpers";"kairos.internal.why3_compile__Why_compile_product_helper_types";"kairos.internal.why3_compile__Why_compile_product_helper_body";"kairos.internal.why3_compile__Why_compile_product_groups";"kairos.internal.why3_compile__Why_compile_product_grouped_helper";"kairos.internal.why3_compile__Why_compile_product_group_terms";"kairos.internal.why3_compile__Why_compile_product_group_policy";"kairos.internal.why3_compile__Why_compile_product_group_partition";"kairos.internal.why3_compile__Why_compile_product_group_factoring";"kairos.internal.why3_compile__Why_compile_product_group_cost";"kairos.internal.why3_compile__Why_compile_product_group_boundary";"kairos.internal.why3_compile__Why_compile_product_bundle_state";"kairos.internal.why3_compile__Why_compile_node_types";"kairos.internal.why3_compile__Why_compile_node_inputs";"kairos.internal.why3_compile__Why_compile_node_getters";"kairos.internal.why3_compile__Why_compile_node_common";"kairos.internal.why3_compile__Why_compile_modules";"kairos.internal.why3_compile__Why_compile_logic_functions";"kairos.internal.why3_compile__Why_compile_logic_formula";"kairos.internal.why3_compile__Why_compile_logic_decls";"kairos.internal.why3_compile__Why_compile_logic";"kairos.internal.why3_compile__Why_compile_init_goals";"kairos.internal.why3_compile__Why_compile_helper_unit";"kairos.internal.why3_compile__Why_compile_formula_sharing_inventory";"kairos.internal.why3_compile__Why_compile_formula_sharing_emit";"kairos.internal.why3_compile__Why_compile_formula_sharing_deps";"kairos.internal.why3_compile__Why_compile_formula_sharing";"kairos.internal.why3_compile__Why_compile_contract_facts";"kairos.internal.why3_compile__Why_compile_bundles";"kairos.internal.why3_compile__Why_compile";"kairos.internal.why3_compile";
        };
-    subgraph cluster_543059364 { label="kairos_c_codegen"; "kairos_c_codegen__Kairos_c_codegen";"kairos_c_codegen__C_codegen_types";"kairos_c_codegen__C_codegen_stmt";"kairos_c_codegen__C_codegen_program";"kairos_c_codegen__C_codegen_node";"kairos_c_codegen__C_codegen_names";"kairos_c_codegen__C_codegen_functions";"kairos_c_codegen__C_codegen_expr";"kairos_c_codegen__C_codegen_env";"kairos_c_codegen__C_codegen_common";"kairos_c_codegen__C_codegen";"kairos_c_codegen";
-       };
     subgraph cluster_595702618 { label="kairos.engine"; "kairos.engine__Kairos_engine";"kairos.engine__Api";"kairos.engine";
        };
     subgraph cluster_601961544 { label="kairos.domain_proof_export"; "kairos.domain_proof_export__Proof_kernel_types";"kairos.domain_proof_export__Proof_kernel_step_summaries";"kairos.domain_proof_export__Proof_kernel_product_lookup";"kairos.domain_proof_export__Proof_kernel_product";"kairos.domain_proof_export__Proof_kernel_pass";"kairos.domain_proof_export__Proof_kernel_naming";"kairos.domain_proof_export__Proof_kernel_generated_clauses";"kairos.domain_proof_export__Proof_kernel_clause_lowering";"kairos.domain_proof_export__Proof_kernel_clause_context";"kairos.domain_proof_export__Ir_json_codec";"kairos.domain_proof_export";
@@ -758,6 +764,8 @@ digraph G {
     subgraph cluster_708192656 { label="kairos.verification_unit"; "kairos.verification_unit__Verification_unit";"kairos.verification_unit__Kairos_verification_unit";"kairos.verification_unit";
        };
     subgraph cluster_730266639 { label="kairos.internal.application"; "kairos.internal.application__Verification_flow_vc_taxonomy";"kairos.internal.application__Verification_flow_usecases";"kairos.internal.application__Verification_flow_timing_meta";"kairos.internal.application__Verification_flow_timing_fields";"kairos.internal.application__Proof_diagnostics";"kairos.internal.application__Pipeline_types";"kairos.internal.application__Flow_info";"kairos.internal.application__Application_ports";"kairos.internal.application__Application_observability";"kairos.internal.application";
+       };
+    subgraph cluster_730557414 { label="kairos.internal.c_codegen"; "kairos.internal.c_codegen__Kairos_c_codegen";"kairos.internal.c_codegen__C_codegen_types";"kairos.internal.c_codegen__C_codegen_stmt";"kairos.internal.c_codegen__C_codegen_program";"kairos.internal.c_codegen__C_codegen_node";"kairos.internal.c_codegen__C_codegen_names";"kairos.internal.c_codegen__C_codegen_functions";"kairos.internal.c_codegen__C_codegen_expr";"kairos.internal.c_codegen__C_codegen_env";"kairos.internal.c_codegen__C_codegen_common";"kairos.internal.c_codegen__C_codegen";"kairos.internal.c_codegen";
        };
     subgraph cluster_743711522 { label="kairos.internal.artifact_graph_render";
                                  "kairos.internal.artifact_graph_render__Automata_graph_render";"kairos.internal.artifact_graph_render__Automata_graph_program";"kairos.internal.artifact_graph_render__Automata_graph_product";"kairos.internal.artifact_graph_render__Automata_graph_format";"kairos.internal.artifact_graph_render__Automata_graph_dot";"kairos.internal.artifact_graph_render__Automata_graph_contract";"kairos.internal.artifact_graph_render";
@@ -798,11 +806,8 @@ digraph G {
      };
 
   "kairos" -> "cmdliner" [ltail="cluster_681484642", ];
-  "kairos" -> "kairos.internal.composition" [minlen=2,
-                                             lhead="cluster_826421166",
-                                             ltail="cluster_681484642", ];
-  "kairos" -> "kairos_c_codegen" [minlen=2, lhead="cluster_543059364",
-                                  ltail="cluster_681484642", ];
+  "kairos" -> "kairos.engine" [minlen=2, lhead="cluster_595702618",
+                               ltail="cluster_681484642", ];
   "kairos" -> "kairos__Kairos";
   "kairos_lsp" -> "lsp" [ltail="cluster_244587595", ];
   "kairos_lsp" -> "kairos-lsp.app" [minlen=2, lhead="cluster_216678547",
@@ -973,6 +978,9 @@ digraph G {
   "kairos.domain_verification" -> "kairos.domain_verification__Step_contract_projection";
   "kairos.domain_verification" -> "kairos.domain_verification__Temporal_automata";
   "kairos.domain_verification" -> "kairos.domain_verification__Temporal_lower";
+  "kairos.engine" -> "kairos.internal.c_codegen" [minlen=2,
+                                                  lhead="cluster_730557414",
+                                                  ltail="cluster_595702618", ];
   "kairos.engine" -> "kairos.internal.composition" [minlen=2,
                                                     lhead="cluster_826421166",
                                                     ltail="cluster_595702618",
@@ -1009,6 +1017,11 @@ digraph G {
                                                                   ];
   "kairos.internal.artifact_text_render" -> "kairos.internal.artifact_text_render__Ir_text_program_view_render";
   "kairos.internal.artifact_text_render" -> "kairos.internal.artifact_text_render__Ir_text_proof_view_render";
+  "kairos.internal.c_codegen" -> "kairos.domain_core" [minlen=2,
+                                                       lhead="cluster_757729241",
+                                                       ltail="cluster_730557414",
+                                                       ];
+  "kairos.internal.c_codegen" -> "kairos.internal.c_codegen__Kairos_c_codegen";
   "kairos.internal.composition" -> "kairos.internal.input_lang" [minlen=2,
                                                                  lhead="cluster_875769988",
                                                                  ltail="cluster_826421166",
@@ -1237,10 +1250,6 @@ digraph G {
                                                             ltail="cluster_708192656",
                                                             ];
   "kairos.verification_unit" -> "kairos.verification_unit__Kairos_verification_unit";
-  "kairos_c_codegen" -> "kairos.domain_core" [minlen=2,
-                                              lhead="cluster_757729241",
-                                              ltail="cluster_543059364", ];
-  "kairos_c_codegen" -> "kairos_c_codegen__Kairos_c_codegen";
   "kairos__Cli_output" -> "kairos__Cli_pipeline_service";
   "kairos__Cli_pipeline_service" -> "kairos__Cli_types";
   "kairos__Cli_runtime" -> "kairos__Cli_output";
@@ -1517,6 +1526,17 @@ digraph G {
   "kairos.internal.artifact_graph_render__Automata_graph_render" -> "kairos.internal.artifact_graph_render__Automata_graph_contract";
   "kairos.internal.artifact_graph_render__Automata_graph_render" -> "kairos.internal.artifact_graph_render__Automata_graph_product";
   "kairos.internal.artifact_graph_render__Automata_graph_render" -> "kairos.internal.artifact_graph_render__Automata_graph_program";
+  "kairos.internal.c_codegen__C_codegen" -> "kairos.internal.c_codegen__C_codegen_program";
+  "kairos.internal.c_codegen__C_codegen_env" -> "kairos.internal.c_codegen__C_codegen_names";
+  "kairos.internal.c_codegen__C_codegen_expr" -> "kairos.internal.c_codegen__C_codegen_env";
+  "kairos.internal.c_codegen__C_codegen_functions" -> "kairos.internal.c_codegen__C_codegen_expr";
+  "kairos.internal.c_codegen__C_codegen_names" -> "kairos.internal.c_codegen__C_codegen_common";
+  "kairos.internal.c_codegen__C_codegen_node" -> "kairos.internal.c_codegen__C_codegen_stmt";
+  "kairos.internal.c_codegen__C_codegen_program" -> "kairos.internal.c_codegen__C_codegen_functions";
+  "kairos.internal.c_codegen__C_codegen_program" -> "kairos.internal.c_codegen__C_codegen_node";
+  "kairos.internal.c_codegen__C_codegen_program" -> "kairos.internal.c_codegen__C_codegen_types";
+  "kairos.internal.c_codegen__C_codegen_stmt" -> "kairos.internal.c_codegen__C_codegen_expr";
+  "kairos.internal.c_codegen__Kairos_c_codegen" -> "kairos.internal.c_codegen__C_codegen";
   "kairos.internal.input_lang__Kairos_frontend" -> "kairos.internal.input_lang__Kairos_to_model";
   "kairos.internal.input_lang__Kairos_frontend" -> "kairos.internal.input_lang__Kx_parse_api";
   "kairos.internal.input_lang__Kairos_to_model" -> "kairos.internal.input_lang__Kairos_to_model_validation";
@@ -1663,16 +1683,5 @@ digraph G {
   "kairos.observation_model__Kairos_observation_model" -> "kairos.observation_model__Observation_model";
   "kairos.sequential_ir__Kairos_sequential_ir" -> "kairos.sequential_ir__Sequential_ir";
   "kairos.verification_unit__Kairos_verification_unit" -> "kairos.verification_unit__Verification_unit";
-  "kairos_c_codegen__C_codegen" -> "kairos_c_codegen__C_codegen_program";
-  "kairos_c_codegen__C_codegen_env" -> "kairos_c_codegen__C_codegen_names";
-  "kairos_c_codegen__C_codegen_expr" -> "kairos_c_codegen__C_codegen_env";
-  "kairos_c_codegen__C_codegen_functions" -> "kairos_c_codegen__C_codegen_expr";
-  "kairos_c_codegen__C_codegen_names" -> "kairos_c_codegen__C_codegen_common";
-  "kairos_c_codegen__C_codegen_node" -> "kairos_c_codegen__C_codegen_stmt";
-  "kairos_c_codegen__C_codegen_program" -> "kairos_c_codegen__C_codegen_functions";
-  "kairos_c_codegen__C_codegen_program" -> "kairos_c_codegen__C_codegen_node";
-  "kairos_c_codegen__C_codegen_program" -> "kairos_c_codegen__C_codegen_types";
-  "kairos_c_codegen__C_codegen_stmt" -> "kairos_c_codegen__C_codegen_expr";
-  "kairos_c_codegen__Kairos_c_codegen" -> "kairos_c_codegen__C_codegen";
 
   }

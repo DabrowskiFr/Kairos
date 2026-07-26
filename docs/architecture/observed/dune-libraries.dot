@@ -62,6 +62,7 @@ digraph G {
   "kairos.internal.application";
   "kairos.internal.artifact_graph_render";
   "kairos.internal.artifact_text_render";
+  "kairos.internal.c_codegen";
   "kairos.internal.composition";
   "kairos.internal.input_lang";
   "kairos.internal.runtime_automata";
@@ -80,7 +81,6 @@ digraph G {
   "kairos.sequential_ir";
   "kairos.shared";
   "kairos.verification_unit";
-  "kairos_c_codegen";
   "local_package__" [label="", height=0.000000, width=0.000000,
                      fixedsize=true, style="invis", ];
 
@@ -138,7 +138,7 @@ digraph G {
      };
   subgraph cluster_899750038 { label="ppx_deriving_yojson 3.10.0"; "ppx_deriving_yojson.runtime";"ppx_deriving_yojson";
      };
-  subgraph cluster_902546259 { label="(local)"; "local_package__";"kairos_c_codegen";"kairos.verification_unit";"kairos.shared";"kairos.sequential_ir";"kairos.observation_model";"kairos.internal.why3_runtime_view";"kairos.internal.why3_render";"kairos.internal.why3_expr";"kairos.internal.why3_contracts";"kairos.internal.why3_compile";"kairos.internal.why3";"kairos.internal.verification_runtime";"kairos.internal.runtime_proof";"kairos.internal.runtime_outputs";"kairos.internal.runtime_diagnostics";"kairos.internal.runtime_core";"kairos.internal.runtime_automata";"kairos.internal.input_lang";"kairos.internal.composition";"kairos.internal.artifact_text_render";"kairos.internal.artifact_graph_render";"kairos.internal.application";"kairos.engine";"kairos.domain_verification";"kairos.domain_proof_export";"kairos.domain_core";"kairos-why3-adapter.runtime";"kairos-telemetry.runtime";"kairos-spot-adapter";"kairos-proof-contract";"kairos-lsp.protocol";"kairos-lsp.app";"kairos-graphviz-adapter";"kairos-automata-contract";"kairos_lsp";"kairos";
+  subgraph cluster_902546259 { label="(local)"; "local_package__";"kairos.verification_unit";"kairos.shared";"kairos.sequential_ir";"kairos.observation_model";"kairos.internal.why3_runtime_view";"kairos.internal.why3_render";"kairos.internal.why3_expr";"kairos.internal.why3_contracts";"kairos.internal.why3_compile";"kairos.internal.why3";"kairos.internal.verification_runtime";"kairos.internal.runtime_proof";"kairos.internal.runtime_outputs";"kairos.internal.runtime_diagnostics";"kairos.internal.runtime_core";"kairos.internal.runtime_automata";"kairos.internal.input_lang";"kairos.internal.composition";"kairos.internal.c_codegen";"kairos.internal.artifact_text_render";"kairos.internal.artifact_graph_render";"kairos.internal.application";"kairos.engine";"kairos.domain_verification";"kairos.domain_proof_export";"kairos.domain_core";"kairos-why3-adapter.runtime";"kairos-telemetry.runtime";"kairos-spot-adapter";"kairos-proof-contract";"kairos-lsp.protocol";"kairos-lsp.app";"kairos-graphviz-adapter";"kairos-automata-contract";"kairos_lsp";"kairos";
      };
   subgraph cluster_916651657 { label="camlzip 1.14"; "zip";
      };
@@ -146,8 +146,7 @@ digraph G {
      };
 
   "kairos" -> "cmdliner";
-  "kairos" -> "kairos.internal.composition";
-  "kairos" -> "kairos_c_codegen";
+  "kairos" -> "kairos.engine";
   "kairos_lsp" -> "lsp";
   "kairos_lsp" -> "kairos-lsp.app";
   "bos" -> "fmt";
@@ -214,11 +213,13 @@ digraph G {
   "kairos.domain_core" -> "yojson";
   "kairos.domain_proof_export" -> "kairos.domain_verification";
   "kairos.domain_verification" -> "kairos.domain_core";
+  "kairos.engine" -> "kairos.internal.c_codegen";
   "kairos.engine" -> "kairos.internal.composition";
   "kairos.internal.application" -> "kairos.domain_core";
   "kairos.internal.application" -> "kairos.shared";
   "kairos.internal.artifact_graph_render" -> "kairos.domain_verification";
   "kairos.internal.artifact_text_render" -> "kairos.domain_core";
+  "kairos.internal.c_codegen" -> "kairos.domain_core";
   "kairos.internal.composition" -> "kairos.internal.input_lang";
   "kairos.internal.composition" -> "kairos.internal.verification_runtime";
   "kairos.internal.input_lang" -> "menhirLib";
@@ -257,6 +258,5 @@ digraph G {
   "kairos.sequential_ir" -> "yojson";
   "kairos.shared" -> "unix";
   "kairos.verification_unit" -> "kairos.observation_model";
-  "kairos_c_codegen" -> "kairos.domain_core";
 
   }

@@ -1,0 +1,19 @@
+opam-version: "2.0"
+name: "kairos-cli"
+version: "dev"
+synopsis: "Command-line adapter for the Kairos verification engine"
+description: "Optional command-line delivery adapter embedding the public Kairos engine facade."
+depends: [
+  "dune" {>= "3.10"}
+  "ocaml"
+  "kairos" {= version}
+  "bos"
+  "fpath"
+  "cmdliner"
+]
+build: [
+  ["dune" "build" "-p" name "-j" jobs "@install"]
+]
+install: [
+  ["dune" "install" "-p" name "--create-install-files" "--prefix" prefix "--libdir" lib]
+]

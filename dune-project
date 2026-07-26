@@ -6,6 +6,8 @@
 (package
  (name kairos))
 (package
+ (name kairos-cli))
+(package
  (name kairos-lsp))
 (package
  (name kairos-automata-contract))

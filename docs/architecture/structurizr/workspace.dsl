@@ -22,6 +22,9 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
       lsp = container "LSP server" "Editor-facing protocol server exposing frontend, proof, and artifact services." "OCaml / LSP" {
         tags "Adapter"
       }
+      engineFacade = container "Engine facade" "Stable in-process API used by optional delivery adapters." "OCaml" {
+        tags "Application"
+      }
       frontend = container "Kairos frontend" "Parses the surface language and elaborates it to the core verification model." "OCaml" {
         tags "Adapter"
       }
@@ -54,6 +57,9 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
       why3Backend = container "Why3 backend" "Projects proof obligations to Why3, performs backend-only representation choices, and calls proof services." "OCaml / Why3" {
         tags "Backend"
       }
+      cBackend = container "C backend" "Projects normalized Kairos programs to portable C99 files." "OCaml / C" {
+        tags "Backend"
+      }
       artifacts = container "Artifact renderers" "Renders graphs, text views, cost reports, and diagnostic artifacts." "OCaml / DOT / JSON" {
         tags "Backend"
       }
@@ -65,8 +71,11 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
     developer -> cli "Runs checks, dumps, and proofs"
     developer -> lsp "Uses editor services"
 
-    cli -> application "Invokes use-cases"
-    lsp -> application "Invokes use-cases"
+    cli -> engineFacade "Invokes the public in-process API"
+    lsp -> engineFacade "Invokes the public in-process API"
+    engineFacade -> application "Invokes wired use-cases"
+    engineFacade -> frontend "Requests source inspection and frontend summaries"
+    engineFacade -> cBackend "Requests portable C generation"
     application -> frontend "Requests parsing and elaboration"
     application -> runtime "Builds snapshots and outputs through ports"
 
@@ -84,6 +93,7 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
     why3Backend -> core "Compiles formulas, statements, and types"
     why3Backend -> verification "Consumes product summaries"
     why3Backend -> externalAdapters "Calls Why3 services"
+    cBackend -> core "Compiles normalized program models"
     artifacts -> verification "Renders product and automata analyses"
     artifacts -> externalAdapters "Uses Graphviz rendering"
 
@@ -134,7 +144,8 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
 
     dynamic kairos "kairos-prove-flow" {
       developer -> cli "runs --prove"
-      cli -> application "invokes verification use-case"
+      cli -> engineFacade "invokes public engine facade"
+      engineFacade -> application "invokes verification use-case"
       application -> frontend "parses and elaborates"
       frontend -> core "produces core model"
       application -> runtime "requests snapshot and proof output"
@@ -149,7 +160,8 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
 
     dynamic kairos "kairos-diagnostic-dump-flow" {
       developer -> cli "requests diagnostic dump"
-      cli -> application "invokes dump use-case"
+      cli -> engineFacade "invokes public engine facade"
+      engineFacade -> application "invokes dump use-case"
       application -> runtime "builds snapshot and artifacts"
       runtime -> externalAdapters "produces supplied automata through Spot adapter"
       externalAdapters -> spot "builds property automata"

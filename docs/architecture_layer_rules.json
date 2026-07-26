@@ -103,7 +103,8 @@
       "engine",
       "composition",
       "application",
-      "adapters_in"
+      "adapters_in",
+      "adapters_out"
     ],
     "proof_export": [
       "shared",

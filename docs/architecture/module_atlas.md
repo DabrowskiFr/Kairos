@@ -14,6 +14,7 @@ commande Kairos normale.
 
 ```text
 bin/cli/kairos.ml
+  -> Kairos_engine.Api
   -> Verification_flow_usecases
   -> Kairos_usecase_wiring
   -> Kairos_frontend
@@ -26,9 +27,10 @@ bin/cli/kairos.ml
   -> kairos_runtime_proof ou kairos_runtime_diagnostics
 ```
 
-Le serveur LSP entre par `Kairos_engine.Api`. Cette façade appelle les mêmes
-use-cases et le même câblage, mais empêche le paquet `kairos-lsp` d'importer
-directement le domaine, les backends ou l'orchestration interne.
+Le serveur LSP et la CLI entrent par `Kairos_engine.Api`. Cette façade appelle
+les mêmes use-cases et le même câblage, mais empêche les paquets
+`kairos-lsp` et `kairos-cli` d'importer directement le domaine, les backends ou
+l'orchestration interne.
 
 La separation essentielle est :
 
@@ -50,23 +52,24 @@ Execution de l'outil:
 | Etape | Module / fichier | Fonction cle | Role |
 | --- | --- | --- | --- |
 | 1 | `bin/cli/kairos.ml` | `exec_action` | Decode les options CLI et choisit l'action |
-| 2 | `lib/application/verification_flow_usecases.ml` | `run` | Orchestre le use-case application |
-| 3 | `lib/composition/kairos_usecase_wiring.ml` | `Ports` | Branche les ports abstraits sur les adaptateurs concrets |
-| 4 | `lib/adapters/in/kairos_lang/kairos_frontend.ml` | `parse_input` | Lit le fichier, parse, elabore, produit `Verification_model` |
-| 5 | `lib/adapters/out/runtime/orchestration/core/pipeline_build.ml` | `prepare_program_from_frontend` | Prepare le programme runtime |
-| 6 | `lib/adapters/out/runtime/orchestration/core/contract_partition.ml` | `partition_program` | Regroupe ou preserve les contrats publics selon les options |
-| 7 | `lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml` | `produce_with_spot` | Produit un paquet d'automates fourni au core runtime |
-| 8 | `lib/adapters/out/runtime/orchestration/automata/automata_generation.ml` | `run` | Transforme assumptions/guarantees en automates via un builder injecte |
-| 9 | `packages/spot/spot_automaton_builder.ml` | `build` | Paquet autonome appelant Spot sur le contrat neutre |
-| 10 | `lib/domain/verification/orchestration.ml` | `build_reference_product` | Point nomme du produit de reference, apres validation de forme des automates |
-| 11 | `lib/domain/verification/from_model.ml` | `of_model_program` | Produit les summaries depuis programme + automates valides pour le produit |
-| 12 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Conserve l'IR relationnel apres `Post`, puis produit l'IR backend via `Temporal_lower` et `Formula_sharing` |
-| 13 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles/IR utilises ensuite |
-| 14 | `lib/adapters/out/runtime/orchestration/outputs/pipeline_outputs.ml` | `build_outputs` | En mode `--prove`, evite les dumps lourds et lance le proof runner |
-| 15 | `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | `run` | Soumet le WhyML et attribue les resultats neutres |
-| 16 | `lib/adapters/out/provers/why3/*` | `Why_compile`, `Why_pipeline` | Projection de l'IR Kairos vers WhyML |
-| 17 | `packages/why3/*` | `Why_execution`, `Why_contract_prove` | Paquet autonome encapsulant tous les types et appels Why3/provers |
-| 18 | `packages/graphviz/graphviz_render.ml` | `dot_png_from_text_diagnostic` | Paquet autonome appelant Graphviz sur du texte DOT |
+| 2 | `lib/engine/api.ml` | `run` | Façade publique du moteur pour la CLI |
+| 3 | `lib/application/verification_flow_usecases.ml` | `run` | Orchestre le use-case application |
+| 4 | `lib/composition/kairos_usecase_wiring.ml` | `Ports` | Branche les ports abstraits sur les adaptateurs concrets |
+| 5 | `lib/adapters/in/kairos_lang/kairos_frontend.ml` | `parse_input` | Lit le fichier, parse, elabore, produit `Verification_model` |
+| 6 | `lib/adapters/out/runtime/orchestration/core/pipeline_build.ml` | `prepare_program_from_frontend` | Prepare le programme runtime |
+| 7 | `lib/adapters/out/runtime/orchestration/core/contract_partition.ml` | `partition_program` | Regroupe ou preserve les contrats publics selon les options |
+| 8 | `lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml` | `produce_with_spot` | Produit un paquet d'automates fourni au core runtime |
+| 9 | `lib/adapters/out/runtime/orchestration/automata/automata_generation.ml` | `run` | Transforme assumptions/guarantees en automates via un builder injecte |
+| 10 | `packages/spot/spot_automaton_builder.ml` | `build` | Paquet autonome appelant Spot sur le contrat neutre |
+| 11 | `lib/domain/verification/orchestration.ml` | `build_reference_product` | Point nomme du produit de reference, apres validation de forme des automates |
+| 12 | `lib/domain/verification/from_model.ml` | `of_model_program` | Produit les summaries depuis programme + automates valides pour le produit |
+| 13 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Conserve l'IR relationnel apres `Post`, puis produit l'IR backend via `Temporal_lower` et `Formula_sharing` |
+| 14 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles/IR utilises ensuite |
+| 15 | `lib/adapters/out/runtime/orchestration/outputs/pipeline_outputs.ml` | `build_outputs` | En mode `--prove`, evite les dumps lourds et lance le proof runner |
+| 16 | `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | `run` | Soumet le WhyML et attribue les resultats neutres |
+| 17 | `lib/adapters/out/provers/why3/*` | `Why_compile`, `Why_pipeline` | Projection de l'IR Kairos vers WhyML |
+| 18 | `packages/why3/*` | `Why_execution`, `Why_contract_prove` | Paquet autonome encapsulant tous les types et appels Why3/provers |
+| 19 | `packages/graphviz/graphviz_render.ml` | `dot_png_from_text_diagnostic` | Paquet autonome appelant Graphviz sur du texte DOT |
 
 Point important : en mode `--prove` minimal, `Pipeline_outputs.is_prove_only_run`
 fait que `Pipeline_artifact_bundle.build` n'est pas appele. Donc les graphes

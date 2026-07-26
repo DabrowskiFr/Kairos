@@ -4,7 +4,7 @@
 
 | Block | Main paths | Responsibility | Correction role |
 | --- | --- | --- | --- |
-| CLI | `bin/cli` | Command-line interaction | None |
+| CLI package | `bin/cli` | Optional command-line interaction through `kairos.engine` | None |
 | LSP package | `bin/lsp`, `lib/adapters/in/lsp_protocol`, `vscode` | Optional editor interaction through `kairos.engine` | None |
 | Engine facade | `lib/engine` | Stable in-process embedding boundary | None |
 | Shared helpers | `lib/shared` | Dependency-free technical defaults | None |

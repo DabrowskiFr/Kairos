@@ -19,14 +19,14 @@ val write_text_output : string -> string -> [> `Ok of unit ]
 
 val write_generated_files :
   out_dir:string ->
-  Kairos_c_codegen.C_codegen.generated_file list ->
+  Kairos_engine.Api.generated_file list ->
   [> `Error of bool * string | `Ok of unit ]
 
 val write_timing_dump :
   string -> (string * (string * string) list) list -> unit
 
 val write_goals_dump :
-  string -> Pipeline_types.proof_trace list -> unit
+  string -> Kairos_engine.Api.Types.proof_trace list -> unit
 
 val write_automata_bundle :
   out:string ->
