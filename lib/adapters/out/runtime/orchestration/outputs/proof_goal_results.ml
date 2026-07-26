@@ -16,6 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+module Contract = Kairos_proof_contract.Proof_backend_contract
+
 type progress = { emit : Pipeline_types.goal_info -> unit }
 
 type t = {
@@ -23,12 +25,13 @@ type t = {
   result_goal_name : string;
   result_status : string;
   result_time_s : float;
-  result_timing : Why_contract_prove.goal_timing;
+  result_timing : Contract.goal_timing;
   result_dump_path : string option;
   result_vcid : string option;
+  result_probe : Contract.solver_probe option;
 }
 
-let zero_goal_timing : Why_contract_prove.goal_timing =
+let zero_goal_timing : Contract.goal_timing =
   {
     prepare_s = 0.0;
     print_s = 0.0;
@@ -36,14 +39,6 @@ let zero_goal_timing : Why_contract_prove.goal_timing =
     wait_s = 0.0;
     solver_s = 0.0;
   }
-
-let proof_status_is_valid status =
-  match String.lowercase_ascii status with
-  | "valid" | "proved" -> true
-  | _ -> false
-
-let goal_name_of_task task =
-  Why_contract_prove.goal_name_of_prepared_task task
 
 let pending ~index ~goal_name ~vcid =
   {
@@ -54,108 +49,64 @@ let pending ~index ~goal_name ~vcid =
     result_timing = zero_goal_timing;
     result_dump_path = None;
     result_vcid = vcid;
+    result_probe = None;
   }
 
-let of_goal_done_event ~vc_ids_ordered ev =
-  let idx = ev.Why_contract_prove.goal_index in
-  let r = ev.result in
-  let status =
-    Proof_status_render.of_prover_answer r.prover_result.pr_answer
-  in
-  let vcid =
-    match List.nth_opt vc_ids_ordered idx with
-    | Some id -> Some (string_of_int id)
-    | None -> None
-  in
-  ( idx,
-    status,
-    vcid,
+let vcid_at vc_ids_ordered index =
+  match List.nth_opt vc_ids_ordered index with
+  | Some vcid -> Some (string_of_int vcid)
+  | None -> Some (string_of_int (index + 1))
+
+let of_contract_result ~vc_ids_ordered (result : Contract.goal_result) =
+  {
+    result_index = result.goal_index;
+    result_goal_name = result.goal_name;
+    result_status = Contract.string_of_proof_status result.status;
+    result_time_s = result.prover_time_s;
+    result_timing = result.timing;
+    result_dump_path = result.dump_path;
+    result_vcid = vcid_at vc_ids_ordered result.goal_index;
+    result_probe = result.probe;
+  }
+
+let execute ~progress ~(cfg : Pipeline_types.config) ~whyml_text ~split_vc
+    ~emit_vc_text ~emit_smt_text ~diagnose_nonvalid =
+  let proof_jobs = if cfg.stop_on_first_nonvalid then 1 else cfg.proof_jobs in
+  let options : Contract.execution_options =
     {
-      result_index = idx;
-      result_goal_name = r.goal_name;
-      result_status = status;
-      result_time_s = r.prover_result.pr_time;
-      result_timing = r.timing;
-      result_dump_path = r.dump_path;
-      result_vcid = vcid;
-    } )
-
-let sort_by_index =
-  List.sort (fun left right -> Int.compare left.result_index right.result_index)
-
-let of_normalized_tasks ~progress ~(cfg : Pipeline_types.config)
-    ~(vc_ids_ordered : int list) ~normalized_tasks : t list =
-  if cfg.prove && not cfg.wp_only then
-    let finished = ref [] in
-    let stop_requested = ref false in
-    let should_cancel () = cfg.stop_on_first_nonvalid && !stop_requested in
-    let proof_jobs = if cfg.stop_on_first_nonvalid then 1 else cfg.proof_jobs in
-    let _ =
-      Why_contract_prove.prove_tasks_with_events ~timeout:cfg.timeout_s
-        ~jobs:proof_jobs ~dump_failed_smt:cfg.dump_failed_smt ~should_cancel
-        ~on_goal_start:(fun _ -> ())
-        ~on_goal_done:(fun ev ->
-          let _idx, status, vcid, result =
-            of_goal_done_event ~vc_ids_ordered ev
-          in
-          Option.iter
-            (fun (progress : progress) ->
-              progress.emit
-                ( result.result_goal_name,
-                  status,
-                  result.result_time_s,
-                  result.result_dump_path,
-                  vcid ))
-            progress;
-          finished := result :: !finished;
-          if cfg.stop_on_first_nonvalid && not (proof_status_is_valid status) then
-            stop_requested := true)
-        normalized_tasks
-    in
-    sort_by_index !finished
-  else
-    List.mapi
-      (fun idx task ->
-        let vcid = List.nth vc_ids_ordered idx in
-        let goal_name =
-          try goal_name_of_task task
-          with _ -> Printf.sprintf "vc-%03d" (idx + 1)
-        in
-        pending ~index:idx ~goal_name ~vcid:(Some (string_of_int vcid)))
-      normalized_tasks
-
-let of_module_ptrees_fast ~(cfg : Pipeline_types.config) ~module_ptrees :
-    t list =
-  let finished = ref [] in
+      timeout_s = cfg.timeout_s;
+      jobs = proof_jobs;
+      split_vc;
+      dump_failed_smt = cfg.dump_failed_smt;
+      prove = cfg.prove && not cfg.wp_only;
+      emit_vc_text;
+      emit_smt_text;
+      diagnose_nonvalid;
+    }
+  in
+  let request = Contract.make_execution_request ~whyml_text ~options () in
   let stop_requested = ref false in
   let should_cancel () = cfg.stop_on_first_nonvalid && !stop_requested in
-  let proof_jobs = if cfg.stop_on_first_nonvalid then 1 else cfg.proof_jobs in
-  let _ =
-    Why_contract_prove.prove_ptrees_with_events ~timeout:cfg.timeout_s
-      ~jobs:proof_jobs ~split_vc:true ~dump_failed_smt:cfg.dump_failed_smt
-      ~should_cancel ~on_goal_start:(fun _ -> ())
-      ~on_goal_done:(fun ev ->
-        let idx = ev.Why_contract_prove.goal_index in
-        let r = ev.result in
-        let status =
-          Proof_status_render.of_prover_answer r.prover_result.pr_answer
-        in
-        finished :=
-          {
-            result_index = idx;
-            result_goal_name = r.goal_name;
-            result_status = status;
-            result_time_s = r.prover_result.pr_time;
-            result_timing = r.timing;
-            result_dump_path = r.dump_path;
-            result_vcid = Some (string_of_int (idx + 1));
-          }
-          :: !finished;
-        if cfg.stop_on_first_nonvalid && not (proof_status_is_valid status) then
-          stop_requested := true)
-      module_ptrees
+  let on_goal_done (result : Contract.goal_result) =
+    let status = Contract.string_of_proof_status result.status in
+    let vcid = Some (string_of_int (result.goal_index + 1)) in
+    Option.iter
+      (fun (progress : progress) ->
+        progress.emit
+          ( result.goal_name,
+            status,
+            result.prover_time_s,
+            result.dump_path,
+            vcid ))
+      progress;
+    if cfg.stop_on_first_nonvalid && not (Contract.proof_status_is_valid result.status)
+    then stop_requested := true
   in
-  sort_by_index !finished
+  Why_execution.execute ~should_cancel ~on_goal_done request
+
+let results_of_response ~vc_ids_ordered (response : Contract.execution_response)
+    =
+  List.map (of_contract_result ~vc_ids_ordered) response.results
 
 let vc_ids_from_result_indices results =
   List.map (fun result -> result.result_index + 1) results

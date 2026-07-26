@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Construction of per-goal proof results from Why3 prover events. *)
+module Contract = Kairos_proof_contract.Proof_backend_contract
 
 type progress = { emit : Pipeline_types.goal_info -> unit }
 
@@ -25,25 +25,26 @@ type t = {
   result_goal_name : string;
   result_status : string;
   result_time_s : float;
-  result_timing : Why_contract_prove.goal_timing;
+  result_timing : Contract.goal_timing;
   result_dump_path : string option;
   result_vcid : string option;
+  result_probe : Contract.solver_probe option;
 }
 
 val pending : index:int -> goal_name:string -> vcid:string option -> t
 
-val of_normalized_tasks :
+val execute :
   progress:progress option ->
   cfg:Pipeline_types.config ->
-  vc_ids_ordered:int list ->
-  normalized_tasks:Why3.Task.task list ->
-  t list
+  whyml_text:string ->
+  split_vc:bool ->
+  emit_vc_text:bool ->
+  emit_smt_text:bool ->
+  diagnose_nonvalid:bool ->
+  Contract.execution_response
 
-val of_module_ptrees_fast :
-  cfg:Pipeline_types.config ->
-  module_ptrees:Why3.Ptree.mlw_file list ->
-  t list
+val results_of_response :
+  vc_ids_ordered:int list -> Contract.execution_response -> t list
 
 val vc_ids_from_result_indices : t list -> int list
-
 val to_goal_info : t -> Pipeline_types.goal_info

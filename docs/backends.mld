@@ -15,11 +15,13 @@ artifacts.
   Kairos IR-to-WhyML translation, runtime views, and backend planning.
 
 - `packages/proof-contract`
-  Versioned neutral WhyML/VC/SMT exchange.
+  Versioned neutral WhyML execution policy, goal results, events, VC/SMT
+  blocks, timings, and diagnostic probes.
 
 - `packages/why3`
   Why3 parsing, task normalization, dumps, prover execution, and solver
-  interaction without internal Kairos dependencies.
+  interaction without internal Kairos dependencies. Why3 typed values do not
+  cross into runtime orchestration.
 
 {1 Notes}
 

@@ -2,6 +2,7 @@
  (name kairos_why3_runtime_view)
  (wrapped false)
  (modules
+  why_product_step_names
   why_runtime_view_types
   why_runtime_view_slicing
   why_runtime_view_actions

@@ -36,8 +36,13 @@ type obligations_outputs = {
   smt_text : string;
 }
 
-let obligations_pass ~nodes ~(options : compilation_options) :
-    obligations_outputs =
+type whyml_output = {
+  text : string;
+  spans : (int * (int * int)) list;
+}
+
+let compile_whyml ?(with_spans = false) ~nodes
+    ~(options : compilation_options) () =
   let why_ast =
     Why_compile.compile_program_ast_from_ir_nodes
       ~share_why3_facts:options.share_facts
@@ -49,9 +54,16 @@ let obligations_pass ~nodes ~(options : compilation_options) :
       ~why3_product_step_group_max_cost:options.product_step_group_max_cost
       nodes
   in
-  let why_text = Why_text_render.emit_program_ast why_ast in
+  if with_spans then
+    let text, spans = Why_text_render.emit_program_ast_with_spans why_ast in
+    { text; spans }
+  else { text = Why_text_render.emit_program_ast why_ast; spans = [] }
+
+let obligations_pass ~nodes ~(options : compilation_options) :
+    obligations_outputs =
+  let whyml = compile_whyml ~nodes ~options () in
   let request =
-    Proof_backend_contract.make_request ~whyml_text:why_text ()
+    Proof_backend_contract.make_request ~whyml_text:whyml.text ()
   in
   let response = Why_obligations.run request in
   { vc_text = response.vc_text; smt_text = response.smt_text }

@@ -7,7 +7,7 @@
 | CLI/LSP | `bin/cli`, `bin/lsp`, `vscode` | User interaction | None |
 | Shared helpers | `lib/shared` | Dependency-free technical defaults | None |
 | Automata contract | `packages/automata-contract` | Autonomous versioned LTL/automata exchange over opaque atoms | None |
-| Proof backend contract | `packages/proof-contract` | Autonomous versioned WhyML/text exchange | None |
+| Proof backend contract | `packages/proof-contract` | Autonomous versioned WhyML execution/results exchange | None |
 | Spot package | `packages/spot` | Independently buildable in-process adapter over the automata contract | External boundary |
 | Why3 adapter | `packages/why3` | WhyML parsing, obligation dumps, proving and solver interaction | External boundary |
 | Telemetry package | `packages/timing` | Process-local technical measurements shared through a data-only API | External utility |
@@ -40,7 +40,7 @@
 | --- | --- | --- |
 | `kairos_runtime_core` | Prepares runtime program and consumes supplied automata to build snapshots after reference validation | Must stay free of Spot, Why3, and proof export |
 | `kairos_runtime_automata` | Produces supplied automata using Spot today | External boundary, not part of reference kernel |
-| `kairos_runtime_proof` | Runs Why3 proof pipeline and callbacks | Backend execution, no proof-export dependency |
+| `kairos_runtime_proof` | Maps neutral proof results, callbacks, attribution, and public traces | No direct Why3 dependency |
 | `kairos_runtime_diagnostics` | Builds graph/text/kernel diagnostic artifacts and cost reports | May use proof export, must not become a Why3 backend |
 | `kairos_verification_runtime` | Public adapter facade and output orchestration | Broad facade; should coordinate, not own semantic construction |
 | `pipeline_outputs` | Chooses minimal prove vs artifacts path | Important guardrail for performance |
@@ -60,6 +60,7 @@ true:
   callable directly without IPC;
 - `kairos_external_why3` depends on no internal Kairos library; the semantic
   IR-to-WhyML projection remains owned by Kairos;
+- runtime libraries contain no direct Why3 dependency or `Why3.*` data type;
 - runtime automata orchestration owns all conversions between the neutral
   automata contract and core formulas;
 - `--prove` does not construct diagnostic artifacts;

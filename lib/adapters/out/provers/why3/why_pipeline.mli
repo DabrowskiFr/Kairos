@@ -38,6 +38,19 @@ type obligations_outputs = {
   smt_text : string;
 }
 
+type whyml_output = {
+  text : string;
+  spans : (int * (int * int)) list;
+}
+
+(** Compile Kairos IR to a neutral WhyML text artifact. *)
+val compile_whyml :
+  ?with_spans:bool ->
+  nodes:Ir.node_ir list ->
+  options:compilation_options ->
+  unit ->
+  whyml_output
+
 (** Compile Kairos IR to WhyML, then submit the neutral WhyML request to the
     independent Why3 adapter. *)
 val obligations_pass :

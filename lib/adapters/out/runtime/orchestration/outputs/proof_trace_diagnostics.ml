@@ -16,22 +16,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+module Contract = Kairos_proof_contract.Proof_backend_contract
+
 let build ~(status : string) ~(goal_text : string)
-    ~(native_core : Why_native_probe.native_unsat_core option)
-    ~(native_probe : Why_native_probe.native_solver_probe option) :
+    ~(native_probe : Contract.solver_probe option) :
     Pipeline_types.proof_diagnostic =
   let status_norm = String.lowercase_ascii (String.trim status) in
   let native_probe_status =
     Option.map
-      (fun (probe : Why_native_probe.native_solver_probe) -> probe.status)
+      (fun (probe : Contract.solver_probe) -> probe.status)
       native_probe
   in
   let native_probe_detail =
-    Option.bind native_probe (fun (probe : Why_native_probe.native_solver_probe) ->
+    Option.bind native_probe (fun (probe : Contract.solver_probe) ->
         probe.detail)
   in
   let native_probe_model =
-    Option.bind native_probe (fun (probe : Why_native_probe.native_solver_probe) ->
+    Option.bind native_probe (fun (probe : Contract.solver_probe) ->
         probe.model_text)
   in
   let category, probable_cause, suggestions, detail =
@@ -94,23 +95,15 @@ let build ~(status : string) ~(goal_text : string)
     missing_elements = [];
     goal_symbols = [];
     analysis_method =
-      (match native_core with
-      | Some core ->
-          Printf.sprintf
-            "Native SMT unsat core recovered from %s on hid-named assertions, then remapped to Kairos hypotheses"
-            core.solver
-      | None when native_probe_model <> None ->
+      (match native_probe_model with
+      | Some _ ->
           "Native SMT model recovered from the targeted solver on the focused VC"
       | None -> "Status-based diagnostic without structured provenance mapping");
     solver_detail = native_probe_detail;
-    native_unsat_core_solver =
-      Option.map
-        (fun (core : Why_native_probe.native_unsat_core) -> core.solver)
-        native_core;
-    native_unsat_core_hypothesis_ids =
-      (match native_core with Some core -> core.hypothesis_ids | None -> []);
+    native_unsat_core_solver = None;
+    native_unsat_core_hypothesis_ids = [];
     native_counterexample_solver =
-      Option.bind native_probe (fun (probe : Why_native_probe.native_solver_probe) ->
+      Option.bind native_probe (fun (probe : Contract.solver_probe) ->
           match probe.model_text with Some _ -> Some probe.solver | None -> None);
     native_counterexample_model = native_probe_model;
     kairos_core_hypotheses = [];

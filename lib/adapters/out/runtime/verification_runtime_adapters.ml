@@ -57,6 +57,18 @@ let explicit_product_optimizations (snapshot : snapshot) =
   match snapshot.proof_encoding with
   | Pipeline_types.Explicit_product -> snapshot.proof_optimizations
 
+let why_compilation_options (opts : Pipeline_types.proof_optimizations) :
+    Why_pipeline.compilation_options =
+  {
+    share_facts = opts.share_why3_facts;
+    simplify_formulas = opts.simplify_why3_formulas;
+    slice_transition_bodies = opts.slice_why3_transition_bodies;
+    simplify_runtime_actions = opts.simplify_why3_runtime_actions;
+    deduplicate_terms = opts.deduplicate_why3_terms;
+    group_product_steps = opts.group_why3_product_steps;
+    product_step_group_max_cost = opts.why3_product_step_group_max_cost;
+  }
+
 let instrumentation_from_snapshot ~generate_png ~(snapshot : snapshot) =
   match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
   | Error msg -> Error (Pipeline_types.Flow_error msg)
@@ -75,18 +87,9 @@ module Why_text = struct
         snapshot.asts.instrumentation
     in
     let opts = explicit_product_optimizations snapshot in
-    let why_ast =
-      Why_compile.compile_program_ast_from_ir_nodes
-        ~share_why3_facts:opts.share_why3_facts
-        ~simplify_why3_formulas:opts.simplify_why3_formulas
-        ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
-        ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
-        ~deduplicate_why3_terms:opts.deduplicate_why3_terms
-        ~group_why3_product_steps:opts.group_why3_product_steps
-        ~why3_product_step_group_max_cost:opts.why3_product_step_group_max_cost
-        instrumentation
-    in
-    Why_text_render.emit_program_ast why_ast
+    Why_pipeline.compile_whyml ~nodes:instrumentation
+      ~options:(why_compilation_options opts) ()
+    |> fun output -> output.Why_pipeline.text
 
   let why_text ~(snapshot : snapshot) : Pipeline_types.why_outputs =
     let why_text = render_why_text ~snapshot in
@@ -130,17 +133,7 @@ module Obligations = struct
         snapshot.asts.instrumentation
     in
     let opts = explicit_product_optimizations snapshot in
-    let options : Why_pipeline.compilation_options =
-      {
-        share_facts = opts.share_why3_facts;
-        simplify_formulas = opts.simplify_why3_formulas;
-        slice_transition_bodies = opts.slice_why3_transition_bodies;
-        simplify_runtime_actions = opts.simplify_why3_runtime_actions;
-        deduplicate_terms = opts.deduplicate_why3_terms;
-        group_product_steps = opts.group_why3_product_steps;
-        product_step_group_max_cost = opts.why3_product_step_group_max_cost;
-      }
-    in
+    let options = why_compilation_options opts in
     let out = Why_pipeline.obligations_pass ~nodes:instrumentation ~options in
     { Pipeline_types.vc_text = out.vc_text; smt_text = out.smt_text }
 end
@@ -318,33 +311,47 @@ module Proof_events = struct
         snapshot.asts.instrumentation
     in
     let opts = explicit_product_optimizations snapshot in
-    let ptree =
-      (Why_compile.compile_program_ast_from_ir_nodes
-         ~share_why3_facts:opts.share_why3_facts
-         ~simplify_why3_formulas:opts.simplify_why3_formulas
-         ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
-         ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
-         ~deduplicate_why3_terms:opts.deduplicate_why3_terms
-         ~group_why3_product_steps:opts.group_why3_product_steps
-         ~why3_product_step_group_max_cost:opts.why3_product_step_group_max_cost
-         instrumentation)
-        .Why_compile.mlw
+    let whyml_text =
+      Why_pipeline.compile_whyml ~nodes:instrumentation
+        ~options:(why_compilation_options opts) ()
+      |> fun output -> output.Why_pipeline.text
     in
+    let module Contract = Kairos_proof_contract.Proof_backend_contract in
+    let options : Contract.execution_options =
+      {
+        timeout_s;
+        jobs = 1;
+        split_vc = true;
+        dump_failed_smt;
+        prove = true;
+        emit_vc_text = false;
+        emit_smt_text = false;
+        diagnose_nonvalid = false;
+      }
+    in
+    let request = Contract.make_execution_request ~whyml_text ~options () in
     let finished = ref [] in
     let _ =
-      Why_contract_prove.prove_ptree_with_events ~timeout:timeout_s ptree ~should_cancel
-        ~dump_failed_smt ~on_goal_start:(fun _ -> ()) ~on_goal_done:(fun ev ->
-          let idx = ev.goal_index in
-          let r = ev.result in
-          let status = Proof_status_render.of_prover_answer r.prover_result.pr_answer in
+      Why_execution.execute ~should_cancel ~on_goal_start:(fun _ -> ())
+        ~on_goal_done:(fun result ->
+          let idx = result.Contract.goal_index in
+          let status = Contract.string_of_proof_status result.status in
           let vcid =
             match List.nth_opt vc_ids_ordered idx with
             | Some id -> Some (string_of_int id)
             | None -> None
           in
-          let item = (idx, r.goal_name, status, r.prover_result.pr_time, r.dump_path, vcid) in
+          let item =
+            ( idx,
+              result.goal_name,
+              status,
+              result.prover_time_s,
+              result.dump_path,
+              vcid )
+          in
           finished := item :: !finished;
           on_goal_done item)
+        request
     in
     List.sort (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> Int.compare a b) !finished
 end

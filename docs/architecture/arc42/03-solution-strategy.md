@@ -103,7 +103,7 @@ kairos-automata-contract
   -> Automata_exchange (neutral, versioned and JSON serializable)
 
 kairos-proof-contract
-  -> Proof_backend_contract (neutral WhyML request/response)
+  -> Proof_backend_contract (neutral WhyML execution and result protocol)
 
 kairos-spot-adapter
   -> depends only on kairos-automata-contract and Unix
@@ -119,7 +119,9 @@ Spot package imports no internal Kairos library. The call remains in-process.
 Kairos still owns the semantic projection from its relational IR to WhyML.
 The independently buildable Why3 adapter starts at the generated WhyML text
 and consumes an explicit `Proof_backend_contract.request`; it imports neither
-the Kairos IR nor the proof-export projection. Calls remain in-process.
+the Kairos IR nor the proof-export projection. It owns task normalization,
+solver results, events, and native probes, returning only neutral contract
+values. Calls remain in-process.
 
 The split is kept honest by architecture fitness checks: the core library must
 not depend on Spot, Why3, or proof export, the proof library must not depend on
@@ -148,7 +150,8 @@ libraries:
 - `kairos_runtime_core` builds snapshots and reference pipeline data from
   supplied automata that the reference product validates before exploration;
 - `kairos_runtime_automata` produces the supplied automata through Spot today;
-- `kairos_runtime_proof` owns proof execution and Why3 goal reporting;
+- `kairos_runtime_proof` maps neutral backend results to Kairos goal
+  attributions and reporting;
 - `kairos_runtime_diagnostics` owns diagnostic artifact bundles and cost
   reports.
 

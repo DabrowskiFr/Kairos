@@ -1183,7 +1183,6 @@ def check_why3_compile_boundaries(repo: Path) -> None:
         "why_compile_logic_functions",
         "why_compile_logic",
         "why_compile_step",
-        "why_product_step_names",
         "why_compile_init_goals",
         "why_compile_formula_sharing_inventory",
         "why_compile_formula_sharing_emit",
@@ -2658,6 +2657,7 @@ def check_why3_compile_boundaries(repo: Path) -> None:
 def check_why3_runtime_view_boundaries(repo: Path) -> None:
     runtime_root = repo / "lib/adapters/out/provers/why3/runtime"
     required_modules = [
+        "why_product_step_names",
         "why_runtime_view_types",
         "why_runtime_view_slicing",
         "why_runtime_view_actions",
@@ -3530,6 +3530,7 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
         "why_contract_workers",
         "why_contract_prove",
         "why_native_probe",
+        "why_execution",
         "why_obligations",
     ]
     for module in required_modules:
@@ -3551,6 +3552,22 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
     why3_dune = (why3_root / "dune").read_text(encoding="utf-8")
     if "kairos_proof_contract" not in why3_dune:
         fail("the standalone Why3 adapter must consume kairos_proof_contract")
+    private_why3_modules = [
+        "why_task_support",
+        "why_task_dump_render",
+        "why_contract_proof_types",
+        "why_contract_prove",
+        "why_native_probe",
+    ]
+    private_stanza = why3_dune.find("(private_modules")
+    if private_stanza < 0 or any(
+        module not in why3_dune[private_stanza:]
+        for module in private_why3_modules
+    ):
+        fail(
+            "Why3 implementation modules must be private behind "
+            "why_execution/why_obligations"
+        )
     for dependency in [
         "kairos_domain_",
         "kairos_application",
@@ -3578,6 +3595,27 @@ def check_external_why3_prover_boundaries(repo: Path) -> None:
         fail(
             "former in-tree Why3 adapter code remains: "
             + ", ".join(str(path.relative_to(repo)) for path in stale_why3_code)
+        )
+
+    runtime_why3_violations: list[str] = []
+    for path in iter_text_files_under(repo, ["lib/adapters/out/runtime"]):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if path.name == "dune" and re.search(r"(?m)^\s+why3\)?$", text):
+            runtime_why3_violations.append(
+                f"{path.relative_to(repo)}: direct Why3 library dependency"
+            )
+        if path.suffix in {".ml", ".mli"} and re.search(
+            r"\bWhy3\.|\bWhy_task_support\b|\bWhy_contract_"
+            r"|\bWhy_native_probe\b|\bWhy_task_dump_render\b",
+            text,
+        ):
+            runtime_why3_violations.append(
+                f"{path.relative_to(repo)}: Why3 implementation type or module"
+            )
+    if runtime_why3_violations:
+        fail(
+            "runtime orchestration leaks Why3 implementation details:\n  - "
+            + "\n  - ".join(runtime_why3_violations)
         )
 
     prove = (why3_root / "why_contract_prove.ml").read_text(

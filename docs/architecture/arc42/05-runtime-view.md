@@ -69,6 +69,8 @@ CLI
 These outputs are backend views. They are useful for debugging performance and
 proof failures, but they are not the canonical correction artifact. The
 external adapter receives generated WhyML and never receives Kairos IR values.
+It also retains all Why3 tasks, parse trees, prover answers, and native probes;
+runtime orchestration receives neutral goal descriptors and proof results.
 
 ## Scenario: Future Rocq Exchange Projection
 
@@ -96,5 +98,6 @@ runtime library split, and automata-source split: ordinary proof no longer
 depends on the removed modular artifact or on diagnostic artifact construction,
 and `kairos_runtime_core` no longer invokes Spot. Future changes should keep
 semantic construction in `domain`, external automata production in
-`kairos_runtime_automata`, proof execution in `kairos_runtime_proof`, and
-reporting/profiling in `kairos_runtime_diagnostics`.
+`kairos_runtime_automata`, proof execution in `kairos-why3-adapter`, neutral
+result attribution in `kairos_runtime_proof`, and reporting/profiling in
+`kairos_runtime_diagnostics`.

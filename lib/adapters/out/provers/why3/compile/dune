@@ -22,7 +22,6 @@
   why_compile_logic_decls
   why_compile_logic_functions
   why_compile_logic
-  why_product_step_names
   why_compile_init_goals
   why_compile_formula_sharing_inventory
   why_compile_formula_sharing_emit

@@ -12,14 +12,11 @@
  (libraries
   kairos_application
   kairos_domain_core
+  kairos_proof_contract
   kairos_why3
-  kairos_why3_compile
   kairos_why3_runtime_view
-  kairos_why3_render
-  kairos_artifact_text_render
   kairos_external_timing
-  kairos_external_why3
-  why3))
+  kairos_external_why3))
 
 (library
  (name kairos_runtime_diagnostics)

@@ -20,10 +20,9 @@
 
 val needed : Pipeline_types.config -> bool
 
-val build_from_normalized_tasks :
-  cfg:Pipeline_types.config ->
-  ptree:Why3.Ptree.mlw_file ->
-  normalized_tasks:Why3.Task.task list ->
+val build_from_execution :
+  goals:
+    Kairos_proof_contract.Proof_backend_contract.goal_descriptor list ->
   attributions:Proof_goal_attribution.t ->
   goal_results:Proof_goal_results.t list ->
   vc_ids_ordered:int list ->

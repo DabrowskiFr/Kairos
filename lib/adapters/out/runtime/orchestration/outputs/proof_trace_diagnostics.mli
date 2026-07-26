@@ -21,6 +21,6 @@
 val build :
   status:string ->
   goal_text:string ->
-  native_core:Why_native_probe.native_unsat_core option ->
-  native_probe:Why_native_probe.native_solver_probe option ->
+  native_probe:
+    Kairos_proof_contract.Proof_backend_contract.solver_probe option ->
   Pipeline_types.proof_diagnostic

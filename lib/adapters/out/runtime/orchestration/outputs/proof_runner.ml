@@ -42,30 +42,36 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
     let attributions =
       lazy (Proof_goal_attribution.build ~opts instrumentation)
     in
-    let why_ast =
-      Why_compile.compile_program_ast_from_ir_nodes
-        ~share_why3_facts:opts.share_why3_facts
-        ~simplify_why3_formulas:opts.simplify_why3_formulas
-        ~slice_why3_transition_bodies:opts.slice_why3_transition_bodies
-        ~simplify_why3_runtime_actions:opts.simplify_why3_runtime_actions
-        ~deduplicate_why3_terms:opts.deduplicate_why3_terms
-        ~group_why3_product_steps:opts.group_why3_product_steps
-        ~why3_product_step_group_max_cost:opts.why3_product_step_group_max_cost
-        instrumentation
+    let compilation_options : Why_pipeline.compilation_options =
+      {
+        share_facts = opts.share_why3_facts;
+        simplify_formulas = opts.simplify_why3_formulas;
+        slice_transition_bodies = opts.slice_why3_transition_bodies;
+        simplify_runtime_actions = opts.simplify_why3_runtime_actions;
+        deduplicate_terms = opts.deduplicate_why3_terms;
+        group_product_steps = opts.group_why3_product_steps;
+        product_step_group_max_cost = opts.why3_product_step_group_max_cost;
+      }
     in
-    let proof_ptree = why_ast.Why_compile.mlw in
-    let module_ptrees = Why_task_support.module_ptrees_of_ptree proof_ptree in
-    let output_why_text, output_why_spans =
-      if cfg.generate_why_text then Why_text_render.emit_program_ast_with_spans why_ast
-      else ("", [])
+    let whyml =
+      Why_pipeline.compile_whyml ~with_spans:cfg.generate_why_text
+        ~nodes:instrumentation ~options:compilation_options ()
     in
+    let backend_why_text = whyml.text in
+    let output_why_text = if cfg.generate_why_text then whyml.text else "" in
+    let output_why_spans = whyml.spans in
     External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);
     let t_vc_smt = Unix.gettimeofday () in
     if cfg.prove && Option.is_none progress && not cfg.wp_only && not cfg.generate_vc_text
        && not cfg.generate_smt_text && not cfg.compute_proof_diagnostics
     then
+      let execution =
+        Proof_goal_results.execute ~progress:None ~cfg
+          ~whyml_text:backend_why_text ~split_vc:true ~emit_vc_text:false
+          ~emit_smt_text:false ~diagnose_nonvalid:false
+      in
       let goal_results =
-        Proof_goal_results.of_module_ptrees_fast ~cfg ~module_ptrees
+        Proof_goal_results.results_of_response ~vc_ids_ordered:[] execution
       in
       let vc_ids_ordered =
         Proof_goal_results.vc_ids_from_result_indices goal_results
@@ -97,43 +103,35 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
           proof_traces;
         }
     else
-      let _cfg, _main, env, _datadir_opt = Why_task_support.setup_env () in
-      let normalized_tasks =
-        Why_task_support.normalize_tasks_of_ptrees ~env ~ptrees:module_ptrees
+      let execution =
+        Proof_goal_results.execute ~progress ~cfg ~whyml_text:backend_why_text
+          ~split_vc:true ~emit_vc_text:cfg.generate_vc_text
+          ~emit_smt_text:cfg.generate_smt_text
+          ~diagnose_nonvalid:cfg.compute_proof_diagnostics
       in
-      let vc_tasks =
-        if cfg.generate_vc_text then
-          Why_task_dump_render.dump_why3_tasks_with_attrs_of_tasks normalized_tasks
-        else []
-      in
+      let vc_tasks = execution.vc_blocks in
       let vc_text, vc_spans_ordered =
         if cfg.generate_vc_text then
           Proof_text_blocks.join_with_spans
             ~sep:"\n(* ---- goal ---- *)\n" vc_tasks
         else ("", [])
       in
-      let smt_tasks =
-        if cfg.generate_smt_text then
-          Why_task_dump_render.dump_smt2_tasks_of_tasks normalized_tasks
-        else []
-      in
+      let smt_tasks = execution.smt_blocks in
       let smt_text, smt_spans_ordered =
         if cfg.generate_smt_text then
           Proof_text_blocks.join_with_spans ~sep:"\n; ---- goal ----\n"
             smt_tasks
         else ("", [])
       in
-      let goal_count = List.length normalized_tasks in
+      let goal_count = List.length execution.goals in
       let vc_ids_ordered = List.init goal_count (fun i -> i + 1) in
       let vc_locs, vc_locs_ordered = ([], []) in
       let goal_results =
-        Proof_goal_results.of_normalized_tasks ~progress ~cfg ~vc_ids_ordered
-          ~normalized_tasks
+        Proof_goal_results.results_of_response ~vc_ids_ordered execution
       in
       External_timing.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       let proof_traces =
-        Proof_traces.build_from_normalized_tasks ~cfg ~ptree:proof_ptree
-          ~normalized_tasks
+        Proof_traces.build_from_execution ~goals:execution.goals
           ~attributions:(Lazy.force attributions) ~goal_results ~vc_ids_ordered
           ~vc_spans_ordered ~smt_spans_ordered
       in

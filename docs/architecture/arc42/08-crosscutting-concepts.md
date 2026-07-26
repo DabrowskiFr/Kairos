@@ -77,10 +77,11 @@ The automata API boundary is an autonomous package.
 over opaque atom names. `kairos-spot-adapter` depends only on that contract and
 Unix. Runtime orchestration converts between opaque atoms and the verification
 representation. The Why3 projection creates a typed, JSON-serializable
-`Proof_backend_contract.request` containing generated WhyML. The independent
-adapter parses that text and produces VC/SMT outputs. Direct OCaml calls remain
-the current transport, so this separation does not impose process or
-serialization costs.
+`Proof_backend_contract.execution_request` containing generated WhyML and a
+neutral execution policy. The independent adapter parses that text and returns
+neutral goal descriptors, statuses, timings, VC/SMT blocks, and diagnostic
+probes. Runtime code imports no Why3 API. Direct OCaml calls remain the current
+transport, so this separation does not impose process or serialization costs.
 
 ## Architecture Fitness
 

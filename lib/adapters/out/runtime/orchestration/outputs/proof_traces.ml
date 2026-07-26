@@ -17,35 +17,21 @@
  *---------------------------------------------------------------------------*)
 
 module Goal_results = Proof_goal_results
+module Contract = Kairos_proof_contract.Proof_backend_contract
 
 let needed (cfg : Pipeline_types.config) : bool =
   cfg.collect_ir_metrics || cfg.compute_proof_diagnostics
   || cfg.generate_vc_text || cfg.generate_smt_text
   || Option.is_some cfg.proof_progress_path
 
-let diagnostic_for_goal ~(cfg : Pipeline_types.config) ~ptree ~goal_index
-    ~goal_name ~status =
-  let native_core, native_probe =
-    if not cfg.compute_proof_diagnostics then (None, None)
-    else
-      match String.lowercase_ascii status with
-      | "valid" | "proved" -> (None, None)
-      | "pending" -> (None, None)
-      | _ ->
-          let native_probe =
-            Why_native_probe.native_solver_probe_for_goal_of_ptree
-              ~timeout:cfg.timeout_s ~ptree ~goal_index ()
-          in
-          (None, native_probe)
-  in
+let diagnostic_for_goal ~goal_name ~status ~native_probe =
   let diagnostic =
-    Proof_trace_diagnostics.build ~status ~goal_text:goal_name ~native_core
-      ~native_probe
+    Proof_trace_diagnostics.build ~status ~goal_text:goal_name ~native_probe
   in
   (diagnostic, native_probe)
 
 let base_trace ~idx ~goal_name ~status ~time_s
-    ~(timing : Why_contract_prove.goal_timing) ~solver_status ~vc_id ~vc_span
+    ~(timing : Contract.goal_timing) ~solver_status ~vc_id ~vc_span
     ~smt_span ~dump_path ~diagnostic =
   {
     Pipeline_types.goal_index = idx;
@@ -77,8 +63,7 @@ let base_trace ~idx ~goal_name ~status ~time_s
 let apply_attribution attributions goal_name trace =
   Proof_goal_attribution.apply attributions ~goal_name trace
 
-let build_from_normalized_tasks ~(cfg : Pipeline_types.config) ~ptree
-    ~normalized_tasks ~attributions
+let build_from_execution ~goals ~attributions
     ~(goal_results : Proof_goal_results.t list)
     ~(vc_ids_ordered : int list)
     ~(vc_spans_ordered : Pipeline_types.text_span list)
@@ -90,20 +75,21 @@ let build_from_normalized_tasks ~(cfg : Pipeline_types.config) ~ptree
       Hashtbl.replace goal_result_tbl
         goal_result.Goal_results.result_index goal_result)
     goal_results;
-  List.mapi (fun idx _task -> idx) normalized_tasks
-  |> List.filter_map (fun idx ->
+  goals
+  |> List.filter_map (fun (goal : Contract.goal_descriptor) ->
+         let idx = goal.goal_index in
          let goal_result =
            match Hashtbl.find_opt goal_result_tbl idx with
            | Some goal -> goal
            | None ->
-               let fallback_id = Printf.sprintf "vc-%03d" (idx + 1) in
-               Goal_results.pending ~index:idx ~goal_name:fallback_id
+               Goal_results.pending ~index:idx ~goal_name:goal.goal_name
                  ~vcid:(Some (string_of_int (List.nth vc_ids_ordered idx)))
          in
          let goal_name = goal_result.Goal_results.result_goal_name in
          let status = goal_result.Goal_results.result_status in
          let diagnostic, native_probe =
-           diagnostic_for_goal ~cfg ~ptree ~goal_index:idx ~goal_name ~status
+           diagnostic_for_goal ~goal_name ~status
+             ~native_probe:goal_result.Goal_results.result_probe
          in
          let solver_status =
            match native_probe with Some probe -> probe.status | None -> status
@@ -129,7 +115,7 @@ let build_fast ~attributions (goal_results : Proof_goal_results.t list) :
          let status = goal_result.Goal_results.result_status in
          let diagnostic =
            Proof_trace_diagnostics.build ~status ~goal_text:goal_name
-             ~native_core:None ~native_probe:None
+             ~native_probe:None
          in
          let trace =
            base_trace ~idx ~goal_name ~status

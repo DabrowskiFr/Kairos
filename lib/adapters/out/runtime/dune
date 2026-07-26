@@ -5,15 +5,13 @@
  (libraries
   kairos_application
   kairos_domain_core
+  kairos_proof_contract
   kairos_runtime_core
   kairos_runtime_automata
   kairos_runtime_proof
   kairos_runtime_diagnostics
   kairos_runtime_outputs
   kairos_why3
-  kairos_why3_compile
-  kairos_why3_render
   kairos_artifact_text_render
   kairos_external_why3
-  kairos_external_timing
-  why3))
+  kairos_external_timing))
