@@ -87,6 +87,16 @@ let validate_single_bad_state ~role (automaton : Automaton_types.automaton) =
             state"
            role)
 
+let validate_initial_state_non_bad ~role
+    (automaton : Automaton_types.automaton) =
+  if List.mem 0 (bad_indices automaton.states) then
+    raise
+      (Failure
+         (Printf.sprintf
+            "%s automaton has a bad initial state; the corresponding contract \
+             formula has no satisfying trace"
+            role))
+
 let validate_bad_state_absorbing ~role
     (automaton : Automaton_types.automaton) =
   match bad_indices automaton.states with
@@ -127,6 +137,8 @@ let validate_automata_spec (build : Automaton_types.automata_spec) =
   validate_transition_indices ~role:"guarantee" build.guarantee_automaton;
   validate_single_bad_state ~role:"assumption" build.assume_automaton;
   validate_single_bad_state ~role:"guarantee" build.guarantee_automaton;
+  validate_initial_state_non_bad ~role:"assumption" build.assume_automaton;
+  validate_initial_state_non_bad ~role:"guarantee" build.guarantee_automaton;
   validate_bad_state_absorbing ~role:"assumption" build.assume_automaton;
   validate_assumption_guard_targets build.assume_automaton
 

@@ -166,8 +166,9 @@ Contract automata
   ADEQUATE_IF
   The Rocq theorem is relative to supplied automata. Spot translation stays
   outside the core. OCaml must validate the product-level automata normal form
-  before exploration: non-empty automata, valid transition indices, absorbing
-  bad states, and deterministic assumption targets for each source/guard key.
+  before exploration: non-empty automata, valid transition indices, non-bad
+  initial states, an absorbing assumption bad state, and deterministic
+  assumption targets for each source/guard key.
 
 Product-state anchors
   ProductStateAnchor {program,assume,guarantee}

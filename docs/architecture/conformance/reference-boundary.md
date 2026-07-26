@@ -42,9 +42,9 @@ The boundary is enforced by:
   relative to the supplied automata and does not formalize their production.
 - The reference product validates the automata normal form before exploration:
   non-empty automata, valid transition indices, at most one bad state per
-  automaton, an absorbing assumption bad state, and deterministic assumption
-  targets for each source/guard key. This rejects malformed supplied automata
-  but does not prove Spot monitor correctness.
+  automaton, non-bad initial states, an absorbing assumption bad state, and
+  deterministic assumption targets for each source/guard key. This rejects
+  malformed supplied automata but does not prove Spot monitor correctness.
 - Historical-initialization checks implement the Rocq
   `InitializationFrontier` contract on the OCaml side: formulas using
   `pre`/`pre_k` must have required depth no greater than the age available at

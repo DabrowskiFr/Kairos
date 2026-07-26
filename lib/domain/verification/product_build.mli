@@ -29,8 +29,8 @@
     [node] using the automata already built in [build].  It first validates
     the automata normal form used by the canonical summaries: non-empty
     automata, well-formed transition indices, at most one bad state per
-    automaton, an absorbing assumption bad state, and deterministic assumption
-    targets for each source/guard pair.
+    automaton, non-bad initial states, an absorbing assumption bad state, and
+    deterministic assumption targets for each source/guard pair.
 
     The result contains:
     - the reachable product states;

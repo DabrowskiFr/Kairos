@@ -36,8 +36,8 @@ The public runtime facade wires those stages together with
   reference-product construction.
 - The reference product validates the normal form required for exploration:
   non-empty automata, valid transition indices, at most one bad state per
-  automaton, an absorbing assumption bad state, and deterministic assumption
-  targets for each source/guard key.
+  automaton, non-bad initial states, an absorbing assumption bad state, and
+  deterministic assumption targets for each source/guard key.
 - Another external automata source can replace the Spot-backed source without
   changing the reference-product assembly.
 - The Rocq story remains relative to the supplied automata; it does not

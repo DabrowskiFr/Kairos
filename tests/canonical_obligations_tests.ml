@@ -678,6 +678,24 @@ let test_product_automata_normal_form_validation () =
   in
   check_raises "empty automata are rejected" "has no states" (fun () ->
       analyze empty_assumption);
+  let bad_initial_assumption =
+    {
+      valid with
+      assume_automaton =
+        { states = [ LFalse ]; transitions = [ (0, htrue, 0) ] };
+    }
+  in
+  check_raises "bad initial assumption state is rejected" "bad initial state"
+    (fun () -> analyze bad_initial_assumption);
+  let bad_initial_guarantee =
+    {
+      valid with
+      guarantee_automaton =
+        { states = [ LFalse ]; transitions = [ (0, htrue, 0) ] };
+    }
+  in
+  check_raises "bad initial guarantee state is rejected" "bad initial state"
+    (fun () -> analyze bad_initial_guarantee);
   let non_absorbing_bad_guarantee =
     {
       valid with

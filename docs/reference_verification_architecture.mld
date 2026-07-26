@@ -62,10 +62,10 @@ the supplied automata and the generated product obligations, not with Spot
 itself or with a formalization of the LTL-to-automata translation.
 The reference product is still responsible for validating the automata normal
 form it consumes: non-empty automata, well-formed transition indices,
-at most one bad state per automaton, an absorbing assumption bad state, and
-the assumption-edge determinism needed by canonical summary identity. This
-validation rejects malformed supplied automata; it does not prove monitor
-correctness for the source temporal formulas.
+at most one bad state per automaton, non-bad initial states, an absorbing
+assumption bad state, and the assumption-edge determinism needed by canonical
+summary identity. This validation rejects malformed supplied automata; it does
+not prove monitor correctness for the source temporal formulas.
 
 {1 Rocq Adequacy Boundary}
 
