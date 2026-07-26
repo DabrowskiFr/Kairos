@@ -7,6 +7,7 @@ Start here:
 - `guide.md`
 - `module_atlas.md`
 - `quality_audit.md`
+- `externalization_audit.md`
 - `../rocq_alignment_manifest.json`
 - `../rocq_projection_audit.json`
 - `why3_product_backend_alignment.md`
