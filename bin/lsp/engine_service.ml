@@ -24,4 +24,3 @@ let engine_of_string = function
 
 let string_of_engine = function Default -> "default"
 let normalize = function Default -> Default
-let error_to_string = Pipeline_types.error_to_string

@@ -11,7 +11,7 @@
 (** Decode [kairos/run] request parameters into backend configuration. *)
 
 type decoded = {
-  cfg : Pipeline_types.config;
+  cfg : Lsp_protocol.config;
   engine : Engine_service.engine;
   input_file : string;
 }

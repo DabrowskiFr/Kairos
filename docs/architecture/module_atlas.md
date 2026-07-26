@@ -26,6 +26,10 @@ bin/cli/kairos.ml
   -> kairos_runtime_proof ou kairos_runtime_diagnostics
 ```
 
+Le serveur LSP entre par `Kairos_engine.Api`. Cette façade appelle les mêmes
+use-cases et le même câblage, mais empêche le paquet `kairos-lsp` d'importer
+directement le domaine, les backends ou l'orchestration interne.
+
 La separation essentielle est :
 
 ```text
@@ -137,6 +141,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `verification_flow_timing_meta.ml` | Assemblage applicatif des metadonnees de timing |
 | `verification_flow_usecases.ml` | Orchestration des use-cases et callbacks |
 | `kairos_usecase_wiring.ml` | Composition root : branche les ports sur les modules concrets |
+| `lib/engine/api.ml` | Façade publique en processus consommée par les adaptateurs de livraison |
 
 ### Contrats Des Outils Externes
 

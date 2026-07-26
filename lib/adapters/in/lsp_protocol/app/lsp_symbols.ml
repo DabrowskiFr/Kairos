@@ -16,11 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type semantic_symbols = {
+type semantic_symbols = Kairos_engine.Api.semantic_symbols = {
   all : string list;
   nodes : string list;
   states : string list;
-  vars : string list;
+  variables : string list;
 }
 
 type document_symbol = { name : string; line : int; character : int }
@@ -84,60 +84,13 @@ let identifier_occurrences
     lines;
   List.rev !out
 
-let semantic_symbols_of_program (p : Kx_ast.program) : semantic_symbols =
-  let tbl_all = Hashtbl.create 256 in
-  let tbl_nodes = Hashtbl.create 64 in
-  let tbl_states = Hashtbl.create 128 in
-  let tbl_vars = Hashtbl.create 256 in
-  let add tbl s = if s <> "" then Hashtbl.replace tbl s () in
-  List.iter
-    (fun (n : Kx_ast.node) ->
-      let sem = n.semantics in
-      add tbl_nodes sem.sem_nname;
-      add tbl_all sem.sem_nname;
-      List.iter
-        (fun st ->
-          add tbl_states st;
-          add tbl_all st)
-        sem.sem_states;
-      List.iter
-        (fun v ->
-          add tbl_vars v.Kx_core_syntax.vname;
-          add tbl_all v.Kx_core_syntax.vname)
-        sem.sem_inputs;
-      List.iter
-        (fun v ->
-          add tbl_vars v.Kx_core_syntax.vname;
-          add tbl_all v.Kx_core_syntax.vname)
-        sem.sem_outputs;
-      List.iter
-        (fun v ->
-          add tbl_vars v.Kx_core_syntax.vname;
-          add tbl_all v.Kx_core_syntax.vname)
-        sem.sem_locals)
-    p;
-  let to_list tbl =
-    Hashtbl.to_seq_keys tbl |> List.of_seq |> List.sort_uniq String.compare
-  in
-  {
-    all = to_list tbl_all;
-    nodes = to_list tbl_nodes;
-    states = to_list tbl_states;
-    vars = to_list tbl_vars;
-  }
-
-let parse_program_from_text (text : string) : Kx_ast.program option =
-  try
-    let source, _info =
-      Kx_parse_api.parse_source_text_with_info ~filename:"<lsp-buffer>" ~text
-    in
-    Some source.nodes
-  with _ -> None
+let semantic_symbols_for_text text =
+  Kairos_engine.Api.semantic_symbols ~text
 
 let symbol_kind (symbols : semantic_symbols) (ident : string) : string option =
   if List.mem ident symbols.nodes then Some "node"
   else if List.mem ident symbols.states then Some "state"
-  else if List.mem ident symbols.vars then Some "variable"
+  else if List.mem ident symbols.variables then Some "variable"
   else if List.mem ident symbols.all then Some "symbol"
   else None
 
@@ -163,7 +116,7 @@ let first_definition_position
   else if List.mem ident symbols.states then
     find_by_re
       (Str.regexp ("^[ \t]*states\\b.*\\b" ^ Str.quote ident ^ "\\b"))
-  else if List.mem ident symbols.vars then
+  else if List.mem ident symbols.variables then
     find_by_re
       (Str.regexp ("^[ \t]*.*\\b" ^ Str.quote ident ^ "\\b[ \t]*[:,)]"))
   else None

@@ -1,5 +1,6 @@
 (library
  (name kairos_lsp_app)
+ (public_name kairos-lsp.app)
  (wrapped false)
  (modules
   lsp_request_decode
@@ -12,9 +13,4 @@
   lsp_formatting
   lsp_app
   lsp_services)
- (libraries
-  kairos_application
-  kairos_lsp_protocol
-  kairos_input_lang
-  yojson
-  str))
+ (libraries kairos_engine kairos_lsp_protocol yojson str))

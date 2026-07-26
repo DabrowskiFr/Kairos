@@ -70,15 +70,21 @@ GROUPS = [
 ]
 
 
-NODE_RE = re.compile(r'"(?P<id>[^"]+)"\s+\[label="(?P<label>[^"]+)"')
+NODE_RE = re.compile(
+    r'"(?P<id>[^"]+)"\s*\[(?P<attributes>.*?)\];',
+    re.DOTALL,
+)
+LABEL_RE = re.compile(r'\blabel="(?P<label>[^"]+)"')
 EDGE_RE = re.compile(r'"(?P<src>[^"]+)"\s+->\s+"(?P<dst>[^"]+)"')
 
 
 def parse_graph(path: Path) -> tuple[dict[str, str], list[tuple[str, str]]]:
     text = path.read_text(encoding="utf-8", errors="replace")
-    id_to_label = {
-        match.group("id"): match.group("label") for match in NODE_RE.finditer(text)
-    }
+    id_to_label = {}
+    for match in NODE_RE.finditer(text):
+        label = LABEL_RE.search(match.group("attributes"))
+        if label is not None:
+            id_to_label[match.group("id")] = label.group("label")
     edges = [
         (match.group("src"), match.group("dst")) for match in EDGE_RE.finditer(text)
     ]

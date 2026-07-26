@@ -42,10 +42,8 @@ let completion_items_for_text (text : string) : string list =
   in
   List.iter push keywords;
   begin
-    match Lsp_symbols.parse_program_from_text text with
-    | Some p ->
-        let syms = Lsp_symbols.semantic_symbols_of_program p in
-        List.iter push syms.all
+    match Lsp_symbols.semantic_symbols_for_text text with
+    | Some symbols -> List.iter push symbols.all
     | None -> ()
   end;
   Hashtbl.to_seq_keys tbl |> List.of_seq |> List.sort_uniq String.compare

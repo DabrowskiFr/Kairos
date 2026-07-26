@@ -1,5 +1,6 @@
 (library
  (name kairos_application)
+ (public_name kairos.internal.application)
  (wrapped false)
  (modules
   flow_info

@@ -1,8 +1,13 @@
 (library
  (name kairos_lsp_protocol)
- (public_name kairos.lsp_protocol)
+ (public_name kairos-lsp.protocol)
  (wrapped false)
  (modules lsp_protocol)
- (libraries kairos_shared)
  (preprocess
   (pps ppx_deriving_yojson)))
+
+(test
+ (name lsp_protocol_tests)
+ (modules lsp_protocol_tests)
+ (package kairos-lsp)
+ (libraries kairos_lsp_protocol))

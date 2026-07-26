@@ -36,6 +36,9 @@
     "composition": [
       "kairos_composition"
     ],
+    "engine": [
+      "kairos_engine"
+    ],
     "proof_export": [
       "kairos_domain_proof_export"
     ],
@@ -95,6 +98,13 @@
       "verification",
       "foundation"
     ],
+    "engine": [
+      "shared",
+      "engine",
+      "composition",
+      "application",
+      "adapters_in"
+    ],
     "proof_export": [
       "shared",
       "proof_export",
@@ -104,6 +114,7 @@
     "adapters_in": [
       "shared",
       "adapters_in",
+      "engine",
       "application",
       "foundation"
     ],

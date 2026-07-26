@@ -1,5 +1,6 @@
 (library
  (name kairos_why3)
+ (public_name kairos.internal.why3)
  (wrapped false)
  (modules why_pipeline)
  (libraries

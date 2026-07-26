@@ -1,5 +1,6 @@
 (library
  (name kairos_runtime_proof)
+ (public_name kairos.internal.runtime_proof)
  (wrapped false)
  (modules
   proof_goal_attribution
@@ -20,6 +21,7 @@
 
 (library
  (name kairos_runtime_diagnostics)
+ (public_name kairos.internal.runtime_diagnostics)
  (wrapped false)
  (modules
   pipeline_outputs_helpers
@@ -45,6 +47,7 @@
 
 (library
  (name kairos_runtime_outputs)
+ (public_name kairos.internal.runtime_outputs)
  (wrapped false)
  (modules instrumentation_artifacts output_mapper pipeline_outputs)
  (modules_without_implementation instrumentation_artifacts)

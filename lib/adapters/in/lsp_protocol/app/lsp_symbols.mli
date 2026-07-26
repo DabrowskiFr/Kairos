@@ -18,17 +18,16 @@
 
 (** Symbol extraction and lookup helpers for LSP navigation features. *)
 
-type semantic_symbols = {
+type semantic_symbols = Kairos_engine.Api.semantic_symbols = {
   all : string list;
   nodes : string list;
   states : string list;
-  vars : string list;
+  variables : string list;
 }
 
 type document_symbol = { name : string; line : int; character : int }
 
-val parse_program_from_text : string -> Kx_ast.program option
-val semantic_symbols_of_program : Kx_ast.program -> semantic_symbols
+val semantic_symbols_for_text : string -> semantic_symbols option
 val symbol_kind : semantic_symbols -> string -> string option
 val identifier_occurrences : string -> string -> (int * int * int) list
 val identifier_at : string -> int -> int -> string option

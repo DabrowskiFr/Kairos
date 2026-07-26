@@ -3999,6 +3999,56 @@ def check_external_timing_boundaries(repo: Path) -> None:
         fail("external_timing_store.ml must use timing types, not redefine them")
 
 
+def check_lsp_package_boundary(repo: Path) -> None:
+    main_opam = (repo / "kairos.opam").read_text(encoding="utf-8")
+    for dependency in ['"jsonrpc"', '"lsp"']:
+        if dependency in main_opam:
+            fail(f"kairos.opam must not depend on optional LSP dependency {dependency}")
+
+    lsp_opam = (repo / "kairos-lsp.opam").read_text(encoding="utf-8")
+    for dependency in ['"kairos"', '"jsonrpc"', '"lsp"']:
+        if dependency not in lsp_opam:
+            fail(f"kairos-lsp.opam is missing dependency {dependency}")
+
+    lsp_dune = (repo / "bin/lsp/dune").read_text(encoding="utf-8")
+    if "(package kairos-lsp)" not in lsp_dune:
+        fail("kairos-lsp executable must belong to the kairos-lsp package")
+    for forbidden in ["kairos_application", "kairos_composition"]:
+        if forbidden in lsp_dune:
+            fail(f"kairos-lsp executable bypasses kairos.engine through {forbidden}")
+    if "kairos_engine" not in lsp_dune:
+        fail("kairos-lsp executable must depend on kairos.engine")
+
+    forbidden_references = [
+        r"\bPipeline_types\b",
+        r"\bCore_syntax\b",
+        r"\bVerification_model\b",
+        r"\bVerification_flow_usecases\b",
+        r"\bKairos_usecase_wiring\b",
+        r"\bKx_ast\b",
+        r"\bKx_parse_api\b",
+    ]
+    violations: list[str] = []
+    for root in [
+        repo / "bin/lsp",
+        repo / "lib/adapters/in/lsp_protocol",
+    ]:
+        for path in root.rglob("*"):
+            if path.suffix not in {".ml", ".mli"}:
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            for line_no, line in enumerate(text.splitlines(), start=1):
+                if any(re.search(pattern, line) for pattern in forbidden_references):
+                    violations.append(
+                        f"{path.relative_to(repo)}:{line_no}: {line.strip()}"
+                    )
+    if violations:
+        fail(
+            "LSP sources bypass the public kairos.engine facade:\n  - "
+            + "\n  - ".join(violations)
+        )
+
+
 def main() -> int:
     repo = Path(__file__).resolve().parents[1]
     check_no_legacy_kobj(repo)
@@ -4023,6 +4073,7 @@ def main() -> int:
     check_why3_runtime_view_boundaries(repo)
     check_external_why3_prover_boundaries(repo)
     check_external_timing_boundaries(repo)
+    check_lsp_package_boundary(repo)
     check_runtime_diagnostics_boundaries(repo)
     check_input_adapters_stay_thin(repo)
     print("[architecture-fitness] OK: architecture fitness checks passed")

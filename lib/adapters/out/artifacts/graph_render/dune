@@ -1,5 +1,6 @@
 (library
  (name kairos_artifact_graph_render)
+ (public_name kairos.internal.artifact_graph_render)
  (wrapped false)
  (modules
   automata_graph_dot

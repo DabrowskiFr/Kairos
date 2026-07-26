@@ -1,7 +1,7 @@
 (executable
  (name kairos_lsp)
  (public_name kairos-lsp)
- (package kairos)
+ (package kairos-lsp)
  (modules
   lsp_transport_io
   lsp_trace
@@ -94,8 +94,7 @@
   lsp_backend
   engine_service)
  (libraries
-  kairos_application
-  kairos_composition
+  kairos_engine
   kairos_lsp_protocol
   kairos_lsp_app
   kairos_external_graphviz

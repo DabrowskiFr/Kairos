@@ -142,34 +142,40 @@ flowchart TD
   end
   subgraph 902546259 ["(local)"]
 
-    id425900478(["kairos_why3_runtime_view"])
-    id642703016(["kairos_why3_render"])
-    id314920730(["kairos_why3_expr"])
-    id95718459(["kairos_why3_contracts"])
-    id459626317(["kairos_why3_compile"])
-    id430341543(["kairos_why3"])
-    id891116092(["kairos_verification_runtime"])
-    id12656250(["kairos_runtime_proof"])
-    id541219513(["kairos_runtime_outputs"])
-    id137781109(["kairos_runtime_diagnostics"])
-    id1024167296(["kairos_runtime_core"])
-    id528187403(["kairos_runtime_automata"])
-    id1041493191(["kairos_lsp_app"])
-    id617392183(["kairos_input_lang"])
-    id384666756(["kairos_external_why3"])
-    id381742327(["kairos_external_graphviz"])
-    id800053700(["kairos_composition"])
-    id161718582(["kairos_artifact_why_task_dump"])
-    id824396120(["kairos_artifact_text_render"])
-    id942172519(["kairos_artifact_graph_render"])
-    id1062694434(["kairos_application"])
+    id39758403(["kairos_c_codegen"])
+    id360346707(["kairos.verification_unit"])
     id41381939(["kairos.shared"])
-    id956540366(["kairos.lsp_protocol"])
-    id1047939387(["kairos.external_timing"])
-    id576094327(["kairos.external_spot"])
+    id667085455(["kairos.sequential_ir"])
+    id745393601(["kairos.observation_model"])
+    id818182390(["kairos.internal.why3_runtime_view"])
+    id1012753001(["kairos.internal.why3_render"])
+    id143033156(["kairos.internal.why3_expr"])
+    id831551540(["kairos.internal.why3_contracts"])
+    id61037662(["kairos.internal.why3_compile"])
+    id363607354(["kairos.internal.why3"])
+    id356889899(["kairos.internal.verification_runtime"])
+    id835658494(["kairos.internal.runtime_proof"])
+    id902833893(["kairos.internal.runtime_outputs"])
+    id476194349(["kairos.internal.runtime_diagnostics"])
+    id385947710(["kairos.internal.runtime_core"])
+    id248638701(["kairos.internal.runtime_automata"])
+    id16686930(["kairos.internal.input_lang"])
+    id962147077(["kairos.internal.composition"])
+    id958243360(["kairos.internal.artifact_text_render"])
+    id266353272(["kairos.internal.artifact_graph_render"])
+    id1070284156(["kairos.internal.application"])
+    id97846301(["kairos.engine"])
     id930986246(["kairos.domain_verification"])
     id35199649(["kairos.domain_proof_export"])
     id1025403665(["kairos.domain_core"])
+    id798752935(["kairos-why3-adapter.runtime"])
+    id458148623(["kairos-telemetry.runtime"])
+    id953615773(["kairos-spot-adapter"])
+    id356887988(["kairos-proof-contract"])
+    id1072327609(["kairos-lsp.protocol"])
+    id890026226(["kairos-lsp.app"])
+    id1017323711(["kairos-graphviz-adapter"])
+    id590397133(["kairos-automata-contract"])
     id839032564{"kairos_lsp"}
     id976590762{"kairos"}
   end
@@ -182,10 +188,10 @@ flowchart TD
     style id268189549 fill:#BBB
   end
   id976590762-->id746976749
-  id976590762-->id800053700
+  id976590762-->id962147077
+  id976590762-->id39758403
   id839032564-->id312940537
-  id839032564-->id800053700
-  id839032564-->id1041493191
+  id839032564-->id890026226
   id1060604959-->id475016005
   id1060604959-->id359279316
   id1060604959-->id513878372
@@ -230,59 +236,67 @@ flowchart TD
   id378552737-->id955311961
   id378552737-->id813421022
   id499228351-->id939231628
+  id590397133-->id951852321
+  id590397133-->id268189549
+  id1017323711-->id1060604959
+  id890026226-->id1072327609
+  id890026226-->id97846301
+  id1072327609-->id951852321
+  id1072327609-->id268189549
+  id356887988-->id951852321
+  id356887988-->id268189549
+  id953615773-->id445558595
+  id953615773-->id590397133
+  id458148623-->id445558595
+  id798752935-->id378552737
+  id798752935-->id356887988
+  id798752935-->id458148623
   id1025403665-->id901935611
   id1025403665-->id951852321
   id1025403665-->id268189549
   id35199649-->id930986246
   id930986246-->id1025403665
-  id576094327-->id930986246
-  id576094327-->id1047939387
-  id1047939387-->id445558595
-  id956540366-->id951852321
-  id956540366-->id268189549
-  id956540366-->id41381939
+  id97846301-->id962147077
+  id1070284156-->id1025403665
+  id1070284156-->id41381939
+  id266353272-->id930986246
+  id958243360-->id1025403665
+  id962147077-->id16686930
+  id962147077-->id356889899
+  id16686930-->id550106276
+  id16686930-->id615927850
+  id16686930-->id1070284156
+  id248638701-->id953615773
+  id248638701-->id458148623
+  id248638701-->id930986246
+  id248638701-->id1070284156
+  id385947710-->id458148623
+  id385947710-->id930986246
+  id385947710-->id1070284156
+  id476194349-->id35199649
+  id476194349-->id266353272
+  id476194349-->id385947710
+  id902833893-->id1017323711
+  id902833893-->id476194349
+  id902833893-->id835658494
+  id835658494-->id1070284156
+  id835658494-->id363607354
+  id356889899-->id958243360
+  id356889899-->id248638701
+  id356889899-->id902833893
+  id363607354-->id798752935
+  id363607354-->id1012753001
+  id61037662-->id458148623
+  id61037662-->id831551540
+  id831551540-->id143033156
+  id831551540-->id818182390
+  id143033156-->id378552737
+  id143033156-->id1025403665
+  id1012753001-->id61037662
+  id818182390-->id930986246
+  id745393601-->id667085455
+  id667085455-->id951852321
+  id667085455-->id268189549
   id41381939-->id445558595
-  id1062694434-->id1025403665
-  id1062694434-->id41381939
-  id942172519-->id930986246
-  id824396120-->id378552737
-  id824396120-->id1025403665
-  id161718582-->id384666756
-  id800053700-->id617392183
-  id800053700-->id891116092
-  id381742327-->id1060604959
-  id384666756-->id378552737
-  id384666756-->id1025403665
-  id384666756-->id1047939387
-  id617392183-->id550106276
-  id617392183-->id615927850
-  id617392183-->id1062694434
-  id1041493191-->id813421022
-  id1041493191-->id956540366
-  id1041493191-->id617392183
-  id528187403-->id576094327
-  id528187403-->id1062694434
-  id1024167296-->id930986246
-  id1024167296-->id1047939387
-  id1024167296-->id1062694434
-  id137781109-->id35199649
-  id137781109-->id942172519
-  id137781109-->id1024167296
-  id541219513-->id381742327
-  id541219513-->id137781109
-  id541219513-->id12656250
-  id12656250-->id1062694434
-  id12656250-->id824396120
-  id12656250-->id430341543
-  id891116092-->id528187403
-  id891116092-->id541219513
-  id430341543-->id161718582
-  id430341543-->id642703016
-  id459626317-->id1047939387
-  id459626317-->id95718459
-  id95718459-->id314920730
-  id95718459-->id425900478
-  id314920730-->id378552737
-  id314920730-->id1025403665
-  id642703016-->id459626317
-  id425900478-->id930986246
+  id360346707-->id745393601
+  id39758403-->id1025403665

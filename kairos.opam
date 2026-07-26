@@ -1,8 +1,8 @@
 opam-version: "2.0"
 name: "kairos"
 version: "dev"
-synopsis: "Kairos CLI, LSP server, and native IDE"
-description: "Kairos toolchain including the command-line interface, language server, and native IDE."
+synopsis: "Kairos verification engine and command-line interface"
+description: "Kairos verification engine, language frontend, and command-line interface."
 depends: [
   "dune" {>= "3.10"}
   "rocq-prover"
@@ -17,8 +17,6 @@ depends: [
   "kairos-telemetry" {= version}
   "kairos-why3-adapter" {= version}
   "kairos-graphviz-adapter" {= version}
-  "jsonrpc"
-  "lsp"
 ]
 build: [
   ["dune" "build" "-p" name "-j" jobs "@install"]

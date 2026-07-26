@@ -1,0 +1,6 @@
+(library
+ (name kairos_engine)
+ (public_name kairos.engine)
+ (wrapped true)
+ (modules api)
+ (libraries kairos_application kairos_composition kairos_input_lang str))

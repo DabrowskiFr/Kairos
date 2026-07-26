@@ -16,9 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Usecases = Verification_flow_usecases.Make (Kairos_usecase_wiring.Ports)
+module Engine = Kairos_engine.Api
 
-let map_error = Pipeline_types.error_to_string
+let map_error = Engine.error_to_string
 
 let with_engine
     (engine : Engine_service.engine)
@@ -33,7 +33,7 @@ let engine_of_string s =
 let instrumentation_pass (req : Lsp_protocol.instrumentation_pass_request) =
   with_engine (engine_of_string req.engine) (fun () ->
       match
-        Usecases.instrumentation_pass ~generate_png:req.generate_png
+        Engine.instrumentation_pass ~generate_png:req.generate_png
           ~input_file:req.input_file
       with
       | Ok out -> Ok (Lsp_pipeline_mapper.map_automata out)
@@ -42,10 +42,7 @@ let instrumentation_pass (req : Lsp_protocol.instrumentation_pass_request) =
 let why_pass (req : Lsp_protocol.why_pass_request) =
   with_engine (engine_of_string req.engine) (fun () ->
       match
-        Usecases.why_pass
-          ~proof_encoding:Pipeline_types.default_proof_encoding
-          ~proof_optimizations:Pipeline_types.default_proof_optimizations
-          ~input_file:req.input_file
+        Engine.why_pass ~input_file:req.input_file
       with
       | Ok out -> Ok (Lsp_pipeline_mapper.map_why out)
       | Error e -> Error (map_error e))
@@ -53,10 +50,7 @@ let why_pass (req : Lsp_protocol.why_pass_request) =
 let obligations_pass (req : Lsp_protocol.obligations_pass_request) =
   with_engine (engine_of_string req.engine) (fun () ->
       match
-        Usecases.obligations_pass
-          ~proof_encoding:Pipeline_types.default_proof_encoding
-          ~proof_optimizations:Pipeline_types.default_proof_optimizations
-          ~input_file:req.input_file
+        Engine.obligations_pass ~input_file:req.input_file
       with
       | Ok out -> Ok (Lsp_pipeline_mapper.map_oblig out)
       | Error e -> Error (map_error e))
@@ -64,10 +58,7 @@ let obligations_pass (req : Lsp_protocol.obligations_pass_request) =
 let normalized_program (req : Lsp_protocol.text_dump_request) =
   with_engine (engine_of_string req.engine) (fun () ->
       match
-        Usecases.normalized_program
-          ~proof_encoding:Pipeline_types.default_proof_encoding
-          ~proof_optimizations:Pipeline_types.default_proof_optimizations
-          ~input_file:req.input_file
+        Engine.normalized_program ~input_file:req.input_file
       with
       | Ok text -> Ok text
       | Error e -> Error (map_error e))
@@ -75,17 +66,14 @@ let normalized_program (req : Lsp_protocol.text_dump_request) =
 let ir_pretty_dump (req : Lsp_protocol.text_dump_request) =
   with_engine (engine_of_string req.engine) (fun () ->
       match
-        Usecases.ir_pretty_dump
-          ~proof_encoding:Pipeline_types.default_proof_encoding
-          ~proof_optimizations:Pipeline_types.default_proof_optimizations
-          ~input_file:req.input_file
+        Engine.ir_pretty_dump ~input_file:req.input_file
       with
       | Ok text -> Ok text
       | Error e -> Error (map_error e))
 
 let run ~engine (cfg : Lsp_protocol.config) =
   with_engine engine (fun () ->
-      match Usecases.run (Lsp_backend_config.pipeline_config_of_protocol cfg) with
+      match Engine.run (Lsp_backend_config.pipeline_config_of_protocol cfg) with
       | Ok out -> Ok (Lsp_pipeline_mapper.map_outputs out)
       | Error e -> Error (map_error e))
 
@@ -94,7 +82,7 @@ let run_with_callbacks ~engine ~should_cancel
     ~on_outputs_ready ~on_goals_ready ~on_goal_done =
   with_engine engine (fun () ->
       match
-        Usecases.run_with_callbacks ~should_cancel
+        Engine.run_with_callbacks ~should_cancel
           (Lsp_backend_config.pipeline_config_of_protocol cfg)
           ~on_outputs_ready:(fun out ->
             on_outputs_ready (Lsp_pipeline_mapper.map_outputs out))

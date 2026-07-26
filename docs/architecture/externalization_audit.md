@@ -2,6 +2,10 @@
 
 Date : 2026-07-26
 
+Statut : recommandation LSP réalisée par l'ADR-0016. Le paquet principal
+expose désormais `kairos.engine`; le protocole, l'adaptateur et l'exécutable
+appartiennent au paquet `kairos-lsp`.
+
 ## Objet
 
 Cet audit cherche les prochaines séparations qui diminuent réellement la
@@ -204,17 +208,17 @@ moteur Kairos en processus ; aucun protocole interprocessus n'est nécessaire.
 
 | Option | Volume brut déplacé | Effet sur le chemin actif | Contrat requis | Décision |
 | --- | ---: | --- | --- | --- |
-| paquet LSP séparé | 6 734 | retire une surface périphérique complète | façade applicative étroite | **prochaine étape** |
+| paquet LSP séparé | 6 734 | retire une surface périphérique complète | façade applicative étroite | **réalisé** |
 | paquet IR séquentiel | 1 002 | aucun actuellement | déjà stable structurellement | attendre un producteur/consommateur |
 | backend C autonome | 1 128 | conserve une dépendance au modèle Kairos | nouvel abaissement séquentiel | différer |
 | émission DOT générique | 203 | aucun effet sémantique | graphe prêt à émettre | option opportuniste |
 | tous les renderers | 1 726 | diagnostics seulement | miroir excessif des types métier | rejeter en bloc |
 | compilateur WhyML | 8 201 | touche la projection des obligations | IR de preuve complet ou fuite de `Ir` | conserver dans Kairos |
 
-## Prochaine étape recommandée
+## Séparation LSP réalisée
 
-Créer une frontière de distribution `kairos-engine` / `kairos-lsp`, sans
-déplacer immédiatement les algorithmes :
+La frontière de distribution `kairos.engine` / `kairos-lsp` a été créée sans
+déplacer les algorithmes :
 
 1. inventorier les opérations réellement appelées par `bin/lsp` et
    `kairos_lsp_app` ;

@@ -91,7 +91,6 @@ digraph "why3_product_backend" {
   "Why_compile_product_grouped_helper" -> "Why_compile_product_helper_body";
   "Why_compile_product_grouped_helper" -> "Why_compile_product_helper_types";
   "Why_compile_product_grouped_helper" -> "Why_compile_product_layout";
-  "Why_compile_product_grouped_helper" -> "Why_product_step_names";
   "Why_compile_product_groups" -> "Why_compile_product_group_cost";
   "Why_compile_product_groups" -> "Why_compile_product_group_partition";
   "Why_compile_product_groups" -> "Why_compile_product_group_policy";
@@ -104,9 +103,7 @@ digraph "why3_product_backend" {
   "Why_compile_product_individual_helper" -> "Why_compile_product_groups";
   "Why_compile_product_individual_helper" -> "Why_compile_product_helper_body";
   "Why_compile_product_individual_helper" -> "Why_compile_product_helper_types";
-  "Why_compile_product_individual_helper" -> "Why_product_step_names";
   "Why_compile_product_metrics" -> "Why_compile_product_groups";
-  "Why_compile_product_metrics" -> "Why_product_step_names";
   "Why_compile_product_pipeline" -> "Why_compile_product_bundle_state";
   "Why_compile_product_pipeline" -> "Why_compile_product_helpers";
   "Why_compile_product_pipeline" -> "Why_compile_product_plan";

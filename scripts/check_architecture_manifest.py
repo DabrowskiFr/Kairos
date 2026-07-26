@@ -40,6 +40,7 @@ def main() -> int:
         "packages/why3",
         "lib/application",
         "lib/composition",
+        "lib/engine",
         "lib/adapters/in/kairos_lang",
         "lib/adapters/in/lsp_protocol",
         "lib/adapters/out/runtime",
@@ -65,6 +66,7 @@ def main() -> int:
         "docs/architecture/decisions/ADR-0013-standalone-spot-packages.md",
         "docs/architecture/decisions/ADR-0014-standalone-why3-adapter.md",
         "docs/architecture/decisions/ADR-0015-standalone-graphviz-adapter.md",
+        "docs/architecture/decisions/ADR-0016-standalone-lsp-package.md",
         "docs/architecture/decisions/ADR-0010-explicit-rocq-alignment-projections.md",
         "docs/architecture/structurizr/workspace.dsl",
         "docs/reference_pipeline_boundaries.json",
@@ -76,6 +78,7 @@ def main() -> int:
         "scripts/check_reference_pipeline_boundaries.py",
         "scripts/check_rocq_alignment_manifest.py",
         "scripts/check_architecture_fitness.py",
+        "kairos-lsp.opam",
         "tests/check_reference_stability.sh",
         ".github/workflows/architecture.yml",
     ]

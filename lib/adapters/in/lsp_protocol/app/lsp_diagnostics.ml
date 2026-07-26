@@ -24,54 +24,14 @@ type diagnostic = {
   message : string;
 }
 
-let parse_line_col_from_error (msg : string) : (int * int) option =
-  let re = Str.regexp ".*:\\([0-9]+\\):\\([0-9]+\\)" in
-  if Str.string_match re msg 0 then
-    Some
-      ( int_of_string (Str.matched_group 1 msg),
-        int_of_string (Str.matched_group 2 msg) )
-  else None
-
-let mk_diag ~severity ~source ~message : diagnostic =
-  let line, col =
-    match parse_line_col_from_error message with
-    | Some (l, c) -> (max 0 (l - 1), max 0 (c - 1))
-    | None -> (0, 0)
-  in
-  { line; col; severity; source; message }
-
-let frontend_error_source = function
-  | Kx_frontend_error.Parse -> "kairos-parse"
-  | Kx_frontend_error.Elaboration -> "kairos-elaboration"
-  | Kx_frontend_error.Type -> "kairos-type"
-  | Kx_frontend_error.Well_formedness -> "kairos-well-formedness"
-  | Kx_frontend_error.Internal -> "kairos-internal"
-
 let diagnostics_for_text ~uri:_ ~(text : string) : diagnostic list =
-  try
-    let _source, info =
-      Kx_parse_api.parse_source_text_with_info ~filename:"<lsp-buffer>" ~text
-    in
-    let diags = ref [] in
-    List.iter
-      (fun e ->
-        diags :=
-          mk_diag ~severity:1 ~source:"kairos-parse"
-            ~message:e.Kx_parse_api.message
-          :: !diags)
-      info.Kx_parse_api.parse_errors;
-    List.iter
-      (fun w ->
-        diags :=
-          mk_diag ~severity:2 ~source:"kairos-parse" ~message:w :: !diags)
-      info.Kx_parse_api.warnings;
-    List.rev !diags
-  with
-  | Kx_frontend_error.Error err ->
-      [
-        mk_diag ~severity:1 ~source:(frontend_error_source err.kind)
-          ~message:err.message;
-      ]
-  | exn ->
-      let msg = Printexc.to_string exn in
-      [ mk_diag ~severity:1 ~source:"kairos-internal" ~message:msg ]
+  Kairos_engine.Api.source_diagnostics ~text
+  |> List.map
+       (fun (item : Kairos_engine.Api.source_diagnostic) ->
+         {
+           line = item.line;
+           col = item.column;
+           severity = item.severity;
+           source = item.source;
+           message = item.message;
+         })

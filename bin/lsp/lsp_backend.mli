@@ -16,7 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-val pipeline_config_of_protocol : Lsp_protocol.config -> Pipeline_types.config
+val pipeline_config_of_protocol :
+  Lsp_protocol.config -> Kairos_engine.Api.config
 
 val instrumentation_pass :
   Lsp_protocol.instrumentation_pass_request ->

@@ -20,10 +20,9 @@ let resolve (docs : Lsp_document_store.t) params =
   | Some doc -> (
       match
         ( Lsp_symbols.identifier_at doc.text doc.line doc.character,
-          Lsp_symbols.parse_program_from_text doc.text )
+          Lsp_symbols.semantic_symbols_for_text doc.text )
       with
-      | Some ident, Some program ->
-          let symbols = Lsp_symbols.semantic_symbols_of_program program in
+      | Some ident, Some symbols ->
           Some { uri = doc.uri; text = doc.text; ident; symbols }
       | _ -> None)
   | None -> None

@@ -16,17 +16,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Core_syntax
+module Engine = Kairos_engine.Api
 
-let loc_of_ast (l : Loc.loc) : Lsp_protocol.loc =
-  { line = l.line; col = l.col; line_end = l.line_end; col_end = l.col_end }
+let loc_of_engine location : Lsp_protocol.loc =
+  {
+    line = Engine.source_location_line location;
+    col = Engine.source_location_column location;
+    line_end = Engine.source_location_end_line location;
+    col_end = Engine.source_location_end_column location;
+  }
 
-let text_span_of_pipeline (span : Pipeline_types.text_span) :
+let text_span_of_pipeline (span : Engine.Types.text_span) :
     Lsp_protocol.text_span =
   { start_offset = span.start_offset; end_offset = span.end_offset }
 
 let proof_diagnostic_of_pipeline
-    (diag : Pipeline_types.proof_diagnostic) :
+    (diag : Engine.Types.proof_diagnostic) :
     Lsp_protocol.proof_diagnostic =
   {
     category = diag.category;
@@ -51,7 +56,7 @@ let proof_diagnostic_of_pipeline
   }
 
 let proof_trace_of_pipeline
-    (trace : Pipeline_types.proof_trace) :
+    (trace : Engine.Types.proof_trace) :
     Lsp_protocol.proof_trace =
   {
     goal_index = trace.goal_index;
@@ -67,7 +72,8 @@ let proof_trace_of_pipeline
     obligation_family = trace.obligation_family;
     obligation_category = trace.obligation_category;
     vc_id = trace.vc_id;
-    source_span = Option.map loc_of_ast trace.source_span;
+    source_span =
+      Option.map loc_of_engine (Engine.proof_trace_source_location trace);
     why_span = Option.map text_span_of_pipeline trace.why_span;
     vc_span = Option.map text_span_of_pipeline trace.vc_span;
     smt_span = Option.map text_span_of_pipeline trace.smt_span;
@@ -75,7 +81,7 @@ let proof_trace_of_pipeline
     diagnostic = proof_diagnostic_of_pipeline trace.diagnostic;
   }
 
-let map_outputs (o : Pipeline_types.outputs) : Lsp_protocol.outputs =
+let map_outputs (o : Engine.Types.outputs) : Lsp_protocol.outputs =
   {
     why_text = o.why_text;
     vc_text = o.vc_text;
@@ -96,8 +102,12 @@ let map_outputs (o : Pipeline_types.outputs) : Lsp_protocol.outputs =
     flow_meta = o.flow_meta;
     goals = o.goals;
     proof_traces = List.map proof_trace_of_pipeline o.proof_traces;
-    vc_locs = List.map (fun (i, l) -> (i, loc_of_ast l)) o.vc_locs;
-    vc_locs_ordered = List.map loc_of_ast o.vc_locs_ordered;
+    vc_locs =
+      List.map
+        (fun (index, location) -> (index, loc_of_engine location))
+        (Engine.output_vc_locations o);
+    vc_locs_ordered =
+      List.map loc_of_engine (Engine.output_ordered_vc_locations o);
     vc_spans_ordered = o.vc_spans_ordered;
     why_spans = o.why_spans;
     vc_ids_ordered = o.vc_ids_ordered;
@@ -120,7 +130,7 @@ let map_outputs (o : Pipeline_types.outputs) : Lsp_protocol.outputs =
   }
 
 let map_automata
-    (o : Pipeline_types.automata_outputs) :
+    (o : Engine.Types.automata_outputs) :
     Lsp_protocol.automata_outputs =
   {
     dot_text = o.dot_text;
@@ -151,10 +161,10 @@ let map_automata
     eliminated_clauses_text = o.eliminated_clauses_text;
   }
 
-let map_why (o : Pipeline_types.why_outputs) : Lsp_protocol.why_outputs =
+let map_why (o : Engine.Types.why_outputs) : Lsp_protocol.why_outputs =
   { why_text = o.why_text; flow_meta = o.flow_meta }
 
 let map_oblig
-    (o : Pipeline_types.obligations_outputs) :
+    (o : Engine.Types.obligations_outputs) :
     Lsp_protocol.obligations_outputs =
   { vc_text = o.vc_text; smt_text = o.smt_text }

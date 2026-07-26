@@ -1,5 +1,6 @@
 (library
  (name kairos_why3_render)
+ (public_name kairos.internal.why3_render)
  (wrapped false)
  (modules why_text_render)
  (libraries kairos_why3_compile why3))

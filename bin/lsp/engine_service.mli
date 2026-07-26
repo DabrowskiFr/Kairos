@@ -23,4 +23,3 @@ type engine = Default
 val engine_of_string : string -> engine option
 val string_of_engine : engine -> string
 val normalize : engine -> engine
-val error_to_string : Pipeline_types.error -> string

@@ -1,5 +1,6 @@
 (library
  (name kairos_input_lang)
+ (public_name kairos.internal.input_lang)
  (wrapped false)
  (modules
   kx_loc

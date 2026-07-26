@@ -4,7 +4,9 @@
 
 | Block | Main paths | Responsibility | Correction role |
 | --- | --- | --- | --- |
-| CLI/LSP | `bin/cli`, `bin/lsp`, `vscode` | User interaction | None |
+| CLI | `bin/cli` | Command-line interaction | None |
+| LSP package | `bin/lsp`, `lib/adapters/in/lsp_protocol`, `vscode` | Optional editor interaction through `kairos.engine` | None |
+| Engine facade | `lib/engine` | Stable in-process embedding boundary | None |
 | Shared helpers | `lib/shared` | Dependency-free technical defaults | None |
 | Automata contract | `packages/automata-contract` | Autonomous versioned LTL/automata exchange over opaque atoms | None |
 | Proof backend contract | `packages/proof-contract` | Autonomous versioned WhyML execution/results exchange | None |

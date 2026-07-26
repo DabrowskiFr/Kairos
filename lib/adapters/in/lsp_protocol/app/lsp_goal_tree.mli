@@ -45,7 +45,7 @@ type goal_tree_node = {
 }
 
 val goals_tree_final :
-  goals:Pipeline_types.goal_info list ->
+  goals:Lsp_protocol.goal_info list ->
   vc_text:string ->
   goal_tree_node list
 
