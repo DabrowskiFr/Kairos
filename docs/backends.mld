@@ -12,7 +12,7 @@ artifacts.
 {1 Main areas in the repository}
 
 - `lib/adapters/out/provers/why3`
-  Kairos IR-to-WhyML translation, runtime views, and backend planning.
+  Direct Kairos IR-to-WhyML translation and backend planning.
 
 - `packages/proof-contract`
   Versioned neutral WhyML execution policy, goal results, events, VC/SMT

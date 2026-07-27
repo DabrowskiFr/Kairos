@@ -58,10 +58,6 @@ digraph G {
   "kairos-engine-runtime.internal.runtime_proof";
   "kairos-engine-runtime.internal.why3";
   "kairos-engine-runtime.internal.why3_compile";
-  "kairos-engine-runtime.internal.why3_contracts";
-  "kairos-engine-runtime.internal.why3_expr";
-  "kairos-engine-runtime.internal.why3_render";
-  "kairos-engine-runtime.internal.why3_runtime_view";
   "kairos-lsp.app";
   "kairos-lsp.protocol";
   "kairos-proof-contract";
@@ -316,118 +312,31 @@ digraph G {
                                                               shape=box, ];
   "kairos-engine-runtime.internal.why3_compile__Why_compile_bundles" [
   label="Why_compile_bundles", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_contract_facts" [
-  label="Why_compile_contract_facts", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing" [
-  label="Why_compile_formula_sharing", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_deps" [
-  label="Why_compile_formula_sharing_deps", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_emit" [
-  label="Why_compile_formula_sharing_emit", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_inventory" [
-  label="Why_compile_formula_sharing_inventory", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_helper_unit" [
-  label="Why_compile_helper_unit", shape=box, ];
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_expr" [label="Why_compile_expr",
+                                                                   shape=box, ];
   "kairos-engine-runtime.internal.why3_compile__Why_compile_init_goals" [
   label="Why_compile_init_goals", shape=box, ];
   "kairos-engine-runtime.internal.why3_compile__Why_compile_logic" [label="Why_compile_logic",
                                                                     shape=box,
                                                                     ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_decls" [
-  label="Why_compile_logic_decls", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_formula" [
-  label="Why_compile_logic_formula", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_functions" [
-  label="Why_compile_logic_functions", shape=box, ];
   "kairos-engine-runtime.internal.why3_compile__Why_compile_modules" [
   label="Why_compile_modules", shape=box, ];
   "kairos-engine-runtime.internal.why3_compile__Why_compile_node_common" [
   label="Why_compile_node_common", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_node_getters" [
-  label="Why_compile_node_getters", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_node_inputs" [
-  label="Why_compile_node_inputs", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_node_types" [
-  label="Why_compile_node_types", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_bundle_state" [
-  label="Why_compile_product_bundle_state", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_boundary" [
-  label="Why_compile_product_group_boundary", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_cost" [
-  label="Why_compile_product_group_cost", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_factoring" [
-  label="Why_compile_product_group_factoring", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_partition" [
-  label="Why_compile_product_group_partition", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_policy" [
-  label="Why_compile_product_group_policy", shape=box, ];
   "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_terms" [
   label="Why_compile_product_group_terms", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_grouped_helper" [
-  label="Why_compile_product_grouped_helper", shape=box, ];
   "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups" [
   label="Why_compile_product_groups", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_body" [
-  label="Why_compile_product_helper_body", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_types" [
-  label="Why_compile_product_helper_types", shape=box, ];
   "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helpers" [
   label="Why_compile_product_helpers", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_individual_helper" [
-  label="Why_compile_product_individual_helper", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_layout" [
-  label="Why_compile_product_layout", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_metrics" [
-  label="Why_compile_product_metrics", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_pipeline" [
-  label="Why_compile_product_pipeline", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan" [
-  label="Why_compile_product_plan", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan_metrics" [
-  label="Why_compile_product_plan_metrics", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_spec_labels" [
-  label="Why_compile_product_spec_labels", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_spec_terms" [
-  label="Why_compile_product_spec_terms", shape=box, ];
   "kairos-engine-runtime.internal.why3_compile__Why_compile_product_specs" [
   label="Why_compile_product_specs", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_binders" [
-  label="Why_compile_ptree_binders", shape=box, ];
   "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers" [
   label="Why_compile_ptree_helpers", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_names" [
-  label="Why_compile_ptree_names", shape=box, ];
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_terms" [
-  label="Why_compile_ptree_terms", shape=box, ];
   "kairos-engine-runtime.internal.why3_compile__Why_compile_step" [label="Why_compile_step",
                                                                    shape=box, ];
-  "kairos-engine-runtime.internal.why3_contracts__Why_contracts" [label="Why_contracts",
-                                                                  shape=box, ];
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr" [label="Why_compile_expr",
-                                                                shape=box, ];
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_compile" [
-  label="Why_compile_expr_compile", shape=box, ];
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_env" [label="Why_compile_expr_env",
-                                                                    shape=box,
-                                                                    ];
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_mapping" [
-  label="Why_compile_expr_mapping", shape=box, ];
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_primitives" [
-  label="Why_compile_expr_primitives", shape=box, ];
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_print" [
-  label="Why_compile_expr_print", shape=box, ];
-  "kairos-engine-runtime.internal.why3_render__Why_text_render" [label="Why_text_render",
-                                                                 shape=box, ];
-  "kairos-engine-runtime.internal.why3_runtime_view__Why_product_step_names" [
+  "kairos-engine-runtime.internal.why3_compile__Why_product_step_names" [
   label="Why_product_step_names", shape=box, ];
-  "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view" [
-  label="Why_runtime_view", shape=box, ];
-  "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_actions" [
-  label="Why_runtime_view_actions", shape=box, ];
-  "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_slicing" [
-  label="Why_runtime_view_slicing", shape=box, ];
-  "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_types" [
-  label="Why_runtime_view_types", shape=box, ];
   "kairos-lsp.app__Lsp_completion" [label="Lsp_completion", shape=box, ];
   "kairos-lsp.app__Lsp_diagnostics" [label="Lsp_diagnostics", shape=box, ];
   "kairos-lsp.app__Lsp_formatting" [label="Lsp_formatting", shape=box, ];
@@ -688,9 +597,6 @@ digraph G {
        };
     subgraph cluster_244587595 { label="kairos_lsp"; "kairos_lsp__Lsp_workspace_symbol_handler";"kairos_lsp__Lsp_work_done_transport";"kairos_lsp__Lsp_why_pass_handler";"kairos_lsp__Lsp_transport_messages";"kairos_lsp__Lsp_transport_io";"kairos_lsp__Lsp_transport";"kairos_lsp__Lsp_trace";"kairos_lsp__Lsp_text_edit_view";"kairos_lsp__Lsp_text_document_request";"kairos_lsp__Lsp_symbol_view";"kairos_lsp__Lsp_symbol_context";"kairos_lsp__Lsp_standard_method_route";"kairos_lsp__Lsp_server_state_gate";"kairos_lsp__Lsp_server_state";"kairos_lsp__Lsp_server_loop";"kairos_lsp__Lsp_run_response";"kairos_lsp__Lsp_run_progress";"kairos_lsp__Lsp_run_preflight";"kairos_lsp__Lsp_run_notifications";"kairos_lsp__Lsp_run_method_route";"kairos_lsp__Lsp_run_execution_handler";"kairos_lsp__Lsp_run_context";"kairos_lsp__Lsp_run_config";"kairos_lsp__Lsp_run_backend";"kairos_lsp__Lsp_request_id_view";"kairos_lsp__Lsp_request_helpers";"kairos_lsp__Lsp_references_handler";"kairos_lsp__Lsp_pipeline_pass_input";"kairos_lsp__Lsp_pipeline_pass_decode";"kairos_lsp__Lsp_packet_trace";"kairos_lsp__Lsp_packet_handler";"kairos_lsp__Lsp_packet_decode";"kairos_lsp__Lsp_outline_view";"kairos_lsp__Lsp_outline_texts";"kairos_lsp__Lsp_outline_request_handler";"kairos_lsp__Lsp_outline_decode";"kairos_lsp__Lsp_obligations_pass_handler";"kairos_lsp__Lsp_method_route";"kairos_lsp__Lsp_method_dispatch";"kairos_lsp__Lsp_location_view";"kairos_lsp__Lsp_lifecycle_state";"kairos_lsp__Lsp_lifecycle_method_route";"kairos_lsp__Lsp_lifecycle_handlers";"kairos_lsp__Lsp_lifecycle_dispatch";"kairos_lsp__Lsp_kairos_method_route";"kairos_lsp__Lsp_jsonrpc_id";"kairos_lsp__Lsp_instrumentation_pass_handler";"kairos_lsp__Lsp_initialize_result_view";"kairos_lsp__Lsp_hover_view";"kairos_lsp__Lsp_hover_handler";"kairos_lsp__Lsp_graph_handler";"kairos_lsp__Lsp_graph_decode";"kairos_lsp__Lsp_goal_tree_view";"kairos_lsp__Lsp_goal_tree_pending_handler";"kairos_lsp__Lsp_goal_tree_final_handler";"kairos_lsp__Lsp_goal_tree_decode";"kairos_lsp__Lsp_formatting_handler";"kairos_lsp__Lsp_document_sync_state";"kairos_lsp__Lsp_document_sync_handlers";"kairos_lsp__Lsp_document_sync_decode";"kairos_lsp__Lsp_document_symbol_handler";"kairos_lsp__Lsp_document_store";"kairos_lsp__Lsp_document_diagnostics";"kairos_lsp__Lsp_dispatch_guard";"kairos_lsp__Lsp_diagnostic_view";"kairos_lsp__Lsp_definition_handler";"kairos_lsp__Lsp_completion_view";"kairos_lsp__Lsp_completion_handler";"kairos_lsp__Lsp_cancel_state";"kairos_lsp__Lsp_cancel_handler";"kairos_lsp__Lsp_cancel_decode";"kairos_lsp__Lsp_call_dispatch";"kairos_lsp__Lsp_call";"kairos_lsp__Lsp_backend_usecases";"kairos_lsp__Lsp_backend_graph";"kairos_lsp__Lsp_backend_config";"kairos_lsp__Kairos_lsp";"kairos_lsp__Engine_service";"kairos_lsp";
        };
-    subgraph cluster_291446932 { label="kairos-engine-runtime.internal.why3_contracts";
-                                 "kairos-engine-runtime.internal.why3_contracts__Why_contracts";"kairos-engine-runtime.internal.why3_contracts";
-       };
     subgraph cluster_295748073 { label="kairos-lsp.protocol"; "kairos-lsp.protocol__Lsp_protocol";"kairos-lsp.protocol";
        };
     subgraph cluster_300338983 { label="kairos-engine-runtime.internal.c_codegen";
@@ -700,13 +606,7 @@ digraph G {
        };
     subgraph cluster_41328262 { label="kairos-engine-runtime.internal.why3"; "kairos-engine-runtime.internal.why3__Why_pipeline";"kairos-engine-runtime.internal.why3";
        };
-    subgraph cluster_444242791 { label="kairos-engine-runtime.internal.why3_runtime_view";
-                                 "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_types";"kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_slicing";"kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_actions";"kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view";"kairos-engine-runtime.internal.why3_runtime_view__Why_product_step_names";"kairos-engine-runtime.internal.why3_runtime_view";
-       };
     subgraph cluster_601961544 { label="kairos.domain_proof_export"; "kairos.domain_proof_export__Proof_kernel_types";"kairos.domain_proof_export__Proof_kernel_step_summaries";"kairos.domain_proof_export__Proof_kernel_product_lookup";"kairos.domain_proof_export__Proof_kernel_product";"kairos.domain_proof_export__Proof_kernel_pass";"kairos.domain_proof_export__Proof_kernel_naming";"kairos.domain_proof_export__Proof_kernel_generated_clauses";"kairos.domain_proof_export__Proof_kernel_clause_lowering";"kairos.domain_proof_export__Proof_kernel_clause_context";"kairos.domain_proof_export__Ir_json_codec";"kairos.domain_proof_export";
-       };
-    subgraph cluster_642517710 { label="kairos-engine-runtime.internal.why3_render";
-                                 "kairos-engine-runtime.internal.why3_render__Why_text_render";"kairos-engine-runtime.internal.why3_render";
        };
     subgraph cluster_647299024 { label="kairos-engine-runtime.internal.artifact_text_render";
                                  "kairos-engine-runtime.internal.artifact_text_render__Ir_text_proof_view_render";"kairos-engine-runtime.internal.artifact_text_render__Ir_text_program_view_render";"kairos-engine-runtime.internal.artifact_text_render";
@@ -717,7 +617,7 @@ digraph G {
                                  "kairos-engine-runtime.internal.runtime_core__Runtime_snapshot";"kairos-engine-runtime.internal.runtime_core__Runtime_ir_merge";"kairos-engine-runtime.internal.runtime_core__Result_utils";"kairos-engine-runtime.internal.runtime_core__Pipeline_types";"kairos-engine-runtime.internal.runtime_core__Pipeline_build";"kairos-engine-runtime.internal.runtime_core__Instrumentation_info_helpers";"kairos-engine-runtime.internal.runtime_core__Instrumentation_info_builder";"kairos-engine-runtime.internal.runtime_core__Flow_info";"kairos-engine-runtime.internal.runtime_core__Contract_partition";"kairos-engine-runtime.internal.runtime_core";
        };
     subgraph cluster_741153584 { label="kairos-engine-runtime.internal.why3_compile";
-                                 "kairos-engine-runtime.internal.why3_compile__Why_compile_step";"kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_terms";"kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_names";"kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";"kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_binders";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_specs";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_spec_terms";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_spec_labels";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan_metrics";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_pipeline";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_metrics";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_layout";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_individual_helper";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_helpers";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_types";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_body";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_grouped_helper";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_terms";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_policy";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_partition";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_factoring";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_cost";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_boundary";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_bundle_state";"kairos-engine-runtime.internal.why3_compile__Why_compile_node_types";"kairos-engine-runtime.internal.why3_compile__Why_compile_node_inputs";"kairos-engine-runtime.internal.why3_compile__Why_compile_node_getters";"kairos-engine-runtime.internal.why3_compile__Why_compile_node_common";"kairos-engine-runtime.internal.why3_compile__Why_compile_modules";"kairos-engine-runtime.internal.why3_compile__Why_compile_logic_functions";"kairos-engine-runtime.internal.why3_compile__Why_compile_logic_formula";"kairos-engine-runtime.internal.why3_compile__Why_compile_logic_decls";"kairos-engine-runtime.internal.why3_compile__Why_compile_logic";"kairos-engine-runtime.internal.why3_compile__Why_compile_init_goals";"kairos-engine-runtime.internal.why3_compile__Why_compile_helper_unit";"kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_inventory";"kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_emit";"kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_deps";"kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing";"kairos-engine-runtime.internal.why3_compile__Why_compile_contract_facts";"kairos-engine-runtime.internal.why3_compile__Why_compile_bundles";"kairos-engine-runtime.internal.why3_compile__Why_compile";"kairos-engine-runtime.internal.why3_compile";
+                                 "kairos-engine-runtime.internal.why3_compile__Why_product_step_names";"kairos-engine-runtime.internal.why3_compile__Why_compile_step";"kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_specs";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_helpers";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups";"kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_terms";"kairos-engine-runtime.internal.why3_compile__Why_compile_node_common";"kairos-engine-runtime.internal.why3_compile__Why_compile_modules";"kairos-engine-runtime.internal.why3_compile__Why_compile_logic";"kairos-engine-runtime.internal.why3_compile__Why_compile_init_goals";"kairos-engine-runtime.internal.why3_compile__Why_compile_expr";"kairos-engine-runtime.internal.why3_compile__Why_compile_bundles";"kairos-engine-runtime.internal.why3_compile__Why_compile";"kairos-engine-runtime.internal.why3_compile";
        };
     subgraph cluster_757729241 { label="kairos.domain_core"; "kairos.domain_core__Verification_model";"kairos.domain_core__Pretty";"kairos.domain_core__Pre_k_lowering";"kairos.domain_core__Pre_k_layout";"kairos.domain_core__Log";"kairos.domain_core__Loc";"kairos.domain_core__Ir_transition";"kairos.domain_core__Ir_shared_types";"kairos.domain_core__Ir_formula";"kairos.domain_core__Ir";"kairos.domain_core__Historical_initialization";"kairos.domain_core__Core_syntax_builders";"kairos.domain_core__Core_syntax";"kairos.domain_core__Core_fo_simplifier_keys";"kairos.domain_core__Core_fo_simplifier_bool";"kairos.domain_core__Core_fo_simplifier";"kairos.domain_core";
        };
@@ -727,9 +627,6 @@ digraph G {
                                  "kairos-engine-runtime.internal.runtime_proof__Proof_traces";"kairos-engine-runtime.internal.runtime_proof__Proof_trace_diagnostics";"kairos-engine-runtime.internal.runtime_proof__Proof_text_blocks";"kairos-engine-runtime.internal.runtime_proof__Proof_runner";"kairos-engine-runtime.internal.runtime_proof__Proof_progress_output";"kairos-engine-runtime.internal.runtime_proof__Proof_goal_results";"kairos-engine-runtime.internal.runtime_proof__Proof_goal_attribution";"kairos-engine-runtime.internal.runtime_proof";
        };
     subgraph cluster_875769988 { label="kairos.internal.input_lang"; "kairos.internal.input_lang__Kx_surface_syntax";"kairos.internal.input_lang__Kx_parser";"kairos.internal.input_lang__Kx_parse_api";"kairos.internal.input_lang__Kx_loc";"kairos.internal.input_lang__Kx_lexer";"kairos.internal.input_lang__Kx_frontend_error";"kairos.internal.input_lang__Kx_elaborate_validation";"kairos.internal.input_lang__Kx_elaborate_subst";"kairos.internal.input_lang__Kx_elaborate_state_selectors";"kairos.internal.input_lang__Kx_elaborate_observers";"kairos.internal.input_lang__Kx_elaborate_names";"kairos.internal.input_lang__Kx_elaborate_logic";"kairos.internal.input_lang__Kx_elaborate_histories";"kairos.internal.input_lang__Kx_elaborate_env";"kairos.internal.input_lang__Kx_elaborate";"kairos.internal.input_lang__Kx_core_syntax_builders";"kairos.internal.input_lang__Kx_core_syntax";"kairos.internal.input_lang__Kx_ast_builders";"kairos.internal.input_lang__Kx_ast";"kairos.internal.input_lang__Kairos_to_model_validation_common";"kairos.internal.input_lang__Kairos_to_model_validation";"kairos.internal.input_lang__Kairos_to_model_node_validation";"kairos.internal.input_lang__Kairos_to_model_function_validation";"kairos.internal.input_lang__Kairos_to_model";"kairos.internal.input_lang__Kairos_frontend";"kairos.internal.input_lang";
-       };
-    subgraph cluster_885347282 { label="kairos-engine-runtime.internal.why3_expr";
-                                 "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_print";"kairos-engine-runtime.internal.why3_expr__Why_compile_expr_primitives";"kairos-engine-runtime.internal.why3_expr__Why_compile_expr_mapping";"kairos-engine-runtime.internal.why3_expr__Why_compile_expr_env";"kairos-engine-runtime.internal.why3_expr__Why_compile_expr_compile";"kairos-engine-runtime.internal.why3_expr__Why_compile_expr";"kairos-engine-runtime.internal.why3_expr";
        };
     subgraph cluster_912230518 { label="kairos-automata-contract"; "kairos-automata-contract__Kairos_automata_contract";"kairos-automata-contract__Automata_exchange";"kairos-automata-contract";
        };
@@ -877,84 +774,29 @@ digraph G {
   "kairos-engine-runtime.internal.runtime_proof" -> "kairos-engine-runtime.internal.runtime_proof__Proof_text_blocks";
   "kairos-engine-runtime.internal.runtime_proof" -> "kairos-engine-runtime.internal.runtime_proof__Proof_trace_diagnostics";
   "kairos-engine-runtime.internal.runtime_proof" -> "kairos-engine-runtime.internal.runtime_proof__Proof_traces";
-  "kairos-engine-runtime.internal.why3" -> "kairos-engine-runtime.internal.why3_render" [
-  minlen=2, lhead="cluster_642517710", ltail="cluster_41328262", ];
+  "kairos-engine-runtime.internal.why3" -> "kairos-engine-runtime.internal.why3_compile" [
+  minlen=2, lhead="cluster_741153584", ltail="cluster_41328262", ];
   "kairos-engine-runtime.internal.why3" -> "kairos-why3-adapter.runtime" [
   minlen=2, lhead="cluster_173521091", ltail="cluster_41328262", ];
   "kairos-engine-runtime.internal.why3" -> "kairos-engine-runtime.internal.why3__Why_pipeline";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_contracts" [
-  minlen=2, lhead="cluster_291446932", ltail="cluster_741153584", ];
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-telemetry.runtime" [
-  minlen=2, lhead="cluster_933883248", ltail="cluster_741153584", ];
+  "kairos-engine-runtime.internal.why3_compile" -> "why3" [ltail="cluster_741153584",
+                                                           ];
+  "kairos-engine-runtime.internal.why3_compile" -> "kairos.domain_verification" [
+  minlen=2, lhead="cluster_821673316", ltail="cluster_741153584", ];
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile";
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_bundles";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_contract_facts";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_deps";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_emit";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_inventory";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_helper_unit";
+  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_expr";
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_init_goals";
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_logic";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_decls";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_formula";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_functions";
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_modules";
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_node_common";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_node_getters";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_node_inputs";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_node_types";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_bundle_state";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_boundary";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_cost";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_factoring";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_partition";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_policy";
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_terms";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_grouped_helper";
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_body";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_types";
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helpers";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_individual_helper";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_layout";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_metrics";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_pipeline";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan_metrics";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_spec_labels";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_spec_terms";
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_specs";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_binders";
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_names";
-  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_terms";
   "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_step";
-  "kairos-engine-runtime.internal.why3_contracts" -> "kairos-engine-runtime.internal.why3_expr" [
-  minlen=2, lhead="cluster_885347282", ltail="cluster_291446932", ];
-  "kairos-engine-runtime.internal.why3_contracts" -> "kairos-engine-runtime.internal.why3_runtime_view" [
-  minlen=2, lhead="cluster_444242791", ltail="cluster_291446932", ];
-  "kairos-engine-runtime.internal.why3_contracts" -> "kairos-engine-runtime.internal.why3_contracts__Why_contracts";
-  "kairos-engine-runtime.internal.why3_expr" -> "why3" [ltail="cluster_885347282",
-                                                        ];
-  "kairos-engine-runtime.internal.why3_expr" -> "kairos.domain_core" [
-  minlen=2, lhead="cluster_757729241", ltail="cluster_885347282", ];
-  "kairos-engine-runtime.internal.why3_expr" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr";
-  "kairos-engine-runtime.internal.why3_expr" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_compile";
-  "kairos-engine-runtime.internal.why3_expr" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_env";
-  "kairos-engine-runtime.internal.why3_expr" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_mapping";
-  "kairos-engine-runtime.internal.why3_expr" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_primitives";
-  "kairos-engine-runtime.internal.why3_expr" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_print";
-  "kairos-engine-runtime.internal.why3_render" -> "kairos-engine-runtime.internal.why3_compile" [
-  minlen=2, lhead="cluster_741153584", ltail="cluster_642517710", ];
-  "kairos-engine-runtime.internal.why3_render" -> "kairos-engine-runtime.internal.why3_render__Why_text_render";
-  "kairos-engine-runtime.internal.why3_runtime_view" -> "kairos.domain_verification" [
-  minlen=2, lhead="cluster_821673316", ltail="cluster_444242791", ];
-  "kairos-engine-runtime.internal.why3_runtime_view" -> "kairos-engine-runtime.internal.why3_runtime_view__Why_product_step_names";
-  "kairos-engine-runtime.internal.why3_runtime_view" -> "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view";
-  "kairos-engine-runtime.internal.why3_runtime_view" -> "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_actions";
-  "kairos-engine-runtime.internal.why3_runtime_view" -> "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_slicing";
-  "kairos-engine-runtime.internal.why3_runtime_view" -> "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_types";
+  "kairos-engine-runtime.internal.why3_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_product_step_names";
   "kairos-lsp.app" -> "kairos-engine-runtime" [minlen=2,
                                                lhead="cluster_118526983",
                                                ltail="cluster_216678547", ];
@@ -1302,80 +1144,23 @@ digraph G {
   "kairos-engine-runtime.internal.runtime_proof__Proof_traces" -> "kairos-engine-runtime.internal.runtime_proof__Proof_goal_attribution";
   "kairos-engine-runtime.internal.runtime_proof__Proof_traces" -> "kairos-engine-runtime.internal.runtime_proof__Proof_goal_results";
   "kairos-engine-runtime.internal.runtime_proof__Proof_traces" -> "kairos-engine-runtime.internal.runtime_proof__Proof_trace_diagnostics";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing";
   "kairos-engine-runtime.internal.why3_compile__Why_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_init_goals";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_modules";
   "kairos-engine-runtime.internal.why3_compile__Why_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_node_common";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_pipeline";
   "kairos-engine-runtime.internal.why3_compile__Why_compile_bundles" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_contract_facts" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_bundles";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_deps";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_deps" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_emit";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_emit" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_inventory";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_formula_sharing_inventory" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_logic";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_init_goals" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_logic";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_logic" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_decls";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_logic" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_functions";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_decls" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_formula";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_formula" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_logic_functions" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_modules" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_helper_unit";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_modules" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_node_common" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_modules";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_node_common" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_node_getters";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_node_common" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_node_inputs";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_node_common" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_node_types";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_node_getters" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_logic";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_bundle_state" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_bundles";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_bundle_state" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_modules";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_cost" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_boundary";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_cost" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_factoring" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_boundary";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_factoring" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_partition" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_boundary";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_policy" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_boundary";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_terms" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_factoring";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_grouped_helper" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_grouped_helper" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_body";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_grouped_helper" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_types";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_grouped_helper" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_layout";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_cost";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_partition";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_policy";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_terms";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_body" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_step";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_types" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_helper_unit";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_types" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_specs";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helpers" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_grouped_helper";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helpers" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_individual_helper";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_individual_helper" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_individual_helper" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_body";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_individual_helper" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helper_types";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_metrics" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_pipeline" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_bundle_state";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_pipeline" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helpers";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_pipeline" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_pipeline" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan_metrics";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_contract_facts";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_layout";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_plan_metrics" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_metrics";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_spec_terms" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_bundles";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_spec_terms" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_spec_labels";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_specs" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_boundary";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_specs" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_spec_terms";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_binders" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_names";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_binders";
-  "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_terms";
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_compile";
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_print";
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_compile" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_env";
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_compile" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_mapping";
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_env" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_primitives";
-  "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_mapping" -> "kairos-engine-runtime.internal.why3_expr__Why_compile_expr_primitives";
-  "kairos-engine-runtime.internal.why3_runtime_view__Why_product_step_names" -> "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view";
-  "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view" -> "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_actions";
-  "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view" -> "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_slicing";
-  "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_actions" -> "kairos-engine-runtime.internal.why3_runtime_view__Why_runtime_view_types";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_init_goals" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_logic" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_modules" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helpers";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_node_common" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_logic";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_terms" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_specs";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helpers" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_groups";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helpers" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_step";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_helpers" -> "kairos-engine-runtime.internal.why3_compile__Why_product_step_names";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_specs" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_bundles";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_product_specs" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_product_group_terms";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_expr";
+  "kairos-engine-runtime.internal.why3_compile__Why_compile_step" -> "kairos-engine-runtime.internal.why3_compile__Why_compile_ptree_helpers";
   "kairos-lsp.app__Lsp_completion" -> "kairos-lsp.app__Lsp_symbols";
   "kairos-lsp.app__Lsp_symbols" -> "kairos-lsp.app__Lsp_outline";
   "kairos-proof-contract__Kairos_proof_contract" -> "kairos-proof-contract__Proof_backend_contract";

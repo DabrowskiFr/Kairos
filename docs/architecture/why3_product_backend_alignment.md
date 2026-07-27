@@ -8,61 +8,89 @@ with the observed Dune dependency view:
 
 - `observed/why3-product-backend.svg`
 
-The goal is not to make every support dependency disappear. The goal is to keep
-the correction boundary readable: product helper planning, specification
-construction, helper emission, and diagnostics must stay separated.
+The backend has been consolidated from many one-purpose files into 17 modules
+(34 `.ml`/`.mli` files). The goal of the focused graph is now to verify the
+semantic direction of the product-helper pipeline, not to preserve boundaries
+between implementation details that live in the same module.
 
 ## Alignment Summary
 
-The observed dependency graph matches the intended critical flow:
+The intended critical flow is:
 
 ```text
-Product_pipeline
-  -> Product_plan
-  -> Product_groups
-  -> Group_partition / Group_policy / Group_cost / Group_terms
-  -> helper emission
+canonical IR + step-contract projection
+  -> Why_compile
+  -> Why_compile_product_specs
+  -> Why_compile_product_groups
+  -> Why_compile_product_group_terms
+  -> Why_compile_product_helpers
+  -> Why_compile_modules
 ```
 
-Diagnostics also stay on the intended side channel:
+`Why_compile_product_specs` uses `Why_compile_bundles` only to keep
+multi-clause contracts compact. `Why_compile_product_helpers` delegates
+imperative body compilation to `Why_compile_step`.
 
-```text
-Product_pipeline
-  -> Product_plan_metrics
-  -> Product_metrics
-```
+The following transformations remain explicit backend choices:
 
-No observed edge sends diagnostic metrics back into `Product_plan`,
-`Product_groups`, helper specs, or helper emission.
+- compact predicates for individual helper preconditions and reusable
+  multi-clause postconditions;
+- WhyML materialization of the backend-independent repeated-formula index;
+- grouping compatible product steps with the fixed common-precondition
+  factorization.
+
+Formula equivalence and reuse detection are owned by
+`Contract_formula_index`, not by the Why3 backend. Optional first-order
+simplification, transition-body slicing, and configurable term deduplication
+have been removed.
+
+`Contract_formula_index` uses structural keys only while constructing
+equivalence classes. It then maps each indexed occurrence `oid` directly to
+the selected shared definition, so backend lookups do not traverse formulas.
+
+The boundary is also typed by temporal phase: `Temporal_lower` transforms
+historical IR into history-free IR, and the Why3 backend accepts only the
+history-free form. It has no fallback case for `HPreK`.
+
+`Pipeline_build` constructs each `Step_contract_projection.t` and its formula
+index once, then stores them in the runtime snapshot. Why3 generation and goal
+attribution consume the same projections; they do not independently rescan
+the IR or decide formula equivalence.
+
+## Consolidated Ownership
+
+| Module | Owned decisions |
+| --- | --- |
+| `Why_compile_node_common` | Direct consumption of node signatures and temporal layouts. |
+| `Why_compile_step` | Direct compilation of `Ir.transition` and `Core_syntax.stmt`. |
+| `Why_compile_product_specs` | Direct compilation of `Step_contract_projection.step_contract` into concrete helper specs. |
+| `Why_compile_formula_sharing` | WhyML declarations, calls, parameters, and imports for the domain-level formula index. |
+| `Why_compile_product_groups` | Stable partitioning, grouping eligibility, and the individual/grouped plan. |
+| `Why_compile_product_group_terms` | Typed grouped terms and canonical common-precondition factoring. |
+| `Why_compile_product_helpers` | Helper-unit shape, individual/grouped bodies, and concrete emission. |
+| `Why_compile` | Direct ordering and wiring of the product-specific passes. |
+
+This consolidation removes forwarding facades while retaining boundaries that
+separate semantic input, representation choice, planning, and emission.
 
 ## Accepted Support Dependencies
 
 | Observed dependency | Status | Reason | Guardrail |
 | --- | --- | --- | --- |
-| `Why_compile_product_bundle_state -> Why_compile_modules` | Accepted | Bundle state accumulates shared pre/post bundle modules and therefore needs the neutral `module_unit` representation. | It must not assemble final node modules or own labels. |
-| `Why_compile_modules -> Why_compile_helper_unit` | Accepted | Module assembly consumes only the neutral shape of a Why3 helper module. Product helper emission aliases this shape but does not leak into the assembler. | Fitness forbids `Why_compile_modules` from depending on product helper types or the product helper facade. |
-| `Why_compile_contract_facts -> Why_compile_bundles` | Accepted | Contract facts use the generic predicate-bundle service for fact sharing. | Bundles must remain generic Ptree sharing, not product policy. |
-| `Why_compile_product_spec_terms -> Why_compile_bundles` | Accepted | Spec terms may request shared predicate bundles for repeated pre/post facts. | Sharing must not choose obligations or alter progression. |
-| `Why_compile_bundles -> Why_compile_ptree_helpers` | Accepted | Bundles construct Ptree predicates and inspect term names. | Ptree helpers must remain low-level utilities. |
-| `Why_compile_product_group_cost -> Why_compile_ptree_helpers` | Accepted, watched | Cost splitting estimates term size using Ptree text/shape utilities. | Cost may split chunks but must not remove edges or weaken specs. |
-| `Why_compile_product_group_factoring -> Why_compile_ptree_helpers` | Accepted | Factoring builds equivalent grouped proof-term shapes. | Factoring must remain obligation-preserving. |
-| `Why_compile_product_metrics -> Why_product_step_names` | Accepted | Metrics need stable human-readable helper names. | Metrics must stay write-only diagnostics. |
-
-## Watch List
-
-The former awkward edge
-`Why_compile_modules -> Why_compile_product_helper_types` has been removed.
-`Why_compile_modules` now depends on `Why_compile_helper_unit`, while
-`Why_compile_product_helper_types` owns the product helper context and aliases
-the neutral helper-unit record.
-
-The remaining maintainability question is whether
-`Why_compile_product_helper_types` should eventually be renamed to make its
-context-only role clearer.
+| `Why_compile -> Why_compile_bundles` | Accepted | The compiler owns reusable multi-clause post predicates. | Bundling must not select or delete product obligations. |
+| `Why_compile_product_specs -> Why_compile_bundles` | Accepted | Individual preconditions are named without changing their clauses. | Bundling changes representation only. |
+| `Why_compile_product_groups -> Why_compile_product_group_terms` | Accepted | Planning requests grouped symbolic terms after stable partitioning and eligibility checks. | Factoring must remain logically equivalent to the unfactored group. |
+| `Why_compile_product_helpers -> Why_compile_step` | Accepted | Helper emission compiles the already selected transition body. | Body compilation must not reconstruct temporal semantics. |
+| `Why_compile_modules -> Why_compile_product_helpers` | Accepted | Final module assembly consumes the consolidated helper-unit type. | Assembly must not alter helper specs or choose grouping. |
+| `Why_compile_bundles -> Why_compile_ptree_helpers` | Accepted | Bundles construct predicates and inspect Why3 term names. | Ptree helpers remain representation utilities. |
 
 ## Current Conclusion
 
-No observed dependency currently violates the intended correction boundary. The
-surprising edges are support-service dependencies rather than hidden obligation
-construction. The next cleanup should be local: make helper-unit assembly less
-product-specific.
+The correction boundary stays upstream: the formalization and exported
+IR/kobj determine the canonical obligations. The Why3 backend projects those
+obligations and chooses a proof-oriented representation; generated Why3
+helpers do not define the semantics.
+
+The observed graph is acceptable if representation utilities remain
+downstream from canonical contracts and no generated backend artefact feeds
+back into specs, group planning, or canonical obligations.

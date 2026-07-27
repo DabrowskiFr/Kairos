@@ -23,11 +23,7 @@
       "kairos_artifact_text_render",
       "kairos_c_codegen",
       "kairos_why3",
-      "kairos_why3_compile",
-      "kairos_why3_contracts",
-      "kairos_why3_expr",
-      "kairos_why3_render",
-      "kairos_why3_runtime_view"
+      "kairos_why3_compile"
     ],
     "engine": [
       "kairos_engine"

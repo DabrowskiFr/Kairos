@@ -26,145 +26,65 @@ digraph Why3ProductBackendIntent {
     arrowsize=0.75
   ];
 
-  runtime_view [
-    label="Why_runtime_view\nproduct transitions",
-    fillcolor="#e0f2fe"
-  ];
-
-  contracts [
-    label="Why_contracts\npre/post/local cuts",
-    fillcolor="#e0f2fe"
-  ];
-
-  pipeline [
-    label="Why_compile_product_pipeline\norchestrates product backend",
-    fillcolor="#dbeafe",
-    penwidth=2
-  ];
-
-  bundle_state [
-    label="Why_compile_product_bundle_state\nshared predicate state",
-    fillcolor="#ede9fe"
-  ];
-
-  modules [
-    label="Why_compile_modules\nmodule assembly",
-    fillcolor="#ede9fe"
-  ];
-
-  plan [
-    label="Why_compile_product_plan\nbuild helper plan\n(no diagnostics)",
+  canonical [
+    label="Formalization + exported IR/kobj\ncanonical obligations",
     fillcolor="#dcfce7",
     penwidth=2
   ];
 
-  contract_facts [
-    label="Why_compile_contract_facts\nfamilies of facts",
-    fillcolor="#dcfce7"
+  step_projection [
+    label="Step_contract_projection\nneutral step contracts",
+    fillcolor="#e0f2fe"
   ];
 
-  bundles [
-    label="Why_compile_bundles\ngeneric predicate bundles",
-    fillcolor="#e0e7ff"
-  ];
-
-  ptree_helpers [
-    label="Why_compile_ptree_helpers\nPtree term/binder utilities",
-    fillcolor="#e0e7ff"
-  ];
-
-  layout [
-    label="Why_compile_product_layout\nstable names/layout",
-    fillcolor="#dcfce7"
-  ];
-
-  groups [
-    label="Why_compile_product_groups\nexplicit individual/grouped plan",
-    fillcolor="#bbf7d0",
-    penwidth=2
-  ];
-
-  partition [
-    label="Why_compile_product_group_partition\nstable partition by transition",
-    fillcolor="#bbf7d0"
-  ];
-
-  policy [
-    label="Why_compile_product_group_policy\neligibility + individual reason",
-    fillcolor="#bbf7d0"
-  ];
-
-  cost [
-    label="Why_compile_product_group_cost\ncost heuristic + chunking",
-    fillcolor="#fef3c7"
-  ];
-
-  terms [
-    label="Why_compile_product_group_terms\nproof terms + profile",
-    fillcolor="#fef3c7"
-  ];
-
-  factoring [
-    label="Why_compile_product_group_factoring\nobligation-preserving shape choice",
-    fillcolor="#fef3c7"
-  ];
-
-  boundary [
-    label="Why_compile_product_group_boundary\ntyped proof/diagnostic boundary",
-    fillcolor="#fef3c7",
+  compile [
+    label="Why_compile\nnode compilation facade",
+    fillcolor="#dbeafe",
     penwidth=2
   ];
 
   specs [
-    label="Why_compile_product_specs\nhelper specs",
+    label="Why_compile_product_specs\ndirect helper specs",
     fillcolor="#fde68a",
     penwidth=2
   ];
 
-  spec_terms [
-    label="Why_compile_product_spec_terms\nterm selection + sharing",
-    fillcolor="#fde68a"
+  bundles [
+    label="Why_compile_bundles\ncompact multi-clause predicates",
+    fillcolor="#e0e7ff"
   ];
 
-  spec_labels [
-    label="Why_compile_product_spec_labels\npresentation labels only",
-    fillcolor="#fde68a"
+  groups [
+    label="Why_compile_product_groups\npartition + policy + helper plan",
+    fillcolor="#bbf7d0",
+    penwidth=2
+  ];
+
+  terms [
+    label="Why_compile_product_group_terms\ngrouped terms + canonical pre factoring",
+    fillcolor="#fef3c7",
+    penwidth=2
   ];
 
   helpers [
-    label="Why_compile_product_helpers\nhelper emission dispatcher",
+    label="Why_compile_product_helpers\nindividual/grouped helper emission",
     fillcolor="#fecdd3",
     penwidth=2
   ];
 
-  individual_helper [
-    label="Why_compile_product_individual_helper\nindividual helpers",
-    fillcolor="#fecdd3"
-  ];
-
-  grouped_helper [
-    label="Why_compile_product_grouped_helper\ngrouped helpers",
-    fillcolor="#fecdd3"
-  ];
-
-  helper_types [
-    label="Why_compile_product_helper_types\nproduct helper context",
-    fillcolor="#fecdd3"
-  ];
-
-  helper_unit [
-    label="Why_compile_helper_unit\nneutral helper module unit",
-    fillcolor="#e0e7ff"
-  ];
-
-  helper_body [
-    label="Why_compile_product_helper_body\nimperative body emission",
-    fillcolor="#fecdd3"
-  ];
-
   step_compile [
-    label="Why_compile_step\nstatement compilation",
+    label="Why_compile_step\nselected body compilation",
     fillcolor="#fee2e2"
+  ];
+
+  modules [
+    label="Why_compile_modules\nfinal Why3 module assembly",
+    fillcolor="#ede9fe"
+  ];
+
+  ptree_helpers [
+    label="Why_compile_ptree_helpers\nterm/name/binder utilities",
+    fillcolor="#e0e7ff"
   ];
 
   step_names [
@@ -172,72 +92,27 @@ digraph Why3ProductBackendIntent {
     fillcolor="#fee2e2"
   ];
 
-  plan_metrics [
-    label="Why_compile_product_plan_metrics\nobserve completed plan",
-    fillcolor="#e5e7eb"
-  ];
 
-  metrics [
-    label="Why_compile_product_metrics\nreporting only",
-    fillcolor="#e5e7eb"
-  ];
+  canonical -> step_projection [label="project"];
+  canonical -> compile [label="node IR"];
+  step_projection -> specs [label="direct input"];
 
-  external_timing [
-    label="External_timing\ndiagnostic counters",
-    fillcolor="#e5e7eb"
-  ];
+  compile -> bundles [label="own post bundles"];
+  compile -> groups [label="build plan"];
+  compile -> helpers [label="emit"];
+  compile -> modules [label="assemble"];
 
-  runtime_view -> pipeline [label="input"];
-  contracts -> pipeline [label="input"];
+  specs -> bundles [style=dashed, label="compact contracts"];
+  specs -> ptree_helpers [style=dashed, label="Ptree construction"];
+  groups -> specs [label="fact terms"];
+  groups -> terms [label="group terms"];
+  terms -> ptree_helpers [style=dashed, label="term combinators"];
 
-  pipeline -> bundle_state;
-  bundle_state -> modules;
-  pipeline -> plan;
-  pipeline -> helpers;
-  pipeline -> plan_metrics [style=dashed, label="diagnostic observation"];
-
-  plan -> contract_facts;
-  plan -> layout;
-  plan -> groups;
-
-  contract_facts -> bundles [style=dashed, label="sharing service"];
-  bundles -> ptree_helpers [style=dashed, label="Ptree construction"];
-
-  groups -> partition [label="partition"];
-  groups -> policy [label="eligibility"];
-  groups -> cost [label="cost split"];
-  groups -> terms [label="group proof terms"];
-
-  partition -> boundary;
-  policy -> boundary;
-  cost -> boundary;
-  cost -> ptree_helpers [style=dashed, label="term sizing"];
-  terms -> factoring;
-  factoring -> boundary;
-  factoring -> ptree_helpers [style=dashed, label="term combinators"];
-
-  helpers -> individual_helper;
-  helpers -> grouped_helper;
-  individual_helper -> helper_types;
-  grouped_helper -> helper_types;
-  helper_types -> helper_unit [style=dashed, label="aliases unit"];
-  modules -> helper_unit [style=dashed, label="helper unit shape"];
-  helper_types -> specs;
-  individual_helper -> helper_body;
-  grouped_helper -> helper_body;
-  helper_body -> step_compile;
-  individual_helper -> step_names;
-  grouped_helper -> step_names;
-  grouped_helper -> layout;
-
-  specs -> spec_terms;
-  specs -> boundary;
-  spec_terms -> bundles [style=dashed, label="shared facts"];
-  spec_terms -> spec_labels;
-
-  plan_metrics -> metrics [style=dashed, label="no feedback"];
-  metrics -> step_names [style=dashed, label="diagnostic names"];
-  metrics -> external_timing [style=dashed, label="record only"];
+  helpers -> groups [label="consume plan"];
+  helpers -> specs [label="consume specs"];
+  helpers -> step_compile [label="compile body"];
+  helpers -> step_names [label="stable names"];
+  modules -> helpers [label="consume helper units"];
 
   subgraph cluster_rules {
     label="Architectural rules";
@@ -246,18 +121,18 @@ digraph Why3ProductBackendIntent {
     style="rounded,dashed";
 
     rule_reference [
-      label="The reference obligation pipeline is upstream.\nThis backend only projects already-built obligations.",
+      label="Generated Why3 is a projection.\nIt does not define temporal semantics.",
       fillcolor="#dcfce7"
     ];
 
-    rule_metrics [
-      label="Diagnostics and cost profiles must never feed back\ninto obligation construction.",
-      fillcolor="#e5e7eb"
+    rule_equivalence [
+      label="Compact predicates, grouping and canonical\nfactoring preserve selected obligations.",
+      fillcolor="#fef3c7"
     ];
 
-    rule_boundary [
-      label="Grouped proof terms and diagnostic profiles cross\nthrough explicit typed boundaries.",
-      fillcolor="#fef3c7"
+    rule_metrics [
+      label="Profiles and timings never feed back\ninto specs or helper planning.",
+      fillcolor="#e5e7eb"
     ];
   }
 }
