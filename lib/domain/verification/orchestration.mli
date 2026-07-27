@@ -33,7 +33,7 @@ type reference_product_input = {
 
 (** Output of the reference product construction. *)
 type reference_product = {
-  reference_nodes : Ir.node_ir list;
+  reference_nodes : Core_syntax.historical Ir.node_ir list;
 }
 
 (** Instrumentation passes currently run after product summaries exist. *)
@@ -45,8 +45,29 @@ type instrumented_ir_pass =
   | Formula_sharing_pass
 
 type instrumented_ir = {
-  proof_nodes : Ir.node_ir list;
+  proof_nodes : Core_syntax.historical Ir.node_ir list;
   backend_program : Ir.program_ir;
+}
+
+type pass_runner = {
+  run_historical :
+    instrumented_ir_pass ->
+    (Core_syntax.historical Ir.node_ir list ->
+    Core_syntax.historical Ir.node_ir list) ->
+    Core_syntax.historical Ir.node_ir list ->
+    Core_syntax.historical Ir.node_ir list;
+  run_lowering :
+    instrumented_ir_pass ->
+    (Core_syntax.historical Ir.node_ir list ->
+    Core_syntax.history_free Ir.node_ir list) ->
+    Core_syntax.historical Ir.node_ir list ->
+    Core_syntax.history_free Ir.node_ir list;
+  run_history_free :
+    instrumented_ir_pass ->
+    (Core_syntax.history_free Ir.node_ir list ->
+    Core_syntax.history_free Ir.node_ir list) ->
+    Core_syntax.history_free Ir.node_ir list ->
+    Core_syntax.history_free Ir.node_ir list;
 }
 
 (** Build the named reference product from an elaborated program and supplied
@@ -58,10 +79,6 @@ val build_reference_product :
 (** Run the instrumentation-oriented IR passes over product summaries. *)
 val build_instrumented_ir :
   ?observe_fact_family:(Ir_fact_family_metrics.snapshot -> unit) ->
-  ?run_pass:
-    (instrumented_ir_pass ->
-     (Ir.node_ir list -> Ir.node_ir list) ->
-     Ir.node_ir list ->
-     Ir.node_ir list) ->
-  Ir.node_ir list ->
+  ?pass_runner:pass_runner ->
+  Core_syntax.historical Ir.node_ir list ->
   instrumented_ir

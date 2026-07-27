@@ -109,16 +109,13 @@ let validate_function_decls (type_decls : Core_syntax.enum_decl list)
           (expr_ty fname var_types b);
         TBool
   in
-  let rec hexpr_has_history (h : Core_syntax.hexpr) : bool =
-    match h.hexpr with
-    | HPreK _ -> true
-    | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ -> false
-    | HPred (_, hs) | HFunCall (_, hs) -> List.exists hexpr_has_history hs
-    | HUn (_, inner) -> hexpr_has_history inner
-    | HBin (_, a, b) | HCmp (_, a, b) ->
-        hexpr_has_history a || hexpr_has_history b
-  in
-  let rec hexpr_ty fname var_types (h : Core_syntax.hexpr) : Core_syntax.ty =
+  let rec hexpr_ty :
+      type phase.
+      string ->
+      (string * Core_syntax.ty) list ->
+      phase Core_syntax.hexpr ->
+      Core_syntax.ty =
+   fun fname var_types h ->
     let find_var x =
       match List.assoc_opt x var_types with
       | Some ty -> ty
@@ -199,16 +196,12 @@ let validate_function_decls (type_decls : Core_syntax.enum_decl list)
         (expr_ty f.function_name param_types f.function_body);
       List.iter
         (fun req ->
-          if hexpr_has_history req then
-            fail_function f.function_name "function requires cannot mention history";
           expect_ty f.function_name "requires clause" TBool
             (hexpr_ty f.function_name param_types req))
         f.function_requires;
       let post_types = ("result", f.function_return) :: param_types in
       List.iter
         (fun ens ->
-          if hexpr_has_history ens then
-            fail_function f.function_name "function ensures cannot mention history";
           expect_ty f.function_name "ensures clause" TBool
             (hexpr_ty f.function_name post_types ens))
         f.function_ensures)

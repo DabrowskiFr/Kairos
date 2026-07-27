@@ -25,49 +25,39 @@
 
 module Abs = Ir
 
-type table = (string, Core_syntax.hexpr list) Hashtbl.t
+type table = Core_syntax.history_free Formula_canonical.pool
 
-let share_hexpr (table : table) (formula : Core_syntax.hexpr) :
-    Core_syntax.hexpr =
+let share_hexpr (table : table)
+    (formula : Core_syntax.history_free Core_syntax.hexpr) :
+    Core_syntax.history_free Core_syntax.hexpr =
   match formula.loc with
   | Some _ -> formula
-  | None -> (
-      let key = Core_fo_simplifier.key_of_hexpr formula in
-      match Hashtbl.find_opt table key with
-      | Some representatives -> (
-          match List.find_opt (( = ) formula) representatives with
-          | Some representative -> representative
-          | None ->
-              Hashtbl.replace table key (formula :: representatives);
-              formula)
-      | None ->
-          Hashtbl.add table key [ formula ];
-          formula)
+  | None -> Formula_canonical.intern table formula
 
-let share_summary_formula table (formula : Abs.summary_formula) :
-    Abs.summary_formula =
+let share_summary_formula table
+    (formula : Core_syntax.history_free Abs.summary_formula) :
+    Core_syntax.history_free Abs.summary_formula =
   { formula with logic = share_hexpr table formula.logic }
 
-let share_state_invariant table (invariant : Abs.state_invariant) :
-    Abs.state_invariant =
-  { invariant with formula = share_hexpr table invariant.formula }
-
-let share_safe_case table (case : Abs.safe_product_case) :
-    Abs.safe_product_case =
+let share_safe_case table
+    (case : Core_syntax.history_free Abs.safe_product_case) :
+    Core_syntax.history_free Abs.safe_product_case =
   {
     case with
     admissible_guard = share_summary_formula table case.admissible_guard;
   }
 
-let share_unsafe_case table (case : Abs.unsafe_product_case) :
-    Abs.unsafe_product_case =
+let share_unsafe_case table
+    (case : Core_syntax.history_free Abs.unsafe_product_case) :
+    Core_syntax.history_free Abs.unsafe_product_case =
   {
     case with
     excluded_guard = share_summary_formula table case.excluded_guard;
   }
 
-let share_summary table (summary : Abs.product_step_summary) :
-    Abs.product_step_summary =
+let share_summary table
+    (summary : Core_syntax.history_free Abs.product_step_summary) :
+    Core_syntax.history_free Abs.product_step_summary =
   {
     summary with
     identity =
@@ -85,21 +75,16 @@ let share_summary table (summary : Abs.product_step_summary) :
     unsafe_cases = List.map (share_unsafe_case table) summary.unsafe_cases;
   }
 
-let run_node (node : Abs.node_ir) : Abs.node_ir =
-  let table = Hashtbl.create 512 in
+let run_node (node : Core_syntax.history_free Abs.node_ir) :
+    Core_syntax.history_free Abs.node_ir =
+  let table = Formula_canonical.create_pool () in
   {
     node with
-    source_info =
-      {
-        node.source_info with
-        state_invariants =
-          List.map (share_state_invariant table)
-            node.source_info.state_invariants;
-      };
     summaries = List.map (share_summary table) node.summaries;
     init_invariant_goals =
       List.map (share_summary_formula table) node.init_invariant_goals;
   }
 
-let run_program (program : Abs.node_ir list) : Abs.node_ir list =
+let run_program (program : Core_syntax.history_free Abs.node_ir list) :
+    Core_syntax.history_free Abs.node_ir list =
   List.map run_node program

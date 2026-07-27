@@ -42,7 +42,7 @@ let source_nodes_by_name (source_program : Verification_model.program_model) :
 
 (** [analysis_context_of_source_node] helper value. *)
 
-let analysis_context_of_source_node (source_node : Verification_model.node_model) : Ir.node_ir =
+let analysis_context_of_source_node (source_node : Verification_model.node_model) : Core_syntax.historical Ir.node_ir =
   {
     Ir.semantics =
       {
@@ -91,7 +91,7 @@ let build_analyses
 
 (** [analysis_of_node] helper value. *)
 
-let analysis_of_node ~(analyses : (ident * Temporal_automata.node_data) list) (node : Ir.node_ir) :
+let analysis_of_node ~(analyses : (ident * Temporal_automata.node_data) list) (node : 'phase Ir.node_ir) :
     (Temporal_automata.node_data, string) result =
   Result_utils.find_assoc
     ~missing:(fun node_name -> Printf.sprintf "Missing product analysis for IR node %s" node_name)
@@ -117,10 +117,10 @@ let product_step_is_live_requested ~(analysis : Temporal_automata.node_data)
 
 (** [accumulate_case_counts] helper value. *)
 
-let accumulate_case_counts (summaries : Ir.product_step_summary list) :
+let accumulate_case_counts (summaries : 'phase Ir.product_step_summary list) :
     int * int * int =
   List.fold_left
-    (fun (safe_acc, bad_a_acc, bad_g_acc) (summary : Ir.product_step_summary) ->
+    (fun (safe_acc, bad_a_acc, bad_g_acc) (summary : 'phase Ir.product_step_summary) ->
       (safe_acc + List.length summary.safe_cases, bad_a_acc,
        bad_g_acc + List.length summary.unsafe_cases))
     (0, 0, 0)

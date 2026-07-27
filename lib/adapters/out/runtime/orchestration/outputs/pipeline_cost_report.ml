@@ -37,14 +37,7 @@ let proof_optimizations_json (opts : Pipeline_types.proof_optimizations) =
   json_assoc
     [
       ("group_public_non_w_guarantees", json_bool opts.group_public_non_w_guarantees);
-      ("share_why3_facts", json_bool opts.share_why3_facts);
-      ("simplify_why3_formulas", json_bool opts.simplify_why3_formulas);
-      ("slice_why3_transition_bodies", json_bool opts.slice_why3_transition_bodies);
-      ("simplify_why3_runtime_actions", json_bool opts.simplify_why3_runtime_actions);
-      ("deduplicate_why3_terms", json_bool opts.deduplicate_why3_terms);
       ("group_why3_product_steps", json_bool opts.group_why3_product_steps);
-      ( "why3_product_step_group_max_cost",
-        json_int opts.why3_product_step_group_max_cost );
     ]
 
 let proof_encoding_json (encoding : Pipeline_types.proof_encoding) =

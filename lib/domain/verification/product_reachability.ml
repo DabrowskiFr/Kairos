@@ -26,13 +26,13 @@ type t = {
   known_states : (Abs.product_state, unit) Hashtbl.t;
 }
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
-let is_hfalse (f : Core_syntax.hexpr) : bool =
+let is_hfalse (f : Core_syntax.historical Core_syntax.hexpr) : bool =
   match (simplify_fo f).hexpr with HLitBool false -> true | _ -> false
 
-let is_htrue (f : Core_syntax.hexpr) : bool =
+let is_htrue (f : Core_syntax.historical Core_syntax.hexpr) : bool =
   match (simplify_fo f).hexpr with HLitBool true -> true | _ -> false
 
 let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
@@ -40,20 +40,23 @@ let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
   && a.assume_state_index = b.assume_state_index
   && a.guarantee_state_index = b.guarantee_state_index
 
-let add_unique_formula (f : Core_syntax.hexpr)
-    (xs : Abs.summary_formula list) : Abs.summary_formula list =
-  if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then xs
+let add_unique_formula (f : Core_syntax.historical Core_syntax.hexpr)
+    (xs : Core_syntax.historical Abs.summary_formula list) : Core_syntax.historical Abs.summary_formula list =
+  if List.exists (fun (x : Core_syntax.historical Abs.summary_formula) -> x.logic = f) xs then xs
   else xs @ [ Ir_formula.make f ]
 
-let guard_fo_of_transition (t : Abs.transition) : Core_syntax.hexpr =
+let guard_fo_of_transition (t : Abs.transition) : Core_syntax.historical Core_syntax.hexpr =
   match t.guard_expr with
   | None -> mk_hbool true
-  | Some guard -> hexpr_of_expr guard |> simplify_fo
+  | Some guard ->
+      hexpr_of_expr guard |> Core_syntax.historical_of_history_free
+      |> simplify_fo
 
-let infer_initial_product_state (node : Abs.node_ir) : Abs.product_state =
+let infer_initial_product_state (node : 'phase Abs.node_ir) : Abs.product_state =
   let candidates =
     node.summaries
-    |> List.map (fun (pc : Abs.product_step_summary) -> pc.identity.product_src)
+    |> List.map (fun (pc : 'phase Abs.product_step_summary) ->
+           pc.identity.product_src)
     |> List.filter (fun (st : Abs.product_state) ->
            String.equal st.prog_state node.semantics.sem_init_state)
     |> List.sort_uniq Stdlib.compare
@@ -74,7 +77,7 @@ let infer_initial_product_state (node : Abs.node_ir) : Abs.product_state =
             guarantee_state_index = 0;
           })
 
-let flatten_bool op (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
+let flatten_bool op (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr list =
   let rec loop acc h =
     match h.hexpr with
     | HBin (op', a, b) when op = op' -> loop (loop acc b) a
@@ -82,14 +85,14 @@ let flatten_bool op (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
   in
   List.rev (loop [] f)
 
-let contradictory_context (context : Core_syntax.hexpr list) (candidate : Core_syntax.hexpr) :
+let contradictory_context (context : Core_syntax.historical Core_syntax.hexpr list) (candidate : Core_syntax.historical Core_syntax.hexpr) :
     bool =
   Fo_contradiction.contradictory_context context candidate
 
-let conjunction_obviously_false (f : Core_syntax.hexpr) : bool =
+let conjunction_obviously_false (f : Core_syntax.historical Core_syntax.hexpr) : bool =
   Fo_contradiction.conjunction_obviously_false f
 
-let edge_may_fire (pc : Abs.product_step_summary) (case : Abs.safe_product_case) : bool =
+let edge_may_fire (pc : Core_syntax.historical Abs.product_step_summary) (case : Core_syntax.historical Abs.safe_product_case) : bool =
   let guard =
     mk_hand
       (guard_fo_of_transition pc.identity.program_step)
@@ -98,18 +101,23 @@ let edge_may_fire (pc : Abs.product_step_summary) (case : Abs.safe_product_case)
   in
   not (conjunction_obviously_false guard)
 
-let collect_known_states (node : Abs.node_ir) : (Abs.product_state, unit) Hashtbl.t =
+let collect_known_states (node : 'phase Abs.node_ir) :
+    (Abs.product_state, unit) Hashtbl.t =
   let tbl = Hashtbl.create 32 in
   let add st = Hashtbl.replace tbl st () in
   List.iter
-    (fun (pc : Abs.product_step_summary) ->
+    (fun (pc : 'phase Abs.product_step_summary) ->
       add pc.identity.product_src;
-      List.iter (fun (case : Abs.safe_product_case) -> add case.product_dst) pc.safe_cases;
-      List.iter (fun (case : Abs.unsafe_product_case) -> add case.product_dst) pc.unsafe_cases)
+      List.iter
+        (fun (case : 'phase Abs.safe_product_case) -> add case.product_dst)
+        pc.safe_cases;
+      List.iter
+        (fun (case : 'phase Abs.unsafe_product_case) -> add case.product_dst)
+        pc.unsafe_cases)
     node.summaries;
   tbl
 
-let build ~(node : Abs.node_ir) : t =
+let build_with_edge_may_fire ~edge_may_fire (node : 'phase Abs.node_ir) : t =
   let known_states = collect_known_states node in
   let reachable = Hashtbl.create 32 in
   let mark st =
@@ -123,38 +131,63 @@ let build ~(node : Abs.node_ir) : t =
   while !changed do
     changed := false;
     List.iter
-      (fun (pc : Abs.product_step_summary) ->
+      (fun (pc : 'phase Abs.product_step_summary) ->
         if Hashtbl.mem reachable pc.identity.product_src then
           List.iter
-            (fun (case : Abs.safe_product_case) ->
+            (fun (case : 'phase Abs.safe_product_case) ->
               if edge_may_fire pc case && mark case.product_dst then changed := true)
             pc.safe_cases)
       node.summaries
   done;
   { reachable; known_states }
 
-let formula_of_product_state (t : t) (st : Abs.product_state) : Core_syntax.hexpr =
+let build ~(node : Core_syntax.historical Abs.node_ir) : t =
+  build_with_edge_may_fire ~edge_may_fire node
+
+let edge_may_fire_history_free
+    (pc : Core_syntax.history_free Abs.product_step_summary)
+    (case : Core_syntax.history_free Abs.safe_product_case) : bool =
+  let program_guard =
+    match pc.identity.program_step.guard_expr with
+    | None -> mk_hbool true
+    | Some guard -> hexpr_of_expr guard
+  in
+  let guard =
+    mk_hand program_guard
+      (mk_hand pc.identity.assume_guard case.admissible_guard.logic)
+    |> Core_syntax.historical_of_history_free
+    |> simplify_fo
+  in
+  not (conjunction_obviously_false guard)
+
+let build_history_free
+    ~(node : Core_syntax.history_free Abs.node_ir) : t =
+  build_with_edge_may_fire ~edge_may_fire:edge_may_fire_history_free node
+
+let formula_of_product_state (t : t) (st : Abs.product_state) :
+    'phase Core_syntax.hexpr =
   if not (Hashtbl.mem t.known_states st) then mk_hbool true
   else mk_hbool (Hashtbl.mem t.reachable st)
 
-let local_requires_of_product_state (t : t) (st : Abs.product_state) : Core_syntax.hexpr list =
-  let f = formula_of_product_state t st in
-  if is_htrue f then [] else [ f ]
+let local_requires_of_product_state (t : t) (st : Abs.product_state) :
+    'phase Core_syntax.hexpr list =
+  if not (Hashtbl.mem t.known_states st) || Hashtbl.mem t.reachable st then []
+  else [ mk_hbool false ]
 
-let preservation_ensures (t : t) (pc : Abs.product_step_summary) : Core_syntax.hexpr list =
+let preservation_ensures (t : t) (pc : Core_syntax.historical Abs.product_step_summary) : Core_syntax.historical Core_syntax.hexpr list =
   pc.safe_cases
-  |> List.filter_map (fun (case : Abs.safe_product_case) ->
+  |> List.filter_map (fun (case : Core_syntax.historical Abs.safe_product_case) ->
          let dst_reach = formula_of_product_state t case.product_dst in
          if is_htrue dst_reach then None
          else Some (mk_himp case.admissible_guard.logic dst_reach |> simplify_fo))
   |> List.filter (fun f -> not (is_htrue f))
   |> List.sort_uniq Stdlib.compare
 
-let run_node (n : Abs.node_ir) : Abs.node_ir =
+let run_node (n : Core_syntax.historical Abs.node_ir) : Core_syntax.historical Abs.node_ir =
   let reachability = build ~node:n in
   let summaries =
     List.map
-      (fun (pc : Abs.product_step_summary) ->
+      (fun (pc : Core_syntax.historical Abs.product_step_summary) ->
         let ensures =
           List.fold_left
             (fun acc f -> add_unique_formula f acc)
@@ -166,4 +199,4 @@ let run_node (n : Abs.node_ir) : Abs.node_ir =
   in
   { n with summaries }
 
-let run_program (p : Abs.node_ir list) : Abs.node_ir list = List.map run_node p
+let run_program (p : Core_syntax.historical Abs.node_ir list) : Core_syntax.historical Abs.node_ir list = List.map run_node p

@@ -26,7 +26,8 @@ let rec expr_size (e : expr) =
   | EUn (_, inner) -> 1 + expr_size inner
   | EBin (_, a, b) | ECmp (_, a, b) -> 1 + expr_size a + expr_size b
 
-let rec hexpr_size (h : hexpr) =
+let rec hexpr_size : type phase. phase hexpr -> int =
+ fun h ->
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ -> 1
   | HPred (_, args) | HFunCall (_, args) -> 1 + sum_int (List.map hexpr_size args)
@@ -54,7 +55,8 @@ let rec stmt_size (s : stmt) =
   | SSkip -> 1
   | SCall (_, args, outs) -> 1 + List.length outs + sum_int (List.map expr_size args)
 
-let rec hexpr_max_pre_depth (h : hexpr) =
+let rec hexpr_max_pre_depth : type phase. phase hexpr -> int =
+ fun h ->
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ -> 0
   | HPreK (_, k) -> k
@@ -63,7 +65,8 @@ let rec hexpr_max_pre_depth (h : hexpr) =
   | HBin (_, a, b) | HCmp (_, a, b) ->
       max (hexpr_max_pre_depth a) (hexpr_max_pre_depth b)
 
-let rec hexpr_free_variables (h : hexpr) =
+let rec hexpr_free_variables : type phase. phase hexpr -> StringSet.t =
+ fun h ->
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ -> StringSet.empty
   | HVar v | HPreK (v, _) -> StringSet.singleton v

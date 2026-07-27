@@ -21,8 +21,8 @@
 val render_automaton_lines : prefix:string -> string list -> string list
 val strip_braces : string -> string
 val rewrite_history_vars : string -> string
-val pretty_product_formula : Core_syntax.hexpr -> string
-val pretty_plain_dot_formula : Core_syntax.hexpr -> string
+val pretty_product_formula : Core_syntax.historical Core_syntax.hexpr -> string
+val pretty_plain_dot_formula : Core_syntax.historical Core_syntax.hexpr -> string
 val subscript_digits : int -> string
 val pretty_aut_state : prefix:string -> idx:int -> bad_idx:int -> string
 val tau_alias : int -> string

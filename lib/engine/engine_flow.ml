@@ -78,13 +78,7 @@ let explicit_product_optimizations (snapshot : snapshot) =
 let why_compilation_options (opts : Pipeline_types.proof_optimizations) :
     Why_pipeline.compilation_options =
   {
-    share_facts = opts.share_why3_facts;
-    simplify_formulas = opts.simplify_why3_formulas;
-    slice_transition_bodies = opts.slice_why3_transition_bodies;
-    simplify_runtime_actions = opts.simplify_why3_runtime_actions;
-    deduplicate_terms = opts.deduplicate_why3_terms;
     group_product_steps = opts.group_why3_product_steps;
-    product_step_group_max_cost = opts.why3_product_step_group_max_cost;
   }
 
 let instrumentation_from_snapshot ~generate_png ~(snapshot : snapshot) =
@@ -96,14 +90,13 @@ let instrumentation_from_snapshot ~generate_png ~(snapshot : snapshot) =
            ~artifacts)
 
 let merged_instrumentation (snapshot : snapshot) =
-  Runtime_ir_merge.merge_by_source
-    ~source_model:snapshot.asts.verification_model
-    snapshot.asts.instrumentation
+  snapshot.asts.proof_backend_nodes
 
 let render_why_text ~(snapshot : snapshot) : string =
   let instrumentation = merged_instrumentation snapshot in
   let opts = explicit_product_optimizations snapshot in
   Why_pipeline.compile_whyml ~nodes:instrumentation
+    ~step_projections:snapshot.asts.step_projections
     ~options:(why_compilation_options opts) ()
   |> fun output -> output.Why_pipeline.text
 
@@ -139,6 +132,7 @@ let obligations ~(snapshot : snapshot) :
   let opts = explicit_product_optimizations snapshot in
   let out =
     Why_pipeline.obligations_pass ~nodes:instrumentation
+      ~step_projections:snapshot.asts.step_projections
       ~options:(why_compilation_options opts)
   in
   { Pipeline_types.vc_text = out.vc_text; smt_text = out.smt_text }

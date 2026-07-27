@@ -40,7 +40,7 @@ type reference_product_input = {
 (** Type [reference_product]. *)
 
 type reference_product = {
-  reference_nodes : Ir.node_ir list;
+  reference_nodes : Core_syntax.historical Ir.node_ir list;
 }
 
 (** Type [instrumented_ir_pass]. *)
@@ -55,9 +55,37 @@ type instrumented_ir_pass =
 (** The proof export is taken before temporal lowering; the backend keeps the
     fully lowered program. *)
 type instrumented_ir = {
-  proof_nodes : Ir.node_ir list;
+  proof_nodes : Core_syntax.historical Ir.node_ir list;
   backend_program : Ir.program_ir;
 }
+
+type pass_runner = {
+  run_historical :
+    instrumented_ir_pass ->
+    (Core_syntax.historical Ir.node_ir list ->
+    Core_syntax.historical Ir.node_ir list) ->
+    Core_syntax.historical Ir.node_ir list ->
+    Core_syntax.historical Ir.node_ir list;
+  run_lowering :
+    instrumented_ir_pass ->
+    (Core_syntax.historical Ir.node_ir list ->
+    Core_syntax.history_free Ir.node_ir list) ->
+    Core_syntax.historical Ir.node_ir list ->
+    Core_syntax.history_free Ir.node_ir list;
+  run_history_free :
+    instrumented_ir_pass ->
+    (Core_syntax.history_free Ir.node_ir list ->
+    Core_syntax.history_free Ir.node_ir list) ->
+    Core_syntax.history_free Ir.node_ir list ->
+    Core_syntax.history_free Ir.node_ir list;
+}
+
+let direct_pass_runner =
+  {
+    run_historical = (fun _ pass nodes -> pass nodes);
+    run_lowering = (fun _ pass nodes -> pass nodes);
+    run_history_free = (fun _ pass nodes -> pass nodes);
+  }
 
 (** [build_reference_product] helper value. *)
 
@@ -73,19 +101,23 @@ let build_reference_product
 
 let build_instrumented_ir
     ?observe_fact_family
-    ?(run_pass = fun _ pass nodes -> pass nodes)
-    (initial_nodes : Ir.node_ir list) :
+    ?(pass_runner = direct_pass_runner)
+    (initial_nodes : Core_syntax.historical Ir.node_ir list) :
     instrumented_ir =
   let pre_nodes =
     initial_nodes
-    |> run_pass Pre_pass (Pre.run_program ?observe_family:observe_fact_family)
-    |> run_pass Product_reachability_pass Product_reachability.run_program
-    |> run_pass Post_pass (Post.run_program ?observe_family:observe_fact_family)
+    |> pass_runner.run_historical Pre_pass
+         (Pre.run_program ?observe_family:observe_fact_family)
+    |> pass_runner.run_historical Product_reachability_pass
+         Product_reachability.run_program
+    |> pass_runner.run_historical Post_pass
+         (Post.run_program ?observe_family:observe_fact_family)
   in
   let backend_nodes =
     pre_nodes
-    |> run_pass Temporal_lower_pass Temporal_lower.run_program
-    |> run_pass Formula_sharing_pass Formula_sharing.run_program
+    |> pass_runner.run_lowering Temporal_lower_pass Temporal_lower.run_program
+    |> pass_runner.run_history_free Formula_sharing_pass
+         Formula_sharing.run_program
   in
   {
     proof_nodes = pre_nodes;

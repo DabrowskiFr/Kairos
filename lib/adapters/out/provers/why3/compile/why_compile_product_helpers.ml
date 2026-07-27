@@ -16,31 +16,138 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Grouped_helper = Why_compile_product_grouped_helper
-module Individual_helper = Why_compile_product_individual_helper
-module Product_groups = Why_compile_product_groups
-module Types = Why_compile_product_helper_types
-module StringSet = Why_compile_ptree_helpers.StringSet
 
-type helper_unit = Types.helper_unit = {
+(** Emit individual or grouped WhyML helpers from one product-step plan. *)
+
+module Product_groups = Why_compile_product_groups
+module Group_terms = Why_compile_product_group_terms
+module Product_specs = Why_compile_product_specs
+module Step_names = Why_product_step_names
+
+type helper_unit = {
   helper_name : string;
   decls : Why3.Ptree.decl list;
-  pre_labels : string list;
-  post_labels : string list;
 }
 
-type context = Types.context = {
+type context = {
   env : Why_compile_expr.env;
   inputs : Why3.Ptree.binder list;
-  spec_context : Why_compile_product_specs.context;
-  shared_formula_names_in_terms : Why3.Ptree.term list -> StringSet.t;
-  local_shared_formula_decls :
-    ?exclude:StringSet.t -> StringSet.t -> Why3.Ptree.decl list;
+  formula_sharing : Why_compile_formula_sharing.t;
+  formula_imports : Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list;
+  shared_post_call :
+    used_inputs:Why_compile_expr.used_inputs ->
+    formulas:Core_syntax.history_free Ir.summary_formula list ->
+    Why3.Ptree.term list ->
+    Why3.Ptree.decl * Why3.Ptree.term;
 }
 
-let kernel_step_helper_units ctx plan =
+open Why3
+open Ptree
+open Why_compile_expr
+open Why_compile_ptree_helpers
+
+let helper_function helper_inputs spc helper_body =
+  mk_expr
+    (Efun
+       ( helper_inputs,
+         None,
+         { pat_desc = Pwild; pat_loc = loc },
+         Ity.MaskVisible,
+         spc,
+         helper_body ))
+
+let grouped_body ~env transition ~post_call =
+  let pre_snapshot_name = "__pre_snapshot" in
+  let snapshot_expr =
+    env.rec_vars
+    |> List.map (fun field_name -> (qid1 field_name, field env field_name))
+    |> fun fields -> mk_expr (Erecord fields)
+  in
+  let proof_assert =
+    mk_expr (Eassert (Expr.Assert, post_call ~pre_snapshot_name))
+  in
+  let body =
+    seq_exprs
+      [
+        Why_compile_step.compile_transition_body env transition;
+        proof_assert;
+      ]
+  in
+  mk_expr
+    (Elet (ident pre_snapshot_name, true, Expr.RKnone, snapshot_expr, body))
+
+let build_individual (ctx : context) (plan : Product_groups.individual_plan) :
+    helper_unit =
+  let i = plan.index in
+  let sc = plan.contract in
+  let helper_name =
+    ident (Step_names.product_step_helper_name ~index:i sc)
+  in
+  let helper_contract =
+    Product_specs.individual_helper_contract ~env:ctx.env ~inputs:ctx.inputs
+      ~formula_sharing:ctx.formula_sharing
+      ~formula_imports:ctx.formula_imports
+      ~helper_name:helper_name.Ptree.id_str
+      ~shared_post_call:ctx.shared_post_call sc
+  in
+  let helper_body, body_inputs =
+    collect_used_inputs ctx.env (fun env ->
+        Why_compile_step.compile_transition_body env sc.program_step)
+  in
+  let helper_inputs =
+    binders_used_by
+      (StringSet.union helper_contract.used_inputs body_inputs)
+      ctx.inputs
+  in
+  let fn = helper_function helper_inputs helper_contract.spec helper_body in
+  {
+    helper_name = helper_name.Ptree.id_str;
+    decls =
+      helper_contract.decls
+      @ [ Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ];
+  }
+
+let build_grouped (ctx : context) (plan : Product_groups.grouped_plan) :
+    helper_unit =
+  let first_i = plan.index in
+  let first_sc = plan.contract in
+  let helper_name =
+    ident
+      (Step_names.product_step_group_helper_name ~index:first_i first_sc)
+  in
+  let post_pred_name = helper_name.Ptree.id_str ^ "_post" in
+  let grouped_contract =
+    Product_specs.grouped_helper_contract ~env:ctx.env ~inputs:ctx.inputs
+      ~post_pred_name plan.grouped_terms
+  in
+  let helper_body, body_inputs =
+    collect_used_inputs ctx.env (fun env ->
+        grouped_body ~env first_sc.program_step
+          ~post_call:grouped_contract.post_call)
+  in
+  let helper_inputs =
+    binders_used_by
+      (StringSet.union grouped_contract.used_inputs body_inputs)
+      ctx.inputs
+  in
+  let fn = helper_function helper_inputs grouped_contract.spec helper_body in
+  {
+    helper_name = helper_name.Ptree.id_str;
+    decls =
+      ctx.formula_imports plan.formulas
+      @ [
+        grouped_contract.post_pred_decl;
+        Ptree.Dlet (helper_name, false, Expr.RKnone, fn);
+      ];
+  }
+
+let kernel_step_helper_units ~env ~inputs ~formula_sharing ~formula_imports
+    ~shared_post_call plan =
+  let ctx =
+    { env; inputs; formula_sharing; formula_imports; shared_post_call }
+  in
   plan
   |> List.map (function
        | Product_groups.Individual individual ->
-           Individual_helper.build ctx individual
-       | Product_groups.Grouped grouped -> Grouped_helper.build ctx grouped)
+           build_individual ctx individual
+       | Product_groups.Grouped grouped -> build_grouped ctx grouped)

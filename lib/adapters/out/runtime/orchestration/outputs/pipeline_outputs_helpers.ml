@@ -63,16 +63,7 @@ let optimization_meta (proof_optimizations : Pipeline_types.proof_optimizations 
           [
             ( "group_public_non_w_guarantees",
               bool_s opts.group_public_non_w_guarantees );
-            ("share_why3_facts", bool_s opts.share_why3_facts);
-            ("simplify_why3_formulas", bool_s opts.simplify_why3_formulas);
-            ( "slice_why3_transition_bodies",
-              bool_s opts.slice_why3_transition_bodies );
-            ( "simplify_why3_runtime_actions",
-              bool_s opts.simplify_why3_runtime_actions );
-            ("deduplicate_why3_terms", bool_s opts.deduplicate_why3_terms);
             ("group_why3_product_steps", bool_s opts.group_why3_product_steps);
-            ( "why3_product_step_group_max_cost",
-              string_of_int opts.why3_product_step_group_max_cost );
           ] );
       ]
 

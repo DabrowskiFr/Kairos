@@ -54,7 +54,12 @@ let rec expr_function_calls acc (e : C.expr) =
       expr_function_calls (expr_function_calls acc left) right
   | C.EUn (_, inner) -> expr_function_calls acc inner
 
-let rec hexpr_function_calls acc (h : C.hexpr) =
+let rec hexpr_function_calls :
+    type phase.
+    Common.StringSet.t ->
+    phase C.hexpr ->
+    Common.StringSet.t =
+ fun acc h ->
   match h.hexpr with
   | C.HLitInt _ | C.HLitBool _ | C.HLitEnum _ | C.HVar _ | C.HPreK _ -> acc
   | C.HPred (_, args) -> List.fold_left hexpr_function_calls acc args

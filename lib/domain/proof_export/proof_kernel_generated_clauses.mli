@@ -21,11 +21,11 @@
 (** Build the generated clauses for one node from its explicit product
     exploration and liveness predicate. *)
 val build_generated_clauses :
-  node:Ir.node_ir ->
+  node:Core_syntax.historical Ir.node_ir ->
   analysis:Temporal_automata.node_data ->
   initial_state:Proof_kernel_types.product_state_ir ->
   steps:Proof_kernel_types.product_step_ir list ->
-  automaton_guard_fo:(Automaton_types.guard -> Core_syntax.hexpr) ->
+  automaton_guard_fo:(Automaton_types.guard -> Core_syntax.historical Core_syntax.hexpr) ->
   is_live_state:
     (analysis:Temporal_automata.node_data -> Product_types.product_state -> bool) ->
   Proof_kernel_types.generated_clause_ir list

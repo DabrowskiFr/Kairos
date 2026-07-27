@@ -35,7 +35,7 @@ module Info_helpers = Instrumentation_info_helpers
 (** [instrumentation_info_of_node] helper value. *)
 
 let instrumentation_info_of_node ~(analyses : (ident * Temporal_automata.node_data) list)
-    (node : Ir.node_ir) : (Flow_info.instrumentation_info, string) result =
+    (node : Core_syntax.history_free Ir.node_ir) : (Flow_info.instrumentation_info, string) result =
   let* analysis = Info_helpers.analysis_of_node ~analyses node in
   let require_automata_state_count = List.length analysis.assume_state_labels in
   let require_automata_edge_count = List.length analysis.assume_grouped_edges in

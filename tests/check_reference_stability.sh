@@ -50,17 +50,11 @@ compare_variant() {
 dump_reference_view "$tmpdir/default"
 
 dump_reference_view "$tmpdir/backend-disabled" \
-  --no-why3-fact-sharing \
-  --no-why3-fo-simplification \
-  --no-why3-body-slicing \
-  --no-why3-action-simplification \
-  --no-why3-term-dedup \
   --no-why3-product-step-grouping
 
 dump_reference_view "$tmpdir/backend-scheduling" \
   --proof-jobs=4 \
-  --timeout-s=1 \
-  --why3-product-step-group-max-cost=1
+  --timeout-s=1
 
 compare_variant "backend-disabled"
 compare_variant "backend-scheduling"

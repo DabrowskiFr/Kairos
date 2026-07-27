@@ -60,24 +60,62 @@ and expr_desc =
   | EUn of unop * expr
 [@@deriving yojson]
 
-(** Historical/logical expression used in first-order atoms. *)
-type hexpr = { hexpr : hexpr_desc; loc : Loc.loc option }
+(** Static capability of a logical expression. *)
+type historical = Historical
+type history_free = HistoryFree
 
-and hexpr_desc =
-  | HLitInt of int
-  | HLitBool of bool
-  | HLitEnum of ident
-  | HVar of ident
-  | HPreK of ident * int
-  | HPred of ident * hexpr list
-  | HFunCall of ident * hexpr list
-  | HBin of binop * hexpr * hexpr
-  | HCmp of relop * hexpr * hexpr
-  | HUn of unop * hexpr
-[@@deriving yojson]
+(** Logical expression indexed by its history capability. *)
+type 'phase hexpr = {
+  hexpr : 'phase hexpr_desc;
+  loc : Loc.loc option;
+}
+
+and _ hexpr_desc =
+  | HLitInt : int -> 'phase hexpr_desc
+  | HLitBool : bool -> 'phase hexpr_desc
+  | HLitEnum : ident -> 'phase hexpr_desc
+  | HVar : ident -> 'phase hexpr_desc
+  | HPreK : ident * int -> historical hexpr_desc
+  | HPred : ident * 'phase hexpr list -> 'phase hexpr_desc
+  | HFunCall : ident * 'phase hexpr list -> 'phase hexpr_desc
+  | HBin :
+      binop * 'phase hexpr * 'phase hexpr ->
+      'phase hexpr_desc
+  | HCmp :
+      relop * 'phase hexpr * 'phase hexpr ->
+      'phase hexpr_desc
+  | HUn : unop * 'phase hexpr -> 'phase hexpr_desc
+
+val hexpr_to_yojson : 'phase hexpr -> Yojson.Safe.t
+
+val historical_hexpr_of_yojson :
+  Yojson.Safe.t -> (historical hexpr, string) result
+
+val history_free_hexpr_of_yojson :
+  Yojson.Safe.t -> (history_free hexpr, string) result
+
+val history_free_hexpr_list_to_yojson :
+  history_free hexpr list -> Yojson.Safe.t
+
+val history_free_hexpr_list_of_yojson :
+  Yojson.Safe.t -> (history_free hexpr list, string) result
+
+val history_free_of_historical :
+  historical hexpr -> history_free hexpr option
+
+val historical_of_history_free :
+  history_free hexpr -> historical hexpr
 
 (** Atomic LTL predicate over historical expressions. *)
-type ltl_atom = hexpr * relop * hexpr [@@deriving yojson]
+type ltl_atom =
+  (historical hexpr
+    [@to_yojson hexpr_to_yojson]
+    [@of_yojson historical_hexpr_of_yojson])
+  * relop
+  * (historical hexpr
+      [@to_yojson hexpr_to_yojson]
+      [@of_yojson historical_hexpr_of_yojson])
+[@@deriving yojson]
 
 (** Temporal contract formulas consumed by the automata/product pipeline. *)
 type ltl =
@@ -105,8 +143,12 @@ type pure_function_decl = {
   function_name : ident;
   function_params : vdecl list;
   function_return : ty;
-  function_requires : hexpr list;
-  function_ensures : hexpr list;
+  function_requires : history_free hexpr list
+      [@to_yojson history_free_hexpr_list_to_yojson]
+      [@of_yojson history_free_hexpr_list_of_yojson];
+  function_ensures : history_free hexpr list
+      [@to_yojson history_free_hexpr_list_to_yojson]
+      [@of_yojson history_free_hexpr_list_of_yojson];
   function_body : expr;
 }
 [@@deriving yojson]
@@ -117,10 +159,12 @@ type stmt = { stmt : stmt_desc; loc : Loc.loc option }
 
 and stmt_desc =
   | SAssign of ident * expr
-  | SAssert of hexpr
+  | SAssert of history_free hexpr
   | SIf of expr * stmt list * stmt list
-  | SWhile of expr * hexpr list * expr option * stmt list
+  | SWhile of expr * history_free hexpr list * expr option * stmt list
   | SMatch of expr * (ident * stmt list) list * stmt list
   | SSkip
   | SCall of ident * expr list * ident list
-[@@deriving yojson]
+
+val stmt_to_yojson : stmt -> Yojson.Safe.t
+val stmt_of_yojson : Yojson.Safe.t -> (stmt, string) result

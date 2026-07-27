@@ -42,18 +42,18 @@
 
 type t
 
-val build : node:Ir.node_ir -> t
+val build : node:Core_syntax.historical Ir.node_ir -> t
 (** Build the characteristic table for one node. *)
 
 val entry_facts_of_product_state :
-  t -> Ir.product_state -> Core_syntax.hexpr list
+  t -> Ir.product_state -> Core_syntax.historical Core_syntax.hexpr list
 (** Facts that may be assumed at the entry of a local product step whose source
     is the given product state. *)
 
 val preservation_ensures :
   t ->
-  node:Ir.node_ir ->
-  Ir.product_step_summary ->
-  Core_syntax.hexpr list
+  node:Core_syntax.historical Ir.node_ir ->
+  Core_syntax.historical Ir.product_step_summary ->
+  Core_syntax.historical Core_syntax.hexpr list
 (** Preservation obligations induced by the safe destinations of one product
     summary. *)

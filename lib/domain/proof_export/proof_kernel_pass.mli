@@ -33,7 +33,7 @@ open Core_syntax
 type node_input = {
   node_name : ident;
   source_node : Verification_model.node_model;
-  node : Ir.node_ir;
+  node : Core_syntax.historical Ir.node_ir;
   analysis : Temporal_automata.node_data;
 }
 

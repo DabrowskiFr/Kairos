@@ -27,17 +27,17 @@ val input_names : Core_syntax.vdecl list -> Core_syntax.ident list
 (** Stable list of input names extracted from declarations. *)
 
 val current_inputs :
-  input_names:Core_syntax.ident list -> Core_syntax.hexpr -> Core_syntax.ident list
+  input_names:Core_syntax.ident list -> Core_syntax.historical Core_syntax.hexpr -> Core_syntax.ident list
 (** Current input variables that occur as plain [HVar] nodes. *)
 
 val no_current_input :
-  input_names:Core_syntax.ident list -> Core_syntax.hexpr -> bool
+  input_names:Core_syntax.ident list -> Core_syntax.historical Core_syntax.hexpr -> bool
 (** [true] iff {!current_inputs} is empty. *)
 
 val require_no_current_input :
   context:string ->
   input_names:Core_syntax.ident list ->
-  Core_syntax.hexpr ->
-  Core_syntax.hexpr
+  Core_syntax.historical Core_syntax.hexpr ->
+  Core_syntax.historical Core_syntax.hexpr
 (** Return the formula unchanged when it is current-input-free; otherwise fail
     with a diagnostic containing [context]. *)

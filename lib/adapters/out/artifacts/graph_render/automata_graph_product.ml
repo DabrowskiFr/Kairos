@@ -95,9 +95,9 @@ type merged_product_edge = {
   src : PT.product_state;
   dst : PT.product_state;
   step_class : PT.step_class;
-  prog_guard : Core_syntax.hexpr;
-  assume_guard : Core_syntax.hexpr;
-  guarantee_guard : Core_syntax.hexpr;
+  prog_guard : Core_syntax.historical Core_syntax.hexpr;
+  assume_guard : Core_syntax.historical Core_syntax.hexpr;
+  guarantee_guard : Core_syntax.historical Core_syntax.hexpr;
 }
 
 type product_edge_visual = {

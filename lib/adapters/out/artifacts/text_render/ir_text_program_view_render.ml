@@ -97,7 +97,7 @@ let render_function_decl (f : pure_function_decl) : string =
   String.concat "\n" ([ header ] @ reqs @ enss @ [ "  = " ^ Pretty.string_of_expr f.function_body ^ ";" ])
 
 let program_transitions_of_node ~(source_program : Verification_model.program_model option)
-    (n : Ir.node_ir) :
+    (n : 'phase Ir.node_ir) :
     Ir.transition list =
   match source_program with
   | Some source_program -> (
@@ -110,15 +110,17 @@ let program_transitions_of_node ~(source_program : Verification_model.program_mo
       | Some source_node -> Ir_transition.prioritized_program_transitions_of_node source_node
       | None ->
           n.summaries
-          |> List.map (fun (summary : Ir.product_step_summary) -> summary.identity.program_step)
+          |> List.map (fun (summary : 'phase Ir.product_step_summary) ->
+                 summary.identity.program_step)
           |> List.sort_uniq Stdlib.compare)
   | None ->
       n.summaries
-      |> List.map (fun (summary : Ir.product_step_summary) -> summary.identity.program_step)
+      |> List.map (fun (summary : 'phase Ir.product_step_summary) ->
+             summary.identity.program_step)
       |> List.sort_uniq Stdlib.compare
 
 let render_node_with_source ~(source_program : Verification_model.program_model option)
-    (n : Ir.node_ir) : string =
+    (n : 'phase Ir.node_ir) : string =
   let sem = n.semantics in
   let line_params name vs =
     if vs = [] then None
@@ -152,9 +154,9 @@ let render_node_with_source ~(source_program : Verification_model.program_model 
   String.concat "\n" ([ "node " ^ sem.sem_nname ^ " {" ] @ body @ [ "}" ])
 
 let render_node ?(source_program : Verification_model.program_model option = None)
-    (n : Ir.node_ir) : string =
+    (n : 'phase Ir.node_ir) : string =
   render_node_with_source ~source_program n
 
 let render_program ?(source_program : Verification_model.program_model option = None)
-    (p : Ir.node_ir list) : string =
+    (p : 'phase Ir.node_ir list) : string =
   String.concat "\n\n" (List.map (render_node_with_source ~source_program) p)

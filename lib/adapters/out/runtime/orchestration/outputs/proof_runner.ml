@@ -30,7 +30,9 @@ type run_output = {
   proof_traces : Pipeline_types.proof_trace list;
 }
 
-let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
+let run ~(cfg : Pipeline_types.config)
+    ~(instrumentation : Core_syntax.history_free Ir.node_ir list)
+    ~(step_projections : Step_contract_projection.t list) :
     (run_output, Pipeline_types.error) result =
   try
     let progress = Proof_progress_output.open_csv cfg.proof_progress_path in
@@ -40,26 +42,22 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       | Pipeline_types.Explicit_product -> cfg.proof_optimizations
     in
     let attributions =
-      lazy (Proof_goal_attribution.build ~opts instrumentation)
+      lazy
+        (Proof_goal_attribution.build ~opts ~nodes:instrumentation
+           ~step_projections)
     in
     let compilation_options : Why_pipeline.compilation_options =
       {
-        share_facts = opts.share_why3_facts;
-        simplify_formulas = opts.simplify_why3_formulas;
-        slice_transition_bodies = opts.slice_why3_transition_bodies;
-        simplify_runtime_actions = opts.simplify_why3_runtime_actions;
-        deduplicate_terms = opts.deduplicate_why3_terms;
         group_product_steps = opts.group_why3_product_steps;
-        product_step_group_max_cost = opts.why3_product_step_group_max_cost;
       }
     in
     let whyml =
-      Why_pipeline.compile_whyml ~with_spans:cfg.generate_why_text
-        ~nodes:instrumentation ~options:compilation_options ()
+      Why_pipeline.compile_whyml ~nodes:instrumentation
+        ~step_projections
+        ~options:compilation_options ()
     in
     let backend_why_text = whyml.text in
     let output_why_text = if cfg.generate_why_text then whyml.text else "" in
-    let output_why_spans = whyml.spans in
     External_timing.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);
     let t_vc_smt = Unix.gettimeofday () in
     if cfg.prove && Option.is_none progress && not cfg.wp_only && not cfg.generate_vc_text
@@ -91,7 +89,7 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       Ok
         {
           why_text = output_why_text;
-          why_spans = output_why_spans;
+          why_spans = [];
           vc_text = "";
           vc_spans_ordered = [];
           smt_text = "";
@@ -139,7 +137,7 @@ let run ~(cfg : Pipeline_types.config) ~(instrumentation : Ir.node_ir list) :
       Ok
         {
           why_text = output_why_text;
-          why_spans = output_why_spans;
+          why_spans = [];
           vc_text;
           vc_spans_ordered;
           smt_text;

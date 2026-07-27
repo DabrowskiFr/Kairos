@@ -37,8 +37,8 @@ val add :
   collector ->
   pass_name:string ->
   family_name:string ->
-  candidates:Core_syntax.hexpr list ->
-  inserted:Core_syntax.hexpr list ->
+  candidates:Core_syntax.historical Core_syntax.hexpr list ->
+  inserted:Core_syntax.historical Core_syntax.hexpr list ->
   unit
 
 val emit : collector -> observer -> unit

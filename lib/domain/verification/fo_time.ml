@@ -18,8 +18,8 @@
 open Core_syntax
 open Core_syntax_builders
 
-let shift_hexpr_forward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
-  let rec go (h : hexpr) =
+let shift_hexpr_forward ~(is_input : ident -> bool) (h : historical hexpr) : historical hexpr =
+  let rec go (h : historical hexpr) =
     match h.hexpr with
     | HLitInt _ | HLitBool _ | HLitEnum _ -> h
     | HVar v -> if is_input v then mk_hpre_k v 1 else h
@@ -32,8 +32,8 @@ let shift_hexpr_forward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
   in
   go h
 
-let shift_hexpr_entry_to_post ~(is_input : ident -> bool) (h : hexpr) : hexpr =
-  let rec go (h : hexpr) =
+let shift_hexpr_entry_to_post ~(is_input : ident -> bool) (h : historical hexpr) : historical hexpr =
+  let rec go (h : historical hexpr) =
     match h.hexpr with
     | HLitInt _ | HLitBool _ | HLitEnum _ -> h
     | HVar v -> if is_input v then h else mk_hpre_k v 1
@@ -46,8 +46,8 @@ let shift_hexpr_entry_to_post ~(is_input : ident -> bool) (h : hexpr) : hexpr =
   in
   go h
 
-let shift_hexpr_backward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
-  let rec go (h : hexpr) =
+let shift_hexpr_backward ~(is_input : ident -> bool) (h : historical hexpr) : historical hexpr =
+  let rec go (h : historical hexpr) =
     match h.hexpr with
     | HLitInt _ | HLitBool _ | HLitEnum _ -> h
     | HVar v ->
@@ -67,14 +67,14 @@ let shift_hexpr_backward ~(is_input : ident -> bool) (h : hexpr) : hexpr =
   in
   go h
 
-let shift_formula_forward_inputs ~(is_input : ident -> bool) (f : Core_syntax.hexpr) :
-    Core_syntax.hexpr =
+let shift_formula_forward_inputs ~(is_input : ident -> bool) (f : Core_syntax.historical Core_syntax.hexpr) :
+    Core_syntax.historical Core_syntax.hexpr =
   shift_hexpr_forward ~is_input f
 
 let shift_formula_entry_to_post ~(is_input : ident -> bool)
-    (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+    (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   shift_hexpr_entry_to_post ~is_input f
 
-let shift_formula_backward_inputs ~(is_input : ident -> bool) (f : Core_syntax.hexpr) :
-    Core_syntax.hexpr =
+let shift_formula_backward_inputs ~(is_input : ident -> bool) (f : Core_syntax.historical Core_syntax.hexpr) :
+    Core_syntax.historical Core_syntax.hexpr =
   shift_hexpr_backward ~is_input f

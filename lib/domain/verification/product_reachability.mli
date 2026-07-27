@@ -27,19 +27,21 @@
 
 type t
 
-val build : node:Ir.node_ir -> t
+val build : node:Core_syntax.historical Ir.node_ir -> t
+val build_history_free : node:Core_syntax.history_free Ir.node_ir -> t
 
-val formula_of_product_state : t -> Ir.product_state -> Core_syntax.hexpr
+val formula_of_product_state : t -> Ir.product_state -> 'phase Core_syntax.hexpr
 (** [formula_of_product_state t p] returns the current [R_p] candidate. Unknown
     states default to [true], so the invariant is conservative under missing
     metadata. *)
 
-val local_requires_of_product_state : t -> Ir.product_state -> Core_syntax.hexpr list
+val local_requires_of_product_state :
+  t -> Ir.product_state -> 'phase Core_syntax.hexpr list
 (** Local backend-only hypotheses for helpers whose source is [p]. The list is
     empty when [R_p] is [true] and contains [false] when [R_p] is [false]. *)
 
-val preservation_ensures : t -> Ir.product_step_summary -> Core_syntax.hexpr list
+val preservation_ensures : t -> Core_syntax.historical Ir.product_step_summary -> Core_syntax.historical Core_syntax.hexpr list
 (** Preservation obligations for the safe destinations of one product summary.
     Only non-trivial obligations are returned. *)
 
-val run_program : Ir.node_ir list -> Ir.node_ir list
+val run_program : Core_syntax.historical Ir.node_ir list -> Core_syntax.historical Ir.node_ir list

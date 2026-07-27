@@ -26,5 +26,5 @@
 
 val run_program :
   ?observe_family:Ir_fact_family_metrics.observer ->
-  Ir.node_ir list ->
-  Ir.node_ir list
+  Core_syntax.historical Ir.node_ir list ->
+  Core_syntax.historical Ir.node_ir list

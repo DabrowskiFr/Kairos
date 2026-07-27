@@ -35,7 +35,7 @@ open Proof_kernel_types
 
 (** [simplify_fo] helper value. *)
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
 (** [same_product_state_ref] helper value. *)
@@ -54,14 +54,14 @@ let product_state_ref_of_ir (st : product_state_ir) : Abs.product_state =
 
 (** [same_safe_case_step] helper value. *)
 
-let same_safe_case_step (case : Abs.safe_product_case) (step : product_step_ir) =
+let same_safe_case_step (case : Core_syntax.historical Abs.safe_product_case) (step : product_step_ir) =
   step.step_kind = StepSafe
   && same_product_state_ref case.product_dst step.dst
   && simplify_fo case.admissible_guard.logic = simplify_fo step.guarantee_edge.guard
 
 (** [same_unsafe_case_step] helper value. *)
 
-let same_unsafe_case_step (case : Abs.unsafe_product_case) (step : product_step_ir) =
+let same_unsafe_case_step (case : Core_syntax.historical Abs.unsafe_product_case) (step : product_step_ir) =
   step.step_kind = StepBadGuarantee
   && same_product_state_ref case.product_dst step.dst
   && simplify_fo case.excluded_guard.logic = simplify_fo step.guarantee_edge.guard
@@ -87,8 +87,8 @@ let product_transition_index_of_step (step : product_step_ir) : int option =
 
 (** [product_summary_of_step] helper value. *)
 
-let product_summary_of_step ?projection ~(node : Abs.node_ir)
-    (step : product_step_ir) : Abs.product_step_summary option =
+let product_summary_of_step ?projection ~(node : Core_syntax.historical Abs.node_ir)
+    (step : product_step_ir) : Core_syntax.historical Abs.product_step_summary option =
   match product_transition_index_of_step step with
   | None -> None
   | Some idx ->

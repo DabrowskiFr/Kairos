@@ -19,24 +19,33 @@ open Core_syntax
 
 module Abs = Ir
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
-  Core_fo_simplifier.simplify f
+let simplify_history_free
+    (formula : Core_syntax.history_free Core_syntax.hexpr) :
+    Core_syntax.history_free Core_syntax.hexpr =
+  let simplified =
+    formula |> Core_syntax.historical_of_history_free
+    |> Core_fo_simplifier.simplify
+  in
+  match Core_syntax.history_free_of_historical simplified with
+  | Some formula -> formula
+  | None ->
+      invalid_arg "first-order simplification introduced historical syntax"
 
-let required_temporal_layout (node : Abs.node_ir) : Abs.temporal_layout =
+let required_temporal_layout (node : Core_syntax.historical Abs.node_ir) : Abs.temporal_layout =
   let summary_formulas =
     let product_formulas =
       node.summaries
-      |> List.concat_map (fun (summary : Abs.product_step_summary) ->
+      |> List.concat_map (fun (summary : Core_syntax.historical Abs.product_step_summary) ->
              Ir_formula.values
                (summary.propagation_requires @ summary.requires @ summary.ensures
               @ summary.elaboration_checks)
              @
              let case_formulas =
                List.concat_map
-                 (fun (case : Abs.safe_product_case) -> [ case.admissible_guard ])
+                 (fun (case : Core_syntax.historical Abs.safe_product_case) -> [ case.admissible_guard ])
                  summary.safe_cases
                @ List.concat_map
-                   (fun (case : Abs.unsafe_product_case) -> [ case.excluded_guard ])
+                   (fun (case : Core_syntax.historical Abs.unsafe_product_case) -> [ case.excluded_guard ])
                    summary.unsafe_cases
              in
              Ir_formula.values case_formulas)
@@ -47,39 +56,78 @@ let required_temporal_layout (node : Abs.node_ir) : Abs.temporal_layout =
     ~locals:node.semantics.sem_locals ~outputs:node.semantics.sem_outputs
     ~fo_formulas:summary_formulas ~ltl:[]
 
-let lower_formula ~(node_name : ident) ~(temporal_bindings : Pre_k_lowering.temporal_binding list)
-    (f : Abs.summary_formula) : Abs.summary_formula =
-  match Pre_k_lowering.lower_fo_formula_temporal_bindings ~temporal_bindings f.logic with
-  | None ->
-      failwith
-        (Printf.sprintf
-           "temporal_lower: unable to lower formula for node %s: %s"
-           node_name (Pretty.string_of_fo f.logic))
-  | Some logic -> { f with logic = simplify_fo logic }
-
-let run_node (node : Abs.node_ir) : Abs.node_ir =
+let run_node (node : Core_syntax.historical Abs.node_ir) :
+    Core_syntax.history_free Abs.node_ir =
   let temporal_layout = required_temporal_layout node in
   let temporal_bindings = Ir_formula.temporal_bindings_of_layout temporal_layout in
-  let lower = lower_formula ~node_name:node.semantics.sem_nname ~temporal_bindings in
+  let lowered_by_input = Hashtbl.create 512 in
+  let lowered_pool = Formula_canonical.create_pool () in
+  let lower_logic
+      (input : Core_syntax.historical Core_syntax.hexpr) =
+    let compute () =
+      match
+        Pre_k_lowering.lower_fo_formula_temporal_bindings
+          ~temporal_bindings input
+      with
+      | Some logic -> simplify_history_free logic
+      | None ->
+          failwith
+            (Printf.sprintf
+               "temporal_lower: unable to lower formula for node %s: %s"
+               node.semantics.sem_nname
+               (Pretty.string_of_fo input))
+    in
+    match input.loc with
+      | Some _ -> compute ()
+      | None ->
+          let input_key = Formula_canonical.key input in
+          match Hashtbl.find_opt lowered_by_input input_key with
+          | Some logic -> logic
+          | None ->
+              let lowered = compute () in
+              let logic =
+                match lowered.loc with
+                | Some _ -> lowered
+                | None -> Formula_canonical.intern lowered_pool lowered
+              in
+              Hashtbl.add lowered_by_input input_key logic;
+              logic
+  in
+  let lower (formula : Core_syntax.historical Abs.summary_formula) :
+      Core_syntax.history_free Abs.summary_formula =
+    { logic = lower_logic formula.logic; meta = formula.meta }
+  in
   let summaries =
     node.summaries
-    |> List.map (fun (summary : Abs.product_step_summary) ->
+    |> List.map (fun (summary : Core_syntax.historical Abs.product_step_summary) ->
            let propagation_requires = List.map lower summary.propagation_requires in
            let requires = List.map lower summary.requires in
            let ensures = List.map lower summary.ensures in
            let elaboration_checks = List.map lower summary.elaboration_checks in
            let safe_cases =
              summary.safe_cases
-             |> List.map (fun (c : Abs.safe_product_case) ->
-                    { c with admissible_guard = lower c.admissible_guard })
+             |> List.map (fun (c : Core_syntax.historical Abs.safe_product_case) ->
+                    {
+                      Abs.product_dst = c.product_dst;
+                      admissible_guard = lower c.admissible_guard;
+                    })
            in
            let unsafe_cases =
              summary.unsafe_cases
-             |> List.map (fun (c : Abs.unsafe_product_case) ->
-                    { c with excluded_guard = lower c.excluded_guard })
+             |> List.map (fun (c : Core_syntax.historical Abs.unsafe_product_case) ->
+                    {
+                      Abs.product_dst = c.product_dst;
+                      excluded_guard = lower c.excluded_guard;
+                    })
            in
            {
-             summary with
+             Abs.trace = summary.trace;
+             identity =
+               {
+                 Abs.program_step = summary.identity.program_step;
+                 product_src = summary.identity.product_src;
+                 assume_guard = lower_logic summary.identity.assume_guard;
+               };
              propagation_requires;
              requires;
              ensures;
@@ -89,7 +137,14 @@ let run_node (node : Abs.node_ir) : Abs.node_ir =
            })
   in
   let init_invariant_goals = List.map lower node.init_invariant_goals in
-  { node with temporal_layout; summaries; init_invariant_goals }
+  {
+    Abs.semantics = node.semantics;
+    source_info = node.source_info;
+    temporal_layout;
+    summaries;
+    init_invariant_goals;
+  }
 
-let run_program (program : Abs.node_ir list) : Abs.node_ir list =
+let run_program (program : Core_syntax.historical Abs.node_ir list) :
+    Core_syntax.history_free Abs.node_ir list =
   List.map run_node program

@@ -48,12 +48,15 @@ type reactive_transition_ir = {
   transition_id : string;
   src_state : ident;
   dst_state : ident;
-  guard : Core_syntax.hexpr;
+  guard :
+    (Core_syntax.historical Core_syntax.hexpr
+      [@to_yojson Core_syntax.hexpr_to_yojson]
+      [@of_yojson Core_syntax.historical_hexpr_of_yojson]);
   guard_expr : expr option;
-  requires : Ir.summary_formula list
+  requires : Core_syntax.historical Ir.summary_formula list
       [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
       [@of_yojson Ir_json_codec.summary_formula_list_of_yojson];
-  ensures : Ir.summary_formula list
+  ensures : Core_syntax.historical Ir.summary_formula list
       [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
       [@of_yojson Ir_json_codec.summary_formula_list_of_yojson];
   body_stmts : Core_syntax.stmt list;
@@ -73,7 +76,10 @@ type reactive_program_ir = {
 type automaton_edge_ir = {
   src_index : int;
   dst_index : int;
-  guard : Core_syntax.hexpr;
+  guard :
+    (Core_syntax.historical Core_syntax.hexpr
+      [@to_yojson Core_syntax.hexpr_to_yojson]
+      [@of_yojson Core_syntax.historical_hexpr_of_yojson]);
 }
 [@@deriving yojson]
 
@@ -117,7 +123,10 @@ type product_step_ir = {
   dst : product_state_ir;
   program_transition_id : string;
   program_transition : ident * ident;
-  program_guard : Core_syntax.hexpr;
+  program_guard :
+    (Core_syntax.historical Core_syntax.hexpr
+      [@to_yojson Core_syntax.hexpr_to_yojson]
+      [@of_yojson Core_syntax.historical_hexpr_of_yojson]);
   assume_edge : automaton_edge_ir;
   guarantee_edge : automaton_edge_ir;
   step_kind : product_step_kind;
@@ -161,8 +170,14 @@ val relational_clause_anchor_ir_of_yojson :
 type relational_clause_fact_desc_ir =
   | RelFactProgramState of ident
   | RelFactGuaranteeState of int
-  | RelFactPhaseFormula of Core_syntax.hexpr
-  | RelFactFormula of Core_syntax.hexpr
+  | RelFactPhaseFormula of
+      (Core_syntax.historical Core_syntax.hexpr
+        [@to_yojson Core_syntax.hexpr_to_yojson]
+        [@of_yojson Core_syntax.historical_hexpr_of_yojson])
+  | RelFactFormula of
+      (Core_syntax.historical Core_syntax.hexpr
+        [@to_yojson Core_syntax.hexpr_to_yojson]
+        [@of_yojson Core_syntax.historical_hexpr_of_yojson])
   | RelFactFalse
 [@@deriving yojson]
 
@@ -230,7 +245,7 @@ type node_ir = {
 type exported_node_summary_ir = {
   signature : node_signature_ir;
   normalized_ir : node_ir;
-  coherency_goals : Ir.summary_formula list
+  coherency_goals : Core_syntax.historical Ir.summary_formula list
       [@to_yojson Ir_json_codec.summary_formula_list_to_yojson]
       [@of_yojson Ir_json_codec.summary_formula_list_of_yojson];
   temporal_layout : Pre_k_layout.pre_k_info list;

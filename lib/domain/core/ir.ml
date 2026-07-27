@@ -25,8 +25,8 @@ type formula_meta = {
   family : string option;
 }
 
-type summary_formula = {
-  logic : Core_syntax.hexpr;
+type 'phase summary_formula = {
+  logic : 'phase Core_syntax.hexpr;
   meta : formula_meta;
 }
 
@@ -45,33 +45,33 @@ type transition = {
   body_stmts : stmt list;
 }
 
-type safe_product_case = {
+type 'phase safe_product_case = {
   product_dst : product_state;
-  admissible_guard : summary_formula;
+  admissible_guard : 'phase summary_formula;
 }
 
-type unsafe_product_case = {
+type 'phase unsafe_product_case = {
   product_dst : product_state;
-  excluded_guard : summary_formula;
+  excluded_guard : 'phase summary_formula;
 }
 
 type product_step_summary_trace = { step_uid : transition_index }
 
-type product_step_summary_identity = {
+type 'phase product_step_summary_identity = {
   program_step : transition;
   product_src : product_state;
-  assume_guard : Core_syntax.hexpr;
+  assume_guard : 'phase Core_syntax.hexpr;
 }
 
-type product_step_summary = {
+type 'phase product_step_summary = {
   trace : product_step_summary_trace;
-  identity : product_step_summary_identity;
-  propagation_requires : summary_formula list;
-  requires : summary_formula list;
-  ensures : summary_formula list;
-  elaboration_checks : summary_formula list;
-  safe_cases : safe_product_case list;
-  unsafe_cases : unsafe_product_case list;
+  identity : 'phase product_step_summary_identity;
+  propagation_requires : 'phase summary_formula list;
+  requires : 'phase summary_formula list;
+  ensures : 'phase summary_formula list;
+  elaboration_checks : 'phase summary_formula list;
+  safe_cases : 'phase safe_product_case list;
+  unsafe_cases : 'phase unsafe_product_case list;
 }
 
 type node_signature = {
@@ -87,7 +87,7 @@ type node_signature = {
 
 type state_invariant = {
   state : ident;
-  formula : Core_syntax.hexpr;
+  formula : Core_syntax.historical Core_syntax.hexpr;
 }
 
 type source_info = {
@@ -96,12 +96,12 @@ type source_info = {
   state_invariants : state_invariant list;
 }
 
-type node_ir = {
+type 'phase node_ir = {
   semantics : node_signature;
   source_info : source_info;
   temporal_layout : temporal_layout;
-  summaries : product_step_summary list;
-  init_invariant_goals : summary_formula list;
+  summaries : 'phase product_step_summary list;
+  init_invariant_goals : 'phase summary_formula list;
 }
 
-type program_ir = { nodes : node_ir list }
+type program_ir = { nodes : Core_syntax.history_free node_ir list }

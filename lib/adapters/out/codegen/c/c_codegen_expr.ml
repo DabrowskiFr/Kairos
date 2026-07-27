@@ -71,7 +71,12 @@ let rec c_expr env (e : C.expr) =
       let* inner = c_expr env inner in
       Ok ("(!" ^ inner ^ ")")
 
-let rec c_hexpr env (h : C.hexpr) =
+let rec c_hexpr :
+    type phase.
+    C_codegen_env.expr_env ->
+    phase C.hexpr ->
+    (string, string) result =
+ fun env h ->
   match h.hexpr with
   | C.HLitInt n -> Ok (string_of_int n)
   | C.HLitBool true -> Ok "true"

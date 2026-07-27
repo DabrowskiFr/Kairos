@@ -22,5 +22,5 @@
 val of_model_program :
   automata:(Core_syntax.ident * Automaton_types.automata_spec) list ->
   Verification_model.program_model ->
-  (Ir.node_ir list, string) result
+  (Core_syntax.historical Ir.node_ir list, string) result
 

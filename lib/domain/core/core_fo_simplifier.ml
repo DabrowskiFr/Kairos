@@ -21,10 +21,11 @@ module Boolean = Core_fo_simplifier_bool
 module Keys = Core_fo_simplifier_keys
 
 let simplify_cache_limit = 20000
-let simplify_cache : (string, Core_syntax.hexpr) Hashtbl.t = Hashtbl.create 4096
+let simplify_cache : (string, Core_syntax.historical Core_syntax.hexpr) Hashtbl.t = Hashtbl.create 4096
 let key_of_hexpr = Keys.key_of_hexpr
 
-let rec simplify_uncached (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let rec simplify_uncached (f : Core_syntax.historical Core_syntax.hexpr) :
+    Core_syntax.historical Core_syntax.hexpr =
   match f.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ | HFunCall _ -> f
   | HUn (Neg, inner) -> Keys.mk_h (HUn (Neg, simplify inner))
@@ -66,7 +67,8 @@ let rec simplify_uncached (f : Core_syntax.hexpr) : Core_syntax.hexpr =
           end
       end
 
-and simplify (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+and simplify (f : Core_syntax.historical Core_syntax.hexpr) :
+    Core_syntax.historical Core_syntax.hexpr =
   match f.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ | HFunCall _ -> f
   | _ -> (

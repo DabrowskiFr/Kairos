@@ -47,7 +47,11 @@ let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_
               "Calls are not supported in this Kairos version (node '%s')."
               n.node_name))
 
-let ir_size_metrics (nodes : Ir.node_ir list) : External_timing.ir_size_metrics =
+let ir_size_metrics :
+    type phase.
+    phase Ir.node_ir list ->
+    External_timing.ir_size_metrics =
+ fun nodes ->
   let summary_count = ref 0 in
   let safe_case_count = ref 0 in
   let unsafe_case_count = ref 0 in
@@ -62,14 +66,16 @@ let ir_size_metrics (nodes : Ir.node_ir list) : External_timing.ir_size_metrics 
     incr formula_occurrence_count;
     formulas := f :: !formulas
   in
-  let add_summary_formula (f : Ir.summary_formula) = add_formula f.logic in
+  let add_summary_formula (f : phase Ir.summary_formula) =
+    add_formula f.logic
+  in
   List.iter
-    (fun (node : Ir.node_ir) ->
+    (fun (node : phase Ir.node_ir) ->
       init_invariant_goal_count :=
         !init_invariant_goal_count + List.length node.init_invariant_goals;
       List.iter add_summary_formula node.init_invariant_goals;
       List.iter
-        (fun (summary : Ir.product_step_summary) ->
+        (fun (summary : phase Ir.product_step_summary) ->
           incr summary_count;
           propagation_requires_count :=
             !propagation_requires_count
@@ -86,11 +92,11 @@ let ir_size_metrics (nodes : Ir.node_ir list) : External_timing.ir_size_metrics 
           List.iter add_summary_formula summary.ensures;
           List.iter add_summary_formula summary.elaboration_checks;
           List.iter
-            (fun (case : Ir.safe_product_case) ->
+            (fun (case : phase Ir.safe_product_case) ->
               add_summary_formula case.admissible_guard)
             summary.safe_cases;
           List.iter
-            (fun (case : Ir.unsafe_product_case) ->
+            (fun (case : phase Ir.unsafe_product_case) ->
               add_summary_formula case.excluded_guard)
             summary.unsafe_cases)
         node.summaries)
@@ -207,7 +213,8 @@ let build_snapshot_from_supplied_automata
           | Orchestration.Post_pass -> External_timing.record_post ~elapsed_s
           | Orchestration.Temporal_lower_pass ->
               External_timing.record_temporal_lower ~elapsed_s
-          | Orchestration.Formula_sharing_pass -> ());
+          | Orchestration.Formula_sharing_pass ->
+              External_timing.record_formula_sharing ~elapsed_s);
           Option.iter
             (fun before ->
               let after_ = ir_size_metrics result in
@@ -216,18 +223,51 @@ let build_snapshot_from_supplied_automata
             before;
           result
         in
+        let run_lowering_pass pass f nodes =
+          let before =
+            if collect_ir_metrics then Some (ir_size_metrics nodes) else None
+          in
+          let t_pass = Unix.gettimeofday () in
+          let result = f nodes in
+          let elapsed_s = Unix.gettimeofday () -. t_pass in
+          External_timing.record_temporal_lower ~elapsed_s;
+          Option.iter
+            (fun before ->
+              let after_ = ir_size_metrics result in
+              External_timing.record_ir_pass
+                { pass_name = ir_pass_name pass; before; after_ })
+            before;
+          result
+        in
+        let pass_runner : Orchestration.pass_runner =
+          {
+            run_historical = run_canonical_pass;
+            run_lowering = run_lowering_pass;
+            run_history_free = run_canonical_pass;
+          }
+        in
         let t_canonical = Unix.gettimeofday () in
         let instrumented_ir =
           Orchestration.build_instrumented_ir
             ?observe_fact_family:
               (if collect_ir_metrics then Some record_ir_fact_family else None)
-            ~run_pass:run_canonical_pass
+            ~pass_runner
             p_summaries
         in
         External_timing.record_canonical ~elapsed_s:(Unix.gettimeofday () -. t_canonical);
         let p_proof_instrumentation = instrumented_ir.proof_nodes in
         let ir_program = instrumented_ir.backend_program in
         let p_instrumentation = ir_program.nodes in
+        let proof_backend_nodes =
+          Runtime_ir_merge.merge_by_source ~source_model:p_model
+            p_instrumentation
+        in
+        let t_step_projection = Unix.gettimeofday () in
+        let step_projections =
+          List.map Step_contract_projection.of_ir_node proof_backend_nodes
+        in
+        External_timing.record_step_projection
+          ~elapsed_s:(Unix.gettimeofday () -. t_step_projection);
         let summaries_info : Flow_info.summaries_info = { warnings = [] }
         in
         let instrumentation_info =
@@ -254,6 +294,8 @@ let build_snapshot_from_supplied_automata
             summaries = p_summaries;
             proof_instrumentation = p_proof_instrumentation;
             instrumentation = p_instrumentation;
+            proof_backend_nodes;
+            step_projections;
           }
         in
         let infos : Runtime_snapshot.flow_infos =

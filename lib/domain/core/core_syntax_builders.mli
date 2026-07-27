@@ -41,42 +41,62 @@ val mk_bool : bool -> Core_syntax.expr
 val mk_enum : Core_syntax.ident -> Core_syntax.expr
 
 (** [mk_hexpr ?loc d] builds a historical expression described by [d]. *)
-val mk_hexpr : ?loc:Loc.loc -> Core_syntax.hexpr_desc -> Core_syntax.hexpr
+val mk_hexpr :
+  ?loc:Loc.loc ->
+  'phase Core_syntax.hexpr_desc ->
+  'phase Core_syntax.hexpr
 
 (** [with_hexpr_desc h d] replaces the descriptor of [h] with [d], preserving
     source location. *)
-val with_hexpr_desc : Core_syntax.hexpr -> Core_syntax.hexpr_desc -> Core_syntax.hexpr
+val with_hexpr_desc :
+  'phase Core_syntax.hexpr ->
+  'phase Core_syntax.hexpr_desc ->
+  'phase Core_syntax.hexpr
 
 (** [mk_hvar x] builds the historical variable [x]. *)
-val mk_hvar : Core_syntax.ident -> Core_syntax.hexpr
+val mk_hvar : Core_syntax.ident -> 'phase Core_syntax.hexpr
 
 (** [mk_hint n] builds the historical integer literal [n]. *)
-val mk_hint : int -> Core_syntax.hexpr
+val mk_hint : int -> 'phase Core_syntax.hexpr
 
 (** [mk_hbool b] builds the historical boolean literal [b]. *)
-val mk_hbool : bool -> Core_syntax.hexpr
+val mk_hbool : bool -> 'phase Core_syntax.hexpr
 
 (** [mk_henum c] builds the historical enum constructor literal [c]. *)
-val mk_henum : Core_syntax.ident -> Core_syntax.hexpr
+val mk_henum : Core_syntax.ident -> 'phase Core_syntax.hexpr
 
 (** [mk_hpre_k x k] builds [pre_k(x,k)] at the historical level. *)
-val mk_hpre_k : Core_syntax.ident -> int -> Core_syntax.hexpr
+val mk_hpre_k :
+  Core_syntax.ident -> int -> Core_syntax.historical Core_syntax.hexpr
 
 (** [mk_hpred p args] builds a boolean predicate application [p(args)]. *)
-val mk_hpred : Core_syntax.ident -> Core_syntax.hexpr list -> Core_syntax.hexpr
+val mk_hpred :
+  Core_syntax.ident ->
+  'phase Core_syntax.hexpr list ->
+  'phase Core_syntax.hexpr
 
 (** [mk_hnot h] builds [not h]. *)
-val mk_hnot : Core_syntax.hexpr -> Core_syntax.hexpr
+val mk_hnot : 'phase Core_syntax.hexpr -> 'phase Core_syntax.hexpr
 
 (** [mk_hand a b] builds [a and b]. *)
-val mk_hand : Core_syntax.hexpr -> Core_syntax.hexpr -> Core_syntax.hexpr
+val mk_hand :
+  'phase Core_syntax.hexpr ->
+  'phase Core_syntax.hexpr ->
+  'phase Core_syntax.hexpr
 
 (** [mk_hor a b] builds [a or b]. *)
-val mk_hor : Core_syntax.hexpr -> Core_syntax.hexpr -> Core_syntax.hexpr
+val mk_hor :
+  'phase Core_syntax.hexpr ->
+  'phase Core_syntax.hexpr ->
+  'phase Core_syntax.hexpr
 
 (** [mk_himp a b] builds [a -> b] as [not a or b]. *)
-val mk_himp : Core_syntax.hexpr -> Core_syntax.hexpr -> Core_syntax.hexpr
+val mk_himp :
+  'phase Core_syntax.hexpr ->
+  'phase Core_syntax.hexpr ->
+  'phase Core_syntax.hexpr
 
 (** [hexpr_of_expr e] structurally converts [e] into the historical layer,
     preserving source location. *)
-val hexpr_of_expr : Core_syntax.expr -> Core_syntax.hexpr
+val hexpr_of_expr :
+  Core_syntax.expr -> Core_syntax.history_free Core_syntax.hexpr

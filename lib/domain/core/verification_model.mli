@@ -29,13 +29,13 @@ type program_step = {
   dst_state : ident;
   guard_expr : expr option;
   body_stmts : stmt list;
-  elaboration_checks : hexpr list;
+  elaboration_checks : historical hexpr list;
 }
 
 (** State invariant attached to a control state. *)
 type state_invariant = {
   state : ident;
-  formula : hexpr;
+  formula : historical hexpr;
 }
 
 (** Node-level verification model. *)

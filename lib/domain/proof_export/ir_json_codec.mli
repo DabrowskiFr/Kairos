@@ -19,7 +19,7 @@
 (** JSON codec helpers for IR formulas used in proof-kernel payloads.
 
     This module centralizes the explicit JSON converters required by derived
-    proof-kernel records that embed [Ir.summary_formula] values. *)
+    proof-kernel records that embed [Core_syntax.historical Ir.summary_formula] values. *)
 
 (** JSON encoder for formula metadata. *)
 val formula_meta_to_yojson : Ir.formula_meta -> Yojson.Safe.t
@@ -28,16 +28,16 @@ val formula_meta_to_yojson : Ir.formula_meta -> Yojson.Safe.t
 val formula_meta_of_yojson : Yojson.Safe.t -> (Ir.formula_meta, string) result
 
 (** JSON encoder for summary formulas. *)
-val summary_formula_to_yojson : Ir.summary_formula -> Yojson.Safe.t
+val summary_formula_to_yojson : Core_syntax.historical Ir.summary_formula -> Yojson.Safe.t
 
 (** JSON decoder for summary formulas. *)
-val summary_formula_of_yojson : Yojson.Safe.t -> (Ir.summary_formula, string) result
+val summary_formula_of_yojson : Yojson.Safe.t -> (Core_syntax.historical Ir.summary_formula, string) result
 
 (** JSON encoder for lists of summary formulas. *)
-val summary_formula_list_to_yojson : Ir.summary_formula list -> Yojson.Safe.t
+val summary_formula_list_to_yojson : Core_syntax.historical Ir.summary_formula list -> Yojson.Safe.t
 
 (** JSON decoder for lists of summary formulas. *)
-val summary_formula_list_of_yojson : Yojson.Safe.t -> (Ir.summary_formula list, string) result
+val summary_formula_list_of_yojson : Yojson.Safe.t -> (Core_syntax.historical Ir.summary_formula list, string) result
 
 (** JSON encoder for semantic generated-obligation families. *)
 val clause_family_to_yojson :

@@ -73,7 +73,7 @@ let check_raises name expected_substring thunk =
 let product_state prog_state guarantee_state_index : Ir.product_state =
   { prog_state; assume_state_index = 0; guarantee_state_index }
 
-let sample_node () : Ir.node_ir =
+let sample_node () : Core_syntax.historical Ir.node_ir =
   let src = product_state "S" 0 in
   let safe_dst = product_state "T" 1 in
   let unsafe_dst_a = product_state "BadA" 2 in
@@ -86,7 +86,7 @@ let sample_node () : Ir.node_ir =
       body_stmts = [];
     }
   in
-  let summary : Ir.product_step_summary =
+  let summary : Core_syntax.historical Ir.product_step_summary =
     {
       trace = { step_uid = 0 };
       identity = { program_step; product_src = src; assume_guard = htrue };
@@ -124,7 +124,7 @@ let sample_node () : Ir.node_ir =
     init_invariant_goals = [];
   }
 
-let input_history_node () : Ir.node_ir =
+let input_history_node () : Core_syntax.historical Ir.node_ir =
   let src = product_state "S" 0 in
   let dst = product_state "T" 1 in
   let program_step =
@@ -135,7 +135,7 @@ let input_history_node () : Ir.node_ir =
       body_stmts = [];
     }
   in
-  let summary : Ir.product_step_summary =
+  let summary : Core_syntax.historical Ir.product_step_summary =
     {
       trace = { step_uid = 0 };
       identity =
@@ -148,7 +148,7 @@ let input_history_node () : Ir.node_ir =
       unsafe_cases = [];
     }
   in
-  let unsafe_summary : Ir.product_step_summary =
+  let unsafe_summary : Core_syntax.historical Ir.product_step_summary =
     {
       trace = { step_uid = 1 };
       identity =
@@ -333,22 +333,22 @@ let expected_product_case_keys
                  (formula_key step.guarantee_guard))
              case_kind)
 
-let actual_summary_case_keys (node : Ir.node_ir) =
+let actual_summary_case_keys (node : Core_syntax.historical Ir.node_ir) =
   node.summaries
-  |> List.concat_map (fun (summary : Ir.product_step_summary) ->
+  |> List.concat_map (fun (summary : Core_syntax.historical Ir.product_step_summary) ->
          let step_uid = summary.trace.step_uid in
          let src = ir_state_key summary.identity.product_src in
          let assume_guard = formula_key summary.identity.assume_guard in
          let safe =
            summary.safe_cases
-           |> List.map (fun (case : Ir.safe_product_case) ->
+           |> List.map (fun (case : Core_syntax.historical Ir.safe_product_case) ->
                   Printf.sprintf "safe|%d|%s|%s|%s|%s" step_uid src assume_guard
                     (ir_state_key case.product_dst)
                     (formula_key case.admissible_guard.logic))
          in
          let unsafe =
            summary.unsafe_cases
-           |> List.map (fun (case : Ir.unsafe_product_case) ->
+           |> List.map (fun (case : Core_syntax.historical Ir.unsafe_product_case) ->
                   Printf.sprintf "bad-guarantee|%d|%s|%s|%s|%s" step_uid src
                     assume_guard
                     (ir_state_key case.product_dst)
@@ -356,7 +356,9 @@ let actual_summary_case_keys (node : Ir.node_ir) =
          in
          safe @ unsafe)
 
-let count_bad_contracts (contracts : Canonical_obligations.step_contract list) =
+let count_bad_contracts : type phase.
+    phase Canonical_obligations.step_contract list -> int =
+ fun contracts ->
   contracts
   |> List.filter (fun c ->
          c.Canonical_obligations.step_class
@@ -385,9 +387,16 @@ let test_stage2_keeps_unsafe_cases_canonical () =
     |> List.filter (fun c ->
            c.Canonical_obligations.step_class
            = Canonical_obligations.StepBadGuarantee)
-    |> List.for_all (fun (c : Canonical_obligations.step_contract) ->
+    |> List.for_all
+         (fun
+           (c :
+             Core_syntax.historical Canonical_obligations.step_contract)
+         ->
            List.length c.forbidden = 1));
-  let grouped = Step_contract_projection.of_product_summaries product_summaries in
+  let grouped =
+    sample_node () |> fun node -> Temporal_lower.run_program [ node ]
+    |> List.hd |> Step_contract_projection.of_ir_node
+  in
   check "grouped view keeps canonical family"
     (count_bad_contracts grouped.canonical.step_contracts = 2);
   check "grouped view has safe + grouped unsafe"
@@ -434,7 +443,7 @@ let test_temporal_endpoint_shifts () =
 
 let test_temporal_endpoint_shift_semantics () =
   let is_input name = String.equal name "i" in
-  let eval_read frame (read : Core_syntax.hexpr) =
+  let eval_read frame (read : Core_syntax.historical Core_syntax.hexpr) =
     match read.hexpr with
     | HVar name -> frame name 0
     | HPreK (name, depth) -> frame name depth
@@ -490,7 +499,7 @@ let test_initial_state_requires_history_stability () =
   let initial_summary =
     match
       List.find_opt
-        (fun (summary : Ir.product_step_summary) ->
+        (fun (summary : Core_syntax.historical Ir.product_step_summary) ->
           String.equal summary.identity.product_src.prog_state
             enriched.semantics.sem_init_state)
         enriched.summaries
@@ -501,7 +510,7 @@ let test_initial_state_requires_history_stability () =
   let expected = hcmp REq (hvar "o") (hpre "o" 1) in
   check "initial state requires output/history coherence"
     (List.exists
-       (fun (requirement : Ir.summary_formula) ->
+       (fun (requirement : Core_syntax.historical Ir.summary_formula) ->
          requirement.meta.family = Some "stability_requires"
          && requirement.logic = expected)
        initial_summary.requires)
@@ -622,7 +631,7 @@ let test_bad_product_sources_do_not_generate_summaries () =
   check "active source still generates summaries" (node_ir.summaries <> []);
   check "summary sources are active"
     (List.for_all
-       (fun (summary : Ir.product_step_summary) ->
+       (fun (summary : Core_syntax.historical Ir.product_step_summary) ->
          summary.identity.product_src.assume_state_index
            <> analysis.assume_bad_idx
          && summary.identity.product_src.guarantee_state_index
@@ -630,25 +639,25 @@ let test_bad_product_sources_do_not_generate_summaries () =
        node_ir.summaries);
   check "assumption-bad destinations generate no cases"
     (List.for_all
-       (fun (summary : Ir.product_step_summary) ->
+       (fun (summary : Core_syntax.historical Ir.product_step_summary) ->
          List.for_all
-           (fun (case : Ir.safe_product_case) ->
+           (fun (case : Core_syntax.historical Ir.safe_product_case) ->
              case.product_dst.assume_state_index <> analysis.assume_bad_idx)
            summary.safe_cases
          && List.for_all
-              (fun (case : Ir.unsafe_product_case) ->
+              (fun (case : Core_syntax.historical Ir.unsafe_product_case) ->
                 case.product_dst.assume_state_index
                   <> analysis.assume_bad_idx)
               summary.unsafe_cases)
        node_ir.summaries);
   check "active-to-safe cases remain"
     (List.exists
-       (fun (summary : Ir.product_step_summary) ->
+       (fun (summary : Core_syntax.historical Ir.product_step_summary) ->
          summary.safe_cases <> [])
        node_ir.summaries);
   check "active-to-bad-guarantee cases remain as exclusions"
     (List.exists
-       (fun (summary : Ir.product_step_summary) ->
+       (fun (summary : Core_syntax.historical Ir.product_step_summary) ->
          summary.unsafe_cases <> [])
        node_ir.summaries)
 

@@ -22,7 +22,7 @@ open Core_syntax_builders
 module PT = Product_types
 module Vm = Verification_model
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
 type automaton_view = {
@@ -31,12 +31,13 @@ type automaton_view = {
   bad_idx : int;
 }
 
-let fo_of_expr (e : expr) : Core_syntax.hexpr = hexpr_of_expr e
+let fo_of_expr (e : expr) : Core_syntax.historical Core_syntax.hexpr =
+  hexpr_of_expr e |> Core_syntax.historical_of_history_free
 
-let automaton_guard_fo (g : Automaton_types.guard) : Core_syntax.hexpr =
+let automaton_guard_fo (g : Automaton_types.guard) : Core_syntax.historical Core_syntax.hexpr =
   simplify_fo g
 
-let program_guard_fo (t : Vm.program_step) : Core_syntax.hexpr =
+let program_guard_fo (t : Vm.program_step) : Core_syntax.historical Core_syntax.hexpr =
   (* Program guards are normalized before overlap checks so they are compared at
      the same boolean level as recovered automaton guards. *)
   match t.guard_expr with None -> mk_hbool true | Some g -> fo_of_expr g |> simplify_fo

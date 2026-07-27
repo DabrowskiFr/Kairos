@@ -19,4 +19,6 @@
 (** Final IR phase: lower temporal references ([pre], [pre_k]) to materialized slots
     using the node temporal layout. *)
 
-val run_program : Ir.node_ir list -> Ir.node_ir list
+val run_program :
+  Core_syntax.historical Ir.node_ir list ->
+  Core_syntax.history_free Ir.node_ir list

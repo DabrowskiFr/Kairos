@@ -30,20 +30,8 @@ let proof_optimizations_of_args args =
   {
     Pipeline.group_public_non_w_guarantees =
       base.group_public_non_w_guarantees && not args.no_proof_grouping;
-    share_why3_facts = base.share_why3_facts && not args.no_why3_fact_sharing;
-    simplify_why3_formulas =
-      base.simplify_why3_formulas && not args.no_why3_fo_simplification;
-    slice_why3_transition_bodies =
-      base.slice_why3_transition_bodies && not args.no_why3_body_slicing;
-    simplify_why3_runtime_actions =
-      base.simplify_why3_runtime_actions && not args.no_why3_action_simplification;
-    deduplicate_why3_terms =
-      base.deduplicate_why3_terms && not args.no_why3_term_dedup;
     group_why3_product_steps =
       base.group_why3_product_steps && not args.no_why3_product_step_grouping;
-    why3_product_step_group_max_cost =
-      Option.value args.why3_product_step_group_max_cost
-        ~default:base.why3_product_step_group_max_cost;
   }
 
   type goal_info = string * string * float * string option * string option

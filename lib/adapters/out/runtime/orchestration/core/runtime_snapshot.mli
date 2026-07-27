@@ -30,9 +30,11 @@ type ast_flow = {
   verification_model : Verification_model.program_model;
   reference_program : Verification_model.program_model;
   automata : (ident * Automaton_types.automata_spec) list;
-  summaries : Ir.node_ir list;
-  proof_instrumentation : Ir.node_ir list;
-  instrumentation : Ir.node_ir list;
+  summaries : Core_syntax.historical Ir.node_ir list;
+  proof_instrumentation : Core_syntax.historical Ir.node_ir list;
+  instrumentation : Core_syntax.history_free Ir.node_ir list;
+  proof_backend_nodes : Core_syntax.history_free Ir.node_ir list;
+  step_projections : Step_contract_projection.t list;
 }
 
 type flow_infos = {

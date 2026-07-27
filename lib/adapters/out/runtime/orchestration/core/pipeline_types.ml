@@ -166,37 +166,19 @@ type cost_report_outputs = { cost_report_json : string }
 
   type proof_optimizations = {
     group_public_non_w_guarantees : bool;
-    share_why3_facts : bool;
-    simplify_why3_formulas : bool;
-    slice_why3_transition_bodies : bool;
-    simplify_why3_runtime_actions : bool;
-    deduplicate_why3_terms : bool;
     group_why3_product_steps : bool;
-    why3_product_step_group_max_cost : int;
   }
 
   let reference_proof_optimizations =
     {
       group_public_non_w_guarantees = false;
-      share_why3_facts = false;
-      simplify_why3_formulas = false;
-      slice_why3_transition_bodies = false;
-      simplify_why3_runtime_actions = false;
-      deduplicate_why3_terms = false;
       group_why3_product_steps = false;
-      why3_product_step_group_max_cost = 0;
     }
 
   let default_proof_optimizations =
     {
       group_public_non_w_guarantees = true;
-      share_why3_facts = true;
-      simplify_why3_formulas = true;
-      slice_why3_transition_bodies = true;
-      simplify_why3_runtime_actions = true;
-      deduplicate_why3_terms = true;
       group_why3_product_steps = true;
-      why3_product_step_group_max_cost = 0;
     }
 
   type config = {

@@ -9,114 +9,131 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *---------------------------------------------------------------------------*)
 
-open Core_syntax
+(** WhyML emission for formulas selected by the domain-level index. *)
 
-module Deps = Why_compile_formula_sharing_deps
-module Emit = Why_compile_formula_sharing_emit
-module Inventory = Why_compile_formula_sharing_inventory
-module StringSet = Why_compile_ptree_helpers.StringSet
+open Why3
+open Ptree
+open Why_compile_expr
+open Why_compile_ptree_helpers
 
-type context = {
-  env : Why_compile_expr.env;
-  inputs : Why3.Ptree.binder list;
-  runtime_view : Why_runtime_view.t;
-  share_why3_facts : bool;
+type shared_formula = {
+  name : string;
+  uses_record : bool;
+  input_binders : Ptree.binder list;
 }
 
 type t = {
-  shared_formula_decls : (string * Why3.Ptree.decl) list;
-  abstract_formula : in_post:bool -> Core_syntax.hexpr -> Why3.Ptree.term option;
-  abstract_formula_with_rec :
-    string -> Core_syntax.hexpr -> Why3.Ptree.term option;
-  local_cut_candidate : Core_syntax.hexpr -> bool;
-  shared_formula_names_in_terms : Why3.Ptree.term list -> StringSet.t;
-  local_shared_formula_decls :
-    ?exclude:StringSet.t -> StringSet.t -> Why3.Ptree.decl list;
-  local_shared_formula_imports :
-    module_name_of_formula:(string -> string) ->
-    ?exclude:StringSet.t ->
-    StringSet.t ->
-    Why3.Ptree.decl list;
-  shared_formula_closure : ?exclude:StringSet.t -> StringSet.t -> StringSet.t;
+  formula_index : Contract_formula_index.t;
+  entries : (Contract_formula_index.formula_id, shared_formula) Hashtbl.t;
+  definitions : (shared_formula * Ptree.decl) list;
 }
 
-let empty_selection () : Inventory.selection =
-  { table = Hashtbl.create 0; order = [] }
+let module_name node_module formula_name =
+  node_module ^ "__" ^ formula_name
 
-let local_cut_candidate (formula : Core_syntax.hexpr) =
-  let emit_local_unfolded_cuts = false in
-  emit_local_unfolded_cuts
-  &&
-  match formula.hexpr with
-  | HBin ((And | Or), _, _) | HUn (Not, _) | HPred _ -> true
-  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HFunCall _
-  | HUn (Neg, _)
-  | HBin ((Add | Sub | Mul | Div), _, _)
-  | HCmp _ ->
-      false
+let definition_modules sharing ~module_name:node_module ~imports ~common_import =
+  List.map
+    (fun (shared, declaration) ->
+      ( ident (module_name node_module shared.name),
+        imports @ [ common_import; declaration ] ))
+    sharing.definitions
 
-let build ctx =
-  let selection =
-    if ctx.share_why3_facts then
-      Inventory.select ~env:ctx.env ~inputs:ctx.inputs
-        ~runtime_view:ctx.runtime_view
-    else empty_selection ()
+let imports_for sharing ~module_name:node_module formulas =
+  let used_names =
+    List.fold_left
+      (fun names (formula : Core_syntax.history_free Ir.summary_formula) ->
+        match Contract_formula_index.find sharing.formula_index formula with
+        | None -> names
+        | Some definition ->
+            let shared = Hashtbl.find sharing.entries definition.id in
+            StringSet.add shared.name names)
+      StringSet.empty formulas
   in
-  let shared_formula_call name params use_self =
-    Emit.shared_formula_call_with_rec ctx.env.rec_name name params use_self
+  sharing.definitions
+  |> List.filter_map (fun (shared, _declaration) ->
+         if StringSet.mem shared.name used_names then
+           Some (import_module (module_name node_module shared.name))
+         else None)
+
+let binder_name (_, id_opt, _, _) =
+  Option.map (fun id -> id.Ptree.id_str) id_opt
+
+let input_binders_used_by used inputs =
+  match inputs with
+  | [] -> []
+  | _vars :: direct_inputs ->
+      List.filter
+        (fun binder ->
+          match binder_name binder with
+          | None -> true
+          | Some name -> StringSet.mem name used)
+        direct_inputs
+
+let record_param name =
+  (loc, Some (ident name), false, Ptree.PTtyapp (qid1 "vars", []))
+
+let make_shared_formula ~env ~inputs ~id
+    (formula : Core_syntax.history_free Ir.summary_formula) =
+  let record_name = "__shared_vars" in
+  let body, used =
+    collect_used_inputs env (fun env ->
+        compile_hexpr { env with rec_name = record_name } formula.logic)
   in
-  let abstract_formula ~in_post:_ (formula : Core_syntax.hexpr) =
-    if not ctx.share_why3_facts then None
-    else
-      Hashtbl.find_opt selection.table (Inventory.formula_key formula)
-      |> Option.map (fun (name, params, _, use_self) ->
-             shared_formula_call name params use_self)
+  let uses_record = StringSet.mem record_name used in
+  let input_binders = input_binders_used_by used inputs in
+  let name = Printf.sprintf "__kairos_shared_formula_%d" id in
+  let params =
+    (if uses_record then [ record_param record_name ] else [])
+    @ List.filter_map param_of_binder input_binders
   in
-  let abstract_formula_with_rec rec_name (formula : Core_syntax.hexpr) =
-    if not ctx.share_why3_facts then None
-    else
-      Hashtbl.find_opt selection.table (Inventory.formula_key formula)
-      |> Option.map (fun (name, params, _, use_self) ->
-             Emit.shared_formula_call_with_rec rec_name name params use_self)
+  let declaration =
+    Dlogic
+      [
+        {
+          ld_loc = loc;
+          ld_ident = ident name;
+          ld_params = params;
+          ld_type = None;
+          ld_def = Some body;
+        };
+      ]
   in
-  let shared_formula_entries =
-    if not ctx.share_why3_facts then []
-    else
-      Emit.build_shared_formula_entries ~env:ctx.env ~table:selection.table
-        ~order:selection.order
-  in
-  let shared_formula_decls =
-    List.map
-      (fun (name, _formula, decl) -> (name, decl))
-      shared_formula_entries
-  in
-  let shared_formula_index =
-    Deps.build_index ~table:selection.table ~entries:shared_formula_entries
-  in
-  let local_shared_formula_decls ?exclude names =
-    Deps.local_shared_formula_decls shared_formula_index ?exclude names
-  in
-  let local_shared_formula_imports ~module_name_of_formula ?exclude names =
-    Deps.local_shared_formula_imports shared_formula_index ~module_name_of_formula
-      ?exclude names
-  in
-  let formula_dependency_closure ?exclude names =
-    Deps.shared_formula_closure shared_formula_index ?exclude names
-  in
-  {
-    shared_formula_decls;
-    abstract_formula;
-    abstract_formula_with_rec;
-    local_cut_candidate;
-    shared_formula_names_in_terms = Deps.shared_formula_names_in_terms;
-    local_shared_formula_decls;
-    local_shared_formula_imports;
-    shared_formula_closure = formula_dependency_closure;
-  }
+  ({ name; uses_record; input_binders }, declaration)
+
+let build ~env ~inputs formula_index =
+  let entries = Hashtbl.create 32 in
+  let definitions = ref [] in
+  Contract_formula_index.definitions formula_index
+  |> List.iter (fun (definition : Contract_formula_index.definition) ->
+         let shared, declaration =
+           make_shared_formula ~env ~inputs ~id:definition.id
+             definition.formula
+         in
+         Hashtbl.add entries definition.id shared;
+         definitions := (shared, declaration) :: !definitions);
+  { formula_index; entries; definitions = List.rev !definitions }
+
+let compile sharing ~env formula =
+  match Contract_formula_index.find sharing.formula_index formula with
+  | None -> compile_hexpr env formula.logic
+  | Some definition ->
+      let shared = Hashtbl.find sharing.entries definition.id in
+      let record_args =
+        if shared.uses_record then begin
+          note_input env env.rec_name;
+          [ mk_term (Tident (qid1 env.rec_name)) ]
+        end
+        else []
+      in
+      let input_args =
+        List.filter_map
+          (fun binder ->
+            Option.iter (note_input env) (binder_name binder);
+            binder_term binder)
+          shared.input_binders
+      in
+      mk_term (Tidapp (qid1 shared.name, record_args @ input_args))

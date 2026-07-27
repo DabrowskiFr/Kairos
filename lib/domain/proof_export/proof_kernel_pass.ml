@@ -24,7 +24,7 @@ module PT = Product_types
 type node_input = {
   node_name : ident;
   source_node : Verification_model.node_model;
-  node : Ir.node_ir;
+  node : Core_syntax.historical Ir.node_ir;
   analysis : Temporal_automata.node_data;
 }
 
@@ -33,11 +33,11 @@ type node_output = {
   exported_summary : Proof_kernel_types.exported_node_summary_ir;
 }
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
-let fo_of_expr (e : expr) : Core_syntax.hexpr =
-  Core_syntax_builders.hexpr_of_expr e
+let fo_of_expr (e : expr) : Core_syntax.historical Core_syntax.hexpr =
+  Core_syntax_builders.hexpr_of_expr e |> Core_syntax.historical_of_history_free
 
 let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
   let rec find_in_ltl = function
@@ -55,7 +55,7 @@ let extract_delay_spec (guarantees : ltl list) : (ident * ident) option =
 let program_transitions_of_model_node (node : Verification_model.node_model) : Ir.transition list =
   Ir_transition.prioritized_program_transitions_of_node node
 
-let automaton_guard_fo (g : Automaton_types.guard) : Core_syntax.hexpr =
+let automaton_guard_fo (g : Automaton_types.guard) : Core_syntax.historical Core_syntax.hexpr =
   simplify_fo g
 
 let product_state_of_pt (st : PT.product_state) : Proof_kernel_types.product_state_ir =
@@ -104,11 +104,11 @@ let build_product_step ~(reactive_program : Proof_kernel_types.reactive_program_
     Proof_kernel_types.product_step_ir =
   Proof_kernel_product.build_product_step ~reactive_program step
 
-let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
+let is_feasible_product_step ~(node : Core_syntax.historical Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     (step : Proof_kernel_types.product_step_ir) : bool =
   Proof_kernel_product.is_feasible_product_step ~node ~analysis step
 
-let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
+let build_generated_clauses ~(node : Core_syntax.historical Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     ~(initial_state : Proof_kernel_types.product_state_ir) ~(steps : Proof_kernel_types.product_step_ir list) :
     Proof_kernel_types.generated_clause_ir list =
   Proof_kernel_generated_clauses.build_generated_clauses ~node ~analysis ~initial_state ~steps

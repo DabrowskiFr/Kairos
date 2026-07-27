@@ -201,13 +201,7 @@ val default_proof_encoding : proof_encoding
 
 type proof_optimizations = {
   group_public_non_w_guarantees : bool;
-  share_why3_facts : bool;
-  simplify_why3_formulas : bool;
-  slice_why3_transition_bodies : bool;
-  simplify_why3_runtime_actions : bool;
-  deduplicate_why3_terms : bool;
   group_why3_product_steps : bool;
-  why3_product_step_group_max_cost : int;
 }
 
 (** Reference, non-optimized proof generation. *)

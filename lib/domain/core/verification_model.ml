@@ -23,12 +23,12 @@ type program_step = {
   dst_state : ident;
   guard_expr : expr option;
   body_stmts : stmt list;
-  elaboration_checks : hexpr list;
+  elaboration_checks : historical hexpr list;
 }
 
 type state_invariant = {
   state : ident;
-  formula : hexpr;
+  formula : historical hexpr;
 }
 
 type node_model = {

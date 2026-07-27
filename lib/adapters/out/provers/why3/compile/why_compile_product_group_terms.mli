@@ -16,23 +16,31 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Construction of symbolic terms for grouped product-step helpers. *)
+(** Canonical construction of symbolic terms for grouped product-step helpers. *)
 
-module Boundary = Why_compile_product_group_boundary
+val pre_vars_name : string
+val post_vars_name : string
 
-type entry = Boundary.entry
-type t = Boundary.t
+type entry = int * Step_contract_projection.step_contract
+
+type t = {
+  pre_term : Why3.Ptree.term;
+  pre_inputs : Why_compile_expr.used_inputs;
+  post_body : Why3.Ptree.term;
+  post_inputs : Why_compile_expr.used_inputs;
+}
 
 val build :
   env:Why_compile_expr.env ->
-  pre_vars_name:string ->
-  post_vars_name:string ->
   step_pre_terms_with_rec:
-    (string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
+    (Why_compile_expr.env ->
+    string ->
+    Step_contract_projection.step_contract ->
+    Why3.Ptree.term list) ->
   step_post_terms_with_rec:
-    (string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
+    (Why_compile_expr.env ->
+    string ->
+    Step_contract_projection.step_contract ->
+    Why3.Ptree.term list) ->
   entry list ->
   t
-
-val proof_terms : t -> Boundary.proof_terms
-val profile : t -> Boundary.profile

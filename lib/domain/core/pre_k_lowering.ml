@@ -44,7 +44,8 @@ let temporal_slot_for_pre_k ~(temporal_bindings : temporal_binding list) ~(var_n
          else None)
 
 let rec hexpr_to_expr_with_temporal_bindings ~(inputs : ident list) ~(var_types : (ident * ty) list)
-    ~(temporal_bindings : temporal_binding list) (h : hexpr) : expr option =
+    ~(temporal_bindings : temporal_binding list) (h : historical hexpr) :
+    expr option =
   let _ = (inputs, var_types) in
   let loc = h.loc in
   match h.hexpr with
@@ -88,15 +89,20 @@ let rec hexpr_to_expr_with_temporal_bindings ~(inputs : ident list) ~(var_types 
     end
 
 let hexpr_to_expr ~(inputs : ident list) ~(var_types : (ident * ty) list)
-    ~(temporal_layout : Pre_k_layout.pre_k_info list) (h : hexpr) : expr option =
+    ~(temporal_layout : Pre_k_layout.pre_k_info list)
+    (h : historical hexpr) : expr option =
   hexpr_to_expr_with_temporal_bindings ~inputs ~var_types
     ~temporal_bindings:(temporal_bindings_of_layout ~temporal_layout) h
 
-let rec lower_hexpr_temporal_bindings ~(temporal_bindings : temporal_binding list) (h : hexpr) :
-    hexpr option =
+let rec lower_hexpr_temporal_bindings
+    ~(temporal_bindings : temporal_binding list)
+    (h : historical hexpr) : history_free hexpr option =
   let loc = h.loc in
   match h.hexpr with
-  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ -> Some h
+  | HLitInt value -> Some { hexpr = HLitInt value; loc }
+  | HLitBool value -> Some { hexpr = HLitBool value; loc }
+  | HLitEnum name -> Some { hexpr = HLitEnum name; loc }
+  | HVar name -> Some { hexpr = HVar name; loc }
   | HPreK (v, k) -> begin
       match temporal_slot_for_pre_k ~temporal_bindings ~var_name:v ~depth:k with
       | Some name -> Some { hexpr = HVar name; loc }
@@ -141,5 +147,6 @@ let rec lower_hexpr_temporal_bindings ~(temporal_bindings : temporal_binding lis
     end
 
 let lower_fo_formula_temporal_bindings ~(temporal_bindings : temporal_binding list)
-    (f : Core_syntax.hexpr) : Core_syntax.hexpr option =
+    (f : Core_syntax.historical Core_syntax.hexpr) :
+    Core_syntax.history_free Core_syntax.hexpr option =
   lower_hexpr_temporal_bindings ~temporal_bindings f

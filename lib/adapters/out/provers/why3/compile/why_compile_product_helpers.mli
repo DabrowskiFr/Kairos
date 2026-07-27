@@ -16,28 +16,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Concrete Why3 emission dispatcher for product-step proof helpers.
+(** Concrete Why3 emission for individual and grouped product-step helpers. *)
 
-    Individual/grouped helper construction and helper bodies live in focused
-    sibling modules. This module preserves the public helper emission API. *)
-
-module StringSet = Why_compile_ptree_helpers.StringSet
-
-type helper_unit = Why_compile_product_helper_types.helper_unit = {
+type helper_unit = {
   helper_name : string;
   decls : Why3.Ptree.decl list;
-  pre_labels : string list;
-  post_labels : string list;
-}
-
-type context = Why_compile_product_helper_types.context = {
-  env : Why_compile_expr.env;
-  inputs : Why3.Ptree.binder list;
-  spec_context : Why_compile_product_specs.context;
-  shared_formula_names_in_terms : Why3.Ptree.term list -> StringSet.t;
-  local_shared_formula_decls :
-    ?exclude:StringSet.t -> StringSet.t -> Why3.Ptree.decl list;
 }
 
 val kernel_step_helper_units :
-  context -> Why_compile_product_groups.helper_plan_item list -> helper_unit list
+  env:Why_compile_expr.env ->
+  inputs:Why3.Ptree.binder list ->
+  formula_sharing:Why_compile_formula_sharing.t ->
+  formula_imports:
+    (Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list) ->
+  shared_post_call:
+    (used_inputs:Why_compile_expr.used_inputs ->
+    formulas:Core_syntax.history_free Ir.summary_formula list ->
+    Why3.Ptree.term list ->
+    Why3.Ptree.decl * Why3.Ptree.term) ->
+  Why_compile_product_groups.helper_plan_item list ->
+  helper_unit list

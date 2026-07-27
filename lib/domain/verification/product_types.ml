@@ -33,11 +33,11 @@ type product_step = {
   src : product_state;
   dst : product_state;
   prog_transition : Verification_model.program_step;
-  prog_guard : Core_syntax.hexpr;
+  prog_guard : Core_syntax.historical Core_syntax.hexpr;
   assume_edge : automaton_edge;
-  assume_guard : Core_syntax.hexpr;
+  assume_guard : Core_syntax.historical Core_syntax.hexpr;
   guarantee_edge : automaton_edge;
-  guarantee_guard : Core_syntax.hexpr;
+  guarantee_guard : Core_syntax.historical Core_syntax.hexpr;
   step_class : step_class;
 }
 

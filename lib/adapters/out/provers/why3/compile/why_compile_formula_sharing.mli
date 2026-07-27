@@ -1,52 +1,32 @@
-(*---------------------------------------------------------------------------
- * Kairos - deductive verification for synchronous programs
- * Copyright (C) 2026 Frederic Dabrowski
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
- *---------------------------------------------------------------------------*)
+(** WhyML emission for formulas selected by the domain-level index.
 
-(** Backend-local sharing of repeated Why3 contract formulas.
+    Formula equivalence and reuse analysis are owned by
+    {!Contract_formula_index}; this module only emits declarations, imports,
+    calls, and their WhyML parameters. *)
 
-    This is a Why3 representation optimization: repeated canonical formulas are
-    exposed as auxiliary predicates and later referenced by product contracts,
-    bundles, and helpers. *)
+type t
 
-module StringSet = Why_compile_ptree_helpers.StringSet
+val build :
+  env:Why_compile_expr.env ->
+  inputs:Why3.Ptree.binder list ->
+  Contract_formula_index.t ->
+  t
 
-type context = {
-  env : Why_compile_expr.env;
-  inputs : Why3.Ptree.binder list;
-  runtime_view : Why_runtime_view.t;
-  share_why3_facts : bool;
-}
+val definition_modules :
+  t ->
+  module_name:string ->
+  imports:Why3.Ptree.decl list ->
+  common_import:Why3.Ptree.decl ->
+  (Why3.Ptree.ident * Why3.Ptree.decl list) list
 
-type t = {
-  shared_formula_decls : (string * Why3.Ptree.decl) list;
-  abstract_formula :
-    in_post:bool -> Core_syntax.hexpr -> Why3.Ptree.term option;
-  abstract_formula_with_rec :
-    string -> Core_syntax.hexpr -> Why3.Ptree.term option;
-  local_cut_candidate : Core_syntax.hexpr -> bool;
-  shared_formula_names_in_terms : Why3.Ptree.term list -> StringSet.t;
-  local_shared_formula_decls :
-    ?exclude:StringSet.t -> StringSet.t -> Why3.Ptree.decl list;
-  local_shared_formula_imports :
-    module_name_of_formula:(string -> string) ->
-    ?exclude:StringSet.t ->
-    StringSet.t ->
-    Why3.Ptree.decl list;
-  shared_formula_closure : ?exclude:StringSet.t -> StringSet.t -> StringSet.t;
-}
+val imports_for :
+  t ->
+  module_name:string ->
+  Core_syntax.history_free Ir.summary_formula list ->
+  Why3.Ptree.decl list
 
-val build : context -> t
+val compile :
+  t ->
+  env:Why_compile_expr.env ->
+  Core_syntax.history_free Ir.summary_formula ->
+  Why3.Ptree.term

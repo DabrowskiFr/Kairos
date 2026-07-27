@@ -27,7 +27,7 @@
 (** Boolean guard carried by an automaton transition.
 
     Guards are stored as first-order formulas over history expressions. *)
-type guard = Core_syntax.hexpr
+type guard = Core_syntax.historical Core_syntax.hexpr
 
 (** Transition represented as [(src_index, guard, dst_index)]. *)
 type transition = int * guard * int

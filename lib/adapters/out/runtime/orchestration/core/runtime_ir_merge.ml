@@ -83,8 +83,8 @@ let source_info_of_model_node (node : Verification_model.node_model) :
         node.state_invariants;
   }
 
-let dedup_summary_formulas (formulas : Ir.summary_formula list) :
-    Ir.summary_formula list =
+let dedup_summary_formulas (formulas : Core_syntax.history_free Ir.summary_formula list) :
+    Core_syntax.history_free Ir.summary_formula list =
   let rec loop seen acc = function
     | [] -> List.rev acc
     | formula :: rest ->
@@ -93,24 +93,24 @@ let dedup_summary_formulas (formulas : Ir.summary_formula list) :
   in
   loop [] [] formulas
 
-let merge_for_source_node ~(runtime_nodes : (ident * Ir.node_ir list) list)
-    (source_node : Verification_model.node_model) : Ir.node_ir option =
+let merge_for_source_node ~(runtime_nodes : (ident * Core_syntax.history_free Ir.node_ir list) list)
+    (source_node : Verification_model.node_model) : Core_syntax.history_free Ir.node_ir option =
   match List.assoc_opt source_node.node_name runtime_nodes with
   | None -> None
   | Some [] -> None
   | Some (first :: rest) ->
       let nodes = first :: rest in
       let summaries =
-        nodes |> List.concat_map (fun (node : Ir.node_ir) -> node.summaries)
+        nodes |> List.concat_map (fun (node : Core_syntax.history_free Ir.node_ir) -> node.summaries)
       in
       let temporal_layout =
         nodes
-        |> List.concat_map (fun (node : Ir.node_ir) -> node.temporal_layout)
+        |> List.concat_map (fun (node : Core_syntax.history_free Ir.node_ir) -> node.temporal_layout)
         |> List.sort_uniq Stdlib.compare
       in
       let init_invariant_goals =
         nodes
-        |> List.concat_map (fun (node : Ir.node_ir) -> node.init_invariant_goals)
+        |> List.concat_map (fun (node : Core_syntax.history_free Ir.node_ir) -> node.init_invariant_goals)
         |> dedup_summary_formulas
       in
       Some
@@ -123,9 +123,9 @@ let merge_for_source_node ~(runtime_nodes : (ident * Ir.node_ir list) list)
         }
 
 let merge_by_source ~(source_model : Verification_model.program_model)
-    (nodes : Ir.node_ir list) : Ir.node_ir list =
+    (nodes : Core_syntax.history_free Ir.node_ir list) : Core_syntax.history_free Ir.node_ir list =
   let names = source_names source_model in
-  let add_group groups (node : Ir.node_ir) =
+  let add_group groups (node : Core_syntax.history_free Ir.node_ir) =
     let source_name =
       source_name_of_runtime_name ~source_names:names node.semantics.sem_nname
     in

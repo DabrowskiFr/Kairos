@@ -35,7 +35,13 @@ type fact_stat = {
   mutable phases : StringSet.t;
 }
 
-let new_fact_stat key h ~origin ~phase =
+let new_fact_stat : type formula_phase.
+    string ->
+    formula_phase hexpr ->
+    origin:string ->
+    phase:string ->
+    fact_stat =
+ fun key h ~origin ~phase ->
   {
     key;
     hash = Digest.to_hex (Digest.string key);
@@ -47,7 +53,13 @@ let new_fact_stat key h ~origin ~phase =
     phases = StringSet.singleton phase;
   }
 
-let add_fact table ~origin ~phase h =
+let add_fact : type formula_phase.
+    (string, fact_stat) Hashtbl.t ->
+    origin:string ->
+    phase:string ->
+    formula_phase hexpr ->
+    unit =
+ fun table ~origin ~phase h ->
   let key = string_of_fo h in
   match Hashtbl.find_opt table key with
   | Some stat ->
@@ -122,13 +134,13 @@ let add_rel_fact_formula table ~origin (fact : PK.relational_clause_fact_ir) =
       add_fact table ~origin ~phase h
   | PK.RelFactProgramState _ | PK.RelFactGuaranteeState _ | PK.RelFactFalse -> ()
 
-let collect_summary_facts table (node : Ir.node_ir) =
+let collect_summary_facts table (node : Core_syntax.history_free Ir.node_ir) =
   let node_name = node.semantics.sem_nname in
-  let add_summary_formula origin phase (f : Ir.summary_formula) =
+  let add_summary_formula origin phase (f : Core_syntax.history_free Ir.summary_formula) =
     add_fact table ~origin:(origin_for_node node_name origin) ~phase f.logic
   in
   List.iter
-    (fun (summary : Ir.product_step_summary) ->
+    (fun (summary : Core_syntax.history_free Ir.product_step_summary) ->
       List.iter
         (add_summary_formula "canonical.propagation_requires" "previous_tick")
         summary.propagation_requires;
@@ -140,12 +152,12 @@ let collect_summary_facts table (node : Ir.node_ir) =
         (add_summary_formula "elaboration.checks" "current_tick")
         summary.elaboration_checks;
       List.iter
-        (fun (case : Ir.safe_product_case) ->
+        (fun (case : Core_syntax.history_free Ir.safe_product_case) ->
           add_summary_formula "canonical.safe_case.admissible_guard"
             "step_tick_context" case.admissible_guard)
         summary.safe_cases;
       List.iter
-        (fun (case : Ir.unsafe_product_case) ->
+        (fun (case : Core_syntax.history_free Ir.unsafe_product_case) ->
           add_summary_formula "canonical.unsafe_case.excluded_guard"
             "step_tick_context" case.excluded_guard)
         summary.unsafe_cases)

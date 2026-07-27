@@ -49,14 +49,14 @@ let formula_meta_of_yojson (json : Yojson.Safe.t) : (Ir.formula_meta, string) re
       Ok { Ir.oid; loc; family }
   | _ -> Error "formula_meta: expected object"
 
-let summary_formula_to_yojson (f : Ir.summary_formula) : Yojson.Safe.t =
+let summary_formula_to_yojson (f : Core_syntax.historical Ir.summary_formula) : Yojson.Safe.t =
   `Assoc
     [
       ("logic", Core_syntax.hexpr_to_yojson f.logic);
       ("meta", formula_meta_to_yojson f.meta);
     ]
 
-let summary_formula_of_yojson (json : Yojson.Safe.t) : (Ir.summary_formula, string) result =
+let summary_formula_of_yojson (json : Yojson.Safe.t) : (Core_syntax.historical Ir.summary_formula, string) result =
   match json with
   | `Assoc fields ->
       let find name =
@@ -66,16 +66,16 @@ let summary_formula_of_yojson (json : Yojson.Safe.t) : (Ir.summary_formula, stri
       in
       let* logic_json = find "logic" in
       let* meta_json = find "meta" in
-      let* logic = Core_syntax.hexpr_of_yojson logic_json in
+      let* logic = Core_syntax.historical_hexpr_of_yojson logic_json in
       let* meta = formula_meta_of_yojson meta_json in
       Ok { Ir.logic; meta }
   | _ -> Error "summary_formula: expected object"
 
-let summary_formula_list_to_yojson (xs : Ir.summary_formula list) : Yojson.Safe.t =
+let summary_formula_list_to_yojson (xs : Core_syntax.historical Ir.summary_formula list) : Yojson.Safe.t =
   `List (List.map summary_formula_to_yojson xs)
 
 let summary_formula_list_of_yojson (json : Yojson.Safe.t) :
-    (Ir.summary_formula list, string) result =
+    (Core_syntax.historical Ir.summary_formula list, string) result =
   match json with
   | `List items ->
       let rec go acc = function
@@ -206,9 +206,9 @@ let product_step_of_yojson = function
       let* guarantee_guard_json = field fields "guarantee_guard" in
       let* step_class_json = field fields "step_class" in
       let* step_anchor = product_step_anchor_of_yojson anchor_json in
-      let* program_guard = Core_syntax.hexpr_of_yojson program_guard_json in
-      let* assume_guard = Core_syntax.hexpr_of_yojson assume_guard_json in
-      let* guarantee_guard = Core_syntax.hexpr_of_yojson guarantee_guard_json in
+      let* program_guard = Core_syntax.historical_hexpr_of_yojson program_guard_json in
+      let* assume_guard = Core_syntax.historical_hexpr_of_yojson assume_guard_json in
+      let* guarantee_guard = Core_syntax.historical_hexpr_of_yojson guarantee_guard_json in
       let* step_class = product_step_class_of_yojson step_class_json in
       Ok { K.step_anchor; program_guard; assume_guard; guarantee_guard; step_class }
   | _ -> Error "product_step: expected object"
@@ -257,11 +257,11 @@ let timed_fact_desc_of_yojson = function
           Ok (K.FactGuaranteeState state_index)
       | Ok "phase_formula" ->
           let* formula_json = field fields "formula" in
-          let* formula = Core_syntax.hexpr_of_yojson formula_json in
+          let* formula = Core_syntax.historical_hexpr_of_yojson formula_json in
           Ok (K.FactPhaseFormula formula)
       | Ok "formula" ->
           let* formula_json = field fields "formula" in
-          let* formula = Core_syntax.hexpr_of_yojson formula_json in
+          let* formula = Core_syntax.historical_hexpr_of_yojson formula_json in
           Ok (K.FactFormula formula)
       | Ok "false" -> Ok K.FactFalse
       | Ok raw -> Error ("timed_fact_desc: unknown kind " ^ raw))

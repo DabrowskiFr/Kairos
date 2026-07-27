@@ -32,8 +32,8 @@ type bucket = {
   family_name : string;
   mutable candidate_count : int;
   mutable inserted_count : int;
-  mutable candidates : Core_syntax.hexpr list;
-  mutable inserted : Core_syntax.hexpr list;
+  mutable candidates : Core_syntax.historical Core_syntax.hexpr list;
+  mutable inserted : Core_syntax.historical Core_syntax.hexpr list;
 }
 
 type collector = (string, bucket) Hashtbl.t

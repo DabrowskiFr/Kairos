@@ -39,7 +39,7 @@ let convert_state_invariants (node_name : ident) (inputs : vdecl list)
       { Ir.state = inv.state; formula })
     invs
 
-let of_model_node (n : Vm.node_model) : Ir.node_ir =
+let of_model_node (n : Vm.node_model) : Core_syntax.historical Ir.node_ir =
   {
     semantics =
       {
@@ -63,7 +63,7 @@ let of_model_node (n : Vm.node_model) : Ir.node_ir =
     init_invariant_goals = [];
   }
 
-let of_model_program_context (p : Vm.program_model) : Ir.node_ir list = List.map of_model_node p
+let of_model_program_context (p : Vm.program_model) : Core_syntax.historical Ir.node_ir list = List.map of_model_node p
 
 let source_nodes_by_name (source_program : Vm.program_model) : (ident * Vm.node_model) list =
   List.map (fun (node : Vm.node_model) -> (node.node_name, node)) source_program
@@ -102,7 +102,7 @@ let build_analyses
   in
   collect [] source_nodes
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
 let product_state_of_pt (st : PT.product_state) : Ir.product_state =
@@ -155,8 +155,8 @@ let edges_from_outgoing (outgoing : (int, Automaton_types.transition list) Hasht
   Hashtbl.find_opt outgoing idx |> Option.value ~default:[]
 
 let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
-    ~(program_transitions : Vm.program_step list) ~(node : Ir.node_ir) :
-    Ir.product_step_summary list =
+    ~(program_transitions : Vm.program_step list) ~(node : Core_syntax.historical Ir.node_ir) :
+    Core_syntax.historical Ir.product_step_summary list =
   let transition_indices = transition_indices program_transitions in
   let prog_outgoing = program_outgoing program_transitions in
   let assume_outgoing = automaton_outgoing analysis.assume_grouped_edges in
@@ -205,7 +205,10 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                         prog_guard =
                           (match prog_transition.guard_expr with
                           | None -> mk_hbool true
-                          | Some g -> hexpr_of_expr g |> simplify_fo);
+                          | Some g ->
+                              hexpr_of_expr g
+                              |> Core_syntax.historical_of_history_free
+                              |> simplify_fo);
                         assume_edge;
                         assume_guard = simplify_fo assume_guard_raw;
                         guarantee_edge;
@@ -238,7 +241,7 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                             ({
                                product_dst = product_state_of_pt step.dst;
                                admissible_guard = Ir_formula.make step.guarantee_guard;
-                             } : Ir.safe_product_case)
+                             } : Core_syntax.historical Ir.safe_product_case)
                       | PT.Bad_assumption | PT.Bad_guarantee -> None)
              in
              let unsafe_cases =
@@ -250,7 +253,7 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                             ({
                                product_dst = product_state_of_pt step.dst;
                                excluded_guard = Ir_formula.make step.guarantee_guard;
-                             } : Ir.unsafe_product_case)
+                             } : Core_syntax.historical Ir.unsafe_product_case)
                       | PT.Safe | PT.Bad_assumption -> None)
              in
              Some
@@ -277,14 +280,14 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                   safe_cases;
                   unsafe_cases;
                 }
-                 : Ir.product_step_summary))
+                 : Core_syntax.historical Ir.product_step_summary))
 
 let with_minimal_summaries ~(analyses : (ident * Temporal_automata.node_data) list)
     ~(source_nodes : (ident * Vm.node_model) list)
-    (nodes : Ir.node_ir list) : (Ir.node_ir list, string) result =
+    (nodes : Core_syntax.historical Ir.node_ir list) : (Core_syntax.historical Ir.node_ir list, string) result =
   let rec collect acc = function
     | [] -> Ok (List.rev acc)
-    | (node : Ir.node_ir) :: rest ->
+    | (node : Core_syntax.historical Ir.node_ir) :: rest ->
         let node_name = node.semantics.sem_nname in
         let* analysis =
           match List.assoc_opt node_name analyses with
@@ -306,7 +309,7 @@ let with_minimal_summaries ~(analyses : (ident * Temporal_automata.node_data) li
 let of_model_program
     ~(automata : (Core_syntax.ident * automata_spec) list)
     (program : Vm.program_model) :
-    (Ir.node_ir list, string) result =
+    (Core_syntax.historical Ir.node_ir list, string) result =
   let source_nodes = source_nodes_by_name program in
   let* analyses = build_analyses ~automata ~source_nodes in
   of_model_program_context program

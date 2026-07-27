@@ -37,24 +37,24 @@ type product_step_anchor = {
 }
 (** Product step anchor projected from a summary case. *)
 
-type summary_identity = {
+type 'phase summary_identity = {
   program_transition_id : int;
   program_step : Ir.transition;
   product_src : product_state_anchor;
-  assume_guard : hexpr;
+  assume_guard : 'phase hexpr;
 }
 (** Identity of one proof-step summary. *)
 
-type summary = {
-  identity : summary_identity;
-  propagation_requires : Ir.summary_formula list;
-  requires : Ir.summary_formula list;
-  runtime_requires : Ir.summary_formula list;
-  ensures : Ir.summary_formula list;
-  elaboration_checks : Ir.summary_formula list;
-  safe_cases : Ir.safe_product_case list;
-  unsafe_cases : Ir.unsafe_product_case list;
-  source_summary : Ir.product_step_summary;
+type 'phase summary = {
+  identity : 'phase summary_identity;
+  propagation_requires : 'phase Ir.summary_formula list;
+  requires : 'phase Ir.summary_formula list;
+  runtime_requires : 'phase Ir.summary_formula list;
+  ensures : 'phase Ir.summary_formula list;
+  elaboration_checks : 'phase Ir.summary_formula list;
+  safe_cases : 'phase Ir.safe_product_case list;
+  unsafe_cases : 'phase Ir.unsafe_product_case list;
+  source_summary : 'phase Ir.product_step_summary;
 }
 (** Explicit projection of one product summary.
 
@@ -62,14 +62,14 @@ type summary = {
     [elaboration_checks] carries frontend-desugaring checks that may still be
     proved by backends but are not part of Rocq [pssEnsures]. *)
 
-type t = { summaries : summary list }
+type 'phase t = { summaries : 'phase summary list }
 (** Product-summary projection for one node. *)
 
 val of_ir_node :
   ?runtime_requires_of_summary:
-    (Ir.product_step_summary -> Ir.summary_formula list) ->
-  Ir.node_ir ->
-  t
+    ('phase Ir.product_step_summary -> 'phase Ir.summary_formula list) ->
+  'phase Ir.node_ir ->
+  'phase t
 (** Builds the product-summary projection for a node.
 
     [runtime_requires_of_summary] can be used by later projections to attach
@@ -77,11 +77,11 @@ val of_ir_node :
     clients do not allocate fresh formula identifiers accidentally. *)
 
 val find_by_identity :
-  t ->
+  'phase t ->
   program_transition_id:int ->
   product_src:product_state_anchor ->
-  assume_guard:hexpr ->
-  summary option
+  assume_guard:'phase hexpr ->
+  'phase summary option
 (** Finds a projected summary by its identity fields. *)
 
 val same_product_state : product_state_anchor -> product_state_anchor -> bool

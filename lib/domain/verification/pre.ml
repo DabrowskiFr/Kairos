@@ -20,37 +20,44 @@ open Core_syntax_builders
 
 module Abs = Ir
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
-let conj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
+let conj_fo (fs : Core_syntax.historical Core_syntax.hexpr list) : Core_syntax.historical Core_syntax.hexpr option =
   match fs with
   | [] -> None
   | f :: rest -> Some (List.fold_left Core_syntax_builders.mk_hand f rest)
 
-let non_input_program_var_names (n : Abs.node_ir) : ident list =
+let non_input_program_var_names (n : Core_syntax.historical Abs.node_ir) : ident list =
   List.map
     (fun (v : vdecl) -> v.vname)
     (n.semantics.sem_outputs @ n.semantics.sem_locals)
   |> List.sort_uniq String.compare
 
 let reject_current_inputs_in_propagation_requires ~(node_name : ident)
-    ~(input_names : ident list) (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+    ~(input_names : ident list) (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Fo_current_input.require_no_current_input
     ~context:(Printf.sprintf "pre: propagation requirements for node %s" node_name)
     ~input_names f
 
 let ivar (name : ident) : expr = { expr = EVar name; loc = None }
 
-let stability_formula (name : ident) : Core_syntax.hexpr =
-  mk_hexpr (HCmp (REq, hexpr_of_expr (ivar name), mk_hpre_k name 1))
+let stability_formula (name : ident) : Core_syntax.historical Core_syntax.hexpr =
+  mk_hexpr
+    (HCmp
+       ( REq,
+         hexpr_of_expr (ivar name)
+         |> Core_syntax.historical_of_history_free,
+         mk_hpre_k name 1 ))
 
-let guard_fo_of_transition_core (t : Abs.transition) : Core_syntax.hexpr =
+let guard_fo_of_transition_core (t : Abs.transition) : Core_syntax.historical Core_syntax.hexpr =
   match t.guard_expr with
   | None -> Core_syntax_builders.mk_hbool true
-  | Some guard -> Core_syntax_builders.hexpr_of_expr guard |> simplify_fo
+  | Some guard ->
+      Core_syntax_builders.hexpr_of_expr guard
+      |> Core_syntax.historical_of_history_free |> simplify_fo
 
-let invariants_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr list =
+let invariants_of_state (n : Core_syntax.historical Abs.node_ir) : ident -> Core_syntax.historical Core_syntax.hexpr list =
   let by_state = Hashtbl.create 16 in
   List.iter
     (fun (inv : Abs.state_invariant) ->
@@ -65,20 +72,20 @@ let invariants_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr list =
 
 type node_generation = {
   product_characteristics : Product_characteristics.t;
-  state_stability : Core_syntax.hexpr list;
-  invariant_of_state : ident -> Core_syntax.hexpr option;
+  state_stability : Core_syntax.historical Core_syntax.hexpr list;
+  invariant_of_state : ident -> Core_syntax.historical Core_syntax.hexpr option;
 }
 
-let compute_generation ~(node : Abs.node_ir) : node_generation =
+let compute_generation ~(node : Core_syntax.historical Abs.node_ir) : node_generation =
   {
     product_characteristics = Product_characteristics.build ~node;
     state_stability = List.map stability_formula (non_input_program_var_names node);
     invariant_of_state = (fun st -> conj_fo (invariants_of_state node st));
   }
 
-let add_unique_formula_with_status ~family (f : Core_syntax.hexpr)
-    (xs : Abs.summary_formula list) : Abs.summary_formula list * bool =
-  if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then (xs, false)
+let add_unique_formula_with_status ~family (f : Core_syntax.historical Core_syntax.hexpr)
+    (xs : Core_syntax.historical Abs.summary_formula list) : Core_syntax.historical Abs.summary_formula list * bool =
+  if List.exists (fun (x : Core_syntax.historical Abs.summary_formula) -> x.logic = f) xs then (xs, false)
   else (xs @ [ Ir_formula.make ~family f ], true)
 
 let add_formula_family ~record_family ~family_name formulas acc =
@@ -95,12 +102,12 @@ let add_formula_family ~record_family ~family_name formulas acc =
   record_family ~family_name ~candidates:formulas ~inserted:(List.rev inserted);
   acc
 
-let run_node ~record_family (n : Abs.node_ir) : Abs.node_ir =
+let run_node ~record_family (n : Core_syntax.historical Abs.node_ir) : Core_syntax.historical Abs.node_ir =
   let pre_generation = compute_generation ~node:n in
   let input_names = Fo_current_input.input_names n.semantics.sem_inputs in
   let summaries =
     List.map
-      (fun (pc : Abs.product_step_summary) ->
+      (fun (pc : Core_syntax.historical Abs.product_step_summary) ->
         let program_guard = guard_fo_of_transition_core pc.identity.program_step in
         let propagation_requires =
           Product_characteristics.entry_facts_of_product_state
@@ -111,7 +118,7 @@ let run_node ~record_family (n : Abs.node_ir) : Abs.node_ir =
           |> List.map (Ir_formula.make ~family:"propagation_requires")
         in
         let propagation_requires_formulas =
-          List.map (fun (f : Abs.summary_formula) -> f.logic) propagation_requires
+          List.map (fun (f : Core_syntax.historical Abs.summary_formula) -> f.logic) propagation_requires
         in
         let state_invariants =
           invariants_of_state n pc.identity.product_src.prog_state
@@ -134,7 +141,7 @@ let run_node ~record_family (n : Abs.node_ir) : Abs.node_ir =
   in
   { n with summaries }
 
-let run_program ?observe_family (p : Abs.node_ir list) : Abs.node_ir list =
+let run_program ?observe_family (p : Core_syntax.historical Abs.node_ir list) : Core_syntax.historical Abs.node_ir list =
   let collector =
     match observe_family with
     | None -> None

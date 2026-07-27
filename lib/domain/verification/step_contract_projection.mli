@@ -33,9 +33,8 @@ type step_class = Canonical_obligations.step_class =
     steps are discharged by assumption violation and do not become Why3 step
     contracts. *)
 
-type covered_case = Canonical_obligations.covered_case =
-  | CoveredSafeCase of Ir.safe_product_case
-  | CoveredUnsafeCase of Ir.unsafe_product_case
+type covered_case =
+  Core_syntax.history_free Canonical_obligations.covered_case
 (** Product-summary case covered by a generated step contract. *)
 
 type step_contract = {
@@ -45,31 +44,46 @@ type step_contract = {
   step_class : step_class;
   product_src : Ir.product_state;
   product_dst : Ir.product_state;
-  assume_guard : Ir.summary_formula;
-  requires : Ir.summary_formula list;
-  runtime_requires : Ir.summary_formula list;
-  propagates : Ir.summary_formula list;
-  ensures : Ir.summary_formula list;
-  elaboration_checks : Ir.summary_formula list;
-  forbidden : Ir.summary_formula list;
-  summary_identity : Product_summary_projection.summary_identity;
+  assume_guard : Core_syntax.history_free Ir.summary_formula;
+  requires : Core_syntax.history_free Ir.summary_formula list;
+  runtime_requires : Core_syntax.history_free Ir.summary_formula list;
+  propagates : Core_syntax.history_free Ir.summary_formula list;
+  ensures : Core_syntax.history_free Ir.summary_formula list;
+  elaboration_checks : Core_syntax.history_free Ir.summary_formula list;
+  forbidden : Core_syntax.history_free Ir.summary_formula list;
+  summary_identity :
+    Core_syntax.history_free Product_summary_projection.summary_identity;
   covered_cases : covered_case list;
 }
 (** Step contract before backend-specific lowering. *)
 
 type t = {
-  canonical : Canonical_obligations.stage2;
-  product_summaries : Product_summary_projection.t;
+  canonical : Core_syntax.history_free Canonical_obligations.stage2;
+  product_summaries :
+    Core_syntax.history_free Product_summary_projection.t;
   step_contracts : step_contract list;
+  formula_index : Contract_formula_index.t;
 }
 (** Grouped step-contract view for one node.
 
     [canonical] is the ungrouped Stage 2 family. [step_contracts] is the
     grouped backend-facing view derived from it. *)
 
-val of_product_summaries : Product_summary_projection.t -> t
+val preconditions : step_contract -> Core_syntax.history_free Ir.summary_formula list
+(** Preconditions of a step contract, including its assumption guard and
+    requirements induced by product reachability. *)
+
+val postconditions : step_contract -> Core_syntax.history_free Ir.summary_formula list
+(** Positive postconditions of a step contract. *)
+
+val exclusions : step_contract -> Core_syntax.history_free Ir.summary_formula list
+(** Formulas excluded by a bad-guarantee step. Backends discharge them by
+    requiring their negation. *)
+
+val of_product_summaries :
+  Core_syntax.history_free Product_summary_projection.t -> t
 (** Extracts step contracts from an existing product-summary view. *)
 
-val of_ir_node : Ir.node_ir -> t
+val of_ir_node : Core_syntax.history_free Ir.node_ir -> t
 (** Builds product summaries with current runtime requirements and extracts
     step contracts from them. *)

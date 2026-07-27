@@ -22,7 +22,7 @@ module Abs = Ir
 module K = Kernel_clause_projection
 open Proof_kernel_types
 
-let build_generated_clauses ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
+let build_generated_clauses ~(node : Core_syntax.historical Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     ~(initial_state : product_state_ir) ~(steps : product_step_ir list)
     ~automaton_guard_fo:_ ~is_live_state : generated_clause_ir list =
   let is_live_product_state st =

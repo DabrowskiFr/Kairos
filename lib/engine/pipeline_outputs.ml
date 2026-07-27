@@ -26,8 +26,7 @@ let is_prove_only_run (cfg : Pipeline_types.config) : bool =
   && Option.is_none cfg.proof_progress_path
 
 let proof_instrumentation_of_asts asts =
-  Runtime_ir_merge.merge_by_source ~source_model:asts.Runtime_snapshot.verification_model
-    asts.instrumentation
+  asts.Runtime_snapshot.proof_backend_nodes
 
 let minimal_outputs_of_proof ~(snapshot : Runtime_snapshot.pipeline_snapshot)
     (proof : Proof_runner.run_output) : Pipeline_types.outputs =
@@ -88,7 +87,10 @@ let build_outputs ~(cfg : Pipeline_types.config)
   let proof_instrumentation = proof_instrumentation_of_asts asts in
   if is_prove_only_run cfg then (
     let t_proof = Unix.gettimeofday () in
-    match Proof_runner.run ~cfg ~instrumentation:proof_instrumentation with
+    match
+      Proof_runner.run ~cfg ~instrumentation:proof_instrumentation
+        ~step_projections:asts.step_projections
+    with
     | Error _ as err -> err
     | Ok proof ->
         External_timing.record_output_proof_run
@@ -106,7 +108,10 @@ let build_outputs ~(cfg : Pipeline_types.config)
         External_timing.record_output_artifact
           ~elapsed_s:(Unix.gettimeofday () -. t_artifacts);
         let t_proof = Unix.gettimeofday () in
-        match Proof_runner.run ~cfg ~instrumentation:proof_instrumentation with
+        match
+          Proof_runner.run ~cfg ~instrumentation:proof_instrumentation
+            ~step_projections:asts.step_projections
+        with
         | Error _ as err -> err
         | Ok proof ->
             External_timing.record_output_proof_run

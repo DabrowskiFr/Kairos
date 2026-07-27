@@ -109,7 +109,9 @@ let validate_node (n : Verification_model.node_model) : unit =
     | EUn (_, inner) -> vars_of_expr inner
     | EBin (_, a, b) | ECmp (_, a, b) -> vars_of_expr a @ vars_of_expr b
   in
-  let rec vars_of_hexpr (h : Core_syntax.hexpr) : Core_syntax.ident list =
+  let rec vars_of_hexpr :
+      type phase. phase Core_syntax.hexpr -> Core_syntax.ident list =
+   fun h ->
     match h.hexpr with
     | HLitInt _ | HLitBool _ | HLitEnum _ -> []
     | HVar x | HPreK (x, _) -> [ x ]
@@ -171,7 +173,9 @@ let validate_node (n : Verification_model.node_model) : unit =
         expect_ty "right ordered comparison operand" TInt (expr_ty b);
         TBool
   in
-  let rec hexpr_ty (h : Core_syntax.hexpr) : Core_syntax.ty =
+  let rec hexpr_ty :
+      type phase. phase Core_syntax.hexpr -> Core_syntax.ty =
+   fun h ->
     match h.hexpr with
     | HLitInt _ -> TInt
     | HLitBool _ -> TBool

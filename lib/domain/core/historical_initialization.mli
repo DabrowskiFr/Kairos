@@ -35,7 +35,7 @@
     extensionality of initialized historical formulas.  It does not certify
     this module's graph algorithm. *)
 
-val required_depth_hexpr : Core_syntax.hexpr -> int
+val required_depth_hexpr : 'phase Core_syntax.hexpr -> int
 
 val required_depth_ltl : Core_syntax.ltl -> int
 

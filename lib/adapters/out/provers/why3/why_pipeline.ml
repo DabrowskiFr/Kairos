@@ -22,13 +22,7 @@ module Proof_backend_contract =
   Kairos_proof_contract.Proof_backend_contract
 
 type compilation_options = {
-  share_facts : bool;
-  simplify_formulas : bool;
-  slice_transition_bodies : bool;
-  simplify_runtime_actions : bool;
-  deduplicate_terms : bool;
   group_product_steps : bool;
-  product_step_group_max_cost : int;
 }
 
 type obligations_outputs = {
@@ -38,26 +32,22 @@ type obligations_outputs = {
 
 type whyml_output = {
   text : string;
-  spans : (int * (int * int)) list;
 }
 
-let compile_whyml ?(with_spans = false) ~nodes
-    ~(options : compilation_options) () =
+let render_program_ast (ast : Why3.Ptree.mlw_file) =
+  let buffer = Buffer.create 4096 in
+  let formatter = Format.formatter_of_buffer buffer in
+  Why3.Mlw_printer.pp_mlw_file formatter ast;
+  Format.pp_print_flush formatter ();
+  Buffer.contents buffer
+
+let compile_whyml ~nodes ~step_projections ~(options : compilation_options) () =
   let why_ast =
-    Why_compile.compile_program_ast_from_ir_nodes
-      ~share_why3_facts:options.share_facts
-      ~simplify_why3_formulas:options.simplify_formulas
-      ~slice_why3_transition_bodies:options.slice_transition_bodies
-      ~simplify_why3_runtime_actions:options.simplify_runtime_actions
-      ~deduplicate_why3_terms:options.deduplicate_terms
-      ~group_why3_product_steps:options.group_product_steps
-      ~why3_product_step_group_max_cost:options.product_step_group_max_cost
-      nodes
+    Why_compile.compile_program_ast
+      ~group_why3_product_steps:options.group_product_steps ~nodes
+      ~step_projections ()
   in
-  if with_spans then
-    let text, spans = Why_text_render.emit_program_ast_with_spans why_ast in
-    { text; spans }
-  else { text = Why_text_render.emit_program_ast why_ast; spans = [] }
+  { text = render_program_ast why_ast }
 
 let join_blocks ~sep blocks =
   let buffer = Buffer.create 4096 in
@@ -68,9 +58,9 @@ let join_blocks ~sep blocks =
     blocks;
   Buffer.contents buffer
 
-let obligations_pass ~nodes ~(options : compilation_options) :
+let obligations_pass ~nodes ~step_projections ~(options : compilation_options) :
     obligations_outputs =
-  let whyml = compile_whyml ~nodes ~options () in
+  let whyml = compile_whyml ~nodes ~step_projections ~options () in
   let execution_options : Proof_backend_contract.execution_options =
     {
       timeout_s = 1;

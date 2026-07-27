@@ -21,7 +21,7 @@ open Core_syntax
 let input_names (inputs : vdecl list) : ident list =
   inputs |> List.map (fun (v : vdecl) -> v.vname) |> List.sort_uniq String.compare
 
-let current_inputs ~(input_names : ident list) (f : Core_syntax.hexpr) :
+let current_inputs ~(input_names : ident list) (f : Core_syntax.historical Core_syntax.hexpr) :
     ident list =
   let rec go acc h =
     match h.hexpr with
@@ -34,11 +34,11 @@ let current_inputs ~(input_names : ident list) (f : Core_syntax.hexpr) :
   in
   go [] f |> List.sort_uniq String.compare
 
-let no_current_input ~(input_names : ident list) (f : Core_syntax.hexpr) : bool =
+let no_current_input ~(input_names : ident list) (f : Core_syntax.historical Core_syntax.hexpr) : bool =
   current_inputs ~input_names f = []
 
 let require_no_current_input ~(context : string) ~(input_names : ident list)
-    (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+    (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   match current_inputs ~input_names f with
   | [] -> f
   | names ->

@@ -20,7 +20,9 @@ open Core_syntax
 
 let max_list = List.fold_left max 0
 
-let rec required_depth_hexpr (h : hexpr) : int =
+let rec required_depth_hexpr :
+    type phase. phase hexpr -> int =
+ fun h ->
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ -> 0
   | HPreK (_, k) -> k

@@ -15,56 +15,40 @@ from pathlib import Path
 
 GROUPS = [
     (
-        "Orchestration",
+        "Inputs",
         [
-            "Why_compile_product_pipeline",
-            "Why_compile_product_bundle_state",
-            "Why_compile_product_plan",
-            "Why_compile_product_plan_metrics",
-            "Why_compile_product_metrics",
+            "Step_contract_projection",
         ],
     ),
     (
-        "Helper Plan",
+        "Product Orchestration",
+        [
+            "Why_compile",
+            "Why_compile_bundles",
+            "Why_compile_modules",
+        ],
+    ),
+    (
+        "Planning and Specs",
         [
             "Why_compile_product_groups",
-            "Why_compile_product_group_partition",
-            "Why_compile_product_group_policy",
             "Why_compile_product_group_terms",
-            "Why_compile_product_group_factoring",
-            "Why_compile_product_group_cost",
-            "Why_compile_product_group_boundary",
-        ],
-    ),
-    (
-        "Helper Specs",
-        [
             "Why_compile_product_specs",
-            "Why_compile_product_spec_terms",
-            "Why_compile_product_spec_labels",
         ],
     ),
     (
         "Helper Emission",
         [
             "Why_compile_product_helpers",
-            "Why_compile_product_individual_helper",
-            "Why_compile_product_grouped_helper",
-            "Why_compile_helper_unit",
-            "Why_compile_product_helper_types",
-            "Why_compile_product_helper_body",
-            "Why_compile_product_layout",
+            "Why_compile_step",
         ],
     ),
     (
-        "Nearby Compile Services",
+        "Compile Services",
         [
-            "Why_product_step_names",
-            "Why_compile_contract_facts",
-            "Why_compile_step",
-            "Why_compile_bundles",
-            "Why_compile_modules",
             "Why_compile_ptree_helpers",
+            "Why_compile_expr",
+            "Why_product_step_names",
         ],
     ),
 ]

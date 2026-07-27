@@ -15,7 +15,7 @@
   kairos_proof_contract
   kairos_runtime_core
   kairos_why3
-  kairos_why3_runtime_view
+  kairos_why3_compile
   kairos_external_timing
   kairos_external_why3))
 

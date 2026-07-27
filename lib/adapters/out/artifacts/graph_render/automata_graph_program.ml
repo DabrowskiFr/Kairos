@@ -33,7 +33,10 @@ let render_program_lines ~(node_name : ident)
            let guard =
              match t.guard_expr with
              | None -> "⊤"
-             | Some g -> g |> hexpr_of_expr |> pretty_plain_dot_formula
+             | Some g ->
+                 g |> hexpr_of_expr
+                 |> Core_syntax.historical_of_history_free
+                 |> pretty_plain_dot_formula
            in
            Printf.sprintf "[%s] P[%s -> %s] %s" node_name t.src_state
              t.dst_state guard)
@@ -71,7 +74,7 @@ let prepare_program_graph (node : Verification_model.node_model) =
                let guard =
                  match t.guard_expr with
                  | None -> "⊤"
-                 | Some g -> g |> hexpr_of_expr |> pretty_plain_dot_formula
+                 | Some g -> g |> hexpr_of_expr |> historical_of_history_free |> pretty_plain_dot_formula
                in
                {
                  edge_src = Printf.sprintf "p_%s" (escape_dot_label t.src_state);

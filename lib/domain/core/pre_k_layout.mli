@@ -40,7 +40,7 @@ val build_pre_k_infos_from_parts :
   inputs:Core_syntax.vdecl list ->
   locals:Core_syntax.vdecl list ->
   outputs:Core_syntax.vdecl list ->
-  fo_formulas:Core_syntax.hexpr list ->
+  fo_formulas:Core_syntax.historical Core_syntax.hexpr list ->
   ltl:Core_syntax.ltl list ->
   pre_k_info list
 

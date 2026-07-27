@@ -219,40 +219,6 @@ let cmd =
           ~doc:
             "Disable the optimization that groups public non-W guarantees into a single proof node.")
   in
-  let no_why3_fact_sharing =
-    Arg.(
-      value & flag
-      & info [ "no-why3-fact-sharing" ] ~docs:docs_proof
-          ~doc:
-            "Disable the Why3 backend optimization that factors repeated contract facts into shared logical definitions.")
-  in
-  let no_why3_fo_simplification =
-    Arg.(
-      value & flag
-      & info [ "no-why3-fo-simplification" ] ~docs:docs_proof
-          ~doc:
-            "Disable cheap syntactic backend FO simplification before Why3 term generation.")
-  in
-  let no_why3_body_slicing =
-    Arg.(
-      value & flag
-      & info [ "no-why3-body-slicing" ] ~docs:docs_proof
-          ~doc:
-            "Disable backend slicing of transition bodies used in per-transition Why3 helper functions.")
-  in
-  let no_why3_action_simplification =
-    Arg.(
-      value & flag
-      & info [ "no-why3-action-simplification" ] ~docs:docs_proof
-          ~doc:
-            "Disable backend simplification of runtime action blocks emitted to Why3.")
-  in
-  let no_why3_term_dedup =
-    Arg.(
-      value & flag
-      & info [ "no-why3-term-dedup" ] ~docs:docs_proof
-          ~doc:"Disable syntactic deduplication of generated Why3 contract terms.")
-  in
   let no_why3_product_step_grouping =
     Arg.(
       value & flag
@@ -261,23 +227,12 @@ let cmd =
             "Disable grouping of safe product-step Why3 helpers by executable \
              transition. Bad-guarantee exclusion helpers are kept individual.")
   in
-  let why3_product_step_group_max_cost =
-    Arg.(
-      value & opt (some int) None
-      & info [ "why3-product-step-group-max-cost" ] ~docs:docs_proof
-          ~docv:"N"
-          ~doc:
-            "Split product-step Why3 helper groups when the estimated generated \
-             term cost would exceed N. Values <= 0 keep grouping unbounded.")
-  in
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
     let make_cli_args file check_frontend prove timeout_s proof_jobs proof_encoding
         stop_on_first_nonvalid no_proof_optimizations no_proof_grouping
-        no_why3_fact_sharing no_why3_fo_simplification no_why3_body_slicing
-        no_why3_action_simplification no_why3_term_dedup
-        no_why3_product_step_grouping why3_product_step_group_max_cost
+        no_why3_product_step_grouping
         dump_automata dump_product dump_canonical dump_automata_short
         dump_canonical_short dump_obligations_map dump_surface dump_elaborated
         dump_normalized_program dump_ir_pretty dump_cost_report emit_c dump_timings
@@ -292,13 +247,7 @@ let cmd =
         stop_on_first_nonvalid;
         no_proof_optimizations;
         no_proof_grouping;
-        no_why3_fact_sharing;
-        no_why3_fo_simplification;
-        no_why3_body_slicing;
-        no_why3_action_simplification;
-        no_why3_term_dedup;
         no_why3_product_step_grouping;
-        why3_product_step_group_max_cost;
         dump_automata;
         dump_product;
         dump_canonical;
@@ -322,10 +271,7 @@ let cmd =
     Term.(
       const make_cli_args $ file $ check_frontend $ prove $ timeout_s
       $ proof_jobs $ proof_encoding $ stop_on_first_nonvalid $ no_proof_optimizations
-      $ no_proof_grouping $ no_why3_fact_sharing
-      $ no_why3_fo_simplification $ no_why3_body_slicing
-      $ no_why3_action_simplification $ no_why3_term_dedup
-      $ no_why3_product_step_grouping $ why3_product_step_group_max_cost
+      $ no_proof_grouping $ no_why3_product_step_grouping
       $ dump_automata $ dump_product $ dump_canonical $ dump_automata_short
       $ dump_canonical_short $ dump_obligations_map $ dump_surface
       $ dump_elaborated $ dump_normalized_program $ dump_ir_pretty

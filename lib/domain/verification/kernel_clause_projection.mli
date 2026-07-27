@@ -39,8 +39,8 @@ type time_tag =
 type timed_fact_desc =
   | FactProgramState of ident
   | FactGuaranteeState of int
-  | FactPhaseFormula of hexpr
-  | FactFormula of hexpr
+  | FactPhaseFormula of historical hexpr
+  | FactFormula of historical hexpr
   | FactFalse
 (** Atomic generated fact descriptor. *)
 
@@ -69,9 +69,9 @@ type product_step_class =
 
 type product_step = {
   step_anchor : product_step_anchor;
-  program_guard : hexpr;
-  assume_guard : hexpr;
-  guarantee_guard : hexpr;
+  program_guard : historical hexpr;
+  assume_guard : historical hexpr;
+  guarantee_guard : historical hexpr;
   step_class : product_step_class;
 }
 (** Concrete product step used to instantiate step-anchored clauses.
@@ -107,11 +107,11 @@ val product_step_anchor : product_step -> product_step_anchor
 (** Returns the Rocq anchor of a concrete product step. *)
 
 val build_source_summary_clauses :
-  node:Ir.node_ir -> steps:product_step list -> classified_clause list
+  node:Core_syntax.historical Ir.node_ir -> steps:product_step list -> classified_clause list
 (** Builds source/product-summary clauses from canonical product summaries. *)
 
 val build :
-  node:Ir.node_ir ->
+  node:Core_syntax.historical Ir.node_ir ->
   initial_state:product_state_anchor ->
   steps:product_step list ->
   is_live_state:(product_state_anchor -> bool) ->

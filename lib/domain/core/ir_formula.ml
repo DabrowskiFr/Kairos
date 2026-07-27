@@ -22,14 +22,14 @@ let fresh_oid () =
   incr next_oid;
   !next_oid
 
-let make ?loc ?family logic : Ir.summary_formula =
+let make ?loc ?family logic : 'phase Ir.summary_formula =
   { logic; meta = { oid = fresh_oid (); loc; family } }
 
-let values (xs : Ir.summary_formula list) : Core_syntax.hexpr list =
-  List.map (fun (x : Ir.summary_formula) -> x.logic) xs
+let values (xs : 'phase Ir.summary_formula list) : 'phase Core_syntax.hexpr list =
+  List.map (fun (x : 'phase Ir.summary_formula) -> x.logic) xs
 
 let temporal_bindings_of_layout (layout : Ir.temporal_layout) : Pre_k_lowering.temporal_binding list =
   Pre_k_lowering.temporal_bindings_of_layout ~temporal_layout:layout
 
-let temporal_bindings_of_node (node : Ir.node_ir) : Pre_k_lowering.temporal_binding list =
+let temporal_bindings_of_node (node : Core_syntax.historical Ir.node_ir) : Pre_k_lowering.temporal_binding list =
   temporal_bindings_of_layout node.temporal_layout

@@ -1,70 +1,20 @@
 (library
- (name kairos_why3_expr)
- (public_name kairos-engine-runtime.internal.why3_expr)
- (wrapped false)
- (modules
-  why_compile_expr_primitives
-  why_compile_expr_mapping
-  why_compile_expr_env
-  why_compile_expr_print
-  why_compile_expr_compile
-  why_compile_expr)
- (libraries kairos_domain_core why3))
-
-(library
  (name kairos_why3_compile)
  (public_name kairos-engine-runtime.internal.why3_compile)
  (wrapped false)
  (modules
-  why_compile_ptree_terms
-  why_compile_ptree_names
-  why_compile_ptree_binders
+  why_compile_expr
   why_compile_ptree_helpers
-  why_compile_logic_formula
-  why_compile_logic_decls
-  why_compile_logic_functions
-  why_compile_logic
-  why_compile_init_goals
-  why_compile_formula_sharing_inventory
-  why_compile_formula_sharing_emit
-  why_compile_formula_sharing_deps
   why_compile_formula_sharing
-  why_compile_product_layout
+  why_compile_logic
+  why_product_step_names
   why_compile_bundles
-  why_compile_product_bundle_state
-  why_compile_product_group_boundary
-  why_compile_product_group_policy
-  why_compile_product_group_partition
-  why_compile_product_group_factoring
   why_compile_product_group_terms
-  why_compile_product_group_cost
   why_compile_product_groups
-  why_compile_product_spec_labels
-  why_compile_product_spec_terms
   why_compile_product_specs
-  why_compile_product_metrics
-  why_compile_contract_facts
-  why_compile_helper_unit
-  why_compile_product_helper_types
-  why_compile_product_helper_body
-  why_compile_product_individual_helper
-  why_compile_product_grouped_helper
   why_compile_product_helpers
-  why_compile_product_plan_metrics
-  why_compile_product_plan
   why_compile_modules
-  why_compile_node_types
-  why_compile_node_inputs
-  why_compile_node_getters
   why_compile_node_common
-  why_compile_product_pipeline
   why_compile
   why_compile_step)
- (libraries
-  kairos_domain_core
-  kairos_domain_verification
-  kairos_why3_runtime_view
-  kairos_why3_expr
-  kairos_why3_contracts
-  kairos_external_timing
-  why3))
+ (libraries kairos_domain_core kairos_domain_verification why3))

@@ -34,11 +34,11 @@ let product_state_source (st : Ir.product_state) =
     st.guarantee_state_index
 
 let attribution_step_class
-    (step_class : Why_runtime_view.runtime_step_class) =
+    (step_class : Step_contract_projection.step_class) =
   match step_class with
-  | Why_runtime_view.StepSafe ->
+  | Step_contract_projection.StepSafe ->
       ("product-step-safe", Some "guarantee-progress")
-  | Why_runtime_view.StepBadGuarantee ->
+  | Step_contract_projection.StepBadGuarantee ->
       ("product-step-bad-guarantee", Some "guarantee-violation-exclusion")
 
 let goal_name_lookup_key (goal_name : string) =
@@ -47,7 +47,7 @@ let goal_name_lookup_key (goal_name : string) =
   | Some idx -> String.sub goal_name 0 idx
 
 let attribution_of_step ~node_name ~index
-    (step : Why_runtime_view.runtime_product_transition_view) =
+    (step : Step_contract_projection.step_contract) =
   let obligation_kind, obligation_category =
     attribution_step_class step.step_class
   in
@@ -59,7 +59,7 @@ let attribution_of_step ~node_name ~index
       (product_state_source step.product_src)
       (product_state_source step.product_dst)
       (List.length step.requires)
-      (List.length step.local_requires)
+      (List.length step.runtime_requires)
       (List.length step.propagates)
       (List.length step.ensures)
       (List.length step.elaboration_checks)
@@ -70,15 +70,15 @@ let attribution_of_step ~node_name ~index
     node = Some node_name;
     transition =
       Some
-        (Printf.sprintf "%s -> %s (%s)" step.src_state step.dst_state
-           step.transition_id);
+        (Printf.sprintf "%s -> %s (%s)" step.program_step.src_state
+           step.program_step.dst_state step.transition_id);
     obligation_kind;
     obligation_family = Some "product-step";
     obligation_category;
   }
 
 let attribution_of_group ~node_name ~index ~group_size
-    (step : Why_runtime_view.runtime_product_transition_view) =
+    (step : Step_contract_projection.step_contract) =
   let obligation_kind, obligation_category =
     attribution_step_class step.step_class
   in
@@ -90,7 +90,7 @@ let attribution_of_group ~node_name ~index ~group_size
       group_size
       (product_state_source step.product_src)
       (List.length step.requires)
-      (List.length step.local_requires)
+      (List.length step.runtime_requires)
       (List.length step.propagates)
       (List.length step.ensures)
       (List.length step.elaboration_checks)
@@ -101,8 +101,8 @@ let attribution_of_group ~node_name ~index ~group_size
     node = Some node_name;
     transition =
       Some
-        (Printf.sprintf "%s -> %s (%s)" step.src_state step.dst_state
-           step.transition_id);
+        (Printf.sprintf "%s -> %s (%s)" step.program_step.src_state
+           step.program_step.dst_state step.transition_id);
     obligation_kind;
     obligation_family = Some "product-step-group";
     obligation_category;
@@ -110,27 +110,24 @@ let attribution_of_group ~node_name ~index ~group_size
 
 let build
     ~(opts : Pipeline_types.proof_optimizations)
-    (instrumentation : Ir.node_ir list) : t =
+    ~(nodes : Core_syntax.history_free Ir.node_ir list)
+    ~(step_projections : Step_contract_projection.t list) : t =
   let table = Hashtbl.create 256 in
-  let add_step_attributions (runtime : Why_runtime_view.t) =
+  let add_step_attributions ~node_name step_contracts =
     List.iteri
       (fun index step ->
         let helper_name = Step_names.product_step_helper_name ~index step in
         Hashtbl.replace table helper_name
-          (attribution_of_step ~node_name:runtime.node_name ~index step))
-      runtime.product_transitions
+          (attribution_of_step ~node_name ~index step))
+      step_contracts
   in
-  let add_group_attributions (runtime : Why_runtime_view.t) =
+  let add_group_attributions ~node_name step_contracts =
     let groups = Hashtbl.create 128 in
     let order = ref [] in
-    let group_key (step : Why_runtime_view.runtime_product_transition_view) =
-      let t =
-        Why_runtime_view.transition_of_product_step
-          ~simplify_runtime_actions:opts.simplify_why3_runtime_actions step
-      in
-      (step.step_class, t)
+    let group_key (step : Step_contract_projection.step_contract) =
+      (step.step_class, step.transition_id, step.program_step)
     in
-    runtime.product_transitions
+    step_contracts
     |> List.iteri (fun index step ->
            let key = group_key step in
            if not (Hashtbl.mem groups key) then order := key :: !order;
@@ -149,19 +146,19 @@ let build
                         representative
                     in
                     Hashtbl.replace table helper_name
-                      (attribution_of_group ~node_name:runtime.node_name ~index
+                      (attribution_of_group ~node_name ~index
                          ~group_size:(List.length indexed_steps)
                          representative)))
   in
-  instrumentation
-  |> List.iter (fun (node : Ir.node_ir) ->
-         let runtime =
-           Why_runtime_view.of_ir_node
-             ~simplify_runtime_actions:opts.simplify_why3_runtime_actions
-             ~slice_transition_bodies:opts.slice_why3_transition_bodies node
-         in
-         add_step_attributions runtime;
-         if opts.group_why3_product_steps then add_group_attributions runtime);
+  List.iter2
+    (fun (node : Core_syntax.history_free Ir.node_ir)
+         (projection : Step_contract_projection.t) ->
+         let step_contracts = projection.step_contracts in
+         let node_name = node.semantics.sem_nname in
+         add_step_attributions ~node_name step_contracts;
+         if opts.group_why3_product_steps then
+           add_group_attributions ~node_name step_contracts)
+    nodes step_projections;
   table
 
 let attribution_for_goal attributions goal_name =

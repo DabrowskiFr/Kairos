@@ -25,7 +25,13 @@
 val render_transition : ?indent:int -> Ir.transition -> string
 
 (** Render one IR node in "program view". *)
-val render_node : ?source_program:Verification_model.program_model option -> Ir.node_ir -> string
+val render_node :
+  ?source_program:Verification_model.program_model option ->
+  'phase Ir.node_ir ->
+  string
 
 (** Render a full IR program in "program view". *)
-val render_program : ?source_program:Verification_model.program_model option -> Ir.node_ir list -> string
+val render_program :
+  ?source_program:Verification_model.program_model option ->
+  'phase Ir.node_ir list ->
+  string

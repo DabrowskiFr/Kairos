@@ -41,5 +41,6 @@ type run_output = {
 
 val run :
   cfg:Pipeline_types.config ->
-  instrumentation:Ir.node_ir list ->
+  instrumentation:Core_syntax.history_free Ir.node_ir list ->
+  step_projections:Step_contract_projection.t list ->
   (run_output, Pipeline_types.error) result

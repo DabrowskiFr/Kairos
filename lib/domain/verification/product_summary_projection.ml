@@ -26,37 +26,34 @@ type product_step_anchor = {
   program_transition_id : int;
 }
 
-type summary_identity = {
+type 'phase summary_identity = {
   program_transition_id : int;
   program_step : Ir.transition;
   product_src : product_state_anchor;
-  assume_guard : hexpr;
+  assume_guard : 'phase hexpr;
 }
 
-type summary = {
-  identity : summary_identity;
-  propagation_requires : Ir.summary_formula list;
-  requires : Ir.summary_formula list;
-  runtime_requires : Ir.summary_formula list;
-  ensures : Ir.summary_formula list;
-  elaboration_checks : Ir.summary_formula list;
-  safe_cases : Ir.safe_product_case list;
-  unsafe_cases : Ir.unsafe_product_case list;
-  source_summary : Ir.product_step_summary;
+type 'phase summary = {
+  identity : 'phase summary_identity;
+  propagation_requires : 'phase Ir.summary_formula list;
+  requires : 'phase Ir.summary_formula list;
+  runtime_requires : 'phase Ir.summary_formula list;
+  ensures : 'phase Ir.summary_formula list;
+  elaboration_checks : 'phase Ir.summary_formula list;
+  safe_cases : 'phase Ir.safe_product_case list;
+  unsafe_cases : 'phase Ir.unsafe_product_case list;
+  source_summary : 'phase Ir.product_step_summary;
 }
 
-type t = { summaries : summary list }
+type 'phase t = { summaries : 'phase summary list }
 
 let same_product_state (a : product_state_anchor) (b : product_state_anchor) =
   String.equal a.prog_state b.prog_state
   && a.assume_state_index = b.assume_state_index
   && a.guarantee_state_index = b.guarantee_state_index
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
-  Core_fo_simplifier.simplify f
-
 let of_ir_summary ~runtime_requires_of_summary
-    (source_summary : Ir.product_step_summary) : summary =
+    (source_summary : 'phase Ir.product_step_summary) : 'phase summary =
   let source_identity = source_summary.identity in
   {
     identity =
@@ -76,19 +73,19 @@ let of_ir_summary ~runtime_requires_of_summary
     source_summary;
   }
 
-let of_ir_node ?(runtime_requires_of_summary = fun _ -> []) (node : Ir.node_ir) :
-    t =
+let of_ir_node ?(runtime_requires_of_summary = fun _ -> [])
+    (node : 'phase Ir.node_ir) : 'phase t =
   {
     summaries =
       List.map (of_ir_summary ~runtime_requires_of_summary) node.summaries;
   }
 
-let find_by_identity (projection : t) ~program_transition_id ~product_src
+let find_by_identity (projection : 'phase t) ~program_transition_id ~product_src
     ~assume_guard =
-  let assume_guard = simplify_fo assume_guard in
+  let assume_guard = Formula_canonical.key assume_guard in
   List.find_opt
-    (fun (summary : summary) ->
+    (fun (summary : 'phase summary) ->
       summary.identity.program_transition_id = program_transition_id
       && same_product_state summary.identity.product_src product_src
-      && simplify_fo summary.identity.assume_guard = assume_guard)
+      && Formula_canonical.key summary.identity.assume_guard = assume_guard)
     projection.summaries

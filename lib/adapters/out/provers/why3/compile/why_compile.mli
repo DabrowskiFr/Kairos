@@ -22,23 +22,9 @@
     renderer, and proof runner. Node-local construction details live in focused
     [Why_compile_*] modules and are intentionally kept out of this interface. *)
 
-type spec_groups = Why_compile_modules.spec_groups = {
-  pre_labels : string list;
-  post_labels : string list;
-}
-
-type program_ast = Why_compile_modules.program_ast = {
-  mlw : Why3.Ptree.mlw_file;
-  module_info : (string * spec_groups) list;
-}
-
-val compile_program_ast_from_ir_nodes :
-  ?share_why3_facts:bool ->
-  ?simplify_why3_formulas:bool ->
-  ?slice_why3_transition_bodies:bool ->
-  ?simplify_why3_runtime_actions:bool ->
-  ?deduplicate_why3_terms:bool ->
+val compile_program_ast :
   ?group_why3_product_steps:bool ->
-  ?why3_product_step_group_max_cost:int ->
-  Ir.node_ir list ->
-  program_ast
+  nodes:Core_syntax.history_free Ir.node_ir list ->
+  step_projections:Step_contract_projection.t list ->
+  unit ->
+  Why3.Ptree.mlw_file

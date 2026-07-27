@@ -94,19 +94,19 @@ let render_product_state_list (xs : Ir.product_state list) : string =
 let render_state_invariant (inv : Ir.state_invariant) : string =
   Printf.sprintf "{state=%s; formula=%s}" inv.state (Pretty.string_of_fo inv.formula)
 
-let render_formula_ref (f : Ir.summary_formula) : string =
+let render_formula_ref (f : 'phase Ir.summary_formula) : string =
   Printf.sprintf "f#%d" f.meta.oid
 
-let render_formula_refs (fs : Ir.summary_formula list) : string =
+let render_formula_refs (fs : 'phase Ir.summary_formula list) : string =
   "[" ^ String.concat ", " (List.map render_formula_ref fs) ^ "]"
 
-let program_transitions_from_summaries (n : Ir.node_ir) : Ir.transition list =
+let program_transitions_from_summaries (n : Core_syntax.history_free Ir.node_ir) : Ir.transition list =
   n.summaries
-  |> List.map (fun (summary : Ir.product_step_summary) -> summary.identity.program_step)
+  |> List.map (fun (summary : Core_syntax.history_free Ir.product_step_summary) -> summary.identity.program_step)
   |> List.sort_uniq Stdlib.compare
 
 let program_transitions_for_node ~(source_program : Verification_model.program_model option)
-    (n : Ir.node_ir) :
+    (n : Core_syntax.history_free Ir.node_ir) :
     Ir.transition list =
   match source_program with
   | Some source_program -> (
@@ -120,35 +120,35 @@ let program_transitions_for_node ~(source_program : Verification_model.program_m
       | None -> program_transitions_from_summaries n)
   | None -> program_transitions_from_summaries n
 
-let collect_formula_pool (program : Ir.program_ir) : Ir.summary_formula list =
-  let by_oid : (int, Ir.summary_formula) Hashtbl.t = Hashtbl.create 257 in
-  let add_formula (f : Ir.summary_formula) =
+let collect_formula_pool (program : Ir.program_ir) : Core_syntax.history_free Ir.summary_formula list =
+  let by_oid : (int, Core_syntax.history_free Ir.summary_formula) Hashtbl.t = Hashtbl.create 257 in
+  let add_formula (f : Core_syntax.history_free Ir.summary_formula) =
     match Hashtbl.find_opt by_oid f.meta.oid with
     | None -> Hashtbl.add by_oid f.meta.oid f
     | Some _ -> ()
   in
   let add_formulas = List.iter add_formula in
-  let add_product_summary (summary : Ir.product_step_summary) =
+  let add_product_summary (summary : Core_syntax.history_free Ir.product_step_summary) =
     add_formulas summary.propagation_requires;
     add_formulas summary.requires;
     add_formulas summary.ensures;
     add_formulas summary.elaboration_checks;
     List.iter
-      (fun (c : Ir.safe_product_case) ->
+      (fun (c : Core_syntax.history_free Ir.safe_product_case) ->
         add_formula c.admissible_guard)
       summary.safe_cases;
     List.iter
-      (fun (c : Ir.unsafe_product_case) ->
+      (fun (c : Core_syntax.history_free Ir.unsafe_product_case) ->
         add_formula c.excluded_guard)
       summary.unsafe_cases
   in
   List.iter
-    (fun (n : Ir.node_ir) ->
+    (fun (n : Core_syntax.history_free Ir.node_ir) ->
       List.iter add_product_summary n.summaries;
       add_formulas n.init_invariant_goals)
     program.nodes;
   Hashtbl.fold (fun _ f acc -> f :: acc) by_oid []
-  |> List.sort (fun (a : Ir.summary_formula) (b : Ir.summary_formula) ->
+  |> List.sort (fun (a : Core_syntax.history_free Ir.summary_formula) (b : Core_syntax.history_free Ir.summary_formula) ->
          Int.compare a.meta.oid b.meta.oid)
 
 let render_formula_pool (buf : Buffer.t) (program : Ir.program_ir) =
@@ -157,7 +157,7 @@ let render_formula_pool (buf : Buffer.t) (program : Ir.program_ir) =
   if formulas = [] then line ~indent:1 buf "[]"
   else
     List.iter
-      (fun (f : Ir.summary_formula) ->
+      (fun (f : Core_syntax.history_free Ir.summary_formula) ->
         line ~indent:1 buf
           (Printf.sprintf "%s = {logic=%s; meta={oid=%d; loc=%s}}"
              (render_formula_ref f) (Pretty.string_of_fo f.logic)
@@ -173,15 +173,15 @@ let render_transition_full (buf : Buffer.t) (idx : int) (t : Ir.transition) =
   line ~indent:2 buf ("body=" ^ body)
 
 let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
-    (summary : Ir.product_step_summary) =
+    (summary : Core_syntax.history_free Ir.product_step_summary) =
   let safe_product_dsts =
     summary.safe_cases
-    |> List.map (fun (c : Ir.safe_product_case) -> c.product_dst)
+    |> List.map (fun (c : Core_syntax.history_free Ir.safe_product_case) -> c.product_dst)
     |> List.sort_uniq Stdlib.compare
   in
   let admissible_guards =
     summary.safe_cases
-    |> List.map (fun (c : Ir.safe_product_case) -> c.admissible_guard)
+    |> List.map (fun (c : Core_syntax.history_free Ir.safe_product_case) -> c.admissible_guard)
   in
   let source_id = Printf.sprintf "S%d" summary_index in
   let safe_destination_id =
@@ -215,7 +215,7 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
   if summary.safe_cases = [] then line ~indent:(indent + 2) buf "[]"
   else
     List.iteri
-      (fun idx (c : Ir.safe_product_case) ->
+      (fun idx (c : Core_syntax.history_free Ir.safe_product_case) ->
         let product_dst_id = Printf.sprintf "K%d_%d" summary_index (idx + 1) in
         line ~indent:(indent + 2) buf (Printf.sprintf "case[%d]:" idx);
         line ~indent:(indent + 3) buf "step_class=Safe";
@@ -229,7 +229,7 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
   if summary.unsafe_cases = [] then line ~indent:(indent + 2) buf "[]"
   else
     List.iteri
-      (fun idx (c : Ir.unsafe_product_case) ->
+      (fun idx (c : Core_syntax.history_free Ir.unsafe_product_case) ->
         let product_dst_id =
           Printf.sprintf "K%d_%d" summary_index (List.length summary.safe_cases + idx + 1)
         in
@@ -246,7 +246,7 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
 
 let render_node_pretty ~(source_program : Verification_model.program_model option)
     (buf : Buffer.t)
-    (n : Ir.node_ir) =
+    (n : Core_syntax.history_free Ir.node_ir) =
   let program_transitions = program_transitions_for_node ~source_program n in
   line buf ("node " ^ n.semantics.sem_nname);
   line buf "";

@@ -21,22 +21,22 @@ open Fo_time
 
 module Abs = Ir
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
-let disj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
+let disj_fo (fs : Core_syntax.historical Core_syntax.hexpr list) : Core_syntax.historical Core_syntax.hexpr option =
   match fs with
   | [] -> None
   | f :: rest -> Some (List.fold_left Core_syntax_builders.mk_hor f rest |> simplify_fo)
 
-let input_names (n : Abs.node_ir) : ident list =
+let input_names (n : Core_syntax.historical Abs.node_ir) : ident list =
   List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
 
-let is_input_of_node (n : Abs.node_ir) : ident -> bool =
+let is_input_of_node (n : Core_syntax.historical Abs.node_ir) : ident -> bool =
   let names = input_names n in
   fun x -> List.mem x names
 
-let invariants_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr list =
+let invariants_of_state (n : Core_syntax.historical Abs.node_ir) : ident -> Core_syntax.historical Core_syntax.hexpr list =
   let by_state = Hashtbl.create 16 in
   List.iter
     (fun (inv : Abs.state_invariant) ->
@@ -49,9 +49,9 @@ let invariants_of_state (n : Abs.node_ir) : ident -> Core_syntax.hexpr list =
     | None -> []
     | Some xs -> List.sort_uniq compare xs)
 
-let add_unique_formula_with_status ~family (f : Core_syntax.hexpr)
-    (xs : Abs.summary_formula list) : Abs.summary_formula list * bool =
-  if List.exists (fun (x : Abs.summary_formula) -> x.logic = f) xs then (xs, false)
+let add_unique_formula_with_status ~family (f : Core_syntax.historical Core_syntax.hexpr)
+    (xs : Core_syntax.historical Abs.summary_formula list) : Core_syntax.historical Abs.summary_formula list * bool =
+  if List.exists (fun (x : Core_syntax.historical Abs.summary_formula) -> x.logic = f) xs then (xs, false)
   else (xs @ [ Ir_formula.make ~family f ], true)
 
 let add_formula_family ~record_family ~family_name formulas acc =
@@ -68,25 +68,25 @@ let add_formula_family ~record_family ~family_name formulas acc =
   record_family ~family_name ~candidates:formulas ~inserted:(List.rev inserted);
   acc
 
-let formula_mem (f : Core_syntax.hexpr) (xs : Core_syntax.hexpr list) : bool =
+let formula_mem (f : Core_syntax.historical Core_syntax.hexpr) (xs : Core_syntax.historical Core_syntax.hexpr list) : bool =
   List.exists (( = ) f) xs
 
 let enrich_product_step_summary ~(record_family : family_name:string ->
-    candidates:Core_syntax.hexpr list -> inserted:Core_syntax.hexpr list -> unit)
-    ~(node : Abs.node_ir)
+    candidates:Core_syntax.historical Core_syntax.hexpr list -> inserted:Core_syntax.historical Core_syntax.hexpr list -> unit)
+    ~(node : Core_syntax.historical Abs.node_ir)
     ~(product_characteristics : Product_characteristics.t)
-    (pc : Abs.product_step_summary) :
-    Abs.product_step_summary =
+    (pc : Core_syntax.historical Abs.product_step_summary) :
+    Core_syntax.historical Abs.product_step_summary =
   let is_input = is_input_of_node node in
   let invs_of_state = invariants_of_state node in
   let safe_disjunction =
     pc.safe_cases
-    |> List.map (fun (case : Abs.safe_product_case) -> case.admissible_guard.logic)
+    |> List.map (fun (case : Core_syntax.historical Abs.safe_product_case) -> case.admissible_guard.logic)
     |> disj_fo
   in
   let destination_invariants_by_case =
     pc.safe_cases
-    |> List.map (fun (case : Abs.safe_product_case) ->
+    |> List.map (fun (case : Core_syntax.historical Abs.safe_product_case) ->
            (case, invs_of_state case.product_dst.prog_state))
   in
   let common_destination_invariants =
@@ -106,7 +106,7 @@ let enrich_product_step_summary ~(record_family : family_name:string ->
   in
   let shifted_guarded_destination_invariants =
     destination_invariants_by_case
-    |> List.concat_map (fun ((case : Abs.safe_product_case), invs) ->
+    |> List.concat_map (fun ((case : Core_syntax.historical Abs.safe_product_case), invs) ->
            invs
            |> List.filter (fun inv ->
                   not (formula_mem inv common_destination_invariants))
@@ -138,9 +138,9 @@ let enrich_product_step_summary ~(record_family : family_name:string ->
   in
   { pc with ensures }
 
-type node_generation = { summaries : Abs.product_step_summary list }
+type node_generation = { summaries : Core_syntax.historical Abs.product_step_summary list }
 
-let compute_generation ~record_family ~(node : Abs.node_ir) : node_generation =
+let compute_generation ~record_family ~(node : Core_syntax.historical Abs.node_ir) : node_generation =
   let product_characteristics = Product_characteristics.build ~node in
   {
     summaries =
@@ -149,11 +149,11 @@ let compute_generation ~record_family ~(node : Abs.node_ir) : node_generation =
         node.summaries;
   }
 
-let run_node ~record_family (n : Abs.node_ir) : Abs.node_ir =
+let run_node ~record_family (n : Core_syntax.historical Abs.node_ir) : Core_syntax.historical Abs.node_ir =
   let post_generation = compute_generation ~record_family ~node:n in
   { n with summaries = post_generation.summaries }
 
-let run_program ?observe_family (p : Abs.node_ir list) : Abs.node_ir list =
+let run_program ?observe_family (p : Core_syntax.historical Abs.node_ir list) : Core_syntax.historical Abs.node_ir list =
   let collector =
     match observe_family with
     | None -> None

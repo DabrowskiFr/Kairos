@@ -175,11 +175,11 @@ let proof_kernel_json (node : PK.node_ir) =
     ]
 
 let find_ir_node name nodes =
-  List.find_opt (fun (node : Ir.node_ir) -> node.semantics.sem_nname = name) nodes
+  List.find_opt (fun (node : Core_syntax.history_free Ir.node_ir) -> node.semantics.sem_nname = name) nodes
 
-let canonical_summary_json (summary : Ir.product_step_summary) =
+let canonical_summary_json (summary : Core_syntax.history_free Ir.product_step_summary) =
   let formula_sizes formulas =
-    List.map (fun (f : Ir.summary_formula) -> hexpr_size f.logic) formulas
+    List.map (fun (f : Core_syntax.history_free Ir.summary_formula) -> hexpr_size f.logic) formulas
   in
   let all_summary_formulas =
     summary.propagation_requires @ summary.requires @ summary.ensures
@@ -198,33 +198,33 @@ let canonical_summary_json (summary : Ir.product_step_summary) =
       ("max_summary_formula_size", json_int (max_int sizes));
     ]
 
-let canonical_summaries_json (node : Ir.node_ir option) =
+let canonical_summaries_json (node : Core_syntax.history_free Ir.node_ir option) =
   match node with
   | None -> json_assoc [ ("available", json_bool false) ]
   | Some node ->
       let summaries = node.summaries in
       let safe_cases =
-        sum_int (List.map (fun (s : Ir.product_step_summary) -> List.length s.safe_cases) summaries)
+        sum_int (List.map (fun (s : Core_syntax.history_free Ir.product_step_summary) -> List.length s.safe_cases) summaries)
       in
       let unsafe_cases =
-        sum_int (List.map (fun (s : Ir.product_step_summary) -> List.length s.unsafe_cases) summaries)
+        sum_int (List.map (fun (s : Core_syntax.history_free Ir.product_step_summary) -> List.length s.unsafe_cases) summaries)
       in
       let propagation_requires =
         sum_int
           (List.map
-             (fun (s : Ir.product_step_summary) -> List.length s.propagation_requires)
+             (fun (s : Core_syntax.history_free Ir.product_step_summary) -> List.length s.propagation_requires)
              summaries)
       in
       let requires =
-        sum_int (List.map (fun (s : Ir.product_step_summary) -> List.length s.requires) summaries)
+        sum_int (List.map (fun (s : Core_syntax.history_free Ir.product_step_summary) -> List.length s.requires) summaries)
       in
       let ensures =
-        sum_int (List.map (fun (s : Ir.product_step_summary) -> List.length s.ensures) summaries)
+        sum_int (List.map (fun (s : Core_syntax.history_free Ir.product_step_summary) -> List.length s.ensures) summaries)
       in
       let elaboration_checks =
         sum_int
           (List.map
-             (fun (s : Ir.product_step_summary) ->
+             (fun (s : Core_syntax.history_free Ir.product_step_summary) ->
                List.length s.elaboration_checks)
              summaries)
       in

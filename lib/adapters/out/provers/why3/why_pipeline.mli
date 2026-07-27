@@ -23,13 +23,7 @@
 
 (** Kairos-owned policy for compiling its IR to WhyML. *)
 type compilation_options = {
-  share_facts : bool;
-  simplify_formulas : bool;
-  slice_transition_bodies : bool;
-  simplify_runtime_actions : bool;
-  deduplicate_terms : bool;
   group_product_steps : bool;
-  product_step_group_max_cost : int;
 }
 
 (** Text payload emitted by the obligations pass. *)
@@ -40,13 +34,12 @@ type obligations_outputs = {
 
 type whyml_output = {
   text : string;
-  spans : (int * (int * int)) list;
 }
 
 (** Compile Kairos IR to a neutral WhyML text artifact. *)
 val compile_whyml :
-  ?with_spans:bool ->
-  nodes:Ir.node_ir list ->
+  nodes:Core_syntax.history_free Ir.node_ir list ->
+  step_projections:Step_contract_projection.t list ->
   options:compilation_options ->
   unit ->
   whyml_output
@@ -54,6 +47,7 @@ val compile_whyml :
 (** Compile Kairos IR to WhyML, then submit the neutral WhyML request to the
     independent Why3 adapter. *)
 val obligations_pass :
-  nodes:Ir.node_ir list ->
+  nodes:Core_syntax.history_free Ir.node_ir list ->
+  step_projections:Step_contract_projection.t list ->
   options:compilation_options ->
   obligations_outputs

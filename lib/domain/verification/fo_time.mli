@@ -28,17 +28,17 @@ open Core_syntax
     inputs and existing historical reads are unchanged, while current
     non-inputs become depth-one reads. *)
 val shift_formula_entry_to_post :
-  is_input:(ident -> bool) -> Core_syntax.hexpr -> Core_syntax.hexpr
+  is_input:(ident -> bool) -> Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr
 
 (** Transport a post-tick formula to the next entry: current inputs become
     depth-one reads, current non-inputs are unchanged, and every existing
     historical read gains one level. *)
 val shift_formula_forward_inputs :
-  is_input:(ident -> bool) -> Core_syntax.hexpr -> Core_syntax.hexpr
+  is_input:(ident -> bool) -> Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr
 
 (** Transport a persistent state formula to the preceding postcondition:
     current non-inputs are unchanged and every historical read loses one
     level. Current inputs are rejected because they have no value at the
     preceding post-tick endpoint. *)
 val shift_formula_backward_inputs :
-  is_input:(ident -> bool) -> Core_syntax.hexpr -> Core_syntax.hexpr
+  is_input:(ident -> bool) -> Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr

@@ -38,7 +38,7 @@ let mk_hand a b = mk_hexpr (HBin (And, a, b))
 let mk_hor a b = mk_hexpr (HBin (Or, a, b))
 let mk_himp a b = mk_hor (mk_hnot a) b
 
-let rec hexpr_of_expr (e : expr) : hexpr =
+let rec hexpr_of_expr (e : expr) : history_free hexpr =
   let hexpr =
     match e.expr with
     | ELitInt n -> HLitInt n

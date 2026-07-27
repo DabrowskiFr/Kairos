@@ -21,7 +21,10 @@
 type t
 
 val build :
-  opts:Pipeline_types.proof_optimizations -> Ir.node_ir list -> t
+  opts:Pipeline_types.proof_optimizations ->
+  nodes:Core_syntax.history_free Ir.node_ir list ->
+  step_projections:Step_contract_projection.t list ->
+  t
 
 val apply :
   t ->

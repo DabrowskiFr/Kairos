@@ -22,7 +22,7 @@
     attaches the relational clauses that must hold for each group. *)
 
 val build_proof_step_summaries :
-  node:Ir.node_ir ->
+  node:Core_syntax.historical Ir.node_ir ->
   reactive_program:Proof_kernel_types.reactive_program_ir ->
   product_steps:Proof_kernel_types.product_step_ir list ->
   initial_product_state:Proof_kernel_types.product_state_ir ->

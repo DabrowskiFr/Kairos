@@ -18,12 +18,13 @@
 
 module C = Core_syntax
 
-let rec split_top_level_or (f : C.hexpr) : C.hexpr list =
+let rec split_top_level_or (f : C.historical C.hexpr) : C.historical C.hexpr list =
   match f.hexpr with
   | C.HBin (C.Or, a, b) -> split_top_level_or a @ split_top_level_or b
   | _ -> [ f ]
 
-let rec normalize_phase_summary (f : C.hexpr) : C.hexpr =
+let rec normalize_phase_summary (f : C.historical C.hexpr) :
+    C.historical C.hexpr =
   match f.hexpr with
   | C.HLitInt _ | C.HLitBool _ | C.HLitEnum _ | C.HVar _ | C.HPreK _ | C.HPred _ -> f
   | C.HFunCall (fn, hs) ->
@@ -37,7 +38,8 @@ let rec normalize_phase_summary (f : C.hexpr) : C.hexpr =
       Core_syntax_builders.with_hexpr_desc f
         (C.HCmp (r, normalize_phase_summary a, normalize_phase_summary b))
 
-let rec normalize_source_summary (f : C.hexpr) : C.hexpr =
+let rec normalize_source_summary (f : C.historical C.hexpr) :
+    C.historical C.hexpr =
   match f.hexpr with
   | C.HLitInt _ | C.HLitBool _ | C.HLitEnum _ | C.HVar _ | C.HPreK _ | C.HPred _ -> f
   | C.HFunCall (fn, hs) ->
@@ -76,7 +78,7 @@ let term_or a b = normalize_source_summary (Core_syntax_builders.mk_hor a b)
 let term_and a b = normalize_source_summary (Core_syntax_builders.mk_hand a b)
 let term_not a = normalize_source_summary (Core_syntax_builders.mk_hnot a)
 
-let rec phase_summary_obviously_inconsistent (f : C.hexpr) : bool =
+let rec phase_summary_obviously_inconsistent (f : C.historical C.hexpr) : bool =
   match normalize_source_summary f with
   | { C.hexpr = C.HLitBool false; _ } -> true
   | { C.hexpr = C.HCmp (C.RNeq, { C.hexpr = C.HVar x; _ }, { C.hexpr = C.HVar y; _ }); _ }

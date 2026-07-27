@@ -22,9 +22,8 @@ type step_class = Canonical_obligations.step_class =
   | StepSafe
   | StepBadGuarantee
 
-type covered_case = Canonical_obligations.covered_case =
-  | CoveredSafeCase of Ir.safe_product_case
-  | CoveredUnsafeCase of Ir.unsafe_product_case
+type covered_case =
+  Core_syntax.history_free Canonical_obligations.covered_case
 
 type step_contract = {
   transition_id : string;
@@ -33,39 +32,54 @@ type step_contract = {
   step_class : step_class;
   product_src : Ir.product_state;
   product_dst : Ir.product_state;
-  assume_guard : Ir.summary_formula;
-  requires : Ir.summary_formula list;
-  runtime_requires : Ir.summary_formula list;
-  propagates : Ir.summary_formula list;
-  ensures : Ir.summary_formula list;
-  elaboration_checks : Ir.summary_formula list;
-  forbidden : Ir.summary_formula list;
-  summary_identity : Product_summary_projection.summary_identity;
+  assume_guard : Core_syntax.history_free Ir.summary_formula;
+  requires : Core_syntax.history_free Ir.summary_formula list;
+  runtime_requires : Core_syntax.history_free Ir.summary_formula list;
+  propagates : Core_syntax.history_free Ir.summary_formula list;
+  ensures : Core_syntax.history_free Ir.summary_formula list;
+  elaboration_checks : Core_syntax.history_free Ir.summary_formula list;
+  forbidden : Core_syntax.history_free Ir.summary_formula list;
+  summary_identity :
+    Core_syntax.history_free Product_summary_projection.summary_identity;
   covered_cases : covered_case list;
 }
 
 type t = {
-  canonical : Canonical_obligations.stage2;
-  product_summaries : Product_summary_projection.t;
+  canonical : Core_syntax.history_free Canonical_obligations.stage2;
+  product_summaries :
+    Core_syntax.history_free Product_summary_projection.t;
   step_contracts : step_contract list;
+  formula_index : Contract_formula_index.t;
 }
 
-let rec split_top_level_or (f : Core_syntax.hexpr) : Core_syntax.hexpr list =
+let preconditions (contract : step_contract) =
+  contract.requires @ [ contract.assume_guard ] @ contract.runtime_requires
+
+let postconditions (contract : step_contract) =
+  contract.ensures @ contract.elaboration_checks
+
+let exclusions (contract : step_contract) = contract.forbidden
+
+let rec split_top_level_or (f : Core_syntax.history_free Core_syntax.hexpr) : Core_syntax.history_free Core_syntax.hexpr list =
   match f.hexpr with
   | HBin (Or, a, b) -> split_top_level_or a @ split_top_level_or b
   | _ -> [ f ]
 
 let transition_requires_without_assume_guard
-    (summary : Product_summary_projection.summary) =
+    (summary :
+      Core_syntax.history_free Product_summary_projection.summary) =
   summary.requires
-  |> List.filter (fun (f : Ir.summary_formula) ->
+  |> List.filter (fun (f : Core_syntax.history_free Ir.summary_formula) ->
          f.logic <> summary.identity.assume_guard)
 
-let common_requires (summary : Product_summary_projection.summary) =
+let common_requires
+    (summary :
+      Core_syntax.history_free Product_summary_projection.summary) =
   summary.propagation_requires @ transition_requires_without_assume_guard summary
 
-let safe_contract ~(assume_guard : Ir.summary_formula) ~requires
-    (summary : Product_summary_projection.summary) =
+let safe_contract ~(assume_guard : Core_syntax.history_free Ir.summary_formula) ~requires
+    (summary :
+      Core_syntax.history_free Product_summary_projection.summary) =
   match summary.safe_cases with
   | [] -> None
   | first_case :: _ ->
@@ -83,24 +97,27 @@ let safe_contract ~(assume_guard : Ir.summary_formula) ~requires
           runtime_requires = summary.runtime_requires;
           propagates =
             List.map
-              (fun (case : Ir.safe_product_case) -> case.admissible_guard)
+              (fun (case : Core_syntax.history_free Ir.safe_product_case) -> case.admissible_guard)
               summary.safe_cases;
           ensures = summary.ensures;
           elaboration_checks = summary.elaboration_checks;
           forbidden = [];
           summary_identity = summary.identity;
           covered_cases =
-            List.map (fun case -> CoveredSafeCase case) summary.safe_cases;
+            List.map
+              (fun case -> Canonical_obligations.CoveredSafeCase case)
+              summary.safe_cases;
         }
 
-let bad_guarantee_contract ~(assume_guard : Ir.summary_formula) ~requires
-    (summary : Product_summary_projection.summary) =
+let bad_guarantee_contract ~(assume_guard : Core_syntax.history_free Ir.summary_formula) ~requires
+    (summary :
+      Core_syntax.history_free Product_summary_projection.summary) =
   match summary.unsafe_cases with
   | [] -> None
   | first_case :: _ ->
       let forbidden =
         summary.unsafe_cases
-        |> List.concat_map (fun (case : Ir.unsafe_product_case) ->
+        |> List.concat_map (fun (case : Core_syntax.history_free Ir.unsafe_product_case) ->
                case.excluded_guard.logic |> split_top_level_or
                |> List.map Ir_formula.make)
       in
@@ -122,10 +139,14 @@ let bad_guarantee_contract ~(assume_guard : Ir.summary_formula) ~requires
           forbidden;
           summary_identity = summary.identity;
           covered_cases =
-            List.map (fun case -> CoveredUnsafeCase case) summary.unsafe_cases;
+            List.map
+              (fun case -> Canonical_obligations.CoveredUnsafeCase case)
+              summary.unsafe_cases;
         }
 
-let contracts_of_summary (summary : Product_summary_projection.summary) :
+let contracts_of_summary
+    (summary :
+      Core_syntax.history_free Product_summary_projection.summary) :
     step_contract list =
   let assume_guard = Ir_formula.make summary.identity.assume_guard in
   let requires = common_requires summary in
@@ -135,21 +156,31 @@ let contracts_of_summary (summary : Product_summary_projection.summary) :
   ]
   |> List.filter_map Fun.id
 
-let of_product_summaries (product_summaries : Product_summary_projection.t) :
+let of_product_summaries
+    (product_summaries :
+      Core_syntax.history_free Product_summary_projection.t) :
     t =
   let step_contracts =
     List.concat_map contracts_of_summary product_summaries.summaries
   in
   let canonical = Canonical_obligations.build_stage2 product_summaries in
+  let formula_index =
+    step_contracts
+    |> List.map (fun contract ->
+           preconditions contract @ postconditions contract
+           @ exclusions contract)
+    |> Contract_formula_index.build
+  in
   {
     canonical;
     product_summaries;
     step_contracts;
+    formula_index;
   }
 
-let of_ir_node (node : Ir.node_ir) : t =
-  let reachability = Product_reachability.build ~node in
-  let runtime_requires_of_summary (summary : Ir.product_step_summary) =
+let of_ir_node (node : Core_syntax.history_free Ir.node_ir) : t =
+  let reachability = Product_reachability.build_history_free ~node in
+  let runtime_requires_of_summary (summary : Core_syntax.history_free Ir.product_step_summary) =
     Product_reachability.local_requires_of_product_state reachability
       summary.identity.product_src
     |> List.map Ir_formula.make

@@ -24,7 +24,7 @@
 (** Product-step lookup helpers used by generated proof clauses. *)
 
 val product_summary_of_step :
-  ?projection:Product_summary_projection.t ->
-  node:Ir.node_ir ->
+  ?projection:Core_syntax.historical Product_summary_projection.t ->
+  node:Core_syntax.historical Ir.node_ir ->
   Proof_kernel_types.product_step_ir ->
-  Ir.product_step_summary option
+  Core_syntax.historical Ir.product_step_summary option

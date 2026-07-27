@@ -16,56 +16,45 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Product-step helper planning and cost estimation.
+(** Product-step helper planning.
 
     This module decides which product steps are emitted individually and which
     ones are bundled into grouped helpers. It does not emit Why3 declarations. *)
 
-type entry = Why_compile_product_group_terms.entry
+module Group_partition : sig
+  type entry = Why_compile_product_group_terms.entry
 
-type grouped_terms = Why_compile_product_group_terms.t
+  val partition : entry list -> entry list list
+end
 
-type individual_reason = Why_compile_product_group_policy.individual_reason =
-  | Grouping_disabled
-  | Empty_group
-  | Singleton_group
-  | Non_safe_step
-  | Has_local_cuts
-  | Split_singleton
+module Group_policy : sig
+  type entry = Why_compile_product_group_terms.entry
 
-type group_metrics = {
-  split_due_to_cost : bool;
-  grouped_terms : grouped_terms;
-}
+  type decision = Groupable | Individual
+
+  val decide_group :
+    group_why3_product_steps:bool -> entry list -> decision
+end
 
 type individual_plan = {
   index : int;
-  contract : Why_contracts.step_contract_info;
-  transition : Why_runtime_view.runtime_transition_view;
-  individual_reason : individual_reason;
-  split_metrics : group_metrics option;
+  contract : Step_contract_projection.step_contract;
 }
 
 type grouped_plan = {
-  entries : entry list;
-  split_due_to_cost : bool;
-  grouped_terms : grouped_terms;
+  index : int;
+  contract : Step_contract_projection.step_contract;
+  formulas : Core_syntax.history_free Ir.summary_formula list;
+  grouped_terms : Why_compile_product_group_terms.t;
 }
 
 type helper_plan_item =
   | Individual of individual_plan
   | Grouped of grouped_plan
 
-val individual_reason_name : individual_reason -> string
-
-val plan_kernel_helpers :
+val build :
   env:Why_compile_expr.env ->
-  pre_vars_name:string ->
-  post_vars_name:string ->
+  formula_sharing:Why_compile_formula_sharing.t ->
   group_why3_product_steps:bool ->
-  max_cost:int ->
-  simplify_runtime_actions:bool ->
-  step_pre_terms_with_rec:(string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
-  step_post_terms_with_rec:(string -> Why_contracts.step_contract_info -> Why3.Ptree.term list) ->
-  Why_contracts.step_contract_info list ->
+  Step_contract_projection.step_contract list ->
   helper_plan_item list

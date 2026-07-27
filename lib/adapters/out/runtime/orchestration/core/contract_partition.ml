@@ -67,7 +67,7 @@ let rec ltl_contains_weak_until (formula : Core_syntax.ltl) : bool =
   | Core_syntax.LImp (a, b) ->
       ltl_contains_weak_until a || ltl_contains_weak_until b
 
-let rec vars_of_hexpr (acc : StringSet.t) (h : Core_syntax.hexpr) : StringSet.t =
+let rec vars_of_hexpr (acc : StringSet.t) (h : Core_syntax.historical Core_syntax.hexpr) : StringSet.t =
   match h.hexpr with
   | Core_syntax.HLitInt _ | Core_syntax.HLitBool _ | Core_syntax.HLitEnum _ -> acc
   | Core_syntax.HVar name | Core_syntax.HPreK (name, _) -> StringSet.add name acc

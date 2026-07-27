@@ -45,7 +45,7 @@ type node_artifacts = {
 }
 
 let build_node_artifacts ~(source_node : Verification_model.node_model)
-    ~(analysis : Temporal_automata.node_data) (node : Ir.node_ir) :
+    ~(analysis : Temporal_automata.node_data) (node : Core_syntax.historical Ir.node_ir) :
     (node_artifacts, string) result =
   let kernel_output =
     Proof_kernel_pass.compile_node
@@ -86,7 +86,7 @@ let build ~(asts : Runtime_snapshot.ast_flow) : (t, string) result =
   let* analyses = Info_helpers.build_analyses ~automata:asts.automata ~source_nodes:source_nodes_model in
   let* node_artifacts =
     asts.proof_instrumentation
-    |> List.map (fun (node : Ir.node_ir) ->
+    |> List.map (fun (node : Core_syntax.historical Ir.node_ir) ->
            let* source_node = source_node_of_name node.semantics.sem_nname in
            let* analysis = Info_helpers.analysis_of_node ~analyses node in
            build_node_artifacts ~source_node ~analysis node)

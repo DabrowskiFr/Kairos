@@ -18,10 +18,10 @@
 
 (** Formula utilities private to kernel-clause projection. *)
 
-val split_top_level_or : Core_syntax.hexpr -> Core_syntax.hexpr list
-val normalize_phase_summary : Core_syntax.hexpr -> Core_syntax.hexpr
-val normalize_source_summary : Core_syntax.hexpr -> Core_syntax.hexpr
-val term_or : Core_syntax.hexpr -> Core_syntax.hexpr -> Core_syntax.hexpr
-val term_and : Core_syntax.hexpr -> Core_syntax.hexpr -> Core_syntax.hexpr
-val term_not : Core_syntax.hexpr -> Core_syntax.hexpr
-val phase_summary_obviously_inconsistent : Core_syntax.hexpr -> bool
+val split_top_level_or : Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr list
+val normalize_phase_summary : Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr
+val normalize_source_summary : Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr
+val term_or : Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr
+val term_and : Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr
+val term_not : Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr
+val phase_summary_obviously_inconsistent : Core_syntax.historical Core_syntax.hexpr -> bool

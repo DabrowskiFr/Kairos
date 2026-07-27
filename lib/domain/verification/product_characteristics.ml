@@ -25,7 +25,7 @@ module StringSet = Set.Make (String)
 
 type entry = {
   product_state : Abs.product_state;
-  entry_fact : Core_syntax.hexpr;
+  entry_fact : Core_syntax.historical Core_syntax.hexpr;
 }
 
 type t = {
@@ -36,19 +36,21 @@ type t = {
 let build_cache_limit = 64
 let build_cache : (string, t) Hashtbl.t = Hashtbl.create 16
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
 let product_state_key (st : Abs.product_state) =
   Printf.sprintf "%s/a%d/g%d" st.prog_state st.assume_state_index
     st.guarantee_state_index
 
-let formula_raw_key (f : Core_syntax.hexpr) : string =
+let formula_raw_key (f : Core_syntax.historical Core_syntax.hexpr) : string =
   Core_fo_simplifier.key_of_hexpr f
 
 let guard_expr_key = function
   | None -> "true"
-  | Some guard -> guard |> hexpr_of_expr |> formula_raw_key
+  | Some guard ->
+      guard |> hexpr_of_expr |> Core_syntax.historical_of_history_free
+      |> formula_raw_key
 
 let rec assigned_vars_of_stmt (stmt : Core_syntax.stmt) : StringSet.t =
   match stmt.stmt with
@@ -80,7 +82,7 @@ let transition_key (t : Abs.transition) =
   String.concat "|"
     [ t.src_state; t.dst_state; guard_expr_key t.guard_expr; body_key ]
 
-let build_cache_key (node : Abs.node_ir) : string =
+let build_cache_key (node : Core_syntax.historical Abs.node_ir) : string =
   (* The characteristic analysis reads only the node signature, input names,
      invariants, product identity, program guards, and safe/unsafe product
      cases. Generated requires/ensures are deliberately absent so Pre and Post
@@ -103,10 +105,10 @@ let build_cache_key (node : Abs.node_ir) : string =
   in
   let summaries =
     node.summaries
-    |> List.map (fun (pc : Abs.product_step_summary) ->
+    |> List.map (fun (pc : Core_syntax.historical Abs.product_step_summary) ->
            let safe_cases =
              pc.safe_cases
-             |> List.map (fun (case : Abs.safe_product_case) ->
+             |> List.map (fun (case : Core_syntax.historical Abs.safe_product_case) ->
                     case_state_key case.product_dst
                       case.admissible_guard.logic)
              |> List.sort_uniq String.compare
@@ -114,7 +116,7 @@ let build_cache_key (node : Abs.node_ir) : string =
            in
            let unsafe_cases =
              pc.unsafe_cases
-             |> List.map (fun (case : Abs.unsafe_product_case) ->
+             |> List.map (fun (case : Core_syntax.historical Abs.unsafe_product_case) ->
                     case_state_key case.product_dst
                       case.excluded_guard.logic)
              |> List.sort_uniq String.compare
@@ -140,7 +142,7 @@ let build_cache_key (node : Abs.node_ir) : string =
       summaries;
     ]
 
-let is_htrue (f : Core_syntax.hexpr) : bool =
+let is_htrue (f : Core_syntax.historical Core_syntax.hexpr) : bool =
   match (simplify_fo f).hexpr with HLitBool true -> true | _ -> false
 
 let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
@@ -148,27 +150,27 @@ let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
   && a.assume_state_index = b.assume_state_index
   && a.guarantee_state_index = b.guarantee_state_index
 
-let formula_key (f : Core_syntax.hexpr) : string =
+let formula_key (f : Core_syntax.historical Core_syntax.hexpr) : string =
   Core_fo_simplifier.key_of_hexpr (simplify_fo f)
 
-let same_formula (a : Core_syntax.hexpr) (b : Core_syntax.hexpr) : bool =
+let same_formula (a : Core_syntax.historical Core_syntax.hexpr) (b : Core_syntax.historical Core_syntax.hexpr) : bool =
   String.equal (formula_key a) (formula_key b)
 
-let dedup_formulas (xs : Core_syntax.hexpr list) : Core_syntax.hexpr list =
+let dedup_formulas (xs : Core_syntax.historical Core_syntax.hexpr list) : Core_syntax.historical Core_syntax.hexpr list =
   let keyed = List.map (fun f -> (formula_key f, simplify_fo f)) xs in
   keyed
   |> List.sort_uniq (fun (ka, _) (kb, _) -> String.compare ka kb)
   |> List.map snd
 
-let disj_fo (fs : Core_syntax.hexpr list) : Core_syntax.hexpr option =
+let disj_fo (fs : Core_syntax.historical Core_syntax.hexpr list) : Core_syntax.historical Core_syntax.hexpr option =
   match dedup_formulas fs with
   | [] -> None
   | f :: rest -> Some (List.fold_left mk_hor f rest |> simplify_fo)
 
-let infer_initial_product_state (node : Abs.node_ir) : Abs.product_state =
+let infer_initial_product_state (node : Core_syntax.historical Abs.node_ir) : Abs.product_state =
   let candidates =
     node.summaries
-    |> List.map (fun (pc : Abs.product_step_summary) -> pc.identity.product_src)
+    |> List.map (fun (pc : Core_syntax.historical Abs.product_step_summary) -> pc.identity.product_src)
     |> List.filter (fun (st : Abs.product_state) ->
            String.equal st.prog_state node.semantics.sem_init_state)
     |> List.sort_uniq Stdlib.compare
@@ -190,20 +192,20 @@ let infer_initial_product_state (node : Abs.node_ir) : Abs.product_state =
             guarantee_state_index = 0;
           })
 
-let input_names (n : Abs.node_ir) : ident list =
+let input_names (n : Core_syntax.historical Abs.node_ir) : ident list =
   List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
 
-let is_input_of_node (n : Abs.node_ir) : ident -> bool =
+let is_input_of_node (n : Core_syntax.historical Abs.node_ir) : ident -> bool =
   let names = input_names n in
   fun x -> List.mem x names
 
-let non_input_program_names (n : Abs.node_ir) : ident list =
+let non_input_program_names (n : Core_syntax.historical Abs.node_ir) : ident list =
   n.semantics.sem_outputs @ n.semantics.sem_locals
   |> List.map (fun (v : vdecl) -> v.vname)
   |> List.sort_uniq String.compare
 
-let control_annotation_formula (n : Abs.node_ir) (state : ident) :
-    Core_syntax.hexpr =
+let control_annotation_formula (n : Core_syntax.historical Abs.node_ir) (state : ident) :
+    Core_syntax.historical Core_syntax.hexpr =
   n.source_info.state_invariants
   |> List.filter_map (fun (inv : Abs.state_invariant) ->
          if String.equal inv.state state then Some inv.formula else None)
@@ -217,7 +219,7 @@ let bind_symbolic_value env name value =
   (name, value) :: List.remove_assoc name env
 
 let rec post_expr_of_expr env (expr : Core_syntax.expr) :
-    Core_syntax.hexpr option =
+    Core_syntax.historical Core_syntax.hexpr option =
   let recurse = post_expr_of_expr env in
   let map2 make left right =
     match (recurse left, recurse right) with
@@ -268,8 +270,8 @@ let rec symbolic_execute_statement env (statement : Core_syntax.stmt) =
 let symbolic_execute_statements env statements =
   List.fold_left symbolic_execute_statement env statements
 
-let transition_effect_formula ~(node : Abs.node_ir)
-    (transition : Abs.transition) : Core_syntax.hexpr =
+let transition_effect_formula ~(node : Core_syntax.historical Abs.node_ir)
+    (transition : Abs.transition) : Core_syntax.historical Core_syntax.hexpr =
   let inputs = input_names node in
   let non_inputs = non_input_program_names node in
   let initial =
@@ -285,14 +287,16 @@ let transition_effect_formula ~(node : Abs.node_ir)
   |> List.fold_left mk_hand (mk_hbool true)
   |> simplify_fo
 
-let guard_fo_of_transition (t : Abs.transition) : Core_syntax.hexpr =
+let guard_fo_of_transition (t : Abs.transition) : Core_syntax.historical Core_syntax.hexpr =
   match t.guard_expr with
   | None -> mk_hbool true
-  | Some guard -> hexpr_of_expr guard |> simplify_fo
+  | Some guard ->
+      hexpr_of_expr guard |> Core_syntax.historical_of_history_free
+      |> simplify_fo
 
-let incoming_post_formula ~(node : Abs.node_ir)
-    (summary : Abs.product_step_summary)
-    (case : Abs.safe_product_case) : Core_syntax.hexpr =
+let incoming_post_formula ~(node : Core_syntax.historical Abs.node_ir)
+    (summary : Core_syntax.historical Abs.product_step_summary)
+    (case : Core_syntax.historical Abs.safe_product_case) : Core_syntax.historical Core_syntax.hexpr =
   let is_input = is_input_of_node node in
   let program_guard = guard_fo_of_transition summary.identity.program_step in
   let source_annotation =
@@ -314,14 +318,14 @@ let incoming_post_formula ~(node : Abs.node_ir)
 
 type incoming_entry = {
   dst : Abs.product_state;
-  program_entry_formulas : Core_syntax.hexpr list;
+  program_entry_formulas : Core_syntax.historical Core_syntax.hexpr list;
 }
 
-let states_needing_characteristic (node : Abs.node_ir) : Abs.product_state list =
+let states_needing_characteristic (node : Core_syntax.historical Abs.node_ir) : Abs.product_state list =
   node.summaries
-  |> List.filter (fun (summary : Abs.product_step_summary) ->
+  |> List.filter (fun (summary : Core_syntax.historical Abs.product_step_summary) ->
          summary.unsafe_cases <> [])
-  |> List.map (fun (summary : Abs.product_step_summary) ->
+  |> List.map (fun (summary : Core_syntax.historical Abs.product_step_summary) ->
          summary.identity.product_src)
   |> List.sort_uniq Stdlib.compare
 
@@ -358,15 +362,15 @@ let build_table entries =
     entries;
   { entries; by_state }
 
-let build_uncached ~(node : Abs.node_ir) : t =
+let build_uncached ~(node : Core_syntax.historical Abs.node_ir) : t =
   let is_input = is_input_of_node node in
   let initial_product_state = infer_initial_product_state node in
   let characteristic_states = states_needing_characteristic node in
   let incoming =
     List.fold_left
-      (fun acc (pc : Abs.product_step_summary) ->
+      (fun acc (pc : Core_syntax.historical Abs.product_step_summary) ->
         List.fold_left
-          (fun acc (case : Abs.safe_product_case) ->
+          (fun acc (case : Core_syntax.historical Abs.safe_product_case) ->
             let program_post_formula =
               incoming_post_formula ~node pc case
             in
@@ -398,7 +402,7 @@ let build_uncached ~(node : Abs.node_ir) : t =
   in
   build_table entries
 
-let build ~(node : Abs.node_ir) : t =
+let build ~(node : Core_syntax.historical Abs.node_ir) : t =
   let key = build_cache_key node in
   match Hashtbl.find_opt build_cache key with
   | Some cached -> cached
@@ -413,15 +417,15 @@ let entry_of_product_state (t : t) (st : Abs.product_state) : entry option =
   Hashtbl.find_opt t.by_state (product_state_key st)
 
 let entry_facts_of_product_state (t : t) (st : Abs.product_state) :
-    Core_syntax.hexpr list =
+    Core_syntax.historical Core_syntax.hexpr list =
   match entry_of_product_state t st with
   | None -> []
   | Some entry -> [ entry.entry_fact ]
 
-let preservation_ensures (t : t) ~(node : Abs.node_ir)
-    (pc : Abs.product_step_summary) : Core_syntax.hexpr list =
+let preservation_ensures (t : t) ~(node : Core_syntax.historical Abs.node_ir)
+    (pc : Core_syntax.historical Abs.product_step_summary) : Core_syntax.historical Core_syntax.hexpr list =
   pc.safe_cases
-  |> List.filter_map (fun (case : Abs.safe_product_case) ->
+  |> List.filter_map (fun (case : Core_syntax.historical Abs.safe_product_case) ->
          match entry_of_product_state t case.product_dst with
          | None -> None
          | Some _ ->

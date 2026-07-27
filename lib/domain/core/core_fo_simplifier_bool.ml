@@ -19,7 +19,7 @@
 module K = Core_fo_simplifier_keys
 module StringSet = K.StringSet
 
-type hexpr = Core_syntax.hexpr
+type hexpr = Core_syntax.historical Core_syntax.hexpr
 
 let htrue = K.htrue
 let hfalse = K.hfalse

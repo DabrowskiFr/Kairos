@@ -23,7 +23,7 @@
     and outside the core correction claim. *)
 
 (** Boolean guard carried by an automaton transition. *)
-type guard = Core_syntax.hexpr
+type guard = Core_syntax.historical Core_syntax.hexpr
 
 (** Transition represented as [(src_index, guard, dst_index)]. *)
 type transition = int * guard * int

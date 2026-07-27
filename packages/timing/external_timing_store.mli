@@ -43,13 +43,6 @@ val record_ir_pass : ir_pass_snapshot -> unit
 val record_ir_fact_family : ir_fact_family_snapshot -> unit
 (** Add one aggregated IR fact-family generation snapshot. *)
 
-val record_why3_product_group : why3_product_group_snapshot -> unit
-(** Add one generated Why3 product-step group size snapshot. *)
-
-val record_why3_product_individual_reason :
-  why3_product_individual_reason_snapshot -> unit
-(** Add one product-step helper individualization reason counter. *)
-
 val record_frontend_parse : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent parsing/lowering the frontend input. *)
 
@@ -57,6 +50,7 @@ val record_snapshot_build : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent building the verification snapshot. *)
 
 val record_contract_partition : elapsed_s:float -> unit
+val record_step_projection : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent partitioning contracts. *)
 
 val record_automata_generation : elapsed_s:float -> unit
@@ -84,6 +78,7 @@ val record_post : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent in the Post IR pass. *)
 
 val record_temporal_lower : elapsed_s:float -> unit
+val record_formula_sharing : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent in the temporal-lowering IR pass. *)
 
 val record_instrumentation_info : elapsed_s:float -> unit

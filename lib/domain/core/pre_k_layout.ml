@@ -29,7 +29,7 @@ type pre_k_info = {
 let add_pre_k_occurrence (vname : ident) (k : int) (acc : (ident * int) list) : (ident * int) list =
   if List.exists (fun (v, d) -> String.equal v vname && d = k) acc then acc else (vname, k) :: acc
 
-let rec collect_pre_k_occurrences_hexpr (h : Core_syntax.hexpr) (acc : (ident * int) list) :
+let rec collect_pre_k_occurrences_hexpr (h : Core_syntax.historical Core_syntax.hexpr) (acc : (ident * int) list) :
     (ident * int) list =
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ -> acc
@@ -49,13 +49,13 @@ let rec collect_pre_k_occurrences_ltl (f : ltl) (acc : (ident * int) list) : (id
   | LAtom (h1, _, h2) ->
       collect_pre_k_occurrences_hexpr h2 (collect_pre_k_occurrences_hexpr h1 acc)
 
-let collect_pre_k_from_specs ~(fo_formula : Core_syntax.hexpr list) ~(ltl : ltl list) :
+let collect_pre_k_from_specs ~(fo_formula : Core_syntax.historical Core_syntax.hexpr list) ~(ltl : ltl list) :
     (ident * int) list =
   let acc = List.fold_left (fun acc f -> collect_pre_k_occurrences_hexpr f acc) [] fo_formula in
   List.fold_left (fun acc f -> collect_pre_k_occurrences_ltl f acc) acc ltl
 
 let build_pre_k_infos_from_parts ~(inputs : vdecl list) ~(locals : vdecl list) ~(outputs : vdecl list)
-    ~(fo_formulas : Core_syntax.hexpr list) ~(ltl : ltl list) :
+    ~(fo_formulas : Core_syntax.historical Core_syntax.hexpr list) ~(ltl : ltl list) :
     pre_k_info list =
   let pre_k_occurrences = collect_pre_k_from_specs ~fo_formula:fo_formulas ~ltl in
   let vars = inputs @ locals @ outputs in

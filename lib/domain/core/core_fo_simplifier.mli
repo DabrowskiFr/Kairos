@@ -22,11 +22,11 @@
     Boolean/relational noise. It must preserve formula meaning; callers must not rely on any
     particular normal form beyond structural equality of the returned syntax. *)
 
-val key_of_hexpr : Core_syntax.hexpr -> string
+val key_of_hexpr : Core_syntax.historical Core_syntax.hexpr -> string
 (** Deterministic structural key for formulas.
 
     The key is for memoization and deduplication only. It is not a semantic hash and must not be
     used as a proof object. *)
 
-val simplify : Core_syntax.hexpr -> Core_syntax.hexpr
+val simplify : Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr
 (** Simplify a historical first-order formula while preserving its meaning. *)

@@ -22,6 +22,8 @@
   pre
   product_reachability
   post
+  formula_canonical
+  contract_formula_index
   temporal_lower
   step_contract_projection
   formula_sharing

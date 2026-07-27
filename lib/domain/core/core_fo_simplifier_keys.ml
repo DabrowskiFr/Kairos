@@ -18,7 +18,7 @@
 
 module StringSet = Set.Make (String)
 
-type hexpr = Core_syntax.hexpr
+type hexpr = Core_syntax.historical Core_syntax.hexpr
 type binop = Core_syntax.binop
 type relop = Core_syntax.relop
 

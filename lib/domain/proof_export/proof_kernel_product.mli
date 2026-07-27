@@ -40,13 +40,13 @@ val build_automaton :
   labels:string list ->
   bad_idx:int ->
   grouped_edges:PT.automaton_edge list ->
-  automaton_guard_fo:(Automaton_types.guard -> Core_syntax.hexpr) ->
+  automaton_guard_fo:(Automaton_types.guard -> Core_syntax.historical Core_syntax.hexpr) ->
   Proof_kernel_types.safety_automaton_ir
 
 (** [is_feasible_product_step] service entrypoint. *)
 
 val is_feasible_product_step :
-  node:Abs.node_ir ->
+  node:Core_syntax.historical Abs.node_ir ->
   analysis:Temporal_automata.node_data ->
   Proof_kernel_types.product_step_ir ->
   bool

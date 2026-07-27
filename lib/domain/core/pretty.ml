@@ -75,7 +75,9 @@ let rec string_of_expr_with_ctx ?(ctx = 0) (e : expr) : string =
         (string_of_expr_with_ctx ~ctx:prec a ^ " " ^ string_of_relop op ^ " "
        ^ string_of_expr_with_ctx ~ctx:prec b)
 
-let rec string_of_hexpr_with_ctx ?(ctx = 0) (h : hexpr) : string =
+let rec string_of_hexpr_with_ctx :
+    type phase. ?ctx:int -> phase hexpr -> string =
+ fun ?(ctx = 0) h ->
   let prec_of_harith_binop = function
     | Add | Sub -> 4
     | Mul | Div -> 5
@@ -118,9 +120,10 @@ let rec string_of_hexpr_with_ctx ?(ctx = 0) (h : hexpr) : string =
        ^ string_of_hexpr_with_ctx ~ctx:prec b)
 
 let string_of_expr ?(ctx = 0) (e : expr) : string = string_of_expr_with_ctx ~ctx e
-let string_of_hexpr (h : hexpr) : string = string_of_hexpr_with_ctx h
+let string_of_hexpr (h : 'phase hexpr) : string =
+  string_of_hexpr_with_ctx h
 
-let string_of_fo ?(ctx = 0) (f : Core_syntax.hexpr) : string =
+let string_of_fo ?(ctx = 0) (f : 'phase Core_syntax.hexpr) : string =
   string_of_hexpr_with_ctx ~ctx f
 
 let rec string_of_ltl ?(ctx = 0) (f : ltl) : string =

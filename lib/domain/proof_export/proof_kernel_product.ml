@@ -22,11 +22,11 @@ module Abs = Ir
 module PT = Product_types
 open Proof_kernel_types
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
-let fo_of_expr (e : expr) : Core_syntax.hexpr =
-  Core_syntax_builders.hexpr_of_expr e
+let fo_of_expr (e : expr) : Core_syntax.historical Core_syntax.hexpr =
+  Core_syntax_builders.hexpr_of_expr e |> Core_syntax.historical_of_history_free
 
 let build_reactive_program ~(node_name : ident) ~(source_node : Verification_model.node_model)
     ~(program_transitions : Abs.transition list) : reactive_program_ir =
@@ -121,7 +121,7 @@ let build_product_step ~(reactive_program : reactive_program_ir) (step : PT.prod
     step_origin = StepFromExplicitExploration;
   }
 
-let is_feasible_product_step ~(node : Abs.node_ir) ~(analysis : Temporal_automata.node_data)
+let is_feasible_product_step ~(node : Core_syntax.historical Abs.node_ir) ~(analysis : Temporal_automata.node_data)
     (step : product_step_ir) : bool =
   ignore node;
   step.src.assume_state_index <> analysis.assume_bad_idx

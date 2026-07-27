@@ -34,7 +34,7 @@ open Obligation_family_projection
 
 (** [simplify_fo] helper value. *)
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
 let product_state_ref_of_ir (st : product_state_ir) : Abs.product_state =
@@ -46,7 +46,7 @@ let product_state_ref_of_ir (st : product_state_ir) : Abs.product_state =
 
 (** [build_proof_step_summaries] helper value. *)
 
-let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reactive_program_ir)
+let build_proof_step_summaries ~(node : Core_syntax.historical Abs.node_ir) ~(reactive_program : reactive_program_ir)
     ~(product_steps : product_step_ir list)
     ~(initial_product_state : product_state_ir)
     ~(symbolic_generated_clauses : relational_generated_clause_ir list) :
@@ -60,7 +60,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
   let product_summary_projection =
     Product_summary_projection.of_ir_node node
   in
-  let product_summary_of_step (step : product_step_ir) : Abs.product_step_summary option =
+  let product_summary_of_step (step : product_step_ir) : Core_syntax.historical Abs.product_step_summary option =
     match Hashtbl.find_opt transition_index_by_id step.program_transition_id with
     | None -> None
     | Some step_uid ->
@@ -70,7 +70,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
           ~assume_guard:step.assume_edge.guard
         |> Option.map (fun summary -> summary.Product_summary_projection.source_summary)
   in
-  let is_true_fo (f : Core_syntax.hexpr) =
+  let is_true_fo (f : Core_syntax.historical Core_syntax.hexpr) =
     match f.hexpr with HLitBool true -> true | _ -> false
   in
   let relational_fact_is_true (fact : relational_clause_fact_ir) =
@@ -122,7 +122,7 @@ let build_proof_step_summaries ~(node : Abs.node_ir) ~(reactive_program : reacti
         | None -> []
         | Some pc ->
             pc.requires
-            |> List.filter_map (fun (f : Ir.summary_formula) ->
+            |> List.filter_map (fun (f : Core_syntax.historical Ir.summary_formula) ->
                    let logic = simplify_fo f.logic in
                    if is_true_fo logic then None
                    else

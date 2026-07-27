@@ -33,12 +33,6 @@ let fmt_s = Engine_timing_fields.fmt_s
   let ir_fact_family_fields =
     Engine_timing_fields.ir_fact_family_fields
 
-  let product_group_fields =
-    Engine_timing_fields.product_group_fields
-
-  let product_individual_reason_fields =
-    Engine_timing_fields.product_individual_reason_fields
-
   let vc_taxonomy_fields = Engine_vc_taxonomy.fields
 
 let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
@@ -70,7 +64,7 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
     in
     let canonical_known_stages_s =
       counters.pre_s +. counters.product_reachability_s +. counters.post_s
-      +. counters.temporal_lower_s
+      +. counters.temporal_lower_s +. counters.formula_sharing_s
     in
     let canonical_unaccounted_s =
       max 0.0 (counters.canonical_s -. canonical_known_stages_s)
@@ -78,6 +72,7 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
     let snapshot_known_stages_s =
       counters.contract_partition_s +. counters.automata_generation_s
       +. counters.product_s +. counters.canonical_s
+      +. counters.step_projection_s
       +. counters.instrumentation_info_s
     in
     let snapshot_unaccounted_s =
@@ -140,11 +135,6 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
     let ir_fact_family_fields =
       counters.ir_fact_families |> List.concat_map ir_fact_family_fields
     in
-    let product_group_fields = product_group_fields counters.why3_product_groups in
-    let product_individual_reason_fields =
-      product_individual_reason_fields
-        counters.why3_product_individual_reasons
-    in
     let vc_taxonomy_fields = vc_taxonomy_fields out.proof_traces in
     let timing_fields =
       [
@@ -153,6 +143,7 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
         ("frontend_parse_s", fmt_s counters.frontend_parse_s);
         ("snapshot_build_s", fmt_s counters.snapshot_build_s);
         ("contract_partition_s", fmt_s counters.contract_partition_s);
+        ("step_projection_s", fmt_s counters.step_projection_s);
         ("automata_generation_s", fmt_s counters.automata_generation_s);
         ("build_outputs_s", fmt_s (t_end -. t_build_done));
         ("spot_s", fmt_s counters.spot_s);
@@ -165,6 +156,7 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
         ("product_reachability_s", fmt_s counters.product_reachability_s);
         ("post_s", fmt_s counters.post_s);
         ("temporal_lower_s", fmt_s counters.temporal_lower_s);
+        ("formula_sharing_s", fmt_s counters.formula_sharing_s);
         ("canonical_known_stages_s", fmt_s canonical_known_stages_s);
         ("canonical_unaccounted_s", fmt_s canonical_unaccounted_s);
         ("instrumentation_info_s", fmt_s counters.instrumentation_info_s);
@@ -215,8 +207,6 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
         ("pending_goal_count", string_of_int pending_goal_count);
       ]
       @ vc_taxonomy_fields
-      @ product_group_fields
-      @ product_individual_reason_fields
       @ ir_pass_size_fields
       @ ir_fact_family_fields
       @ worker_timing_fields

@@ -29,17 +29,17 @@ module K = Kernel_clause_projection
 
 (** [simplify_fo] helper value. *)
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
 (** [is_hfalse] helper value. *)
 
-let is_hfalse (h : Core_syntax.hexpr) =
+let is_hfalse (h : Core_syntax.historical Core_syntax.hexpr) =
   match h.hexpr with HLitBool false -> true | _ -> false
 
 (** [is_htrue] helper value. *)
 
-let is_htrue (h : Core_syntax.hexpr) =
+let is_htrue (h : Core_syntax.historical Core_syntax.hexpr) =
   match h.hexpr with HLitBool true -> true | _ -> false
 
 (** [fact_desc_is_false] helper value. *)

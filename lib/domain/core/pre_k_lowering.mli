@@ -42,9 +42,11 @@ val hexpr_to_expr :
   inputs:Core_syntax.ident list ->
   var_types:(Core_syntax.ident * Core_syntax.ty) list ->
   temporal_layout:Pre_k_layout.pre_k_info list ->
-  Core_syntax.hexpr ->
+  Core_syntax.historical Core_syntax.hexpr ->
   Core_syntax.expr option
 
 (** Lower one first-order formula (represented as [hexpr]) with explicit bindings. *)
 val lower_fo_formula_temporal_bindings :
-  temporal_bindings:temporal_binding list -> Core_syntax.hexpr -> Core_syntax.hexpr option
+  temporal_bindings:temporal_binding list ->
+  Core_syntax.historical Core_syntax.hexpr ->
+  Core_syntax.history_free Core_syntax.hexpr option

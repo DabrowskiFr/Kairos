@@ -23,12 +23,12 @@ open Core_syntax
 val make :
   ?loc:Loc.loc ->
   ?family:string ->
-  Core_syntax.hexpr ->
-  Ir.summary_formula
+  'phase Core_syntax.hexpr ->
+  'phase Ir.summary_formula
 
 (** [values] service entrypoint. *)
 
-val values : Ir.summary_formula list -> Core_syntax.hexpr list
+val values : 'phase Ir.summary_formula list -> 'phase Core_syntax.hexpr list
 
 (** [temporal_bindings_of_layout] service entrypoint. *)
 
@@ -39,5 +39,5 @@ val temporal_bindings_of_layout :
 (** [temporal_bindings_of_node] service entrypoint. *)
 
 val temporal_bindings_of_node :
-  Ir.node_ir ->
+  Core_syntax.historical Ir.node_ir ->
   Pre_k_lowering.temporal_binding list

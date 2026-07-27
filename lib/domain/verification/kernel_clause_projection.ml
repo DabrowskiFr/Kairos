@@ -32,8 +32,8 @@ type time_tag =
 type timed_fact_desc =
   | FactProgramState of ident
   | FactGuaranteeState of int
-  | FactPhaseFormula of hexpr
-  | FactFormula of hexpr
+  | FactPhaseFormula of historical hexpr
+  | FactFormula of historical hexpr
   | FactFalse
 
 type timed_fact = {
@@ -56,9 +56,9 @@ type product_step_class =
 
 type product_step = {
   step_anchor : product_step_anchor;
-  program_guard : hexpr;
-  assume_guard : hexpr;
-  guarantee_guard : hexpr;
+  program_guard : historical hexpr;
+  assume_guard : historical hexpr;
+  guarantee_guard : historical hexpr;
   step_class : product_step_class;
 }
 
@@ -88,23 +88,24 @@ let current tf_desc = { tf_time = CurrentTick; tf_desc }
 let previous tf_desc = { tf_time = PreviousTick; tf_desc }
 let step_ctx tf_desc = { tf_time = StepTickContext; tf_desc }
 
-let simplify_fo (f : Core_syntax.hexpr) : Core_syntax.hexpr =
+let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
 let same_product_state = Summary.same_product_state
 
-let same_safe_case_step (case : Abs.safe_product_case) (step : product_step) =
+let same_safe_case_step (case : Core_syntax.historical Abs.safe_product_case) (step : product_step) =
   step.step_class = StepSafe
   && same_product_state case.product_dst step.step_anchor.psta_dst
   && simplify_fo case.admissible_guard.logic = simplify_fo step.guarantee_guard
 
-let same_unsafe_case_step (case : Abs.unsafe_product_case) (step : product_step) =
+let same_unsafe_case_step (case : Core_syntax.historical Abs.unsafe_product_case) (step : product_step) =
   step.step_class = StepBadGuarantee
   && same_product_state case.product_dst step.step_anchor.psta_dst
   && simplify_fo case.excluded_guard.logic = simplify_fo step.guarantee_guard
 
-let product_summary_of_step ~(projection : Summary.t) (step : product_step) :
-    Abs.product_step_summary option =
+let product_summary_of_step
+    ~(projection : Core_syntax.historical Summary.t) (step : product_step) :
+    Core_syntax.historical Abs.product_step_summary option =
   match Transition_id.product_transition_index_of_id step.step_anchor.psta_transition_id with
   | None -> None
   | Some program_transition_id -> (
@@ -124,8 +125,10 @@ let product_summary_of_step ~(projection : Summary.t) (step : product_step) :
           then Some pc
           else None)
 
-let guarantee_propagation_requires (pc : Abs.product_step_summary) : hexpr list =
-  List.map (fun (f : Abs.summary_formula) -> f.logic) pc.propagation_requires
+let guarantee_propagation_requires
+    (pc : Core_syntax.historical Abs.product_step_summary) :
+    historical hexpr list =
+  List.map (fun (f : Core_syntax.historical Abs.summary_formula) -> f.logic) pc.propagation_requires
 
 let anchor_of_context = function
   | ClauseProductState state -> AnchorProductState state
@@ -148,7 +151,7 @@ let product_summaries_of_step ~projection step =
   | None -> []
   | Some pc -> [ pc ]
 
-let build_source_summary_clauses ~(node : Abs.node_ir) ~(steps : product_step list) :
+let build_source_summary_clauses ~(node : Core_syntax.historical Abs.node_ir) ~(steps : product_step list) :
     classified_clause list =
   let projection = Summary.of_ir_node node in
   let input_names =
@@ -296,7 +299,7 @@ let compatibility_phase_formula_for_step ~projection step =
             (List.fold_left Core_syntax_builders.mk_hor f rest
             |> Formula.normalize_phase_summary))
 
-let invariant_formulas_for_state (node : Abs.node_ir) state_name =
+let invariant_formulas_for_state (node : Core_syntax.historical Abs.node_ir) state_name =
   node.source_info.state_invariants
   |> List.filter_map (fun (inv : Abs.state_invariant) ->
          if String.equal inv.state state_name then Some inv.formula else None)
@@ -305,12 +308,12 @@ let invariant_facts_for_state node state_name =
   invariant_formulas_for_state node state_name
   |> List.map (fun formula -> current (FactFormula formula))
 
-let build ~(node : Abs.node_ir) ~(initial_state : product_state_anchor)
+let build ~(node : Core_syntax.historical Abs.node_ir) ~(initial_state : product_state_anchor)
     ~(steps : product_step list) ~is_live_state : classified_clause list =
   let projection = Summary.of_ir_node node in
   let init_goal_facts =
     node.init_invariant_goals
-    |> List.map (fun (f : Abs.summary_formula) -> current (FactFormula f.logic))
+    |> List.map (fun (f : Core_syntax.historical Abs.summary_formula) -> current (FactFormula f.logic))
   in
   let init_clauses =
     [

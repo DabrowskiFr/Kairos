@@ -23,6 +23,7 @@ open External_timing_types
 let frontend_parse_s = ref 0.0
 let snapshot_build_s = ref 0.0
 let contract_partition_s = ref 0.0
+let step_projection_s = ref 0.0
 let automata_generation_s = ref 0.0
 let spot_s = ref 0.0
 let spot_calls = ref 0
@@ -34,6 +35,7 @@ let pre_s = ref 0.0
 let product_reachability_s = ref 0.0
 let post_s = ref 0.0
 let temporal_lower_s = ref 0.0
+let formula_sharing_s = ref 0.0
 let instrumentation_info_s = ref 0.0
 let output_artifact_s = ref 0.0
 let output_proof_run_s = ref 0.0
@@ -58,8 +60,6 @@ let why3_smt_fingerprints = ref []
 let why3_workers = ref []
 let ir_passes = ref []
 let ir_fact_families = ref []
-let why3_product_groups = ref []
-let why3_product_individual_reasons = ref []
 
 let unique_string_count xs = List.length (List.sort_uniq String.compare xs)
 
@@ -67,6 +67,7 @@ let reset () =
   frontend_parse_s := 0.0;
   snapshot_build_s := 0.0;
   contract_partition_s := 0.0;
+  step_projection_s := 0.0;
   automata_generation_s := 0.0;
   spot_s := 0.0;
   spot_calls := 0;
@@ -78,6 +79,7 @@ let reset () =
   product_reachability_s := 0.0;
   post_s := 0.0;
   temporal_lower_s := 0.0;
+  formula_sharing_s := 0.0;
   instrumentation_info_s := 0.0;
   output_artifact_s := 0.0;
   output_proof_run_s := 0.0;
@@ -101,15 +103,14 @@ let reset () =
   why3_smt_fingerprints := [];
   why3_workers := [];
   ir_passes := [];
-  ir_fact_families := [];
-  why3_product_groups := [];
-  why3_product_individual_reasons := []
+  ir_fact_families := []
 
 let snapshot () : snapshot =
   {
     frontend_parse_s = !frontend_parse_s;
     snapshot_build_s = !snapshot_build_s;
     contract_partition_s = !contract_partition_s;
+    step_projection_s = !step_projection_s;
     automata_generation_s = !automata_generation_s;
     spot_s = !spot_s;
     spot_calls = !spot_calls;
@@ -121,6 +122,7 @@ let snapshot () : snapshot =
     product_reachability_s = !product_reachability_s;
     post_s = !post_s;
     temporal_lower_s = !temporal_lower_s;
+    formula_sharing_s = !formula_sharing_s;
     instrumentation_info_s = !instrumentation_info_s;
     output_artifact_s = !output_artifact_s;
     output_proof_run_s = !output_proof_run_s;
@@ -147,9 +149,6 @@ let snapshot () : snapshot =
     why3_workers = List.rev !why3_workers;
     ir_passes = List.rev !ir_passes;
     ir_fact_families = List.rev !ir_fact_families;
-    why3_product_groups = List.rev !why3_product_groups;
-    why3_product_individual_reasons =
-      List.rev !why3_product_individual_reasons;
     why3_smt_fingerprints = List.rev !why3_smt_fingerprints;
   }
 
@@ -165,6 +164,8 @@ let diff ~before ~(after_ : snapshot) : snapshot =
       max 0.0 (after_.snapshot_build_s -. before.snapshot_build_s);
     contract_partition_s =
       max 0.0 (after_.contract_partition_s -. before.contract_partition_s);
+    step_projection_s =
+      max 0.0 (after_.step_projection_s -. before.step_projection_s);
     automata_generation_s =
       max 0.0 (after_.automata_generation_s -. before.automata_generation_s);
     spot_s = max 0.0 (after_.spot_s -. before.spot_s);
@@ -180,6 +181,8 @@ let diff ~before ~(after_ : snapshot) : snapshot =
     post_s = max 0.0 (after_.post_s -. before.post_s);
     temporal_lower_s =
       max 0.0 (after_.temporal_lower_s -. before.temporal_lower_s);
+    formula_sharing_s =
+      max 0.0 (after_.formula_sharing_s -. before.formula_sharing_s);
     instrumentation_info_s =
       max 0.0 (after_.instrumentation_info_s -. before.instrumentation_info_s);
     output_artifact_s =
@@ -236,14 +239,6 @@ let diff ~before ~(after_ : snapshot) : snapshot =
       drop_prefix
         (List.length before.ir_fact_families)
         after_.ir_fact_families;
-    why3_product_groups =
-      drop_prefix
-        (List.length before.why3_product_groups)
-        after_.why3_product_groups;
-    why3_product_individual_reasons =
-      drop_prefix
-        (List.length before.why3_product_individual_reasons)
-        after_.why3_product_individual_reasons;
   }
 
 let add_snapshot (s : snapshot) =
@@ -251,6 +246,7 @@ let add_snapshot (s : snapshot) =
   snapshot_build_s := !snapshot_build_s +. max 0.0 s.snapshot_build_s;
   contract_partition_s :=
     !contract_partition_s +. max 0.0 s.contract_partition_s;
+  step_projection_s := !step_projection_s +. max 0.0 s.step_projection_s;
   automata_generation_s :=
     !automata_generation_s +. max 0.0 s.automata_generation_s;
   spot_s := !spot_s +. max 0.0 s.spot_s;
@@ -264,6 +260,7 @@ let add_snapshot (s : snapshot) =
     !product_reachability_s +. max 0.0 s.product_reachability_s;
   post_s := !post_s +. max 0.0 s.post_s;
   temporal_lower_s := !temporal_lower_s +. max 0.0 s.temporal_lower_s;
+  formula_sharing_s := !formula_sharing_s +. max 0.0 s.formula_sharing_s;
   instrumentation_info_s :=
     !instrumentation_info_s +. max 0.0 s.instrumentation_info_s;
   output_artifact_s := !output_artifact_s +. max 0.0 s.output_artifact_s;
@@ -294,12 +291,7 @@ let add_snapshot (s : snapshot) =
     List.rev_append s.why3_smt_fingerprints !why3_smt_fingerprints;
   why3_workers := List.rev_append s.why3_workers !why3_workers;
   ir_passes := List.rev_append s.ir_passes !ir_passes;
-  ir_fact_families := List.rev_append s.ir_fact_families !ir_fact_families;
-  why3_product_groups :=
-    List.rev_append s.why3_product_groups !why3_product_groups;
-  why3_product_individual_reasons :=
-    List.rev_append s.why3_product_individual_reasons
-      !why3_product_individual_reasons
+  ir_fact_families := List.rev_append s.ir_fact_families !ir_fact_families
 
 let record_why3_worker worker = why3_workers := worker :: !why3_workers
 
@@ -307,13 +299,6 @@ let record_ir_pass pass = ir_passes := pass :: !ir_passes
 
 let record_ir_fact_family family =
   ir_fact_families := family :: !ir_fact_families
-
-let record_why3_product_group group =
-  why3_product_groups := group :: !why3_product_groups
-
-let record_why3_product_individual_reason reason =
-  why3_product_individual_reasons :=
-    reason :: !why3_product_individual_reasons
 
 let record_frontend_parse ~elapsed_s =
   frontend_parse_s := !frontend_parse_s +. max 0.0 elapsed_s
@@ -323,6 +308,9 @@ let record_snapshot_build ~elapsed_s =
 
 let record_contract_partition ~elapsed_s =
   contract_partition_s := !contract_partition_s +. max 0.0 elapsed_s
+
+let record_step_projection ~elapsed_s =
+  step_projection_s := !step_projection_s +. max 0.0 elapsed_s
 
 let record_automata_generation ~elapsed_s =
   automata_generation_s := !automata_generation_s +. max 0.0 elapsed_s
@@ -348,6 +336,9 @@ let record_post ~elapsed_s = post_s := !post_s +. max 0.0 elapsed_s
 
 let record_temporal_lower ~elapsed_s =
   temporal_lower_s := !temporal_lower_s +. max 0.0 elapsed_s
+
+let record_formula_sharing ~elapsed_s =
+  formula_sharing_s := !formula_sharing_s +. max 0.0 elapsed_s
 
 let record_instrumentation_info ~elapsed_s =
   instrumentation_info_s := !instrumentation_info_s +. max 0.0 elapsed_s

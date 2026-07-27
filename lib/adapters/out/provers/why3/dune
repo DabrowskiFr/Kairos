@@ -7,5 +7,5 @@
   kairos_domain_core
   kairos_proof_contract
   kairos_why3_compile
-  kairos_why3_render
-  kairos_external_why3))
+  kairos_external_why3
+  why3))

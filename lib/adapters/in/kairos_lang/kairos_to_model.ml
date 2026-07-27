@@ -88,7 +88,8 @@ let rec expr ~(type_decls : Core_syntax.enum_decl list)
   { Core_syntax.expr = lowered; loc = Option.map loc source_expr.loc }
 
 let rec hexpr ~(type_decls : Core_syntax.enum_decl list)
-    (source_hexpr : Kx_core_syntax.hexpr) : Core_syntax.hexpr =
+    (source_hexpr : Kx_core_syntax.hexpr) :
+    Core_syntax.historical Core_syntax.hexpr =
   let lowered =
     match source_hexpr.hexpr with
     | Kx_core_syntax.HLitInt n -> Core_syntax.HLitInt n
@@ -112,6 +113,15 @@ let rec hexpr ~(type_decls : Core_syntax.enum_decl list)
         Core_syntax.HUn (lower_unop op, hexpr ~type_decls inner)
   in
   { Core_syntax.hexpr = lowered; loc = Option.map loc source_hexpr.loc }
+
+let history_free_hexpr ~type_decls source_hexpr =
+  match
+    Core_syntax.history_free_of_historical (hexpr ~type_decls source_hexpr)
+  with
+  | Some formula -> formula
+  | None ->
+      invalid_arg
+        "history is not allowed in this first-order program context"
 
 let rec ltl ~(type_decls : Core_syntax.enum_decl list)
     (source_ltl : Kx_core_syntax.ltl) : Core_syntax.ltl =
@@ -141,8 +151,10 @@ let lower_function_decl ~(type_decls : Core_syntax.enum_decl list)
     function_name = f.function_name;
     function_params = List.map lower_vdecl f.function_params;
     function_return = lower_ty f.function_return;
-    function_requires = List.map (hexpr ~type_decls) f.function_requires;
-    function_ensures = List.map (hexpr ~type_decls) f.function_ensures;
+    function_requires =
+      List.map (history_free_hexpr ~type_decls) f.function_requires;
+    function_ensures =
+      List.map (history_free_hexpr ~type_decls) f.function_ensures;
     function_body = expr ~type_decls f.function_body;
   }
 
@@ -155,7 +167,8 @@ let rec stmt ~(type_decls : Core_syntax.enum_decl list)
   let lowered =
     match source_stmt.stmt with
     | Kx_ast.SAssign (id, e) -> Core_syntax.SAssign (id, expr ~type_decls e)
-    | Kx_ast.SAssert h -> Core_syntax.SAssert (hexpr ~type_decls h)
+    | Kx_ast.SAssert h ->
+        Core_syntax.SAssert (history_free_hexpr ~type_decls h)
     | Kx_ast.SIf (c, t, e) ->
         Core_syntax.SIf
           (expr ~type_decls c, List.map (stmt ~type_decls) t,
@@ -163,7 +176,7 @@ let rec stmt ~(type_decls : Core_syntax.enum_decl list)
     | Kx_ast.SWhile (c, invariants, variant, body) ->
         Core_syntax.SWhile
           ( expr ~type_decls c,
-            List.map (hexpr ~type_decls) invariants,
+            List.map (history_free_hexpr ~type_decls) invariants,
             Option.map (expr ~type_decls) variant,
             List.map (stmt ~type_decls) body )
     | Kx_ast.SMatch (e, branches, dflt) ->

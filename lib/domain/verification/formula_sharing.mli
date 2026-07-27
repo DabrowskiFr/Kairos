@@ -22,7 +22,11 @@
     formula values to reduce downstream allocation and comparison costs. *)
 
 (** Share formulas inside one node IR. *)
-val run_node : Ir.node_ir -> Ir.node_ir
+val run_node :
+  Core_syntax.history_free Ir.node_ir ->
+  Core_syntax.history_free Ir.node_ir
 
 (** Share formulas independently in each node of a program IR. *)
-val run_program : Ir.node_ir list -> Ir.node_ir list
+val run_program :
+  Core_syntax.history_free Ir.node_ir list ->
+  Core_syntax.history_free Ir.node_ir list

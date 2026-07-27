@@ -75,7 +75,7 @@ let rewrite_history_vars (s : string) : string =
   loop 0;
   Buffer.contents b
 
-let pretty_product_formula (f : Core_syntax.hexpr) : string =
+let pretty_product_formula (f : Core_syntax.historical Core_syntax.hexpr) : string =
   f |> string_of_fo |> strip_braces |> rewrite_history_vars
 
 let replace_all ~pattern ~by s =
@@ -131,7 +131,7 @@ let mathify_formula (s : string) : string =
   |> replace_word ~word:"true" ~by:"⊤"
   |> replace_word ~word:"false" ~by:"⊥"
 
-let pretty_plain_dot_formula (f : Core_syntax.hexpr) : string =
+let pretty_plain_dot_formula (f : Core_syntax.historical Core_syntax.hexpr) : string =
   f |> pretty_product_formula |> mathify_formula
 
 let subscript_digits (n : int) : string =
