@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Maps concrete runtime data into the engine's canonical output contract. *)
 let obligations_map_text ~(raw : string) : string = raw
 
 let program_automaton_texts (asts : Runtime_snapshot.ast_flow) : string * string =

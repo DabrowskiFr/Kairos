@@ -35,7 +35,12 @@ FORBIDDEN_EXPORT = [
 def scan_dir(repo: Path, roots: list[Path], patterns: list[tuple[re.Pattern[str], str]]) -> list[str]:
     violations: list[str] = []
     for root in roots:
-        if not root.exists():
+        if not root.is_dir():
+            try:
+                rendered = root.relative_to(repo)
+            except ValueError:
+                rendered = root
+            violations.append(f"{rendered}: required scan root is missing")
             continue
         for path in root.rglob("*"):
             if not path.is_file():
@@ -55,7 +60,7 @@ def main() -> int:
     repo = Path(__file__).resolve().parents[1]
 
     backend_roots = [repo / "lib" / "adapters" / "out" / "provers" / "why3"]
-    export_roots = [repo / "lib" / "domain" / "verification" / "proof_export"]
+    export_roots = [repo / "lib" / "domain" / "proof_export"]
 
     violations = []
     violations.extend(scan_dir(repo, backend_roots, FORBIDDEN_BACKEND))

@@ -11,8 +11,8 @@ before it becomes a proof or performance regression.
 | Reference boundary | `python3 scripts/check_reference_pipeline_boundaries.py` | Reference kernel has no external-tool references and all stages are classified |
 | Rocq alignment | `python3 scripts/check_rocq_alignment_manifest.py` | Frozen Rocq paper branch/commit, theorem entry points at that commit, Kairos proof-relevant units, and alignment projection audit stay traceable |
 | Architecture manifest | `python3 scripts/check_architecture_manifest.py` | Required architecture docs/scripts and removed legacy paths stay consistent |
-| Architecture fitness | `python3 scripts/check_architecture_fitness.py` | Minimal prove path, ADR shape, no legacy `.kobj`, Structurizr views |
-| Engine runtime package | `python3 scripts/check_architecture_fitness.py` | The implemented 17-library boundary matches Dune/opam and has no unexpected inbound dependency |
+| Architecture fitness | `python3 scripts/check_architecture_fitness.py` | Direct `Engine_flow`, unique `Pipeline_types`, `Api.Contract`, minimal prove path, external-tool contracts, and removed legacy layers |
+| Concrete engine package | `python3 scripts/check_architecture_fitness.py` | Runtime, CLI, and LSP use the declared package closure without an engine-contract, application/composition facade, or standalone Graphviz adapter |
 | Isolated package builds | `scripts/check_package_boundaries.sh core|runtime|cli|lsp` | Core, runtime, CLI, and LSP resolve only their declared installed package closure |
 | Opam metadata | `opam lint ./*.opam` | Every distributable package has valid dependency and project metadata |
 | Quality baseline | `python3 scripts/check_quality_baseline.py` | Non-semantic quality metrics do not regress while the baseline is ratcheted down |
@@ -20,6 +20,11 @@ before it becomes a proof or performance regression.
 | Why3 product path | `python3 scripts/check_architecture_fitness.py` | Why3 proof emission must not reintroduce the old state-helper fallback |
 | Proof export product path | `python3 scripts/check_architecture_fitness.py` | Proof export must not synthesize fallback product steps |
 | Backend stability | `bash tests/check_reference_stability.sh _build/default/bin/cli/kairos.exe` | Backend-only options do not change reference views |
+
+The concrete-engine check is intentionally structural rather than scientific:
+`Kairos_engine.Api` must expose the sole `Pipeline_types` definition as
+`Api.Contract`, and delivery adapters must not bypass that facade. These rules
+do not add any claim about the reference kernel, Why3 adequacy, or Rocq.
 
 ## Rules That Must Eventually Become Checks
 

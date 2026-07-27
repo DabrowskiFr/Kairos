@@ -2,14 +2,10 @@
 
 Date : 2026-07-26
 
-Statut : recommandations réalisées par les ADR-0016 à ADR-0019. Le protocole
-et l'exécutable LSP appartiennent à `kairos-lsp`, tandis que `kairos-cli`
-fournit l'exécutable `kairos`.
-
-Les données publiques du moteur
-appartiennent au paquet autonome `kairos-engine-contract`, et sa composition
-concrète appartient à `kairos-engine-runtime`. Le paquet `kairos` conserve le
-noyau sémantique, les interfaces applicatives et le frontend Kairos.
+Statut : audit historique, supersédé pour l'architecture courante par
+ADR-0021. Les mesures, dépendances et recommandations ci-dessous décrivent
+uniquement l'état du commit analysé ; elles ne doivent pas être lues comme un
+inventaire de l'arbre actuel.
 
 ## Objet
 
@@ -220,7 +216,7 @@ Critères d'acceptation :
 
 ## Conclusion
 
-Cette recommandation historique est réalisée : LSP, CLI, contrat moteur et
-moteur concret ont maintenant leurs propres paquets. La fermeture acyclique
-du moteur appartient à `kairos-engine-runtime`, conformément à
-`engine_runtime_split_audit.md` et `engine_runtime_split_manifest.json`.
+Cet audit a motivé les premières séparations LSP, CLI et moteur. ADR-0021
+supersède ensuite la couche application/composition, le contrat moteur
+autonome et le micro-adaptateur Graphviz décrits ici. Les mesures historiques
+restent attachées au commit analysé.

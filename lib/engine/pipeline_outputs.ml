@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Executes output and proof production for the concrete engine flow. *)
 include Pipeline_outputs_helpers
 
 let is_prove_only_run (cfg : Pipeline_types.config) : bool =

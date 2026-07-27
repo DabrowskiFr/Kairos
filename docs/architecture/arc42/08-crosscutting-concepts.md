@@ -53,15 +53,31 @@ realizes that frontier with `Historical_initialization.required_depth_*`,
 `Kairos_to_model_node_validation` checks. This is a source well-formedness
 contract, not a proof that Rocq certifies the OCaml age-computation algorithm.
 
+## Concrete Engine Boundary
+
+Kairos has one concrete in-process engine flow. `Kairos_engine.Api` is the
+delivery boundary for CLI, LSP, and embedding clients; it delegates directly
+to private `Engine_flow`. `Pipeline_types` is the single canonical engine
+contract and is exposed as `Kairos_engine.Api.Contract`.
+
+This boundary must not be confused with a scientific abstraction. Removing
+the former application, composition, autonomous engine-contract,
+`verification_runtime`, and `runtime_outputs` forwarding layers changes
+ownership and data flow only. It does not change the reference product,
+obligations, temporal normalization, proof-export projections, or backend
+semantics.
+
 ## External Tool Boundaries
 
 Spot, Why3, Z3, Graphviz, and timing services are adapters. Their results may
 be consumed, checked, or reported, but the correction story must not depend on
 their implementation details.
 
-Spot, Why3, telemetry, and Graphviz adapters are independently buildable
-packages. Graphviz accepts only DOT text and returns a PNG path or diagnostic;
-DOT construction remains an artifact-rendering responsibility.
+Spot, Why3, and telemetry adapters are independently buildable packages.
+Graphviz process invocation belongs to `Kairos_engine.Graphviz_render`, which
+accepts only DOT text and returns a PNG path or diagnostic. Graphviz remains an
+external executable, and DOT construction remains an artifact-rendering
+responsibility.
 
 The important boundary is parametric automata input: Spot may build automata,
 but the Rocq adequacy claim is relative to supplied automata. Kairos does not

@@ -10,8 +10,6 @@
 (package
  (name kairos-lsp))
 (package
- (name kairos-engine-contract))
-(package
  (name kairos-engine-runtime))
 (package
  (name kairos-automata-contract))
@@ -23,5 +21,3 @@
  (name kairos-telemetry))
 (package
  (name kairos-why3-adapter))
-(package
- (name kairos-graphviz-adapter))

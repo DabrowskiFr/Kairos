@@ -9,11 +9,9 @@ Ce document décrit l'ordre de dépendance vérifié par
 ```text
 niveau 0
   kairos
-  kairos-engine-contract
   kairos-automata-contract
   kairos-proof-contract
   kairos-telemetry
-  kairos-graphviz-adapter
 
 niveau 1
   kairos-spot-adapter
@@ -31,15 +29,20 @@ niveau 2
 niveau 3
   kairos-cli
     -> kairos-engine-runtime
-    -> kairos-engine-contract
 
   kairos-lsp
     -> kairos-engine-runtime
-    -> kairos-engine-contract
-    -> kairos-graphviz-adapter
 ```
 
 Les paquets d'un même niveau peuvent être construits en parallèle.
+`kairos-automata-contract` et `kairos-proof-contract` restent séparés : leurs
+modules et leurs consommateurs sont distincts, et une fusion ne réduirait pas
+le nombre de frontières Findlib utiles.
+
+Le contrat public du moteur n'est pas un paquet supplémentaire.
+`Pipeline_types` est exposé par `Kairos_engine.Api.Contract` depuis
+`kairos-engine-runtime`. L'appel du processus Graphviz appartient au même
+paquet via `Kairos_engine.Graphviz_render`.
 
 ## Ce que vérifie la CI
 
@@ -57,7 +60,7 @@ ensuite construit avec un `OCAMLPATH` pointant vers ce préfixe et un
 `--build-dir` distinct. Il ne peut donc pas résoudre silencieusement une
 bibliothèque d'un autre paquet depuis le build monolithique.
 
-Un job séparé exécute `opam lint` sur les onze manifestes. Les métadonnées
+Un job séparé exécute `opam lint` sur les neuf manifestes. Les métadonnées
 mainteneur, auteur, licence, projet, rapports de bugs et dépôt de développement
 sont identiques pour tous les paquets du dépôt.
 
@@ -66,6 +69,10 @@ sont identiques pour tous les paquets du dépôt.
 - `kairos` ne dépend d'aucun contrat ou adaptateur Kairos autonome ;
 - le runtime dépend du noyau, jamais l'inverse ;
 - CLI et LSP ne contournent pas `Kairos_engine.Api` ;
+- `Kairos_engine.Api.Contract` désigne l'unique définition de
+  `Pipeline_types` ;
+- aucun paquet `kairos-engine-contract` ou `kairos-graphviz-adapter` ne
+  réintroduit une copie du contrat ou un micro-adaptateur ;
 - la CI ne modifie ni la formalisation, ni Rocq, ni les obligations ;
 - un ajout de paquet ou une modification de l'ordre doit mettre à jour ce
   document, le script, la matrice et les contrôles d'architecture.

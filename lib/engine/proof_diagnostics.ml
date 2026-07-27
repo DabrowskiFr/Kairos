@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Proof diagnostics finalization used by the concrete engine flow. *)
 module Types = Pipeline_types
 
 let generic_diagnostic_for_status ~(status : string)

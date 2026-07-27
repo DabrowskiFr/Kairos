@@ -7,9 +7,9 @@
   automata_generation
   runtime_automata_source)
  (libraries
-  kairos_application
   kairos_domain_core
   kairos_domain_verification
+  kairos_runtime_core
   kairos_automata_contract
   kairos_spot_adapter
   kairos_external_timing))

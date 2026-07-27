@@ -1,12 +1,38 @@
-(** Stable in-process facade for clients embedding the Kairos engine.
+(** In-process facade for clients embedding the Kairos engine.
 
     Delivery adapters depend on this facade instead of importing domain,
     backend, or runtime-orchestration modules. *)
 
-module Contract = Kairos_engine_contract.Contract
+module Contract = Pipeline_types
 
 type config = Contract.config
 type error = Contract.error
+
+type source_diagnostic = {
+  line : int;
+  column : int;
+  severity : int;
+  source : string;
+  message : string;
+}
+
+type semantic_symbols = {
+  all : string list;
+  nodes : string list;
+  states : string list;
+  variables : string list;
+}
+
+type frontend_summary = {
+  node_count : int;
+  assume_count : int;
+  guarantee_count : int;
+}
+
+type generated_file = {
+  file_name : string;
+  contents : string;
+}
 
 val make_config :
   input_file:string ->
@@ -86,14 +112,12 @@ val run_with_callbacks :
     (int -> string -> string -> float -> string option -> string option -> unit) ->
   (Contract.outputs, error) result
 
-val source_diagnostics : text:string -> Contract.source_diagnostic list
+val source_diagnostics : text:string -> source_diagnostic list
 
-val semantic_symbols : text:string -> Contract.semantic_symbols option
+val semantic_symbols : text:string -> semantic_symbols option
 
 val surface_dump : input_file:string -> (string, error) result
 val elaborated_dump : input_file:string -> (string, error) result
-val frontend_summary :
-  input_file:string -> (Contract.frontend_summary, error) result
+val frontend_summary : input_file:string -> (frontend_summary, error) result
 
-val generate_c :
-  input_file:string -> (Contract.generated_file list, error) result
+val generate_c : input_file:string -> (generated_file list, error) result

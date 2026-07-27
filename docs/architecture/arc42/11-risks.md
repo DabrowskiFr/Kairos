@@ -29,7 +29,7 @@ runtime/proof-export boundary by itself.
 | --- | --- |
 | Graph renderer depends on Z3 adapter | Removed the stale `kairos_external_z3` dependency from `kairos_artifact_graph_render`; `scripts/check_architecture_fitness.py` now prevents it from returning. |
 | Why3/backend/renderers depend on proof export | Removed stale `kairos_domain_proof_export` dependencies from Why3 and artifact renderers; architecture fitness checks now prevent the exchange view from becoming backend input. |
-| Runtime layer too broad | Split runtime into `kairos_runtime_core`, `kairos_runtime_proof`, `kairos_runtime_diagnostics`, and the public `kairos_verification_runtime` facade. |
+| Runtime layer too broad | Keep focused `kairos_runtime_core`, `kairos_runtime_automata`, `kairos_runtime_proof`, and `kairos_runtime_diagnostics` libraries behind the concrete private `Engine_flow`. |
 | Runtime core invokes Spot | Moved Spot-backed automata production to `kairos_runtime_automata`; `kairos_runtime_core` now consumes supplied automata. |
 | Product consumes malformed automata silently | `Product_build` validates the normal form needed by product exploration before building summaries. |
 

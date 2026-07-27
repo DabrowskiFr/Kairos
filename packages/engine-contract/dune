@@ -1,5 +1,0 @@
-(library
- (name kairos_engine_contract)
- (public_name kairos-engine-contract)
- (wrapped true)
- (modules contract))

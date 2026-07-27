@@ -20,10 +20,10 @@ graph LR
     style 7 fill:#0f766e,stroke:#0a524d,color:#ffffff
 
     1-. "<div>Runs checks, dumps, and<br />proofs</div><div style='font-size: 70%'></div>" .->7
+    7-. "<div>Invokes Graphviz on rendered<br />DOT text</div><div style='font-size: 70%'></div>" .->6
     7-. "<div>Builds property automata</div><div style='font-size: 70%'></div>" .->3
     7-. "<div>Builds and proves Why3 tasks</div><div style='font-size: 70%'></div>" .->4
     7-. "<div>Runs selected SMT checks</div><div style='font-size: 70%'></div>" .->5
-    7-. "<div>Renders graphs</div><div style='font-size: 70%'></div>" .->6
     2-. "<div>Checks adequacy against the<br />essential reference boundary</div><div style='font-size: 70%'></div>" .->7
 
   end

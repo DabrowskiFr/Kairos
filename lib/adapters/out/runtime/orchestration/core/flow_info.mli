@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Bundles the intermediate artifacts produced by instrumentation stages. *)
+(** Runtime metadata produced by frontend and instrumentation stages. *)
 open Core_syntax
 (** {1 Per-pass Metadata} *)
 

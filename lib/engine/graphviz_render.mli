@@ -16,21 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Output assembly for a prepared pipeline snapshot. *)
+(** Graphviz rendering capability exposed by the engine package. *)
 
-(** Convert internal stage infos to serialized flow metadata. *)
-val flow_meta :
-  ?proof_encoding:Pipeline_types.proof_encoding ->
-  ?proof_optimizations:Pipeline_types.proof_optimizations ->
-  Runtime_snapshot.flow_infos -> (string * (string * string) list) list
+val dot_png_from_text_diagnostic : string -> string option * string option
+(** [dot_png_from_text] service entrypoint. *)
 
-(** Extract the first node's program automaton DOT and labels text. *)
-
-val program_automaton_texts : Runtime_snapshot.ast_flow -> string * string
-
-(** Build all public outputs (texts, dots, traces, metadata) for [snapshot]. *)
-
-val build_outputs :
-  cfg:Pipeline_types.config ->
-  snapshot:Runtime_snapshot.pipeline_snapshot ->
-  (Pipeline_types.outputs, Pipeline_types.error) result
+val dot_png_from_text : string -> string option

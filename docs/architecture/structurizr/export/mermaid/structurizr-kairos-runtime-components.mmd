@@ -1,43 +1,60 @@
 graph LR
   linkStyle default fill:#ffffff
 
-  subgraph diagram ["Component View: Kairos - Runtime orchestration"]
+  subgraph diagram ["Component View: Kairos - Concrete engine"]
     style diagram fill:#ffffff,stroke:#ffffff
+
+    6["<div style='font-weight: bold'>Graphviz</div><div style='font-size: 70%; margin-top: 0px'>[Software System]</div><div style='font-size: 80%; margin-top:10px'>External renderer for graph<br />artifacts.</div>"]
+    style 6 fill:#374151,stroke:#262d38,color:#ffffff
 
     subgraph 7 ["Kairos"]
       style 7 fill:#ffffff,stroke:#0a524d,color:#0a524d
 
-      subgraph 22 ["Runtime orchestration"]
-        style 22 fill:#ffffff,stroke:#7d3a06,color:#7d3a06
+      subgraph 10 ["Concrete engine"]
+        style 10 fill:#ffffff,stroke:#7d3a06,color:#7d3a06
 
-        23["<div style='font-weight: bold'>Snapshot build</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Consumes supplied automata<br />and assembles reference<br />summaries, instrumentation,<br />and metrics.</div>"]
-        style 23 fill:#ffffff,stroke:#444444,color:#444444
-        24["<div style='font-weight: bold'>External automata source</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Produces supplied automata<br />with Spot today, outside the<br />runtime core.</div>"]
-        style 24 fill:#ffffff,stroke:#444444,color:#444444
-        25["<div style='font-weight: bold'>Output selection</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Keeps minimal prove separate<br />from diagnostic artifact<br />construction.</div>"]
-        style 25 fill:#ffffff,stroke:#444444,color:#444444
-        26["<div style='font-weight: bold'>Proof runner</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Runs Why3 proof tasks,<br />callbacks, and goal<br />reporting.</div>"]
-        style 26 fill:#ffffff,stroke:#444444,color:#444444
-        27["<div style='font-weight: bold'>Diagnostic artifact bundle</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Builds graphs, canonical<br />text, obligations maps, and<br />cost-report inputs.</div>"]
-        style 27 fill:#ffffff,stroke:#444444,color:#444444
+        11["<div style='font-weight: bold'>Public engine API</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Exposes behavior and the<br />canonical contract as<br />Kairos_engine.Api.Contract.</div>"]
+        style 11 fill:#ffffff,stroke:#444444,color:#444444
+        12["<div style='font-weight: bold'>Engine_flow</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Coordinates the single<br />concrete frontend, snapshot,<br />output, callback, and timing<br />flow.</div>"]
+        style 12 fill:#ffffff,stroke:#444444,color:#444444
+        13["<div style='font-weight: bold'>Snapshot build</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Consumes supplied automata<br />and assembles reference<br />summaries, instrumentation,<br />and metrics.</div>"]
+        style 13 fill:#ffffff,stroke:#444444,color:#444444
+        14["<div style='font-weight: bold'>External automata source</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Produces supplied automata<br />with Spot today, outside the<br />runtime core.</div>"]
+        style 14 fill:#ffffff,stroke:#444444,color:#444444
+        15["<div style='font-weight: bold'>Output selection</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Keeps minimal prove separate<br />from diagnostic artifact<br />construction.</div>"]
+        style 15 fill:#ffffff,stroke:#444444,color:#444444
+        16["<div style='font-weight: bold'>Proof runner</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Runs Why3 proof tasks,<br />callbacks, and goal<br />reporting.</div>"]
+        style 16 fill:#ffffff,stroke:#444444,color:#444444
+        17["<div style='font-weight: bold'>Diagnostic artifact bundle</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Builds graphs, canonical<br />text, obligations maps, and<br />cost-report inputs.</div>"]
+        style 17 fill:#ffffff,stroke:#444444,color:#444444
+        18["<div style='font-weight: bold'>Graphviz process service</div><div style='font-size: 70%; margin-top: 0px'>[Component: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Kairos_engine.Graphviz_render<br />invokes Graphviz on<br />already-rendered DOT text.</div>"]
+        style 18 fill:#ffffff,stroke:#444444,color:#444444
       end
 
-      14["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</div>"]
-      style 14 fill:#166534,stroke:#0f4624,color:#ffffff
-      19["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</div>"]
-      style 19 fill:#075985,stroke:#043e5d,color:#ffffff
-      31["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Adapter layer for Spot, Why3,<br />Z3, Graphviz, and timing<br />services.</div>"]
-      style 31 fill:#6b7280,stroke:#4a4f59,color:#ffffff
+      19["<div style='font-weight: bold'>Kairos frontend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Parses the surface language<br />and elaborates it to the core<br />verification model.</div>"]
+      style 19 fill:#7c3aed,stroke:#5628a5,color:#ffffff
+      21["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</div>"]
+      style 21 fill:#166534,stroke:#0f4624,color:#ffffff
+      26["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</div>"]
+      style 26 fill:#075985,stroke:#043e5d,color:#ffffff
+      32["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Narrow Automata_exchange and<br />Proof_backend_contract<br />boundaries for Spot, Why3,<br />Z3, and timing services.</div>"]
+      style 32 fill:#6b7280,stroke:#4a4f59,color:#ffffff
     end
 
-    19-. "<div>Uses product and automata<br />analysis</div><div style='font-size: 70%'></div>" .->14
-    14-. "<div>Provides exchange-ready<br />reference view</div><div style='font-size: 70%'></div>" .->19
-    23-. "<div>Requests supplied automata</div><div style='font-size: 70%'></div>" .->24
-    24-. "<div>Calls Spot adapter</div><div style='font-size: 70%'></div>" .->31
-    24-. "<div>Supplies automata for<br />validation</div><div style='font-size: 70%'></div>" .->14
-    23-. "<div>Builds reference product from<br />validated automata</div><div style='font-size: 70%'></div>" .->14
-    25-. "<div>Runs minimal proof path</div><div style='font-size: 70%'></div>" .->26
-    25-. "<div>Builds diagnostics only when<br />requested</div><div style='font-size: 70%'></div>" .->27
-    27-. "<div>Builds proof-kernel<br />diagnostics</div><div style='font-size: 70%'></div>" .->19
+    26-. "<div>Uses product and automata<br />analysis</div><div style='font-size: 70%'></div>" .->21
+    21-. "<div>Provides exchange-ready<br />reference view</div><div style='font-size: 70%'></div>" .->26
+    11-. "<div>Delegates to the concrete<br />flow</div><div style='font-size: 70%'></div>" .->12
+    12-. "<div>Parses and elaborates</div><div style='font-size: 70%'></div>" .->19
+    12-. "<div>Builds a runtime snapshot</div><div style='font-size: 70%'></div>" .->13
+    12-. "<div>Selects and maps outputs</div><div style='font-size: 70%'></div>" .->15
+    13-. "<div>Requests supplied automata</div><div style='font-size: 70%'></div>" .->14
+    14-. "<div>Calls Spot adapter</div><div style='font-size: 70%'></div>" .->32
+    14-. "<div>Supplies automata for<br />validation</div><div style='font-size: 70%'></div>" .->21
+    13-. "<div>Builds reference product from<br />validated automata</div><div style='font-size: 70%'></div>" .->21
+    15-. "<div>Runs minimal proof path</div><div style='font-size: 70%'></div>" .->16
+    15-. "<div>Builds diagnostics only when<br />requested</div><div style='font-size: 70%'></div>" .->17
+    15-. "<div>Renders PNG only when<br />requested</div><div style='font-size: 70%'></div>" .->18
+    18-. "<div>Invokes external process</div><div style='font-size: 70%'></div>" .->6
+    17-. "<div>Builds proof-kernel<br />diagnostics</div><div style='font-size: 70%'></div>" .->26
 
   end

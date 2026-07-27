@@ -2,13 +2,41 @@
  (name kairos_engine)
  (public_name kairos-engine-runtime)
  (wrapped true)
- (modules runtime_defaults engine_contract_mapping api)
- (private_modules runtime_defaults engine_contract_mapping)
+ (modules
+  graphviz_render
+  runtime_defaults
+  proof_diagnostics
+  output_mapper
+  pipeline_outputs
+  engine_timing_fields
+  engine_vc_taxonomy
+  engine_timing_meta
+  engine_flow
+  api)
+ (private_modules
+  runtime_defaults
+  proof_diagnostics
+  output_mapper
+  pipeline_outputs
+  engine_timing_fields
+  engine_vc_taxonomy
+  engine_timing_meta
+  engine_flow)
  (libraries
-  kairos_engine_contract
-  kairos_application
-  kairos_composition
+  bos
+  fpath
   kairos_input_lang
+  kairos_domain_core
+  kairos_proof_contract
+  kairos_runtime_core
+  kairos_runtime_automata
+  kairos_runtime_proof
+  kairos_runtime_diagnostics
+  kairos_why3
+  kairos_artifact_graph_render
+  kairos_artifact_text_render
+  kairos_external_why3
+  kairos_external_timing
   kairos_c_codegen
   unix
   str))

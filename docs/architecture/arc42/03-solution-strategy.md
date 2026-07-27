@@ -2,8 +2,8 @@
 
 ## Architectural Position
 
-Keep the ports-and-adapters architecture, but tighten the internal boundary
-between:
+Keep the separation between the scientific kernel, the concrete engine, and
+external tools, with explicit boundaries between:
 
 1. the reference kernel;
 2. the proof-kernel exchange view;
@@ -23,8 +23,8 @@ The following choices are structurally good:
 | --- | --- |
 | `lib/domain/core` as foundational layer | It contains syntax, formulas, models, and temporal layout data shared by the kernel. |
 | `lib/domain/verification` as reference-kernel layer | It builds product summaries and obligation-shaping passes from program + automata. |
-| Standalone contract packages | They expose narrow, versioned requests and responses without importing Kairos internals, tool implementations, or application orchestration. |
-| `lib/application` ports/use-cases | They prevent CLI/LSP details from becoming semantic dependencies. |
+| Standalone tool contracts | `Automata_exchange` and `Proof_backend_contract` expose narrow, versioned requests and responses without importing Kairos internals or tool implementations. |
+| `Kairos_engine.Api` | It prevents CLI/LSP details from becoming semantic dependencies while exposing the canonical contract as `Api.Contract`. |
 | Concrete external adapters | Spot, Why3, Z3, Graphviz and timing are correctly outside the domain. |
 | Minimal `--prove` path | It protects performance and keeps proof execution independent from heavy diagnostics. |
 
@@ -32,7 +32,7 @@ The following choices are structurally good:
 
 | Area | Current state | Architectural concern | Direction |
 | --- | --- | --- | --- |
-| Runtime orchestration | Split into core, proof, diagnostics, and facade libraries | The facade still coordinates several concerns | Keep dependency checks strict and avoid adding semantic construction to the facade |
+| Concrete engine | `Api` delegates to private `Engine_flow`, which calls focused core, automata, proof, and diagnostic libraries | The concrete flow necessarily coordinates several concerns | Keep it explicit and concrete; do not recreate forwarding layers without an independent implementation or policy |
 | Proof export | Used by runtime diagnostics/cost reports, possible Rocq exchange projection | Exchange view and diagnostic needs can evolve at different speeds | Keep Why3/backend metadata out of this schema; justify selected fields against the Rocq alignment manifest before synchronization |
 | External automata | Spot builds automata supplied to the reference kernel | Spot translation is not part of the correction story, but malformed automata must not be consumed silently | Keep automata explicit parameters of the reference kernel; validate product-level normal form before exploration; state monitor-correctness claims relative to supplied automata |
 | Source elaboration | Frontend is outside current Rocq boundary | Desugaring can change semantics | Later add an elaboration theorem or a checked core export |
@@ -77,9 +77,15 @@ Do not start with a large module split. First enforce the invariants:
 - backend-only options are tested against stable reference views;
 - ADRs document each boundary-changing decision.
 
-The runtime split now separates:
+The concrete engine now separates coordination from focused runtime services:
 
 ```text
+Kairos_engine.Api
+  -> public facade and `Api.Contract = Pipeline_types`
+
+Engine_flow
+  -> single concrete flow coordinating frontend, snapshots, outputs, and callbacks
+
 kairos_runtime_core
   -> prepared program, supplied automata validation/consumption, reference pipeline assembly
 
@@ -91,10 +97,12 @@ kairos_runtime_proof
 
 kairos_runtime_diagnostics
   -> artifact bundles, graph/text/cost reports
-
-kairos_verification_runtime
-  -> application-facing facade and output orchestration
 ```
+
+`Pipeline_outputs`, `Output_mapper`, and timing assembly live beside
+`Engine_flow` in `lib/engine`. There is no application layer, composition
+root, `verification_runtime`, `runtime_outputs`, or duplicated engine-contract
+mapping.
 
 Externalization uses typed contracts without imposing processes:
 
@@ -111,8 +119,8 @@ kairos-spot-adapter
 kairos-why3-adapter
   -> depends only on kairos-proof-contract, kairos-telemetry, and Why3
 
-kairos-graphviz-adapter
-  -> depends only on Bos, Fpath, and Unix; consumes DOT text
+Kairos_engine.Graphviz_render
+  -> engine-owned Graphviz process service; consumes DOT text
 ```
 
 Spot is now an independently buildable OCaml package. It consumes and produces
@@ -147,8 +155,7 @@ planning must use its own runtime/reference projection.
 
 ## Resolved Boundary Issue: Runtime Split
 
-`kairos_verification_runtime` is now a facade over three narrower runtime
-libraries:
+The private `Engine_flow` coordinates four focused runtime libraries directly:
 
 - `kairos_runtime_core` builds snapshots and reference pipeline data from
   supplied automata that the reference product validates before exploration;
@@ -158,14 +165,16 @@ libraries:
 - `kairos_runtime_diagnostics` owns diagnostic artifact bundles and cost
   reports.
 
-This does not make the runtime correction-critical. It makes the runtime
-dependencies auditable.
+`Kairos_engine.Api` delegates to that concrete flow and exposes the canonical
+`Pipeline_types` contract as `Api.Contract`. This does not make the runtime
+correction-critical. It makes the runtime dependencies auditable without
+forwarding through application or composition layers.
 
 ## Resolved Boundary Issue: External Automata Source
 
-`kairos_runtime_core` no longer invokes Spot. The runtime facade now first asks
-`kairos_runtime_automata` to produce automata, then passes those automata
-explicitly to `Pipeline_build.build_snapshot_from_supplied_automata`. This
+`kairos_runtime_core` does not invoke Spot. `Engine_flow` asks
+`kairos_runtime_automata` to produce automata, then
+`Pipeline_build.build_snapshot_from_supplied_automata` consumes them. This
 matches the correction boundary: the reference kernel consumes supplied
 automata, validates the product-level normal form, and Spot remains an
 external producer.

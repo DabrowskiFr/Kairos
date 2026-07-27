@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Formatting helpers for timing flow metadata. *)
+(** Formatting helpers for concrete engine timing metadata. *)
 
 let fmt_s x = Printf.sprintf "%.6f" x
 
@@ -37,7 +37,7 @@ let goal_status_is_pending (_, status, _, _, _) =
   String.lowercase_ascii status = "pending"
 
 let why3_worker_timing_fields
-    (worker : Application_ports.why3_worker_counters) =
+    (worker : External_timing.why3_worker_snapshot) =
   let prefix = Printf.sprintf "why3_worker_%d_" worker.worker_id in
   [
     (prefix ^ "input_goal_count", string_of_int worker.worker_input_goal_count);
@@ -54,7 +54,7 @@ let why3_worker_timing_fields
     (prefix ^ "last_goal", worker.worker_last_goal);
   ]
 
-let ir_size_count (name : string) (size : Application_ports.ir_size_metrics) :
+let ir_size_count (name : string) (size : External_timing.ir_size_metrics) :
     int =
   match name with
   | "node_count" -> size.node_count
@@ -72,7 +72,7 @@ let ir_size_count (name : string) (size : Application_ports.ir_size_metrics) :
       size.formula_occurrence_count - size.unique_formula_count
   | _ -> invalid_arg ("unknown IR size metric: " ^ name)
 
-let ir_pass_size_fields (pass : Application_ports.ir_pass_counters) =
+let ir_pass_size_fields (pass : External_timing.ir_pass_snapshot) =
   let prefix = "ir_" ^ pass.pass_name ^ "_" in
   [
     "node_count";
@@ -98,7 +98,7 @@ let ir_pass_size_fields (pass : Application_ports.ir_pass_counters) =
          ])
 
 let ir_fact_family_fields
-    (family : Application_ports.ir_fact_family_counters) =
+    (family : External_timing.ir_fact_family_snapshot) =
   let prefix =
     "ir_family_" ^ family.pass_name ^ "_" ^ family.family_name ^ "_"
   in
@@ -115,78 +115,78 @@ let ir_fact_family_fields
   |> List.map (fun (name, count) -> (prefix ^ name, string_of_int count))
 
 let product_group_fields
-    (groups : Application_ports.why3_product_group_counters list) =
+    (groups : External_timing.why3_product_group_snapshot list) =
   let emitted_as_group
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.emitted_as_group
   in
   let split_due_to_cost
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.split_due_to_cost
   in
-  let group_name (group : Application_ports.why3_product_group_counters) =
+  let group_name (group : External_timing.why3_product_group_snapshot) =
     group.group_name
   in
-  let node_name (group : Application_ports.why3_product_group_counters) =
+  let node_name (group : External_timing.why3_product_group_snapshot) =
     group.node_name
   in
   let transition_id
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.transition_id
   in
-  let step_class (group : Application_ports.why3_product_group_counters) =
+  let step_class (group : External_timing.why3_product_group_snapshot) =
     group.step_class
   in
-  let source_state (group : Application_ports.why3_product_group_counters) =
+  let source_state (group : External_timing.why3_product_group_snapshot) =
     group.source_state
   in
-  let edge_count (group : Application_ports.why3_product_group_counters) =
+  let edge_count (group : External_timing.why3_product_group_snapshot) =
     group.edge_count
   in
   let distinct_pre_count
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.distinct_pre_count
   in
   let distinct_post_count
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.distinct_post_count
   in
   let post_implication_count
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.post_implication_count
   in
   let pre_text_bytes
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.pre_text_bytes
   in
   let post_text_bytes
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.post_text_bytes
   in
   let estimated_cost
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.estimated_cost
   in
-  let factor_kind (group : Application_ports.why3_product_group_counters) =
+  let factor_kind (group : External_timing.why3_product_group_snapshot) =
     group.factor_kind
   in
   let factor_original_estimated_cost
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.factor_original_estimated_cost
   in
   let factor_post_common_estimated_cost
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.factor_post_common_estimated_cost
   in
   let factor_pre_common_estimated_cost
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.factor_pre_common_estimated_cost
   in
   let factor_pre_and_post_common_estimated_cost
-      (group : Application_ports.why3_product_group_counters) =
+      (group : External_timing.why3_product_group_snapshot) =
     group.factor_pre_and_post_common_estimated_cost
   in
-  let max_cost (group : Application_ports.why3_product_group_counters) =
+  let max_cost (group : External_timing.why3_product_group_snapshot) =
     group.max_cost
   in
   let sum_by f = List.fold_left (fun acc group -> acc + f group) 0 groups in
@@ -301,7 +301,7 @@ let sanitize_field_suffix value =
 
 let product_individual_reason_fields
     (reasons :
-      Application_ports.why3_product_individual_reason_counters list) =
+      External_timing.why3_product_individual_reason_snapshot list) =
   let add_count reason count counts =
     let rec loop acc = function
       | [] -> List.rev ((reason, count) :: acc)
@@ -316,7 +316,7 @@ let product_individual_reason_fields
     |> List.fold_left
          (fun acc
               (item :
-                Application_ports.why3_product_individual_reason_counters)
+                External_timing.why3_product_individual_reason_snapshot)
             -> add_count item.reason item.count acc)
          []
     |> List.sort (fun (left, _) (right, _) -> String.compare left right)

@@ -16,8 +16,31 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Kairos input adapter: parse source text and produce application frontend payload. *)
+(** Kairos input adapter: parse source text and produce a runtime payload. *)
+
+type error =
+  | Parse_error of string
+  | Elaboration_error of string
+  | Type_error of string
+  | Well_formedness_error of string
+  | Io_error of string
+  | Internal_error of string
+
+type parse_error = { loc : Loc.loc option; message : string }
+
+type parse_info = {
+  source_path : string option;
+  text_hash : string option;
+  parse_errors : parse_error list;
+  warnings : string list;
+}
+
+type input = {
+  imports : string list;
+  parse_info : parse_info;
+  verification_model : Verification_model.program_model;
+}
 
 val parse_input :
   input_file:string ->
-  (Application_ports.frontend_input, Application_ports.frontend_error) result
+  (input, error) result

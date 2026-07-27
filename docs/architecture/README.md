@@ -7,10 +7,10 @@ Start here:
 - `guide.md`
 - `module_atlas.md`
 - `quality_audit.md`
-- `externalization_audit.md`
-- `engine_runtime_split_audit.md`
-- `engine_runtime_split_manifest.json`
 - `package_build_order.md`
+- `decisions/ADR-0021-direct-engine-flow.md`
+- `externalization_audit.md` (historical, superseded by ADR-0021)
+- `engine_runtime_split_audit.md` (historical, superseded by ADR-0021)
 - `../rocq_alignment_manifest.json`
 - `../rocq_projection_audit.json`
 - `why3_product_backend_alignment.md`
@@ -53,13 +53,15 @@ The intentional architecture is maintained as a Structurizr DSL model:
 - `../rocq_alignment_manifest.json`
 - `../rocq_projection_audit.json`
 
-The Structurizr model describes the architecture we want: frontend,
-application use-cases, reference verification kernel, proof-kernel export,
-runtime orchestration, backends, and external tools. The Rocq alignment
-manifest records which pieces of that architecture correspond to the existing
-Rocq theorem cuts. The projection audit records why product-summary and
-step-contract data need explicit OCaml projection boundaries, with a recorded
-mapping to Rocq Stage 1 and Stage 2.
+The Structurizr model describes the architecture we want: delivery adapters,
+the Kairos frontend, the scientific core, the concrete `Engine_flow`, focused
+runtime services, backends, and external tools. `Kairos_engine.Api.Contract`
+exposes the canonical `Pipeline_types` values; there is no separate
+application/composition layer or autonomous engine contract. The Rocq
+alignment manifest records which pieces of that architecture correspond to
+the existing Rocq theorem cuts. The projection audit records why
+product-summary and step-contract data need explicit OCaml projection
+boundaries, with a recorded mapping to Rocq Stage 1 and Stage 2.
 
 Structurizr is the source of truth for high-level C4 views. Generated exports
 are written under:

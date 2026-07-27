@@ -134,14 +134,13 @@ type prepared_program = {
   reference_program : Verification_model.program_model;
 }
 
-let prepare_program_from_frontend
+let prepare_program
     ~(proof_optimizations : Pipeline_types.proof_optimizations)
-    ~(frontend : Application_ports.frontend_input) :
+    ~(imports : string list) ~(parse_info : Flow_info.parse_info)
+    ~(verification_model : Verification_model.program_model) :
     (prepared_program, Pipeline_types.error) result =
   try
-    let imports = frontend.imports in
-    let parse_info = frontend.parse_info in
-    let p_model = frontend.verification_model in
+    let p_model = verification_model in
     match reject_calls p_model with
     | Error _ as err -> err
     | Ok () ->

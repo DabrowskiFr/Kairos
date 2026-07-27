@@ -8,7 +8,7 @@ homepage: "https://github.com/DabrowskiFr/Kairos"
 bug-reports: "https://github.com/DabrowskiFr/Kairos/issues"
 dev-repo: "git+https://github.com/DabrowskiFr/Kairos.git"
 synopsis: "Kairos semantic verification core"
-description: "Kairos domain, reference verification, application interfaces, language frontend, and Rocq development."
+description: "Kairos domain, reference verification, language frontend, and Rocq development."
 depends: [
   "dune" {>= "3.10"}
   "rocq-prover"

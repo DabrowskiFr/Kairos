@@ -13,8 +13,6 @@ depends: [
   "dune" {>= "3.10"}
   "ocaml"
   "kairos-engine-runtime" {= version}
-  "kairos-engine-contract" {= version}
-  "kairos-graphviz-adapter" {= version}
   "yojson"
   "jsonrpc"
   "lsp"

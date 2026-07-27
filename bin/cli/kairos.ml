@@ -28,7 +28,7 @@ let docs_frontend = "FRONTEND"
 
 open Cli_types
 
-module Pipeline = Kairos_engine_contract.Contract
+module Pipeline = Kairos_engine.Api.Contract
 
 let proof_encoding_parser s =
   match Pipeline.proof_encoding_of_string s with

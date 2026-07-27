@@ -68,20 +68,25 @@ elle ne doit pas changer la sortie kernel.
 
 | Bloc | Chemins | Role | Rocq |
 | --- | --- | --- | --- |
-| Contrat moteur | paquet `kairos-engine-contract` | DTO publics stables et localisations source neutres | Non |
-| Moteur concret | paquet `kairos-engine-runtime` | Composition, orchestration et projections backend propres à Kairos | Non |
-| CLI / LSP | paquets `kairos-cli`, `kairos-lsp` | Entrées utilisateur via `Kairos_engine.Api`, données via `kairos-engine-contract` | Non |
+| Moteur concret | `lib/engine`, paquet `kairos-engine-runtime` | `Kairos_engine.Api`, `Engine_flow`, contrat canonique `Api.Contract`, sorties et coordination des services runtime | Non |
+| CLI / LSP | paquets `kairos-cli`, `kairos-lsp` | Entrées utilisateur via `Kairos_engine.Api`, données via `Kairos_engine.Api.Contract` | Non |
 | Frontend | `lib/adapters/in/kairos_lang` | Parse et elabore le langage de surface | Pas encore, sauf theoreme d'elaboration futur |
-| Application | `lib/application` | Ports et use-cases | Non |
 | Domain core | `lib/domain/core` | Syntaxe, modeles, IR, temporal layout | Oui |
 | Verification kernel | `lib/domain/verification` | Valide la forme des automates, produit programme x automates, obligations de reference | Oui, avec classification par passe |
 | Obligations canoniques | `lib/domain/verification/canonical_obligations.*` | Familles Stage 1 / Stage 2 a comparer avec Rocq, avant export et backend | Reference |
 | Rocq alignment views | `lib/domain/verification/product_summary_projection.*`, `lib/domain/verification/kernel_clause_projection.*`, `lib/domain/verification/obligation_family_projection.*`, `lib/domain/verification/step_contract_projection.*` | Vues derivees product-summary, KernelClause, familles d'obligations et step-contract consommees par proof_export et Why3 | Projection |
 | Proof export | `lib/domain/proof_export` | Vue d'echange proof-kernel pour diagnostics et Rocq futur | Projection, peut servir de temoin des vues product-summary / step-contract |
-| Runtime | `lib/adapters/out/runtime` | Snapshots, dumps, orchestration, proof runs | Non |
+| Services runtime | `lib/adapters/out/runtime` | Snapshot, automates fournis, preuve et diagnostics appelés par `Engine_flow` | Non |
 | Why3 backend | `lib/adapters/out/provers/why3` | Projection Why3 et choix backend | Non |
 | Artifacts | `lib/adapters/out/artifacts` | Rendus texte/graphe/diagnostic | Non |
-| External tools | `lib/adapters/out/external` | Spot, Why3, Z3, Graphviz, timing | Non |
+| Contrats et outils externes | `packages/automata-contract`, `packages/proof-contract`, Spot, Why3 et timing | Protocoles étroits et adaptateurs indépendants du noyau | Non |
+| Graphviz | `Kairos_engine.Graphviz_render` | Appel du processus Graphviz à partir de texte DOT déjà construit | Non |
+
+La frontière publique du moteur n'est plus un paquet de DTO séparé.
+`Pipeline_types` est le contrat canonique et
+`Kairos_engine.Api.Contract` est son nom public. La façade appelle directement
+le flux concret privé `Engine_flow`; il n'existe plus de couche
+application/composition intermédiaire.
 
 ## Classification Des Passes
 

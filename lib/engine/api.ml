@@ -1,20 +1,37 @@
-module Contract = Kairos_engine_contract.Contract
-module Mapping = Engine_contract_mapping
-module Usecases = Verification_flow_usecases.Make (Kairos_usecase_wiring.Ports)
+module Contract = Pipeline_types
+module Flow = Engine_flow
 
 type config = Contract.config
 type error = Contract.error
 
+type source_diagnostic = {
+  line : int;
+  column : int;
+  severity : int;
+  source : string;
+  message : string;
+}
+
+type semantic_symbols = {
+  all : string list;
+  nodes : string list;
+  states : string list;
+  variables : string list;
+}
+
+type frontend_summary = {
+  node_count : int;
+  assume_count : int;
+  guarantee_count : int;
+}
+
+type generated_file = {
+  file_name : string;
+  contents : string;
+}
+
 let default_proof_jobs = Runtime_defaults.default_proof_jobs
 let error_to_string = Contract.error_to_string
-
-let map_result convert = function
-  | Ok value -> Ok (convert value)
-  | Error error -> Error (Mapping.error_to_contract error)
-
-let internal_options ~proof_encoding ~proof_optimizations =
-  ( Mapping.proof_encoding_to_internal proof_encoding,
-    Mapping.proof_optimizations_to_internal proof_optimizations )
 
 let make_config ~input_file ~wp_only ~smoke_tests ~timeout_s
     ~compute_proof_diagnostics ~prove ?proof_jobs
@@ -44,82 +61,51 @@ let make_config ~input_file ~wp_only ~smoke_tests ~timeout_s
   }
 
 let instrumentation_pass ~generate_png ~input_file =
-  Usecases.instrumentation_pass ~generate_png ~input_file
-  |> map_result Mapping.automata_outputs_to_contract
+  Flow.instrumentation_pass ~generate_png ~input_file
 
 let why_pass ~input_file =
-  Usecases.why_pass ~proof_encoding:Pipeline_types.default_proof_encoding
+  Flow.why_pass ~proof_encoding:Pipeline_types.default_proof_encoding
     ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
-  |> map_result Mapping.why_outputs_to_contract
 
 let why_pass_with_options ~proof_encoding ~proof_optimizations ~input_file =
-  let proof_encoding, proof_optimizations =
-    internal_options ~proof_encoding ~proof_optimizations
-  in
-  Usecases.why_pass ~proof_encoding ~proof_optimizations ~input_file
-  |> map_result Mapping.why_outputs_to_contract
+  Flow.why_pass ~proof_encoding ~proof_optimizations ~input_file
 
 let obligations_pass ~input_file =
-  Usecases.obligations_pass
+  Flow.obligations_pass
     ~proof_encoding:Pipeline_types.default_proof_encoding
     ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
-  |> map_result Mapping.obligations_outputs_to_contract
 
 let obligations_pass_with_options ~proof_encoding ~proof_optimizations
     ~input_file =
-  let proof_encoding, proof_optimizations =
-    internal_options ~proof_encoding ~proof_optimizations
-  in
-  Usecases.obligations_pass ~proof_encoding ~proof_optimizations ~input_file
-  |> map_result Mapping.obligations_outputs_to_contract
+  Flow.obligations_pass ~proof_encoding ~proof_optimizations ~input_file
 
 let cost_report ~proof_encoding ~proof_optimizations ~input_file =
-  let proof_encoding, proof_optimizations =
-    internal_options ~proof_encoding ~proof_optimizations
-  in
-  Usecases.cost_report ~proof_encoding ~proof_optimizations ~input_file
-  |> map_result Mapping.cost_report_outputs_to_contract
+  Flow.cost_report ~proof_encoding ~proof_optimizations ~input_file
 
 let normalized_program ~input_file =
-  Usecases.normalized_program
+  Flow.normalized_program
     ~proof_encoding:Pipeline_types.default_proof_encoding
     ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
-  |> map_result Fun.id
 
 let ir_pretty_dump ~input_file =
-  Usecases.ir_pretty_dump
+  Flow.ir_pretty_dump
     ~proof_encoding:Pipeline_types.default_proof_encoding
     ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
-  |> map_result Fun.id
 
 let normalized_program_with_options ~proof_encoding ~proof_optimizations
     ~input_file =
-  let proof_encoding, proof_optimizations =
-    internal_options ~proof_encoding ~proof_optimizations
-  in
-  Usecases.normalized_program ~proof_encoding ~proof_optimizations ~input_file
-  |> map_result Fun.id
+  Flow.normalized_program ~proof_encoding ~proof_optimizations ~input_file
 
 let ir_pretty_dump_with_options ~proof_encoding ~proof_optimizations
     ~input_file =
-  let proof_encoding, proof_optimizations =
-    internal_options ~proof_encoding ~proof_optimizations
-  in
-  Usecases.ir_pretty_dump ~proof_encoding ~proof_optimizations ~input_file
-  |> map_result Fun.id
+  Flow.ir_pretty_dump ~proof_encoding ~proof_optimizations ~input_file
 
-let run config =
-  Usecases.run (Mapping.config_to_internal config)
-  |> map_result Mapping.outputs_to_contract
+let run = Flow.run
 
 let run_with_callbacks ~should_cancel config ~on_outputs_ready
     ~on_goals_ready ~on_goal_done =
-  Usecases.run_with_callbacks ~should_cancel
-    (Mapping.config_to_internal config)
-    ~on_outputs_ready:(fun outputs ->
-      on_outputs_ready (Mapping.outputs_to_contract outputs))
+  Flow.run_with_callbacks ~should_cancel config ~on_outputs_ready
     ~on_goals_ready ~on_goal_done
-  |> map_result Mapping.outputs_to_contract
 
 let parse_line_column message =
   let pattern = Str.regexp ".*:\\([0-9]+\\):\\([0-9]+\\)" in
@@ -135,7 +121,7 @@ let source_diagnostic ~severity ~source ~message =
     | Some (line, column) -> (max 0 (line - 1), max 0 (column - 1))
     | None -> (0, 0)
   in
-  { Contract.line; column; severity; source; message }
+  { line; column; severity; source; message }
 
 let frontend_error_source = function
   | Kx_frontend_error.Parse -> "kairos-parse"
@@ -214,7 +200,6 @@ let semantic_symbols ~text =
       |> List.sort_uniq String.compare
     in
     Some
-      Contract.
       {
         all = keys all;
         nodes = keys nodes;
@@ -273,9 +258,9 @@ let elaborated_dump ~input_file =
 
 let frontend_summary ~input_file =
   match Kairos_frontend.parse_input ~input_file with
-  | Error error -> Error (Mapping.error_to_contract error)
+  | Error error -> Error (Flow.error_of_frontend error)
   | Ok frontend ->
-      let nodes = frontend.Application_ports.verification_model in
+      let nodes = frontend.Kairos_frontend.verification_model in
       let count_contracts select =
         nodes
         |> List.map (fun (node : Verification_model.node_model) ->
@@ -283,7 +268,6 @@ let frontend_summary ~input_file =
         |> List.fold_left ( + ) 0
       in
       Ok
-        Contract.
         {
           node_count = List.length nodes;
           assume_count = count_contracts (fun node -> node.assumes);
@@ -292,20 +276,16 @@ let frontend_summary ~input_file =
 
 let generate_c ~input_file =
   match Kairos_frontend.parse_input ~input_file with
-  | Error error -> Error (Mapping.error_to_contract error)
+  | Error error -> Error (Flow.error_of_frontend error)
   | Ok frontend -> (
       match
         Kairos_c_codegen.C_codegen.emit_program
-          frontend.Application_ports.verification_model
+          frontend.Kairos_frontend.verification_model
       with
       | Error message -> Error (Contract.Flow_error message)
       | Ok files ->
           Ok
             (List.map
                (fun (file : Kairos_c_codegen.C_codegen.generated_file) ->
-                 Contract.
-                 {
-                   file_name = file.file_name;
-                   contents = file.contents;
-                 })
+                 { file_name = file.file_name; contents = file.contents })
                files))

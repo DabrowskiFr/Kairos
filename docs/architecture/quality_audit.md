@@ -39,7 +39,7 @@ Size and maintainability indicators:
   - `lib/domain/verification/product_characteristics.ml`: 430 lines
   - `packages/timing/external_timing_store.ml`: 405 lines
   - `lib/domain/verification/kernel_clause_projection.ml`: 399 lines
-- `ml` files without matching `mli`: 15
+- non-private `ml` files without matching `mli`: 14
 - Libraries declared with `(wrapped false)`: 28
 - Direct `open` directives in OCaml files: 347
 - Repository-level OCaml formatting configuration: opt-in OCamlFormat policy
@@ -143,7 +143,10 @@ python3 scripts/check_quality_baseline.py --max-missing-mli 15
 ```
 
 The current executable check is deliberately repository-wide and conservative.
-It prevents regression while the thresholds are ratcheted down.  The
+Modules explicitly declared in Dune `private_modules` are excluded: adding
+empty interfaces to private implementation helpers would recreate ceremony
+without defining a public contract. The check prevents regression while the
+thresholds are ratcheted down. The
 proof-relevant subset in `domain/core`, `domain/verification`, and
 `domain/proof_export` has explicit interfaces.  The remaining missing
 interfaces are in frontend adapter internals, runtime-orchestration helpers,

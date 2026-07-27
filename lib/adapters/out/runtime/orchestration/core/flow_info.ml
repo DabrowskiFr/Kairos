@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
+(** Runtime metadata produced by frontend and instrumentation stages. *)
 open Core_syntax
 type parse_error = { loc : Loc.loc option; message : string }
 

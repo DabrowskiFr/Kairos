@@ -31,13 +31,13 @@ digraph KairosModuleFlow {
     fillcolor="#ede9fe"
   ];
 
-  usecases [
-    label="Verification_flow_usecases\napplication flow\nparse -> snapshot -> outputs",
+  api [
+    label="Kairos_engine.Api\npublic facade\nContract = Pipeline_types",
     fillcolor="#dbeafe"
   ];
 
-  wiring [
-    label="Kairos_usecase_wiring\nconnect ports to adapters",
+  engine_flow [
+    label="private Engine_flow\nconcrete parse -> snapshot -> outputs flow",
     fillcolor="#dbeafe"
   ];
 
@@ -112,7 +112,12 @@ digraph KairosModuleFlow {
   ];
 
   outputs [
-    label="kairos_verification_runtime facade\nPipeline_outputs / Output_mapper",
+    label="lib/engine output pipeline\nPipeline_outputs / Output_mapper",
+    fillcolor="#fed7aa"
+  ];
+
+  graphviz_service [
+    label="Kairos_engine.Graphviz_render\nDOT -> Graphviz process",
     fillcolor="#fed7aa"
   ];
 
@@ -121,12 +126,12 @@ digraph KairosModuleFlow {
     fillcolor="#e5e7eb"
   ];
 
-  cli -> usecases;
-  usecases -> wiring;
-  wiring -> frontend;
+  cli -> api;
+  api -> engine_flow;
+  engine_flow -> frontend;
   frontend -> surface;
   surface -> model;
-  usecases -> snapshot;
+  engine_flow -> snapshot;
   snapshot -> partition;
   partition -> automata;
   automata -> external;
@@ -141,7 +146,10 @@ digraph KairosModuleFlow {
   snapshot_data -> proof_export [label="non-prove diagnostics"];
   snapshot_data -> why3 [label="prove / why dumps"];
   why3 -> external;
+  engine_flow -> outputs [label="select outputs"];
   snapshot_data -> outputs;
   proof_export -> outputs [label="artifact modes"];
   why3 -> outputs;
+  outputs -> graphviz_service [label="PNG requested"];
+  graphviz_service -> external;
 }

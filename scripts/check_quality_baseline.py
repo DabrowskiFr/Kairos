@@ -107,10 +107,21 @@ def count_pattern(paths: list[Path], pattern: str) -> int:
     return total
 
 
+def private_module_stems(repo: Path) -> set[Path]:
+    """Return modules explicitly hidden behind a library's public interface."""
+    stems: set[Path] = set()
+    for dune in dune_files(repo):
+        source = read_text(dune)
+        for body in re.findall(r"\(private_modules\s+([^)]+)\)", source):
+            for module_name in re.findall(r"[A-Za-z][A-Za-z0-9_]*", body):
+                stems.add(dune.parent / module_name.lower())
+    return stems
+
+
 def count_missing_mli(repo: Path) -> int:
     ml_stems = {path.with_suffix("") for path in ml_files(repo)}
     mli_stems = {path.with_suffix("") for path in mli_files(repo)}
-    return len(ml_stems - mli_stems)
+    return len(ml_stems - mli_stems - private_module_stems(repo))
 
 
 def largest_ocaml_module(paths: list[Path]) -> tuple[int, Path | None]:

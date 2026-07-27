@@ -15,9 +15,9 @@
 <text xml:space="preserve" text-anchor="start" x="389.88" y="-89.2" font-family="Arial" font-size="24.00" fill="#444444">Kairos</text>
 <text xml:space="preserve" text-anchor="start" x="347.12" y="-69.95" font-family="Arial" font-size="19.00" fill="#444444">[Software System]</text>
 </g>
-<!-- 13 -->
-<g id="13" class="node">
-<title>13</title>
+<!-- 20 -->
+<g id="20" class="node">
+<title>20</title>
 <polygon fill="#166534" stroke="#0f4624" points="383.43,-387.2 32.57,-387.2 32.57,-205 383.43,-205 383.43,-387.2"/>
 <text xml:space="preserve" text-anchor="start" x="111.62" y="-334.3" font-family="Arial" font-size="34.00" fill="#ffffff">Domain core</text>
 <text xml:space="preserve" text-anchor="start" x="127" y="-314.55" font-family="Arial" font-size="19.00" fill="#ffffff">[Container: OCaml]</text>
@@ -25,9 +25,9 @@
 <text xml:space="preserve" text-anchor="start" x="61.75" y="-252.8" font-family="Arial" font-size="24.00" fill="#ffffff">model, shared IR, temporal</text>
 <text xml:space="preserve" text-anchor="start" x="61.38" y="-228.8" font-family="Arial" font-size="24.00" fill="#ffffff">layout, and formula utilities.</text>
 </g>
-<!-- 14 -->
-<g id="14" class="node">
-<title>14</title>
+<!-- 21 -->
+<g id="21" class="node">
+<title>21</title>
 <polygon fill="#166534" stroke="#0f4624" points="814.92,-428.2 455.07,-428.2 455.07,-164 814.92,-164 814.92,-428.2"/>
 <text xml:space="preserve" text-anchor="start" x="556.62" y="-375.3" font-family="Arial" font-size="34.00" fill="#ffffff">Reference</text>
 <text xml:space="preserve" text-anchor="start" x="502.62" y="-341.3" font-family="Arial" font-size="34.00" fill="#ffffff">verification kernel</text>
@@ -38,9 +38,9 @@
 <text xml:space="preserve" text-anchor="start" x="491.38" y="-211.8" font-family="Arial" font-size="24.00" fill="#ffffff">reference proof obligations</text>
 <text xml:space="preserve" text-anchor="start" x="523.62" y="-187.8" font-family="Arial" font-size="24.00" fill="#ffffff">from the core model.</text>
 </g>
-<!-- 19 -->
-<g id="19" class="node">
-<title>19</title>
+<!-- 26 -->
+<g id="26" class="node">
+<title>26</title>
 <polygon fill="#075985" stroke="#043e5d" points="682.92,-760.4 299.07,-760.4 299.07,-554.2 682.92,-554.2 682.92,-760.4"/>
 <text xml:space="preserve" text-anchor="start" x="346.62" y="-707.5" font-family="Arial" font-size="34.00" fill="#ffffff">Proof&#45;kernel export</text>
 <text xml:space="preserve" text-anchor="start" x="376.62" y="-687.75" font-family="Arial" font-size="19.00" fill="#ffffff">[Container: OCaml / JSON]</text>
@@ -49,17 +49,17 @@
 <text xml:space="preserve" text-anchor="start" x="327.88" y="-602" font-family="Arial" font-size="24.00" fill="#ffffff">possible Rocq synchronization</text>
 <text xml:space="preserve" text-anchor="start" x="342.88" y="-578" font-family="Arial" font-size="24.00" fill="#ffffff">after an adequacy decision.</text>
 </g>
-<!-- 19&#45;&gt;13 -->
-<g id="50" class="edge">
-<title>19&#45;&gt;13</title>
+<!-- 26&#45;&gt;20 -->
+<g id="49" class="edge">
+<title>26&#45;&gt;20</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M298.73,-580.11C274.06,-563.06 251.65,-542.6 235,-518.2 211.49,-483.75 203,-439.08 201.04,-398.92"/>
 <polygon fill="#444444" stroke="#444444" points="204.54,-398.84 200.7,-388.96 197.55,-399.07 204.54,-398.84"/>
 <text xml:space="preserve" text-anchor="start" x="235" y="-496.45" font-family="Arial" font-size="24.00" fill="#444444">4. uses core formulas and</text>
 <text xml:space="preserve" text-anchor="start" x="318.62" y="-469.45" font-family="Arial" font-size="24.00" fill="#444444">signatures</text>
 </g>
-<!-- 19&#45;&gt;14 -->
-<g id="51" class="edge">
-<title>19&#45;&gt;14</title>
+<!-- 26&#45;&gt;21 -->
+<g id="50" class="edge">
+<title>26&#45;&gt;21</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M519.38,-554C528.45,-524.66 539.16,-492.86 550.75,-464.2 554.13,-455.85 557.76,-447.35 561.56,-438.82"/>
 <polygon fill="#444444" stroke="#444444" points="564.7,-440.36 565.64,-429.81 558.33,-437.47 564.7,-440.36"/>
 <text xml:space="preserve" text-anchor="start" x="550.75" y="-496.45" font-family="Arial" font-size="24.00" fill="#444444">3. projects reference</text>
@@ -75,17 +75,17 @@
 <text xml:space="preserve" text-anchor="start" x="567.5" y="-934.2" font-family="Arial" font-size="24.00" fill="#ffffff">correction&#45;critical</text>
 <text xml:space="preserve" text-anchor="start" x="561.5" y="-910.2" font-family="Arial" font-size="24.00" fill="#ffffff">verification kernel.</text>
 </g>
-<!-- 2&#45;&gt;14 -->
-<g id="66" class="edge">
-<title>2&#45;&gt;14</title>
+<!-- 2&#45;&gt;21 -->
+<g id="62" class="edge">
+<title>2&#45;&gt;21</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M765.22,-886.26C773.55,-875.03 780.75,-863.02 786,-850.4 851.97,-691.94 847.66,-624.39 786,-464.2 782.62,-455.41 778.54,-446.8 773.92,-438.41"/>
 <polygon fill="#444444" stroke="#444444" points="777.07,-436.86 769.02,-429.97 771.01,-440.38 777.07,-436.86"/>
 <text xml:space="preserve" text-anchor="start" x="833.87" y="-662.55" font-family="Arial" font-size="24.00" fill="#444444">1. aligns with essential</text>
 <text xml:space="preserve" text-anchor="start" x="849.25" y="-635.55" font-family="Arial" font-size="24.00" fill="#444444">reference boundary</text>
 </g>
-<!-- 2&#45;&gt;19 -->
-<g id="68" class="edge">
-<title>2&#45;&gt;19</title>
+<!-- 2&#45;&gt;26 -->
+<g id="64" class="edge">
+<title>2&#45;&gt;26</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M529.07,-886.16C519.4,-875.11 510.87,-863.17 504.25,-850.4 491.94,-826.63 486.03,-798.95 483.73,-772.11"/>
 <polygon fill="#444444" stroke="#444444" points="487.22,-771.93 483.06,-762.19 480.24,-772.4 487.22,-771.93"/>
 <text xml:space="preserve" text-anchor="start" x="504.25" y="-828.65" font-family="Arial" font-size="24.00" fill="#444444">2. may inspect exchange</text>

@@ -2,12 +2,11 @@
 
 Date : 2026-07-26
 
-Statut : frontière implémentée.
+Statut : audit historique, supersédé pour l'architecture courante par
+ADR-0021. Les mesures et la cartographie ci-dessous restent celles de la
+séparation initiale.
 
 Référence analysée : `b60df9b3`.
-
-Le manifeste exécutable de la proposition est
-`engine_runtime_split_manifest.json`.
 
 ## Résultat
 
@@ -250,12 +249,14 @@ il reste une projection sémantique propre à Kairos. Il ne devient ni un
 contrat neutre, ni une source de vérité. La formalisation et les IR exportés
 restent la référence.
 
-## Décision recommandée
+## Décision historique
 
 Le découpage est faisable, utile et acyclique. Il retire réellement les outils
 externes des dépendances d'installation du noyau, contrairement à une nouvelle
 micro-extraction.
 
-Le manifeste a été implémenté uniquement par changements Dune/opam et
-affectation des tests. Aucun corps de preuve, de domaine, de frontend ou de
-backend n'a été modifié.
+La séparation initiale a été implémentée uniquement par changements Dune/opam
+et affectation des tests. Aucun corps de preuve, de domaine, de frontend ou de
+backend n'a été modifié à cette étape. ADR-0021 remplace ensuite sa
+décomposition application/composition/contrat autonome par le flux concret
+direct.

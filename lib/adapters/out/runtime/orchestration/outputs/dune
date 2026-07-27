@@ -11,9 +11,9 @@
   proof_traces
   proof_runner)
  (libraries
-  kairos_application
   kairos_domain_core
   kairos_proof_contract
+  kairos_runtime_core
   kairos_why3
   kairos_why3_runtime_view
   kairos_external_timing
@@ -37,26 +37,9 @@
   pipeline_cost_report_facts
   pipeline_cost_report)
  (libraries
-  kairos_application
   kairos_domain_core
   kairos_domain_verification
   kairos_domain_proof_export
   kairos_runtime_core
   kairos_artifact_graph_render
   yojson))
-
-(library
- (name kairos_runtime_outputs)
- (public_name kairos-engine-runtime.internal.runtime_outputs)
- (wrapped false)
- (modules instrumentation_artifacts output_mapper pipeline_outputs)
- (modules_without_implementation instrumentation_artifacts)
- (libraries
-  kairos_application
-  kairos_domain_core
-  kairos_runtime_core
-  kairos_runtime_proof
-  kairos_runtime_diagnostics
-  kairos_artifact_graph_render
-  kairos_external_graphviz
-  kairos_external_timing))

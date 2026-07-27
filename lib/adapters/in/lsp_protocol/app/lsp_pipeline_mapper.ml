@@ -16,14 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Contract = Kairos_engine_contract.Contract
+module Contract = Kairos_engine.Api.Contract
 
 let loc_of_engine (location : Contract.source_location) : Lsp_protocol.loc =
   {
     line = location.line;
-    col = location.column;
-    line_end = location.end_line;
-    col_end = location.end_column;
+    col = location.col;
+    line_end = location.line_end;
+    col_end = location.col_end;
   }
 
 let text_span_of_pipeline (span : Contract.text_span) :

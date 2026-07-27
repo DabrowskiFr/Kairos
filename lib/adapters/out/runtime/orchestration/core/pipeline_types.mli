@@ -1,19 +1,45 @@
-(** Stable, dependency-free data contract exposed by the Kairos engine. *)
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
+(** Canonical types for pipeline orchestration, outputs, and diagnostics. *)
+open Core_syntax
+
+(** One goal status line: [name, status, time_s, dump_path, vc_id]. *)
 
 type goal_info = string * string * float * string option * string option
+
+(** One completed goal event:
+    [index, name, status, time_s, dump_path, vc_id]. *)
+
+type goal_result = int * string * string * float * string option * string option
+
+(** Half-open span in a generated text artifact ([start_offset, end_offset]). *)
 
 type text_span = {
   start_offset : int;
   end_offset : int;
 }
 
-(** Source location independent from the Kairos parser representation. *)
-type source_location = {
-  line : int;
-  column : int;
-  end_line : int;
-  end_column : int;
-}
+(** Source location carried unchanged from the verified Kairos model. *)
+
+type source_location = Loc.loc
+
+(** Structured diagnostic attached to one proof trace. *)
 
 type proof_diagnostic = {
   category : string;
@@ -36,6 +62,8 @@ type proof_diagnostic = {
   suggestions : string list;
   limitations : string list;
 }
+
+(** Per-goal trace enriched with solver status and artifact locations. *)
 
 type proof_trace = {
   goal_index : int;
@@ -63,6 +91,8 @@ type proof_trace = {
   dump_path : string option;
   diagnostic : proof_diagnostic;
 }
+
+(** Main outputs of a complete pipeline run. *)
 
 type outputs = {
   why_text : string;
@@ -107,6 +137,8 @@ type outputs = {
   eliminated_clauses_text : string;
 }
 
+(** Outputs of the instrumentation/automata dump pass. *)
+
 type automata_outputs = {
   dot_text : string;
   labels_text : string;
@@ -136,19 +168,36 @@ type automata_outputs = {
   eliminated_clauses_text : string;
 }
 
-type why_outputs = {
-  why_text : string;
-  flow_meta : (string * (string * string) list) list;
-}
+(** Why text output with attached flow metadata. *)
+
+type why_outputs = { why_text : string; flow_meta : (string * (string * string) list) list }
+(** VC/SMT text outputs. *)
 
 type obligations_outputs = { vc_text : string; smt_text : string }
+
+(** Whole-pipeline proof-generation cost report. *)
+
 type cost_report_outputs = { cost_report_json : string }
+
+(** Proof-obligation encoding used by the backend.
+
+    [Explicit_product] is the current reference backend: it emits obligations
+    from explicit product edges. Other encodings must be proved equivalent to
+    this one before becoming defaults. *)
 
 type proof_encoding = Explicit_product
 
 val string_of_proof_encoding : proof_encoding -> string
+
 val proof_encoding_of_string : string -> proof_encoding option
+
 val default_proof_encoding : proof_encoding
+
+(** Optional proof-generation optimizations.
+
+    Disabling every field selects the reference pipeline shape intended to be
+    formalized first. Enabling fields may reduce the number or size of generated
+    obligations, but must not change the source property being checked. *)
 
 type proof_optimizations = {
   group_public_non_w_guarantees : bool;
@@ -161,8 +210,15 @@ type proof_optimizations = {
   why3_product_step_group_max_cost : int;
 }
 
+(** Reference, non-optimized proof generation. *)
+
 val reference_proof_optimizations : proof_optimizations
+
+(** Default interactive/prover-oriented proof generation. *)
+
 val default_proof_optimizations : proof_optimizations
+
+(** Runtime configuration of the full pipeline execution. *)
 
 type config = {
   input_file : string;
@@ -184,6 +240,8 @@ type config = {
   proof_optimizations : proof_optimizations;
 }
 
+(** Unified pipeline error type. *)
+
 type error =
   | Parse_error of string
   | Elaboration_error of string
@@ -195,30 +253,6 @@ type error =
   | Io_error of string
   | Internal_error of string
 
+(** Pretty-printer for pipeline errors. *)
+
 val error_to_string : error -> string
-
-type source_diagnostic = {
-  line : int;
-  column : int;
-  severity : int;
-  source : string;
-  message : string;
-}
-
-type semantic_symbols = {
-  all : string list;
-  nodes : string list;
-  states : string list;
-  variables : string list;
-}
-
-type frontend_summary = {
-  node_count : int;
-  assume_count : int;
-  guarantee_count : int;
-}
-
-type generated_file = {
-  file_name : string;
-  contents : string;
-}

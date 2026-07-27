@@ -14,7 +14,8 @@ Read in this order:
 5. `08-crosscutting-concepts.md`
 6. `11-risks.md`
 
-The current conclusion is not "the architecture is fine". The conclusion is:
-the ports-and-adapters shape is worth keeping, but the runtime/proof-export
-boundary is too broad and must stay split so the essential Rocq adequacy
-boundary is not confused with an exchange projection.
+The current architecture keeps a strict scientific boundary and a concrete
+engine flow. The focused runtime/proof-export cuts remain visible so the
+essential Rocq adequacy boundary is not confused with an exchange projection,
+while single-instance application ports and forwarding layers have been
+removed.

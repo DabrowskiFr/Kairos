@@ -4,23 +4,21 @@
       "kairos_domain_core"
     ],
     "contracts": [
-      "kairos_engine_contract",
       "kairos_proof_contract",
       "kairos_automata_contract"
     ],
-    "verification": [
-      "kairos_domain_verification"
+    "domain": [
+      "kairos_domain_verification",
+      "kairos_domain_proof_export"
     ],
-    "application": [
-      "kairos_application"
+    "frontend": [
+      "kairos_input_lang"
     ],
-    "adapters_out": [
-      "kairos_verification_runtime",
+    "runtime": [
       "kairos_runtime_core",
       "kairos_runtime_automata",
       "kairos_runtime_proof",
       "kairos_runtime_diagnostics",
-      "kairos_runtime_outputs",
       "kairos_artifact_graph_render",
       "kairos_artifact_text_render",
       "kairos_c_codegen",
@@ -31,22 +29,14 @@
       "kairos_why3_render",
       "kairos_why3_runtime_view"
     ],
-    "composition": [
-      "kairos_composition"
-    ],
     "engine": [
       "kairos_engine"
     ],
-    "proof_export": [
-      "kairos_domain_proof_export"
-    ],
-    "adapters_in": [
-      "kairos_input_lang",
+    "delivery": [
       "kairos_lsp_protocol",
       "kairos_lsp_app"
     ],
     "external": [
-      "kairos_external_graphviz",
       "kairos_spot_adapter",
       "kairos_external_timing",
       "kairos_external_why3"
@@ -57,61 +47,40 @@
       "foundation"
     ],
     "contracts": [
-      "foundation",
       "contracts"
     ],
-    "verification": [
+    "domain": [
       "foundation",
-      "verification"
+      "domain"
     ],
-    "application": [
-      "application",
-      "verification",
-      "foundation"
+    "frontend": [
+      "foundation",
+      "frontend"
     ],
-    "adapters_out": [
-      "adapters_out",
-      "application",
+    "runtime": [
+      "foundation",
       "contracts",
-      "external",
-      "proof_export",
-      "verification",
-      "foundation"
-    ],
-    "composition": [
-      "composition",
-      "application",
-      "contracts",
-      "adapters_in",
-      "adapters_out",
-      "verification",
-      "foundation"
+      "domain",
+      "runtime",
+      "external"
     ],
     "engine": [
-      "engine",
-      "contracts",
-      "composition",
-      "application",
-      "adapters_in",
-      "adapters_out"
-    ],
-    "proof_export": [
-      "proof_export",
       "foundation",
-      "verification"
-    ],
-    "adapters_in": [
-      "adapters_in",
-      "engine",
       "contracts",
-      "application",
-      "foundation"
+      "domain",
+      "frontend",
+      "runtime",
+      "engine",
+      "external"
+    ],
+    "delivery": [
+      "contracts",
+      "engine",
+      "delivery"
     ],
     "external": [
-      "external",
       "contracts",
-      "foundation",
-      "verification"
+      "external"
     ]
   }
 }

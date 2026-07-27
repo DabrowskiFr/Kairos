@@ -32,9 +32,11 @@ type prepared_program = {
   reference_program : Verification_model.program_model;
 }
 
-val prepare_program_from_frontend :
+val prepare_program :
   proof_optimizations:Pipeline_types.proof_optimizations ->
-  frontend:Application_ports.frontend_input ->
+  imports:string list ->
+  parse_info:Flow_info.parse_info ->
+  verification_model:Verification_model.program_model ->
   (prepared_program, Pipeline_types.error) result
 
 val build_snapshot_from_supplied_automata :

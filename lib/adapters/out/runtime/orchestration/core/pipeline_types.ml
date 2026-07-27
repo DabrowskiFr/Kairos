@@ -20,11 +20,14 @@ include struct
 open Core_syntax
 
   type goal_info = string * string * float * string option * string option
+  type goal_result = int * string * string * float * string option * string option
 
   type text_span = {
     start_offset : int;
     end_offset : int;
   }
+
+  type source_location = Loc.loc
 
   type proof_diagnostic = {
     category : string;
@@ -67,7 +70,7 @@ open Core_syntax
     obligation_family : string option;
     obligation_category : string option;
     vc_id : string option;
-    source_span : Loc.loc option;
+    source_span : source_location option;
     why_span : text_span option;
     vc_span : text_span option;
     smt_span : text_span option;
@@ -95,8 +98,8 @@ open Core_syntax
     flow_meta : (string * (string * string) list) list;
     goals : goal_info list;
     proof_traces : proof_trace list;
-    vc_locs : (int * Loc.loc) list;
-    vc_locs_ordered : Loc.loc list;
+    vc_locs : (int * source_location) list;
+    vc_locs_ordered : source_location list;
     vc_spans_ordered : (int * int) list;
     why_spans : (int * (int * int)) list;
     vc_ids_ordered : int list;

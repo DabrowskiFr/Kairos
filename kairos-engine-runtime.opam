@@ -8,18 +8,18 @@ homepage: "https://github.com/DabrowskiFr/Kairos"
 bug-reports: "https://github.com/DabrowskiFr/Kairos/issues"
 dev-repo: "git+https://github.com/DabrowskiFr/Kairos.git"
 synopsis: "Concrete execution engine for Kairos verification"
-description: "Kairos engine facade, concrete composition, runtime orchestration, Kairos-specific backend projections, and code generation."
+description: "Kairos engine API and canonical contract, concrete runtime orchestration, Kairos-specific backend projections, Graphviz rendering, and code generation."
 depends: [
   "dune" {>= "3.10"}
   "ocaml"
   "kairos" {= version}
-  "kairos-engine-contract" {= version}
   "kairos-automata-contract" {= version}
   "kairos-spot-adapter" {= version}
   "kairos-proof-contract" {= version}
   "kairos-telemetry" {= version}
   "kairos-why3-adapter" {= version}
-  "kairos-graphviz-adapter" {= version}
+  "bos"
+  "fpath"
   "why3"
   "yojson"
 ]

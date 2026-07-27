@@ -3,7 +3,9 @@ digraph {
   graph [fontname="Arial", rankdir=LR, ranksep=1.0, nodesep=1.0]
   node [fontname="Arial", shape=box, margin="0.4,0.3"]
   edge [fontname="Arial"]
-  label=<<br /><font point-size="34">Component View: Kairos - Runtime orchestration</font>>
+  label=<<br /><font point-size="34">Component View: Kairos - Concrete engine</font>>
+
+  6 [id=6,shape=rect, label=<<font point-size="34">Graphviz</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External renderer for graph<br />artifacts.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
 
   subgraph cluster_7 {
     margin=25
@@ -13,34 +15,44 @@ digraph {
     fontcolor="#444444"
     fillcolor="#444444"
 
-    subgraph cluster_22 {
+    subgraph cluster_10 {
       margin=25
-      label=<<font point-size="24"><br />Runtime orchestration</font><br /><font point-size="19">[Container: OCaml / kairos-engine-runtime]</font>>
+      label=<<font point-size="24"><br />Concrete engine</font><br /><font point-size="19">[Container: OCaml / kairos-engine-runtime]</font>>
       labelloc=b
       color="#444444"
       fontcolor="#444444"
       fillcolor="#444444"
 
-      23 [id=23,shape=rect, label=<<font point-size="34">Snapshot build</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Consumes supplied automata and<br />assembles reference summaries,<br />instrumentation, and metrics.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
-      24 [id=24,shape=rect, label=<<font point-size="34">External automata<br />source</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Produces supplied automata<br />with Spot today, outside the<br />runtime core.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
-      25 [id=25,shape=rect, label=<<font point-size="34">Output selection</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Keeps minimal prove separate<br />from diagnostic artifact<br />construction.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
-      26 [id=26,shape=rect, label=<<font point-size="34">Proof runner</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Runs Why3 proof tasks,<br />callbacks, and goal reporting.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
-      27 [id=27,shape=rect, label=<<font point-size="34">Diagnostic artifact<br />bundle</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Builds graphs, canonical text,<br />obligations maps, and<br />cost-report inputs.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      11 [id=11,shape=rect, label=<<font point-size="34">Public engine API</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Exposes behavior and the<br />canonical contract as<br />Kairos_engine.Api.Contract.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      12 [id=12,shape=rect, label=<<font point-size="34">Engine_flow</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Coordinates the single<br />concrete frontend, snapshot,<br />output, callback, and timing<br />flow.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      13 [id=13,shape=rect, label=<<font point-size="34">Snapshot build</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Consumes supplied automata and<br />assembles reference summaries,<br />instrumentation, and metrics.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      14 [id=14,shape=rect, label=<<font point-size="34">External automata<br />source</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Produces supplied automata<br />with Spot today, outside the<br />runtime core.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      15 [id=15,shape=rect, label=<<font point-size="34">Output selection</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Keeps minimal prove separate<br />from diagnostic artifact<br />construction.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      16 [id=16,shape=rect, label=<<font point-size="34">Proof runner</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Runs Why3 proof tasks,<br />callbacks, and goal reporting.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      17 [id=17,shape=rect, label=<<font point-size="34">Diagnostic artifact<br />bundle</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Builds graphs, canonical text,<br />obligations maps, and<br />cost-report inputs.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      18 [id=18,shape=rect, label=<<font point-size="34">Graphviz process<br />service</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Kairos_engine.Graphviz_render<br />invokes Graphviz on<br />already-rendered DOT text.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
     }
 
-    14 [id=14,shape=rect, label=<<font point-size="34">Reference<br />verification kernel</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
-    19 [id=19,shape=rect, label=<<font point-size="34">Proof-kernel export</font><br /><font point-size="19">[Container: OCaml / JSON]</font><br /><br /><font point-size="24">Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
-    31 [id=31,shape=rect, label=<<font point-size="34">External tool<br />adapters</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Adapter layer for Spot, Why3,<br />Z3, Graphviz, and timing<br />services.</font>>, style=filled, color="#4a4f59", fillcolor="#6b7280", fontcolor="#ffffff"]
+    19 [id=19,shape=rect, label=<<font point-size="34">Kairos frontend</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Parses the surface language<br />and elaborates it to the core<br />verification model.</font>>, style=filled, color="#5628a5", fillcolor="#7c3aed", fontcolor="#ffffff"]
+    21 [id=21,shape=rect, label=<<font point-size="34">Reference<br />verification kernel</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
+    26 [id=26,shape=rect, label=<<font point-size="34">Proof-kernel export</font><br /><font point-size="19">[Container: OCaml / JSON]</font><br /><br /><font point-size="24">Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
+    32 [id=32,shape=rect, label=<<font point-size="34">External tool<br />adapters</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Narrow Automata_exchange and<br />Proof_backend_contract<br />boundaries for Spot, Why3, Z3,<br />and timing services.</font>>, style=filled, color="#4a4f59", fillcolor="#6b7280", fontcolor="#ffffff"]
   }
 
-  19 -> 14 [id=51, label=<<font point-size="24">Uses product and automata<br />analysis</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  14 -> 19 [id=75, label=<<font point-size="24">Provides exchange-ready<br />reference view</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  23 -> 24 [id=77, label=<<font point-size="24">Requests supplied automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  24 -> 31 [id=78, label=<<font point-size="24">Calls Spot adapter</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  24 -> 14 [id=80, label=<<font point-size="24">Supplies automata for<br />validation</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  23 -> 14 [id=83, label=<<font point-size="24">Builds reference product<br />from validated automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  25 -> 26 [id=86, label=<<font point-size="24">Runs minimal proof path</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  25 -> 27 [id=87, label=<<font point-size="24">Builds diagnostics only<br />when requested</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  27 -> 19 [id=89, label=<<font point-size="24">Builds proof-kernel<br />diagnostics</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  26 -> 21 [id=50, label=<<font point-size="24">Uses product and automata<br />analysis</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  21 -> 26 [id=71, label=<<font point-size="24">Provides exchange-ready<br />reference view</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  11 -> 12 [id=73, label=<<font point-size="24">Delegates to the concrete<br />flow</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  12 -> 19 [id=74, label=<<font point-size="24">Parses and elaborates</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  12 -> 13 [id=75, label=<<font point-size="24">Builds a runtime snapshot</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  12 -> 15 [id=76, label=<<font point-size="24">Selects and maps outputs</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  13 -> 14 [id=77, label=<<font point-size="24">Requests supplied automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  14 -> 32 [id=78, label=<<font point-size="24">Calls Spot adapter</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  14 -> 21 [id=80, label=<<font point-size="24">Supplies automata for<br />validation</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  13 -> 21 [id=83, label=<<font point-size="24">Builds reference product<br />from validated automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  15 -> 16 [id=86, label=<<font point-size="24">Runs minimal proof path</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  15 -> 17 [id=87, label=<<font point-size="24">Builds diagnostics only<br />when requested</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  15 -> 18 [id=88, label=<<font point-size="24">Renders PNG only when<br />requested</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  18 -> 6 [id=89, label=<<font point-size="24">Invokes external process</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  17 -> 26 [id=91, label=<<font point-size="24">Builds proof-kernel<br />diagnostics</font>>, style="dashed", color="#444444", fontcolor="#444444"]
 
 }

@@ -13,16 +13,16 @@ digraph {
     fontcolor="#444444"
     fillcolor="#444444"
 
-    13 [id=13,shape=rect, label=<<font point-size="34">Domain core</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Core syntax, verification<br />model, shared IR, temporal<br />layout, and formula utilities.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
-    14 [id=14,shape=rect, label=<<font point-size="34">Reference<br />verification kernel</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
-    19 [id=19,shape=rect, label=<<font point-size="34">Proof-kernel export</font><br /><font point-size="19">[Container: OCaml / JSON]</font><br /><br /><font point-size="24">Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
+    20 [id=20,shape=rect, label=<<font point-size="34">Domain core</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Core syntax, verification<br />model, shared IR, temporal<br />layout, and formula utilities.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
+    21 [id=21,shape=rect, label=<<font point-size="34">Reference<br />verification kernel</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
+    26 [id=26,shape=rect, label=<<font point-size="34">Proof-kernel export</font><br /><font point-size="19">[Container: OCaml / JSON]</font><br /><br /><font point-size="24">Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
   }
 
   2 [id=2,shape=rect, label=<<font point-size="34">Rocq formalization</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">Formal model of the<br />correction-critical<br />verification kernel.</font>>, style=filled, color="#0a524d", fillcolor="#0f766e", fontcolor="#ffffff"]
 
-  2 -> 14 [id=66, label=<<font point-size="24">1. aligns with essential<br />reference boundary</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  2 -> 19 [id=68, label=<<font point-size="24">2. may inspect exchange<br />projection</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  19 -> 14 [id=51, label=<<font point-size="24">3. projects reference<br />product and clauses</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  19 -> 13 [id=50, label=<<font point-size="24">4. uses core formulas and<br />signatures</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  2 -> 21 [id=62, label=<<font point-size="24">1. aligns with essential<br />reference boundary</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  2 -> 26 [id=64, label=<<font point-size="24">2. may inspect exchange<br />projection</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  26 -> 21 [id=50, label=<<font point-size="24">3. projects reference<br />product and clauses</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  26 -> 20 [id=49, label=<<font point-size="24">4. uses core formulas and<br />signatures</font>>, style="dashed", color="#444444", fontcolor="#444444"]
 
 }

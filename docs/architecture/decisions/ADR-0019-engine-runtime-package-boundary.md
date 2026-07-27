@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded by ADR-0021
 
 ## Context
 
@@ -43,5 +43,5 @@ development.
 - no semantic or source-body change is authorized by this ADR;
 - acceptance requires isolated package builds and an unchanged proof corpus.
 
-The exact proposed mapping and acceptance criteria are recorded in
-`../engine_runtime_split_manifest.json`.
+The package mapping recorded here is historical. ADR-0021 defines the current
+direct engine flow and canonical contract.

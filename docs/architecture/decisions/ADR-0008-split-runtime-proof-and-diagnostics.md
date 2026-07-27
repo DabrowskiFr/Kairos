@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The public-facade clause is superseded by ADR-0021.
 
 ## Context
 
@@ -44,3 +44,7 @@ Why3 backend.
 - The public facade still coordinates the flow, so it remains a place to watch
   for accidental growth.
 - Architecture fitness checks enforce the dependency split.
+
+ADR-0021 later places the public facade and concrete output coordination
+directly in `lib/engine`; the focused core, automata, proof, and diagnostic
+library boundaries defined here remain in force.

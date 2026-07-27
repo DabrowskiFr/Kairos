@@ -3,6 +3,8 @@
  (public_name kairos-engine-runtime.internal.runtime_core)
  (wrapped false)
  (modules
+  flow_info
+  pipeline_types
   runtime_snapshot
   runtime_ir_merge
   result_utils
@@ -11,7 +13,6 @@
   contract_partition
   pipeline_build)
  (libraries
-  kairos_application
   kairos_domain_core
   kairos_domain_verification
   kairos_external_timing))

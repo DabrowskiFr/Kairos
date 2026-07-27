@@ -16,10 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Aggregated VC taxonomy fields for timing flow metadata. *)
+(** Aggregated VC taxonomy fields for concrete engine metadata. *)
 
-let fmt_s = Verification_flow_timing_fields.fmt_s
-let sanitize_csv_value = Verification_flow_timing_fields.sanitize_csv_value
+let fmt_s = Engine_timing_fields.fmt_s
+let sanitize_csv_value = Engine_timing_fields.sanitize_csv_value
 
 type vc_taxonomy_acc = {
   mutable goal_count : int;

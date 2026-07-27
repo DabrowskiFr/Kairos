@@ -4,7 +4,8 @@
 
 ```text
 CLI
-  -> application use-case
+  -> Kairos_engine.Api
+  -> private Engine_flow
   -> frontend parse/elaborate
   -> runtime core prepares program
   -> external automata source produces supplied automata
@@ -30,11 +31,12 @@ implicit dependencies of ordinary proof execution.
 
 ```text
 CLI or LSP
-  -> application dump use-case
+  -> Kairos_engine.Api
+  -> private Engine_flow
   -> frontend + runtime snapshot
   -> Pipeline_artifact_bundle.build
   -> graph/text/canonical/obligations-map output
-  -> standalone Graphviz adapter when PNG output is requested
+  -> Kairos_engine.Graphviz_render when PNG output is requested
 ```
 
 Diagnostic dumps may inspect proof-kernel summaries, but they must not define
@@ -59,7 +61,8 @@ Rocq: automata are parameters, not objects whose production is formalized.
 
 ```text
 CLI
-  -> application use-case
+  -> Kairos_engine.Api
+  -> private Engine_flow
   -> snapshot
   -> Kairos IR-to-WhyML projection
   -> `kairos-proof-contract`
@@ -94,11 +97,16 @@ synchronization, it should be versioned and independent from:
 
 ## Runtime View Assessment
 
-The current `--prove` runtime path is acceptable after the `.kobj` removal,
-runtime library split, and automata-source split: ordinary proof no longer
-depends on the removed modular artifact or on diagnostic artifact construction,
-and `kairos_runtime_core` no longer invokes Spot. Future changes should keep
-semantic construction in `domain`, external automata production in
+The current `--prove` runtime path is a direct concrete flow:
+`Kairos_engine.Api` delegates to private `Engine_flow`, which coordinates the
+frontend and focused runtime libraries. `Pipeline_types` is the single
+canonical data contract exposed as `Api.Contract`; there is no separate
+application, composition, engine-contract, `verification_runtime`, or
+`runtime_outputs` layer.
+
+Ordinary proof does not depend on diagnostic artifact construction, and
+`kairos_runtime_core` does not invoke Spot. Future changes should keep semantic
+construction in `domain`, external automata production in
 `kairos_runtime_automata`, proof execution in `kairos-why3-adapter`, neutral
-result attribution in `kairos_runtime_proof`, and reporting/profiling in
-`kairos_runtime_diagnostics`.
+result attribution in `kairos_runtime_proof`, reporting/profiling in
+`kairos_runtime_diagnostics`, and concrete coordination in `Engine_flow`.

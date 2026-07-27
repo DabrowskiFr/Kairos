@@ -16,38 +16,39 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Make (P : Application_ports.PORTS) = struct
-  let fmt_s = Verification_flow_timing_fields.fmt_s
+(** Concrete timing metadata enrichment owned by the engine. *)
+let fmt_s = Engine_timing_fields.fmt_s
 
-  let solver_sum_s = Verification_flow_timing_fields.solver_sum_s
+  let solver_sum_s = Engine_timing_fields.solver_sum_s
 
   let goal_status_is_pending =
-    Verification_flow_timing_fields.goal_status_is_pending
+    Engine_timing_fields.goal_status_is_pending
 
   let why3_worker_timing_fields =
-    Verification_flow_timing_fields.why3_worker_timing_fields
+    Engine_timing_fields.why3_worker_timing_fields
 
   let ir_pass_size_fields =
-    Verification_flow_timing_fields.ir_pass_size_fields
+    Engine_timing_fields.ir_pass_size_fields
 
   let ir_fact_family_fields =
-    Verification_flow_timing_fields.ir_fact_family_fields
+    Engine_timing_fields.ir_fact_family_fields
 
   let product_group_fields =
-    Verification_flow_timing_fields.product_group_fields
+    Engine_timing_fields.product_group_fields
 
   let product_individual_reason_fields =
-    Verification_flow_timing_fields.product_individual_reason_fields
+    Engine_timing_fields.product_individual_reason_fields
 
-  let vc_taxonomy_fields = Verification_flow_vc_taxonomy.fields
+  let vc_taxonomy_fields = Engine_vc_taxonomy.fields
 
-  let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
-      ~(snap_before : P.Timing.snapshot) (out : Pipeline_types.outputs) :
-      Pipeline_types.outputs =
-    let t_end = P.Timing.now_s () in
-    let counters =
-      P.Timing.diff ~before:snap_before ~after_:(P.Timing.snapshot ())
-    in
+let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
+    ~(snap_before : External_timing.snapshot)
+    (out : Pipeline_types.outputs) : Pipeline_types.outputs =
+  let t_end = Unix.gettimeofday () in
+  let counters =
+    External_timing.diff ~before:snap_before
+      ~after_:(External_timing.snapshot ())
+  in
     let solver_s = solver_sum_s out.goals in
     let pending_goal_count =
       List.fold_left
@@ -90,13 +91,13 @@ module Make (P : Application_ports.PORTS) = struct
     let worker_count = List.length counters.why3_workers in
     let worker_wall_sum_s =
       List.fold_left
-        (fun acc (worker : Application_ports.why3_worker_counters) ->
+        (fun acc (worker : External_timing.why3_worker_snapshot) ->
           acc +. worker.worker_wall_s)
         0.0 counters.why3_workers
     in
     let worker_wall_max_s =
       List.fold_left
-        (fun acc (worker : Application_ports.why3_worker_counters) ->
+        (fun acc (worker : External_timing.why3_worker_snapshot) ->
           max acc worker.worker_wall_s)
         0.0 counters.why3_workers
     in
@@ -105,7 +106,7 @@ module Make (P : Application_ports.PORTS) = struct
       | [] -> 0.0
       | worker :: rest ->
           List.fold_left
-            (fun acc (worker : Application_ports.why3_worker_counters) ->
+            (fun acc (worker : External_timing.why3_worker_snapshot) ->
               min acc worker.worker_wall_s)
             worker.worker_wall_s rest
     in
@@ -128,8 +129,8 @@ module Make (P : Application_ports.PORTS) = struct
     let worker_timing_fields =
       counters.why3_workers
       |> List.sort
-           (fun (left : Application_ports.why3_worker_counters)
-                (right : Application_ports.why3_worker_counters) ->
+           (fun (left : External_timing.why3_worker_snapshot)
+                (right : External_timing.why3_worker_snapshot) ->
              Int.compare left.worker_id right.worker_id)
       |> List.concat_map why3_worker_timing_fields
     in
@@ -220,5 +221,4 @@ module Make (P : Application_ports.PORTS) = struct
       @ ir_fact_family_fields
       @ worker_timing_fields
     in
-    { out with flow_meta = out.flow_meta @ [ ("timings", timing_fields) ] }
-end
+  { out with flow_meta = out.flow_meta @ [ ("timings", timing_fields) ] }

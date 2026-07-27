@@ -16,13 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Timing and diagnostic flow metadata for verification use-cases. *)
+(** Proof diagnostics finalization used by the concrete engine flow. *)
 
-module Make (P : Application_ports.PORTS) : sig
-  val with_timing_flow_meta :
-    t0:float ->
-    t_build_done:float ->
-    snap_before:P.Timing.snapshot ->
-    Pipeline_types.outputs ->
-    Pipeline_types.outputs
-end
+val generic_diagnostic_for_status :
+  status:string ->
+  Pipeline_types.proof_diagnostic ->
+  Pipeline_types.proof_diagnostic
+
+(** [apply_goal_results_to_outputs] service entrypoint. *)
+
+val apply_goal_results_to_outputs :
+  out:Pipeline_types.outputs ->
+  goal_results:(int * string * string * float * string option * string option) list ->
+  Pipeline_types.outputs

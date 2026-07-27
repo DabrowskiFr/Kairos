@@ -90,12 +90,12 @@ let write_text_output out text =
   `Ok ()
 
 let write_generated_files ~out_dir
-    (files : Kairos_engine_contract.Contract.generated_file list) =
+    (files : Kairos_engine.Api.generated_file list) =
   match Bos.OS.Dir.create ~path:true (Fpath.v out_dir) with
   | Error (`Msg msg) -> `Error (false, msg)
   | Ok _ ->
       List.iter
-        (fun (file : Kairos_engine_contract.Contract.generated_file) ->
+        (fun (file : Kairos_engine.Api.generated_file) ->
           write_target Fpath.(to_string (v out_dir / file.file_name)) file.contents)
         files;
       `Ok ()
@@ -137,7 +137,7 @@ let csv_escape field =
     Buffer.contents b
 
 let write_goals_dump out
-    (traces : Kairos_engine_contract.Contract.proof_trace list) =
+    (traces : Kairos_engine.Api.Contract.proof_trace list) =
   let header =
     "index,name,status,time_s,why3_prepare_s,why3_print_s,why3_spawn_s,\
      why3_wait_s,why3_solver_s,dump_path,vcid,node,transition,obligation_kind,\
@@ -145,7 +145,7 @@ let write_goals_dump out
   in
   let rows =
     List.mapi
-      (fun idx (trace : Kairos_engine_contract.Contract.proof_trace) ->
+      (fun idx (trace : Kairos_engine.Api.Contract.proof_trace) ->
         [
           string_of_int (idx + 1);
           trace.goal_name;

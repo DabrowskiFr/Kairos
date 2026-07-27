@@ -3,7 +3,7 @@
  (public_name kairos)
  (package kairos-cli)
  (modules cli_types cli_pipeline_service cli_output cli_runtime kairos)
- (libraries kairos_engine kairos_engine_contract bos fpath cmdliner))
+ (libraries kairos_engine bos fpath cmdliner))
 
 (rule
  (alias runtest)

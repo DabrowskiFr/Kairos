@@ -85,7 +85,6 @@
   kairos_engine
   kairos_lsp_protocol
   kairos_lsp_app
-  kairos_external_graphviz
   yojson
   unix
   str

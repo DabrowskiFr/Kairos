@@ -16,6 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+(** Process adapter used by engine and LSP graph capabilities. *)
 let dot_png_from_text_diagnostic (dot_text : string) : string option * string option =
   let open Bos in
   match OS.File.tmp "kairos_ide_%s.dot" with

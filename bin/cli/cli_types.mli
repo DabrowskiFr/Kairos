@@ -10,7 +10,7 @@
 
 (** Parsed CLI command model. *)
 
-module Pipeline = Kairos_engine_contract.Contract
+module Pipeline = Kairos_engine.Api.Contract
 
 type cli_args = {
   file : string;

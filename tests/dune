@@ -25,6 +25,7 @@
   ../scripts/check_reference_pipeline_boundaries.py
   ../scripts/filter_why3_product_backend_graph.py
   ../scripts/generate_architecture_views.sh
+  ../scripts/check_why_backend_guardrail.py
   check_c_codegen.sh
   check_elaboration_frontier.sh
   check_proof_export_history.sh
@@ -69,6 +70,7 @@
    (run python3 ../scripts/check_reference_pipeline_boundaries.py)
    (run python3 ../scripts/check_rocq_alignment_manifest.py)
    (run python3 ../scripts/check_architecture_fitness.py)
+   (run python3 ../scripts/check_why_backend_guardrail.py)
    (run python3 ../scripts/check_quality_baseline.py)
    (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_c_codegen.sh %{exe:../bin/cli/kairos.exe})
@@ -81,21 +83,40 @@
 
 (test
  (name product_group_policy_partition_tests)
+ (modules product_group_policy_partition_tests)
  (package kairos-engine-runtime)
  (libraries kairos_why3_compile))
 
 (test
  (name canonical_obligations_tests)
+ (modules canonical_obligations_tests)
  (libraries kairos_domain_core kairos_domain_verification))
 
 (test
  (name tool_contract_tests)
+ (modules tool_contract_tests)
  (libraries kairos_proof_contract))
 
 (test
  (name automata_exchange_adapter_tests)
+ (modules automata_exchange_adapter_tests)
  (package kairos-engine-runtime)
  (libraries
   kairos_automata_contract
   kairos_domain_core
   kairos_runtime_automata))
+
+(test
+ (name graphviz_render_tests)
+ (modules graphviz_render_tests)
+ (package kairos-engine-runtime)
+ (libraries kairos_engine))
+
+(test
+ (name engine_callback_tests)
+ (modules engine_callback_tests)
+ (package kairos-engine-runtime)
+ (libraries kairos_engine)
+ (deps ok/edge_rise.kairos)
+ (action
+  (run %{test} %{dep:ok/edge_rise.kairos})))

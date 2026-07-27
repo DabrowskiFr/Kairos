@@ -30,13 +30,11 @@ trap cleanup EXIT
 
 base_packages=(
   kairos
-  kairos-engine-contract
   kairos-automata-contract
   kairos-spot-adapter
   kairos-proof-contract
   kairos-telemetry
   kairos-why3-adapter
-  kairos-graphviz-adapter
 )
 
 case "$boundary" in

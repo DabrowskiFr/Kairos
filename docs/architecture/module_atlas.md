@@ -15,27 +15,28 @@ commande Kairos normale.
 ```text
 bin/cli/kairos.ml
   -> Kairos_engine.Api
-  -> Verification_flow_usecases
-  -> Kairos_usecase_wiring
+  -> Engine_flow
   -> Kairos_frontend
   -> kairos_runtime_core / Pipeline_build
   -> kairos-automata-contract
   -> kairos-spot-adapter
   -> kairos_runtime_automata / Runtime_automata_source
   -> Orchestration / From_model / passes
-  -> kairos_verification_runtime / Pipeline_outputs
+  -> Engine_flow / Pipeline_outputs
   -> kairos_runtime_proof ou kairos_runtime_diagnostics
 ```
 
 Le serveur LSP et la CLI entrent par `Kairos_engine.Api`. Leurs données
-publiques viennent du paquet autonome et sans dépendance
-`kairos-engine-contract`; la façade effectue une conversion explicite vers
-les types d'orchestration internes. La façade et la composition concrète
-appartiennent à `kairos-engine-runtime`, tandis que le domaine, l'application
-et le frontend restent dans `kairos`. Cette façade appelle
-les mêmes use-cases et le même câblage, mais empêche les paquets
-`kairos-lsp` et `kairos-cli` d'importer directement le domaine, les backends ou
-l'orchestration interne.
+publiques utilisent le contrat canonique `Pipeline_types`, exposé sous le nom
+`Kairos_engine.Api.Contract`. Il n'existe plus de copie de ce contrat ni de
+conversion vers des DTO de moteur autonomes.
+
+La façade appartient à `kairos-engine-runtime` et délègue directement au flux
+concret privé `Engine_flow`. Celui-ci coordonne le frontend et les
+bibliothèques runtime spécialisées. Les paquets `kairos-lsp` et `kairos-cli`
+n'importent donc ni le domaine, ni les backends, ni les modules
+d'orchestration internes, sans qu'une couche application/composition
+intermédiaire soit nécessaire.
 
 La separation essentielle est :
 
@@ -46,8 +47,7 @@ Correction:
   lib/domain/proof_export
 
 Execution de l'outil:
-  lib/application
-  lib/composition
+  lib/engine
   lib/adapters/*
   bin/*
 ```
@@ -57,24 +57,22 @@ Execution de l'outil:
 | Etape | Module / fichier | Fonction cle | Role |
 | --- | --- | --- | --- |
 | 1 | `bin/cli/kairos.ml` | `exec_action` | Decode les options CLI et choisit l'action |
-| 2 | `lib/engine/api.ml` | `run` | Façade publique du moteur pour la CLI |
-| 3 | `lib/application/verification_flow_usecases.ml` | `run` | Orchestre le use-case application |
-| 4 | `lib/composition/kairos_usecase_wiring.ml` | `Ports` | Branche les ports abstraits sur les adaptateurs concrets |
-| 5 | `lib/adapters/in/kairos_lang/kairos_frontend.ml` | `parse_input` | Lit le fichier, parse, elabore, produit `Verification_model` |
-| 6 | `lib/adapters/out/runtime/orchestration/core/pipeline_build.ml` | `prepare_program_from_frontend` | Prepare le programme runtime |
-| 7 | `lib/adapters/out/runtime/orchestration/core/contract_partition.ml` | `partition_program` | Regroupe ou preserve les contrats publics selon les options |
-| 8 | `lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml` | `produce_with_spot` | Produit un paquet d'automates fourni au core runtime |
-| 9 | `lib/adapters/out/runtime/orchestration/automata/automata_generation.ml` | `run` | Transforme assumptions/guarantees en automates via un builder injecte |
-| 10 | `packages/spot/spot_automaton_builder.ml` | `build` | Paquet autonome appelant Spot sur le contrat neutre |
-| 11 | `lib/domain/verification/orchestration.ml` | `build_reference_product` | Point nomme du produit de reference, apres validation de forme des automates |
-| 12 | `lib/domain/verification/from_model.ml` | `of_model_program` | Produit les summaries depuis programme + automates valides pour le produit |
-| 13 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Conserve l'IR relationnel apres `Post`, puis produit l'IR backend via `Temporal_lower` et `Formula_sharing` |
-| 14 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles/IR utilises ensuite |
-| 15 | `lib/adapters/out/runtime/orchestration/outputs/pipeline_outputs.ml` | `build_outputs` | En mode `--prove`, evite les dumps lourds et lance le proof runner |
-| 16 | `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | `run` | Soumet le WhyML et attribue les resultats neutres |
-| 17 | `lib/adapters/out/provers/why3/*` | `Why_compile`, `Why_pipeline` | Projection de l'IR Kairos vers WhyML |
-| 18 | `packages/why3/*` | `Why_execution`, `Why_contract_prove` | Paquet autonome encapsulant tous les types et appels Why3/provers |
-| 19 | `packages/graphviz/graphviz_render.ml` | `dot_png_from_text_diagnostic` | Paquet autonome appelant Graphviz sur du texte DOT |
+| 2 | `lib/engine/api.ml` | `run` | Façade publique ; délègue au moteur concret |
+| 3 | `lib/engine/engine_flow.ml` | `run` | Coordonne directement parsing, snapshot, sorties et timing |
+| 4 | `lib/adapters/in/kairos_lang/kairos_frontend.ml` | `parse_input` | Lit le fichier, parse, elabore, produit `Verification_model` |
+| 5 | `lib/adapters/out/runtime/orchestration/core/pipeline_build.ml` | `prepare_program` | Prepare le programme runtime |
+| 6 | `lib/adapters/out/runtime/orchestration/core/contract_partition.ml` | `partition_program` | Regroupe ou preserve les contrats publics selon les options |
+| 7 | `lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml` | `produce_with_spot` | Produit un paquet d'automates fourni au core runtime |
+| 8 | `lib/adapters/out/runtime/orchestration/automata/automata_generation.ml` | `run` | Transforme assumptions/guarantees en automates via un builder injecte |
+| 9 | `packages/spot/spot_automaton_builder.ml` | `build` | Paquet autonome appelant Spot sur le contrat neutre |
+| 10 | `lib/domain/verification/orchestration.ml` | `build_reference_product` | Point nomme du produit de reference, apres validation de forme des automates |
+| 11 | `lib/domain/verification/from_model.ml` | `of_model_program` | Produit les summaries depuis programme + automates valides pour le produit |
+| 12 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Conserve l'IR relationnel apres `Post`, puis produit l'IR backend via `Temporal_lower` et `Formula_sharing` |
+| 13 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles/IR utilises ensuite |
+| 14 | `lib/engine/pipeline_outputs.ml` | `build_outputs` | En mode `--prove`, evite les dumps lourds et lance le proof runner |
+| 15 | `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | `run` | Soumet le WhyML et attribue les resultats neutres |
+| 16 | `lib/adapters/out/provers/why3/*` | `Why_compile`, `Why_pipeline` | Projection de l'IR Kairos vers WhyML |
+| 17 | `packages/why3/*` | `Why_execution`, `Why_contract_prove` | Paquet autonome encapsulant tous les types et appels Why3/provers |
 
 Point important : en mode `--prove` minimal, `Pipeline_outputs.is_prove_only_run`
 fait que `Pipeline_artifact_bundle.build` n'est pas appele. Donc les graphes
@@ -85,10 +83,10 @@ et gros dumps ne sont pas produits.
 | Etape | Module / fichier | Fonction cle | Role |
 | --- | --- | --- | --- |
 | 1 | `bin/cli/kairos.ml` | `exec_dump_mode` | Choisit le dump demande |
-| 2 | `lib/application/verification_flow_usecases.ml` | use-case de dump | Orchestre le pipeline sans lancer `--prove` |
+| 2 | `lib/engine/api.ml`, `lib/engine/engine_flow.ml` | passe de dump demandee | Construit le snapshot et choisit la projection sans use-case intermediaire |
 | 3 | `lib/adapters/out/runtime/orchestration/outputs/pipeline_artifact_bundle.ml` | `build` | Construit graphes, textes et donnees proof-kernel |
 | 4 | `lib/domain/proof_export/proof_kernel_pass.ml` | `compile_node` | Produit `Proof_kernel_types.node_ir` |
-| 5 | `lib/adapters/out/runtime/orchestration/outputs/output_mapper.ml` | mapping de sortie | Assemble les sorties utilisateur |
+| 5 | `lib/engine/output_mapper.ml` | `map_outputs` | Assemble les sorties canoniques |
 
 Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 `--prove`.
@@ -97,7 +95,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 
 | Donnee | Type / module | Cree par | Consomme par |
 | --- | --- | --- | --- |
-| Contrat public du moteur | `Kairos_engine_contract.Contract` | `kairos.engine` à sa frontière | CLI, LSP, clients embarqués |
+| Contrat canonique du moteur | `Kairos_engine.Api.Contract` alias de `Pipeline_types` | moteur concret et services runtime | CLI, LSP, clients embarqués |
 | Surface AST | `Kx_surface_syntax` | Parser/frontend | `Kx_elaborate` |
 | Elaborated AST | `Kx_ast` | `Kx_parse_api` / `Kx_elaborate` | `Kairos_to_model` |
 | Core program model | `Verification_model.program_model` | `Kairos_to_model` | `Pipeline_build`, runtime automata source, `From_model` |
@@ -108,7 +106,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Relational proof IR | `Ir.node_ir list` | `Orchestration.build_instrumented_ir` apres `Post` | proof export |
 | Lowered backend IR | `Ir.program_ir` | `Orchestration.build_instrumented_ir` apres `Temporal_lower` | Why3 backend |
 | Rocq alignment projections | `Product_summary_projection.t`, `Obligation_family_projection.clause_family`, `Step_contract_projection.t` | `lib/domain/verification` | proof export, Why3 runtime view |
-| Runtime snapshot | `Runtime_snapshot.pipeline_snapshot` | `Pipeline_build` in `kairos_runtime_core` | facade outputs, proof runner, diagnostics |
+| Runtime snapshot | `Runtime_snapshot.pipeline_snapshot` | `Pipeline_build` dans `kairos_runtime_core` | `Engine_flow`, proof runner, diagnostics |
 | Kernel IR | `Proof_kernel_types.node_ir` | `Proof_kernel_pass` | diagnostics, projection Rocq possible apres adequation, cost report |
 | Why3 AST/text | backend-specific | `Why_compile` | Contrat de preuve |
 | Proof backend request | `Proof_backend_contract.request` | `Why_pipeline` | `kairos-why3-adapter` |
@@ -137,20 +135,21 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `kairos_to_model_node_validation.ml` | Validation des noeuds `Verification_model` elabores |
 | `kairos_to_model_validation.ml` | Facade de validation semantique du `Verification_model` elabore |
 | `kairos_to_model.ml` | Conversion Kx AST vers `Verification_model` |
-| `kairos_frontend.ml` | Adaptateur frontend complet : fichier -> `Application_ports.frontend_input` |
+| `kairos_frontend.ml` | Adaptateur frontend complet : fichier -> `Kairos_frontend.input` |
 
-### Application Et Wiring
+### Moteur Concret Et Contrat
 
 | Module | Responsabilite |
 | --- | --- |
-| `application_ports.ml/mli` | Interfaces abstraites entre use-cases et adaptateurs |
-| `pipeline_types.ml/mli` | Types de configuration, options, sorties et erreurs |
-| `verification_flow_timing_fields.ml` | Champs de metriques pour les metadonnees de timing |
-| `verification_flow_vc_taxonomy.ml` | Agrégation de taxonomie VC pour les metadonnees de timing |
-| `verification_flow_timing_meta.ml` | Assemblage applicatif des metadonnees de timing |
-| `verification_flow_usecases.ml` | Orchestration des use-cases et callbacks |
-| `kairos_usecase_wiring.ml` | Composition root : branche les ports sur les modules concrets |
-| `lib/engine/api.ml` | Façade publique en processus consommée par les adaptateurs de livraison |
+| `pipeline_types.ml/mli` | Contrat canonique de configuration, options, sorties, traces et erreurs ; exposé par `Kairos_engine.Api.Contract` |
+| `lib/engine/api.ml/mli` | Façade publique en processus consommée par les adaptateurs de livraison |
+| `lib/engine/engine_flow.ml` | Orchestration concrète unique : frontend, snapshot, sorties, callbacks et timing |
+| `lib/engine/pipeline_outputs.ml` | Sélection entre preuve minimale et sorties avec artefacts |
+| `lib/engine/output_mapper.ml` | Assemblage des sorties canoniques du moteur |
+| `lib/engine/engine_timing_fields.ml` | Champs de metriques pour les metadonnees de timing |
+| `lib/engine/engine_vc_taxonomy.ml` | Agrégation de taxonomie VC pour les metadonnees de timing |
+| `lib/engine/engine_timing_meta.ml` | Assemblage des metadonnees de timing du moteur |
+| `Kairos_engine.Graphviz_render` | Service public du moteur pour invoquer Graphviz sur du texte DOT |
 
 ### Contrats Des Outils Externes
 
@@ -225,9 +224,10 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `pipeline_cost_report_transition_lemmas.ml` | Analyse diagnostique des candidats de lemmes de transition |
 | `pipeline_cost_report_facts.ml` | Population de formules et repetitions dans le rapport de cout |
 | `pipeline_cost_report.ml` | Composition du rapport de cout du pipeline |
-| `kairos_verification_runtime` | Facade publique et orchestration des sorties |
-| `pipeline_outputs.ml` | Choisit entre sortie minimale prove et sorties avec artifacts |
-| `output_mapper.ml` | Assemble les sorties utilisateur |
+
+La façade et les sorties ne constituent plus des bibliothèques runtime
+supplémentaires : `Engine_flow`, `Pipeline_outputs` et `Output_mapper`
+appartiennent directement à `lib/engine`.
 
 ### Sorties Diagnostic Et Graphes
 
@@ -239,7 +239,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `automata_graph_product.ml` | Rendu du produit programme/assume/guarantee |
 | `automata_graph_program.ml` | Rendu de l'automate de controle programme |
 | `automata_graph_render.ml` | Facade publique des rendus d'automates |
-| `packages/graphviz/graphviz_render.ml` | Adaptateur Graphviz autonome |
+| `Kairos_engine.Graphviz_render` | Appel de Graphviz sur du texte DOT, possédé par le moteur concret |
 
 ### Backend Why3 Et Outils Externes
 

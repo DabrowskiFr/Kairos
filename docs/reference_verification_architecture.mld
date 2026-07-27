@@ -129,7 +129,7 @@ The current implementation roughly has the following stages:
   [Pipeline_build] and [Runtime_snapshot] in [kairos_runtime_core],
   external automata production in [kairos_runtime_automata], [Proof_runner]
   in [kairos_runtime_proof], diagnostics in [kairos_runtime_diagnostics],
-  and the public facade in [kairos_verification_runtime];
+  and direct orchestration behind the public [Kairos_engine.Api] facade;
 - Why3-specific representation and emission:
   [Why_runtime_view], [Why_compile], [Why_compile_step],
   [Why_text_render], [Why_pipeline].

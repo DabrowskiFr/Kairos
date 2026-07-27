@@ -4,7 +4,8 @@ let dot_is_available () = Sys.command "command -v dot >/dev/null 2>&1" = 0
 let () =
   if dot_is_available () then (
     let png_path, diagnostic =
-      Graphviz_render.dot_png_from_text_diagnostic "digraph contract_smoke { source -> target }"
+      Kairos_engine.Graphviz_render.dot_png_from_text_diagnostic
+        "digraph contract_smoke { source -> target }"
     in
     check "valid DOT has no diagnostic" (diagnostic = None);
     match png_path with

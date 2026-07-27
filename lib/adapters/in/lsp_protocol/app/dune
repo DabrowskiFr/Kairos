@@ -11,9 +11,4 @@
   lsp_symbols
   lsp_completion
   lsp_formatting)
- (libraries
-  kairos_engine
-  kairos_engine_contract
-  kairos_lsp_protocol
-  yojson
-  str))
+ (libraries kairos_engine kairos_lsp_protocol yojson str))
