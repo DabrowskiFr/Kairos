@@ -4,7 +4,7 @@ Date : 2026-07-26
 
 Statut : frontière implémentée.
 
-Référence analysée : `9aa180f5`, branche `externalization`.
+Référence analysée : `b60df9b3`.
 
 Le manifeste exécutable de la proposition est
 `engine_runtime_split_manifest.json`.
@@ -17,7 +17,7 @@ placer dans un paquet `kairos-engine-runtime`.
 
 ```text
 kairos
-  domaine + vérification + application + frontend Kairos + IR neutres
+  domaine + vérification + application + frontend Kairos
 
 kairos-engine-contract
   données publiques sans dépendance
@@ -96,14 +96,13 @@ Aucune bibliothèque conservée dans le noyau n'appelle le runtime.
 | `lib/adapters/out/codegen/c` | 1 128 |
 | **Total runtime** | **17 502** |
 
-Le périmètre principal conservé représente 17 795 lignes :
+Le périmètre principal conservé représente 16 793 lignes :
 
 | Zone conservée dans `kairos` | Lignes OCaml |
 | --- | ---: |
 | `lib/domain` | 9 360 |
 | `lib/application` | 2 564 |
 | frontend Kairos | 4 789 |
-| IR neutres | 1 002 |
 | `lib/shared` | 80 |
 
 Ces nombres mesurent la propriété de compilation, pas la taille de l'archive
@@ -140,9 +139,8 @@ dépendre du runtime et annulerait le bénéfice recherché.
 
 ### `kairos`
 
-Le paquet conserve le domaine, l'application, le frontend Kairos, les IR
-neutres et Rocq. Il retire les sept dépendances Kairos externes listées plus
-haut.
+Le paquet conserve le domaine, l'application, le frontend Kairos et Rocq. Il
+retire les sept dépendances Kairos externes listées plus haut.
 
 Le découpage révèle trois dépendances directes actuellement obtenues
 transitivement et qui doivent devenir explicites :
@@ -179,7 +177,7 @@ de paquet ne prétend pas le rendre générique ou indépendant du domaine.
    déclarer `fmt`, `logs`, `sedlex` directement dans `kairos`.
 4. Migrer les dépendances opam du CLI et du LSP.
 5. Affecter les tests du compilateur Why3 et du runtime automata au paquet
-   runtime ; conserver les tests du domaine et des IR dans `kairos`.
+   runtime ; conserver les tests du domaine et du frontend dans `kairos`.
 6. Régénérer les graphes observés et vérifier qu'aucune arête
    `kairos -> kairos-engine-runtime` n'existe.
 
@@ -202,7 +200,7 @@ Puis :
 - contrôles d'architecture, de couches et de format ;
 - corpus complet : 44/44 verts, 46 invalides, 10 timeouts, 0 faux vert ;
 - contrôle Git interdisant toute modification sous `rocq`, `lib/domain`,
-  `lib/application`, `lib/adapters/in/kairos_lang` et `lib/ir`.
+  `lib/application` et `lib/adapters/in/kairos_lang`.
 
 ## Résultat de validation
 
@@ -214,8 +212,7 @@ La réalisation du 27 juillet 2026 satisfait ces critères :
 - suite Dune, architecture, couches, format, élaboration, génération C,
   historique de preuve et stabilité de référence : OK ;
 - corpus : 44/44 verts, 46 invalides, 10 timeouts, 0 faux vert ;
-- aucune modification `.ml`, `.mli`, Rocq, domaine, application, frontend ou
-  IR.
+- aucune modification `.ml`, `.mli`, Rocq, domaine, application ou frontend.
 
 ## Risques
 

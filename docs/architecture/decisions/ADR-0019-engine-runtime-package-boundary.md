@@ -29,8 +29,8 @@ Internal Dune library names and OCaml module paths remain unchanged. In
 particular, clients continue to call `Kairos_engine.Api`.
 
 The `kairos` package retains shared foundations, domain, verification, proof
-export, application ports/use-cases, the Kairos frontend, neutral IRs, and the
-existing Rocq development.
+export, application ports/use-cases, the Kairos frontend, and the existing Rocq
+development.
 
 ## Consequences
 

@@ -78,10 +78,7 @@ digraph G {
   "kairos.domain_verification";
   "kairos.internal.application";
   "kairos.internal.input_lang";
-  "kairos.observation_model";
-  "kairos.sequential_ir";
   "kairos.shared";
-  "kairos.verification_unit";
   "kairos__Cli_output" [label="Cli_output", shape=box, ];
   "kairos__Cli_pipeline_service" [label="Cli_pipeline_service", shape=box, ];
   "kairos__Cli_runtime" [label="Cli_runtime", shape=box, ];
@@ -655,19 +652,8 @@ digraph G {
   "kairos.internal.input_lang__Kx_parser" [label="Kx_parser", shape=box, ];
   "kairos.internal.input_lang__Kx_surface_syntax" [label="Kx_surface_syntax",
                                                    shape=box, ];
-  "kairos.observation_model__Kairos_observation_model" [label="Kairos_observation_model",
-                                                        shape=box, ];
-  "kairos.observation_model__Observation_model" [label="Observation_model",
-                                                 shape=box, ];
-  "kairos.sequential_ir__Kairos_sequential_ir" [label="Kairos_sequential_ir",
-                                                shape=box, ];
-  "kairos.sequential_ir__Sequential_ir" [label="Sequential_ir", shape=box, ];
   "kairos.shared__Kairos_runtime_defaults" [label="Kairos_runtime_defaults",
                                             shape=box, ];
-  "kairos.verification_unit__Kairos_verification_unit" [label="Kairos_verification_unit",
-                                                        shape=box, ];
-  "kairos.verification_unit__Verification_unit" [label="Verification_unit",
-                                                 shape=box, ];
   "local_package__" [label="", height=0.000000, width=0.000000,
                      fixedsize=true, style="invis", ];
 
@@ -785,8 +771,6 @@ digraph G {
        };
     subgraph cluster_706318726 { label="kairos-engine-contract"; "kairos-engine-contract__Kairos_engine_contract";"kairos-engine-contract__Contract";"kairos-engine-contract";
        };
-    subgraph cluster_708192656 { label="kairos.verification_unit"; "kairos.verification_unit__Verification_unit";"kairos.verification_unit__Kairos_verification_unit";"kairos.verification_unit";
-       };
     subgraph cluster_730266639 { label="kairos.internal.application"; "kairos.internal.application__Verification_flow_vc_taxonomy";"kairos.internal.application__Verification_flow_usecases";"kairos.internal.application__Verification_flow_timing_meta";"kairos.internal.application__Verification_flow_timing_fields";"kairos.internal.application__Proof_diagnostics";"kairos.internal.application__Pipeline_types";"kairos.internal.application__Flow_info";"kairos.internal.application__Application_ports";"kairos.internal.application__Application_observability";"kairos.internal.application";
        };
     subgraph cluster_741153584 { label="kairos-engine-runtime.internal.why3_compile";
@@ -794,11 +778,7 @@ digraph G {
        };
     subgraph cluster_757729241 { label="kairos.domain_core"; "kairos.domain_core__Verification_model";"kairos.domain_core__Pretty";"kairos.domain_core__Pre_k_lowering";"kairos.domain_core__Pre_k_layout";"kairos.domain_core__Log";"kairos.domain_core__Loc";"kairos.domain_core__Ir_transition";"kairos.domain_core__Ir_shared_types";"kairos.domain_core__Ir_formula";"kairos.domain_core__Ir";"kairos.domain_core__Historical_initialization";"kairos.domain_core__Core_syntax_builders";"kairos.domain_core__Core_syntax";"kairos.domain_core__Core_fo_simplifier_keys";"kairos.domain_core__Core_fo_simplifier_bool";"kairos.domain_core__Core_fo_simplifier";"kairos.domain_core";
        };
-    subgraph cluster_81473592 { label="kairos.sequential_ir"; "kairos.sequential_ir__Sequential_ir";"kairos.sequential_ir__Kairos_sequential_ir";"kairos.sequential_ir";
-       };
     subgraph cluster_821673316 { label="kairos.domain_verification"; "kairos.domain_verification__Temporal_lower";"kairos.domain_verification__Temporal_automata";"kairos.domain_verification__Step_contract_projection";"kairos.domain_verification__Product_types";"kairos.domain_verification__Product_summary_projection";"kairos.domain_verification__Product_reachability";"kairos.domain_verification__Product_characteristics";"kairos.domain_verification__Product_build";"kairos.domain_verification__Pre";"kairos.domain_verification__Post";"kairos.domain_verification__Orchestration";"kairos.domain_verification__Obligation_family_projection";"kairos.domain_verification__Kernel_clause_projection_transition_id";"kairos.domain_verification__Kernel_clause_projection_formula";"kairos.domain_verification__Kernel_clause_projection";"kairos.domain_verification__Ir_fact_family_metrics";"kairos.domain_verification__From_model";"kairos.domain_verification__Formula_sharing";"kairos.domain_verification__Fo_time";"kairos.domain_verification__Fo_current_input";"kairos.domain_verification__Fo_contradiction";"kairos.domain_verification__Canonical_obligations";"kairos.domain_verification__Automaton_types";"kairos.domain_verification";
-       };
-    subgraph cluster_83820128 { label="kairos.observation_model"; "kairos.observation_model__Observation_model";"kairos.observation_model__Kairos_observation_model";"kairos.observation_model";
        };
     subgraph cluster_863452654 { label="kairos-engine-runtime.internal.runtime_proof";
                                  "kairos-engine-runtime.internal.runtime_proof__Proof_traces";"kairos-engine-runtime.internal.runtime_proof__Proof_trace_diagnostics";"kairos-engine-runtime.internal.runtime_proof__Proof_text_blocks";"kairos-engine-runtime.internal.runtime_proof__Proof_runner";"kairos-engine-runtime.internal.runtime_proof__Proof_progress_output";"kairos-engine-runtime.internal.runtime_proof__Proof_goal_results";"kairos-engine-runtime.internal.runtime_proof__Proof_goal_attribution";"kairos-engine-runtime.internal.runtime_proof";
@@ -1220,22 +1200,8 @@ digraph G {
   "kairos.internal.input_lang" -> "kairos.internal.input_lang__Kx_parse_api";
   "kairos.internal.input_lang" -> "kairos.internal.input_lang__Kx_parser";
   "kairos.internal.input_lang" -> "kairos.internal.input_lang__Kx_surface_syntax";
-  "kairos.observation_model" -> "kairos.sequential_ir" [minlen=2,
-                                                        lhead="cluster_81473592",
-                                                        ltail="cluster_83820128",
-                                                        ];
-  "kairos.observation_model" -> "kairos.observation_model__Kairos_observation_model";
-  "kairos.sequential_ir" -> "ppx_deriving_yojson.runtime" [ltail="cluster_81473592",
-                                                           ];
-  "kairos.sequential_ir" -> "yojson" [ltail="cluster_81473592", ];
-  "kairos.sequential_ir" -> "kairos.sequential_ir__Kairos_sequential_ir";
   "kairos.shared" -> "unix" [ltail="cluster_209287327", ];
   "kairos.shared" -> "kairos.shared__Kairos_runtime_defaults";
-  "kairos.verification_unit" -> "kairos.observation_model" [minlen=2,
-                                                            lhead="cluster_83820128",
-                                                            ltail="cluster_708192656",
-                                                            ];
-  "kairos.verification_unit" -> "kairos.verification_unit__Kairos_verification_unit";
   "kairos__Cli_output" -> "kairos__Cli_pipeline_service";
   "kairos__Cli_pipeline_service" -> "kairos__Cli_types";
   "kairos__Cli_runtime" -> "kairos__Cli_output";
@@ -1668,8 +1634,5 @@ digraph G {
   "kairos.internal.input_lang__Kx_parser" -> "kairos.internal.input_lang__Kx_frontend_error";
   "kairos.internal.input_lang__Kx_parser" -> "kairos.internal.input_lang__Kx_surface_syntax";
   "kairos.internal.input_lang__Kx_surface_syntax" -> "kairos.internal.input_lang__Kx_core_syntax";
-  "kairos.observation_model__Kairos_observation_model" -> "kairos.observation_model__Observation_model";
-  "kairos.sequential_ir__Kairos_sequential_ir" -> "kairos.sequential_ir__Sequential_ir";
-  "kairos.verification_unit__Kairos_verification_unit" -> "kairos.verification_unit__Verification_unit";
 
   }

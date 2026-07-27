@@ -9,7 +9,7 @@ fournit l'exécutable `kairos`.
 Les données publiques du moteur
 appartiennent au paquet autonome `kairos-engine-contract`, et sa composition
 concrète appartient à `kairos-engine-runtime`. Le paquet `kairos` conserve le
-noyau sémantique, les interfaces applicatives, le frontend et les IR.
+noyau sémantique, les interfaces applicatives et le frontend Kairos.
 
 ## Objet
 
@@ -30,8 +30,7 @@ runtime.
 
 ## Méthode
 
-L'analyse part de l'état propre de la branche `externalization`, au commit
-`386fb1ff`.
+L'analyse part de l'état propre au commit `d3dcb288`.
 
 Les volumes sont des lignes physiques des fichiers `.ml` et `.mli`, commentaires
 et interfaces compris. Ils sont reproductibles avec :
@@ -60,7 +59,7 @@ réduction des dépendances et de la surface du paquet principal.
 
 ## État quantitatif
 
-Le périmètre `lib` + `packages` contient 41 905 lignes OCaml :
+Le périmètre `lib` + `packages` contient 40 903 lignes OCaml :
 
 | Zone | Lignes | Observation |
 | --- | ---: | --- |
@@ -74,7 +73,6 @@ Le périmètre `lib` + `packages` contient 41 905 lignes OCaml :
 | backend C | 1 128 | projection directe du modèle Kairos vers C |
 | compilation Kairos vers Why3 | 8 201 | projection sémantique et construction Why3 |
 | orchestration runtime | 5 726 | composition des étapes et sorties |
-| IR séquentiel neutre | 1 002 | fondation isolée, hors chemin actif |
 
 La surface LSP ajoute 6 734 lignes hors de ce tableau :
 
@@ -111,25 +109,7 @@ aujourd'hui imposerait soit d'exposer `Ir.node_ir`, soit de créer un second IR
 de preuve aussi riche que lui. Dans les deux cas, le couplage serait seulement
 déplacé.
 
-### B. Déjà autonome, mais pas encore utile au chemin actif
-
-Les trois bibliothèques `kairos.sequential_ir`,
-`kairos.observation_model` et `kairos.verification_unit` totalisent 1 002
-lignes. Elles ne dépendent que de `yojson` et les unes des autres. Elles
-pourraient donc devenir immédiatement un paquet autonome.
-
-Cela ne simplifierait toutefois pas le chemin de vérification actuel :
-
-- aucun frontend ne produit encore cette unité de vérification ;
-- le noyau actuel ne la consomme pas ;
-- aucune relation de raffinement vers le modèle Kairos actif n'est établie.
-
-Conclusion : leur mise en paquet est techniquement facile, mais elle ne doit
-pas être présentée comme une externalisation fonctionnelle de la vérification.
-Elle devient pertinente lorsqu'un premier frontend de langage usuel existe, ou
-si l'on décide de publier le format indépendamment.
-
-### C. Renderers d'artefacts : extraction partielle seulement
+### B. Renderers d'artefacts : extraction partielle seulement
 
 Les 1 726 lignes de `lib/adapters/out/artifacts` ne forment pas un renderer
 générique unique.
@@ -163,25 +143,19 @@ L'extraction des seules 203 lignes DOT est saine, mais son gain est trop faible
 pour justifier à elle seule une nouvelle frontière. Elle pourra être absorbée
 par le paquet Graphviz si un second consommateur apparaît.
 
-### D. Backend C : candidat différé
+### C. Backend C : candidat différé
 
 Le backend C représente 1 128 lignes et dépend directement de
-`kairos_domain_core`. Il traduit le modèle synchrone Kairos, pas l'IR séquentiel
-neutre.
+`kairos_domain_core`. Il traduit le modèle synchrone Kairos.
 
-Deux options seraient rigoureuses :
-
-1. conserver ce backend comme projection propre au langage Kairos ;
-2. construire plus tard un backend `Sequential_ir -> C`, avec un contrat
-   explicite sur la mémoire, les appels, les effets externes et les erreurs
-   d'exécution.
+L'option analysée est de conserver ce backend comme projection propre au
+langage Kairos.
 
 Déplacer le backend actuel en lui donnant les types du domaine comme
-dépendance ne le rendrait pas indépendant. Le réécrire avant qu'un frontend
-séquentiel existe créerait une seconde infrastructure inutilisée. Ce n'est
-donc pas la prochaine étape.
+dépendance ne le rendrait pas indépendant. Ce n'est donc pas la prochaine
+étape.
 
-### E. LSP : meilleur prochain candidat
+### D. LSP : meilleur prochain candidat
 
 Le LSP est un adaptateur d'entrée/sortie périphérique. Il ne définit ni le
 produit, ni les obligations, ni leur compilation. Ses 6 734 lignes et ses
@@ -215,8 +189,7 @@ moteur Kairos en processus ; aucun protocole interprocessus n'est nécessaire.
 | --- | ---: | --- | --- | --- |
 | paquet LSP séparé | 6 734 | retire une surface périphérique complète | façade applicative étroite | **réalisé** |
 | paquet moteur concret | 17 502 | retire les outils externes du noyau installable | `kairos-engine-contract` | **réalisé** |
-| paquet IR séquentiel | 1 002 | aucun actuellement | déjà stable structurellement | attendre un producteur/consommateur |
-| backend C autonome | 1 128 | conserve une dépendance au modèle Kairos | nouvel abaissement séquentiel | différer |
+| backend C autonome | 1 128 | conserve une dépendance au modèle Kairos | exposition du modèle Kairos | conserver dans Kairos |
 | émission DOT générique | 203 | aucun effet sémantique | graphe prêt à émettre | option opportuniste |
 | tous les renderers | 1 726 | diagnostics seulement | miroir excessif des types métier | rejeter en bloc |
 | compilateur WhyML | 8 201 | touche la projection des obligations | IR de preuve complet ou fuite de `Ir` | conserver dans Kairos |

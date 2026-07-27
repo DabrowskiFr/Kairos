@@ -409,11 +409,6 @@ flowchart TD
       id466898052(Contract)
       id706318726(["kairos-engine-contract"])
     end
-    subgraph 708192656 ["kairos.verification_unit"]
-      id178506345(Verification_unit)
-      id143761331(Kairos_verification_unit)
-      id708192656(["kairos.verification_unit"])
-    end
     subgraph 730266639 ["kairos.internal.application"]
       id558396021(Verification_flow_vc_taxonomy)
       id326233457(Verification_flow_usecases)
@@ -492,11 +487,6 @@ flowchart TD
       id199437235(Core_fo_simplifier)
       id757729241(["kairos.domain_core"])
     end
-    subgraph 81473592 ["kairos.sequential_ir"]
-      id969316131(Sequential_ir)
-      id715745699(Kairos_sequential_ir)
-      id81473592(["kairos.sequential_ir"])
-    end
     subgraph 821673316 ["kairos.domain_verification"]
       id600148261(Temporal_lower)
       id923934307(Temporal_automata)
@@ -522,11 +512,6 @@ flowchart TD
       id364997775(Canonical_obligations)
       id520647839(Automaton_types)
       id821673316(["kairos.domain_verification"])
-    end
-    subgraph 83820128 ["kairos.observation_model"]
-      id814656254(Observation_model)
-      id128929362(Kairos_observation_model)
-      id83820128(["kairos.observation_model"])
     end
     subgraph 863452654 ["kairos-engine-runtime.internal.runtime_proof"]
       id462866079(Proof_traces)
@@ -926,15 +911,8 @@ flowchart TD
   id875769988-->id651697470
   id875769988-->id523681616
   id875769988-->id947462369
-  83820128-->81473592
-  id83820128-->id128929362
-  81473592-->id424287186
-  81473592-->id209475686
-  id81473592-->id715745699
   209287327-->id135593905
   id209287327-->id680323997
-  708192656-->83820128
-  id708192656-->id143761331
   id375326599-->id19386066
   id19386066-->id262940355
   id22729935-->id375326599
@@ -1367,6 +1345,3 @@ flowchart TD
   id523681616-->id196859088
   id523681616-->id947462369
   id947462369-->id859056782
-  id128929362-->id814656254
-  id715745699-->id969316131
-  id143761331-->id178506345

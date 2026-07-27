@@ -1,16 +1,15 @@
 {
   "schema_version": 1,
   "status": "implemented",
-  "analyzed_commit": "9aa180f5",
-  "implementation_base_commit": "749f23a0",
+  "analyzed_commit": "b60df9b3",
+  "implementation_base_commit": "67f8ed49",
   "core_package": {
     "name": "kairos",
     "retained_source_roots": [
       "lib/shared",
       "lib/domain",
       "lib/application",
-      "lib/adapters/in/kairos_lang",
-      "lib/ir"
+      "lib/adapters/in/kairos_lang"
     ],
     "dependencies_to_remove": [
       "kairos-engine-contract",
@@ -171,8 +170,7 @@
     "rocq",
     "lib/domain",
     "lib/application",
-    "lib/adapters/in/kairos_lang",
-    "lib/ir"
+    "lib/adapters/in/kairos_lang"
   ],
   "acceptance": [
     "kairos builds and installs without any standalone Kairos tool adapter",
@@ -181,6 +179,6 @@
     "the OCaml module path Kairos_engine.Api remains unchanged",
     "the full Dune test suite passes",
     "the OK/KO corpus remains 44 green, 46 invalid, 10 timeout, and 0 false green",
-    "no Rocq, domain, application, frontend, IR, proof-obligation, or Why3 source body changes"
+    "no Rocq, domain, application, frontend, proof-obligation, or Why3 source body changes"
   ]
 }

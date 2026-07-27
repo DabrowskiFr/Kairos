@@ -12,8 +12,8 @@ parameters. This made the directory layout look decoupled while the actual API
 remained implicit.
 
 Externalizing every adapter as a process immediately would add deployment and
-serialization costs before the sequential IR is stable. Keeping the implicit
-API, however, would let each tool depend on increasingly broad Kairos
+serialization costs before the tool boundaries are stable. Keeping the
+implicit API, however, would let each tool depend on increasingly broad Kairos
 libraries.
 
 The Rocq-oriented proof export cannot be reused as a Why3 input: it is a
