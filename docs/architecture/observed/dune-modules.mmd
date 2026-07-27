@@ -227,9 +227,7 @@ flowchart TD
       id635726985(Lsp_trace)
       id348893606(Lsp_text_edit_view)
       id911970712(Lsp_text_document_request)
-      id427376911(Lsp_text_document_handlers)
       id6731939(Lsp_symbol_view)
-      id936609060(Lsp_symbol_handlers)
       id335239481(Lsp_symbol_context)
       id518393267(Lsp_standard_method_route)
       id963899995(Lsp_standard_method_dispatch)
@@ -242,7 +240,6 @@ flowchart TD
       id978926268(Lsp_run_notifications)
       id7415793(Lsp_run_method_route)
       id367560320(Lsp_run_method_dispatch)
-      id1053760727(Lsp_run_handler)
       id271342185(Lsp_run_execution_handler)
       id893702158(Lsp_run_context)
       id120913595(Lsp_run_config)
@@ -250,9 +247,7 @@ flowchart TD
       id978494149(Lsp_request_id_view)
       id735924119(Lsp_request_helpers)
       id564042254(Lsp_references_handler)
-      id497722774(Lsp_protocol_view)
       id99359369(Lsp_pipeline_pass_input)
-      id645282681(Lsp_pipeline_pass_handlers)
       id830492599(Lsp_pipeline_pass_decode)
       id755418459(Lsp_packet_trace)
       id862365031(Lsp_packet_handler)
@@ -260,7 +255,6 @@ flowchart TD
       id402716906(Lsp_outline_view)
       id256842240(Lsp_outline_texts)
       id644837172(Lsp_outline_request_handler)
-      id873026293(Lsp_outline_handler)
       id654003555(Lsp_outline_decode)
       id243241385(Lsp_obligations_pass_handler)
       id21891056(Lsp_method_route)
@@ -272,7 +266,6 @@ flowchart TD
       id807479292(Lsp_lifecycle_dispatch)
       id632187316(Lsp_kairos_method_route)
       id563906611(Lsp_kairos_method_dispatch)
-      id282523526(Lsp_kairos_handlers)
       id690377628(Lsp_jsonrpc_id)
       id273830107(Lsp_instrumentation_pass_handler)
       id13761490(Lsp_initialize_result_view)
@@ -282,7 +275,6 @@ flowchart TD
       id777614188(Lsp_graph_decode)
       id573733478(Lsp_goal_tree_view)
       id774410026(Lsp_goal_tree_pending_handler)
-      id118795906(Lsp_goal_tree_handlers)
       id300709069(Lsp_goal_tree_final_handler)
       id728172376(Lsp_goal_tree_decode)
       id1025462957(Lsp_formatting_handler)
@@ -305,7 +297,6 @@ flowchart TD
       id28170975(Lsp_backend_usecases)
       id779182497(Lsp_backend_graph)
       id210956328(Lsp_backend_config)
-      id1028088370(Lsp_backend)
       id908336067(Kairos_lsp)
       id978778715(Engine_service)
       id11834760{"kairos_lsp"}
@@ -918,8 +909,6 @@ flowchart TD
   id22729935-->id375326599
   id832167786-->id22729935
   id908336067-->id960767203
-  id1028088370-->id779182497
-  id1028088370-->id28170975
   id28170975-->id978778715
   id28170975-->id210956328
   id537220963-->id366631441
@@ -954,8 +943,6 @@ flowchart TD
   id300709069-->id728172376
   id300709069-->id573733478
   id300709069-->id620239537
-  id118795906-->id300709069
-  id118795906-->id774410026
   id774410026-->id728172376
   id774410026-->id573733478
   id774410026-->id620239537
@@ -969,13 +956,6 @@ flowchart TD
   id273830107-->id28170975
   id273830107-->id830492599
   id273830107-->id99359369
-  id282523526-->id300709069
-  id282523526-->id774410026
-  id282523526-->id873543456
-  id282523526-->id273830107
-  id282523526-->id243241385
-  id282523526-->id644837172
-  id282523526-->id206232877
   id563906611-->id632187316
   id632187316-->id300709069
   id632187316-->id774410026
@@ -1002,7 +982,6 @@ flowchart TD
   id243241385-->id830492599
   id243241385-->id99359369
   id654003555-->id735924119
-  id873026293-->id644837172
   id644837172-->id402716906
   id644837172-->id620239537
   id256842240-->id860351168
@@ -1014,16 +993,7 @@ flowchart TD
   id862365031-->id668718541
   id755418459-->id635726985
   id830492599-->id735924119
-  id645282681-->id273830107
-  id645282681-->id243241385
-  id645282681-->id206232877
   id99359369-->id620239537
-  id497722774-->id713240188
-  id497722774-->id702341698
-  id497722774-->id353992423
-  id497722774-->id978494149
-  id497722774-->id6731939
-  id497722774-->id348893606
   id564042254-->id508815514
   id564042254-->id335239481
   id564042254-->id620239537
@@ -1035,7 +1005,6 @@ flowchart TD
   id893702158-->id329900714
   id271342185-->id48902564
   id271342185-->id268299137
-  id1053760727-->id271342185
   id367560320-->id7415793
   id7415793-->id21891056
   id7415793-->id271342185
@@ -1062,20 +1031,7 @@ flowchart TD
   id518393267-->id329900714
   id518393267-->id347969878
   id335239481-->id911970712
-  id936609060-->id618237039
-  id936609060-->id208168796
-  id936609060-->id776018379
-  id936609060-->id564042254
-  id936609060-->id347969878
   id6731939-->id508815514
-  id427376911-->id8737043
-  id427376911-->id618237039
-  id427376911-->id208168796
-  id427376911-->id1059488519
-  id427376911-->id1025462957
-  id427376911-->id776018379
-  id427376911-->id564042254
-  id427376911-->id347969878
   id911970712-->id860351168
   id348893606-->id508815514
   id620239537-->id690377628

@@ -16,7 +16,6 @@
   lsp_request_id_view
   lsp_diagnostic_view
   lsp_symbol_view
-  lsp_protocol_view
   lsp_request_helpers
   lsp_document_store
   lsp_text_document_request
@@ -27,10 +26,8 @@
   lsp_references_handler
   lsp_document_symbol_handler
   lsp_workspace_symbol_handler
-  lsp_symbol_handlers
   lsp_completion_handler
   lsp_formatting_handler
-  lsp_text_document_handlers
   lsp_document_sync_decode
   lsp_document_sync_state
   lsp_document_diagnostics
@@ -38,20 +35,16 @@
   lsp_outline_texts
   lsp_outline_view
   lsp_outline_request_handler
-  lsp_outline_handler
   lsp_goal_tree_decode
   lsp_goal_tree_view
   lsp_goal_tree_final_handler
   lsp_goal_tree_pending_handler
-  lsp_goal_tree_handlers
   lsp_pipeline_pass_decode
   lsp_pipeline_pass_input
   lsp_instrumentation_pass_handler
   lsp_why_pass_handler
   lsp_obligations_pass_handler
-  lsp_pipeline_pass_handlers
   lsp_graph_handler
-  lsp_kairos_handlers
   lsp_run_context
   lsp_run_config
   lsp_run_progress
@@ -60,7 +53,6 @@
   lsp_run_preflight
   lsp_run_backend
   lsp_run_execution_handler
-  lsp_run_handler
   lsp_server_state
   lsp_server_state_gate
   lsp_initialize_result_view
@@ -91,7 +83,6 @@
   lsp_backend_usecases
   lsp_backend_graph
   lsp_graph_decode
-  lsp_backend
   engine_service)
  (libraries
   kairos_engine
