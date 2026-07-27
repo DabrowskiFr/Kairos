@@ -1,8 +1,5 @@
 {
   "layers": {
-    "shared": [
-      "kairos_shared"
-    ],
     "foundation": [
       "kairos_domain_core"
     ],
@@ -56,31 +53,23 @@
     ]
   },
   "allow": {
-    "shared": [
-      "shared"
-    ],
     "foundation": [
-      "shared",
       "foundation"
     ],
     "contracts": [
-      "shared",
       "foundation",
       "contracts"
     ],
     "verification": [
-      "shared",
       "foundation",
       "verification"
     ],
     "application": [
-      "shared",
       "application",
       "verification",
       "foundation"
     ],
     "adapters_out": [
-      "shared",
       "adapters_out",
       "application",
       "contracts",
@@ -90,7 +79,6 @@
       "foundation"
     ],
     "composition": [
-      "shared",
       "composition",
       "application",
       "contracts",
@@ -100,7 +88,6 @@
       "foundation"
     ],
     "engine": [
-      "shared",
       "engine",
       "contracts",
       "composition",
@@ -109,13 +96,11 @@
       "adapters_out"
     ],
     "proof_export": [
-      "shared",
       "proof_export",
       "foundation",
       "verification"
     ],
     "adapters_in": [
-      "shared",
       "adapters_in",
       "engine",
       "contracts",
@@ -123,7 +108,6 @@
       "foundation"
     ],
     "external": [
-      "shared",
       "external",
       "contracts",
       "foundation",

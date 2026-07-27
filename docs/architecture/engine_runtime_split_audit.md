@@ -34,6 +34,15 @@ aucune modification des corps OCaml, des obligations, de Why3 ou de Rocq. La
 réalisation est un changement de propriété Dune/opam et de noms publics de
 bibliothèques, sans déplacement physique de fichiers.
 
+Un raffinement ultérieur a déplacé la politique machine
+`default_proof_jobs` de la micro-bibliothèque publique `kairos.shared` vers le
+module privé `Runtime_defaults` de `kairos-engine-runtime`. L'alias
+correspondant a été retiré de `Pipeline_types`. Ce raffinement ne change pas le
+calcul effectué ; il place simplement la politique d'exécution dans son
+propriétaire concret. Les volumes ci-dessous reflètent cet état, tandis que
+l'ordre d'implémentation et son bilan de validation décrivent la séparation
+initiale.
+
 ## Problème actuel
 
 Les outils externes ont leurs propres paquets, mais `kairos.opam` dépend encore
@@ -88,22 +97,21 @@ Aucune bibliothèque conservée dans le noyau n'appelle le runtime.
 
 | Zone déplacée logiquement | Lignes OCaml |
 | --- | ---: |
-| `lib/engine` | 649 |
+| `lib/engine` | 726 |
 | `lib/composition` | 72 |
 | `lib/adapters/out/runtime` | 5 726 |
 | `lib/adapters/out/provers/why3` | 8 201 |
 | `lib/adapters/out/artifacts` | 1 726 |
 | `lib/adapters/out/codegen/c` | 1 128 |
-| **Total runtime** | **17 502** |
+| **Total runtime** | **17 579** |
 
-Le périmètre principal conservé représente 16 793 lignes :
+Le périmètre principal conservé représente 16 708 lignes :
 
 | Zone conservée dans `kairos` | Lignes OCaml |
 | --- | ---: |
 | `lib/domain` | 9 360 |
-| `lib/application` | 2 564 |
+| `lib/application` | 2 559 |
 | frontend Kairos | 4 789 |
-| `lib/shared` | 80 |
 
 Ces nombres mesurent la propriété de compilation, pas la taille de l'archive
 du dépôt monolithique.

@@ -1,6 +1,3 @@
-val available_parallelism : unit -> int
-(** Number of execution contexts the runtime recommends for CPU-bound work. *)
-
 val default_proof_jobs : unit -> int
 (** Default number of parallel prover calls for proof-oriented runs.
 

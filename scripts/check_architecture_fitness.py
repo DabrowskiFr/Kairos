@@ -153,7 +153,7 @@ def check_minimal_prove_path(repo: Path) -> None:
     if "Pipeline_artifact_bundle.build" not in artifact_branch:
         fail("artifact branch no longer calls Pipeline_artifact_bundle.build")
 
-    runtime_defaults = (repo / "lib/shared/kairos_runtime_defaults.ml").read_text(
+    runtime_defaults = (repo / "lib/engine/runtime_defaults.ml").read_text(
         encoding="utf-8", errors="replace"
     )
     if "Domain.recommended_domain_count" not in runtime_defaults:

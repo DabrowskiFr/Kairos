@@ -166,8 +166,8 @@ Il existe un couplage à corriger avant le changement de paquet :
 
 - `kairos_lsp_app` importe plusieurs types de `kairos_application` et le
   frontend ;
-- `kairos_lsp_protocol` lit directement
-  `Kairos_runtime_defaults.default_proof_jobs`.
+- le protocole LSP lit directement la politique machine choisissant le nombre
+  de jobs de preuve, au lieu de passer par la façade du moteur.
 
 La bonne frontière n'est pas un grand DTO copié depuis `Pipeline_types`. C'est
 une façade applicative étroite, orientée cas d'usage :

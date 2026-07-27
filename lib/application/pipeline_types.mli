@@ -184,9 +184,6 @@ val proof_encoding_of_string : string -> proof_encoding option
 
 val default_proof_encoding : proof_encoding
 
-val default_proof_jobs : unit -> int
-(** Default prover parallelism for interactive/prover-oriented runs. *)
-
 (** Optional proof-generation optimizations.
 
     Disabling every field selects the reference pipeline shape intended to be

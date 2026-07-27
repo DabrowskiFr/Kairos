@@ -8,7 +8,6 @@
 | LSP package | `bin/lsp`, `lib/adapters/in/lsp_protocol`, `vscode` | Optional editor interaction through `Kairos_engine.Api` | None |
 | Engine contract | `packages/engine-contract` | Dependency-free public request/result data | None |
 | Engine runtime package | `lib/engine`, `lib/composition`, runtime and backend adapters | Concrete in-process behavior distributed as `kairos-engine-runtime` | None |
-| Shared helpers | `lib/shared` | Dependency-free technical defaults | None |
 | Automata contract | `packages/automata-contract` | Autonomous versioned LTL/automata exchange over opaque atoms | None |
 | Proof backend contract | `packages/proof-contract` | Autonomous versioned WhyML execution/results exchange | None |
 | Spot package | `packages/spot` | Independently buildable in-process adapter over the automata contract | External boundary |

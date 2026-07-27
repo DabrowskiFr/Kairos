@@ -1,6 +1,0 @@
-(library
- (name kairos_shared)
- (public_name kairos.shared)
- (wrapped false)
- (modules kairos_runtime_defaults)
- (libraries unix))

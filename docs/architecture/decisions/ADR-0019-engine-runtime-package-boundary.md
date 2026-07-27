@@ -28,7 +28,7 @@ The package split changes Dune/opam ownership and public Findlib names only.
 Internal Dune library names and OCaml module paths remain unchanged. In
 particular, clients continue to call `Kairos_engine.Api`.
 
-The `kairos` package retains shared foundations, domain, verification, proof
+The `kairos` package retains domain foundations, verification, proof
 export, application ports/use-cases, the Kairos frontend, and the existing Rocq
 development.
 

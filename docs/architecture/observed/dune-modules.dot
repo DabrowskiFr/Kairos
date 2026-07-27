@@ -78,7 +78,6 @@ digraph G {
   "kairos.domain_verification";
   "kairos.internal.application";
   "kairos.internal.input_lang";
-  "kairos.shared";
   "kairos__Cli_output" [label="Cli_output", shape=box, ];
   "kairos__Cli_pipeline_service" [label="Cli_pipeline_service", shape=box, ];
   "kairos__Cli_runtime" [label="Cli_runtime", shape=box, ];
@@ -206,6 +205,8 @@ digraph G {
   "kairos-engine-runtime__Engine_contract_mapping" [label="Engine_contract_mapping",
                                                     shape=box, ];
   "kairos-engine-runtime__Kairos_engine" [label="Kairos_engine", shape=box, ];
+  "kairos-engine-runtime__Runtime_defaults" [label="Runtime_defaults",
+                                             shape=box, ];
   "kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_contract" [
   label="Automata_graph_contract", shape=box, ];
   "kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_dot" [
@@ -632,8 +633,6 @@ digraph G {
   "kairos.internal.input_lang__Kx_parser" [label="Kx_parser", shape=box, ];
   "kairos.internal.input_lang__Kx_surface_syntax" [label="Kx_surface_syntax",
                                                    shape=box, ];
-  "kairos.shared__Kairos_runtime_defaults" [label="Kairos_runtime_defaults",
-                                            shape=box, ];
   "local_package__" [label="", height=0.000000, width=0.000000,
                      fixedsize=true, style="invis", ];
 
@@ -697,14 +696,12 @@ digraph G {
     subgraph cluster_1037945767 { label="kairos-engine-runtime.internal.runtime_diagnostics";
                                   "kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_outputs_helpers";"kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_cost_report_why3";"kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_cost_report_transition_lemmas";"kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_cost_report_syntax";"kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_cost_report_source";"kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_cost_report_labels";"kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_cost_report_kernel";"kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_cost_report_facts";"kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_cost_report_common";"kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_cost_report";"kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_artifact_bundle_text";"kairos-engine-runtime.internal.runtime_diagnostics__Pipeline_artifact_bundle";"kairos-engine-runtime.internal.runtime_diagnostics";
        };
-    subgraph cluster_118526983 { label="kairos-engine-runtime"; "kairos-engine-runtime__Kairos_engine";"kairos-engine-runtime__Engine_contract_mapping";"kairos-engine-runtime__Api";"kairos-engine-runtime";
+    subgraph cluster_118526983 { label="kairos-engine-runtime"; "kairos-engine-runtime__Runtime_defaults";"kairos-engine-runtime__Kairos_engine";"kairos-engine-runtime__Engine_contract_mapping";"kairos-engine-runtime__Api";"kairos-engine-runtime";
        };
     subgraph cluster_157230612 { label="kairos-engine-runtime.internal.artifact_graph_render";
                                  "kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_render";"kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_program";"kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_product";"kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_format";"kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_dot";"kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_contract";"kairos-engine-runtime.internal.artifact_graph_render";
        };
     subgraph cluster_173521091 { label="kairos-why3-adapter.runtime"; "kairos-why3-adapter.runtime__Why_task_support";"kairos-why3-adapter.runtime__Why_task_dump_render";"kairos-why3-adapter.runtime__Why_native_probe";"kairos-why3-adapter.runtime__Why_execution";"kairos-why3-adapter.runtime__Why_contract_workers";"kairos-why3-adapter.runtime__Why_contract_unix_io";"kairos-why3-adapter.runtime__Why_contract_smt_utils";"kairos-why3-adapter.runtime__Why_contract_prover_call";"kairos-why3-adapter.runtime__Why_contract_prove";"kairos-why3-adapter.runtime__Why_contract_proof_types";"kairos-why3-adapter.runtime__Why_contract_persistent_z3";"kairos-why3-adapter.runtime__Why_adapter_log";"kairos-why3-adapter.runtime";
-       };
-    subgraph cluster_209287327 { label="kairos.shared"; "kairos.shared__Kairos_runtime_defaults";"kairos.shared";
        };
     subgraph cluster_211324013 { label="kairos-engine-runtime.internal.runtime_automata";
                                  "kairos-engine-runtime.internal.runtime_automata__Runtime_automata_source";"kairos-engine-runtime.internal.runtime_automata__Automata_generation";"kairos-engine-runtime.internal.runtime_automata__Automata_exchange_adapter";"kairos-engine-runtime.internal.runtime_automata";
@@ -1134,10 +1131,6 @@ digraph G {
                                                          lhead="cluster_757729241",
                                                          ltail="cluster_730266639",
                                                          ];
-  "kairos.internal.application" -> "kairos.shared" [minlen=2,
-                                                    lhead="cluster_209287327",
-                                                    ltail="cluster_730266639",
-                                                    ];
   "kairos.internal.application" -> "kairos.internal.application__Application_observability";
   "kairos.internal.application" -> "kairos.internal.application__Application_ports";
   "kairos.internal.application" -> "kairos.internal.application__Flow_info";
@@ -1178,8 +1171,6 @@ digraph G {
   "kairos.internal.input_lang" -> "kairos.internal.input_lang__Kx_parse_api";
   "kairos.internal.input_lang" -> "kairos.internal.input_lang__Kx_parser";
   "kairos.internal.input_lang" -> "kairos.internal.input_lang__Kx_surface_syntax";
-  "kairos.shared" -> "unix" [ltail="cluster_209287327", ];
-  "kairos.shared" -> "kairos.shared__Kairos_runtime_defaults";
   "kairos__Cli_output" -> "kairos__Cli_pipeline_service";
   "kairos__Cli_pipeline_service" -> "kairos__Cli_types";
   "kairos__Cli_runtime" -> "kairos__Cli_output";
@@ -1319,6 +1310,7 @@ digraph G {
   "kairos-automata-contract__Kairos_automata_contract" -> "kairos-automata-contract__Automata_exchange";
   "kairos-engine-contract__Kairos_engine_contract" -> "kairos-engine-contract__Contract";
   "kairos-engine-runtime__Api" -> "kairos-engine-runtime__Engine_contract_mapping";
+  "kairos-engine-runtime__Api" -> "kairos-engine-runtime__Runtime_defaults";
   "kairos-engine-runtime__Kairos_engine" -> "kairos-engine-runtime__Api";
   "kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_contract" -> "kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_dot";
   "kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_contract" -> "kairos-engine-runtime.internal.artifact_graph_render__Automata_graph_format";

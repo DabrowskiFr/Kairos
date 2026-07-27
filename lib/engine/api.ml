@@ -5,7 +5,7 @@ module Usecases = Verification_flow_usecases.Make (Kairos_usecase_wiring.Ports)
 type config = Contract.config
 type error = Contract.error
 
-let default_proof_jobs = Pipeline_types.default_proof_jobs
+let default_proof_jobs = Runtime_defaults.default_proof_jobs
 let error_to_string = Contract.error_to_string
 
 let map_result convert = function
