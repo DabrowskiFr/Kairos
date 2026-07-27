@@ -2843,28 +2843,6 @@ def check_input_adapters_stay_thin(repo: Path) -> None:
 
     facade_checks = [
         (
-            "lib/adapters/in/lsp_protocol/app/lsp_app.ml",
-            [
-                r"\blet\s+get_param_",
-                r"\blet\s+map_",
-                r"\blet\s+position_from_params\b",
-                r"\blet\s+client_supports_work_done_progress\b",
-                r"\bopen\s+Core_syntax\b",
-            ],
-            "LSP app facade must only re-export request decoding and DTO mapping",
-        ),
-        (
-            "lib/adapters/in/lsp_protocol/app/lsp_services.ml",
-            [
-                r"\blet\s+",
-                r"\btype\s+",
-                r"\bKx_parse_api\b",
-                r"\bLsp_types\b",
-                r"\bStr\.",
-            ],
-            "LSP services facade must only re-export narrow service modules",
-        ),
-        (
             "bin/lsp/lsp_document_sync_handlers.ml",
             [
                 r"\bLsp_request_decode\b",
@@ -3357,7 +3335,6 @@ def check_input_adapters_stay_thin(repo: Path) -> None:
         "lib/adapters/in/lsp_protocol/app/lsp_symbols.mli",
         "lib/adapters/in/lsp_protocol/app/lsp_completion.mli",
         "lib/adapters/in/lsp_protocol/app/lsp_formatting.mli",
-        "lib/adapters/in/lsp_protocol/app/lsp_services.mli",
     ]
     missing = [rel for rel in required_interfaces if not (repo / rel).exists()]
     if missing:

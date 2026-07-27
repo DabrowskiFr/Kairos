@@ -10,9 +10,7 @@
   lsp_goal_tree
   lsp_symbols
   lsp_completion
-  lsp_formatting
-  lsp_app
-  lsp_services)
+  lsp_formatting)
  (libraries
   kairos_engine
   kairos_engine_contract
