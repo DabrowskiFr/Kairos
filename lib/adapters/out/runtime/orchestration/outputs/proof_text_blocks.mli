@@ -21,4 +21,4 @@
 val join_with_spans :
   sep:string ->
   string list ->
-  string * Pipeline_types.text_span list
+  string * Pipeline_proof_types.text_span list

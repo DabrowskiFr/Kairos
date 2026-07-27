@@ -3,6 +3,7 @@
  (public_name kairos-why3-adapter.runtime)
  (wrapped false)
  (modules
+  why_metrics
   why_task_support
   why_task_dump_render
   why_adapter_log
@@ -16,6 +17,7 @@
   why_native_probe
   why_execution)
  (private_modules
+  why_metrics
   why_task_support
   why_task_dump_render
   why_contract_unix_io
@@ -26,10 +28,10 @@
   why_contract_workers
   why_contract_prove
   why_native_probe)
- (libraries kairos_proof_contract kairos_external_timing why3))
+ (libraries kairos_why3_contract why3))
 
 (test
  (name why3_adapter_tests)
  (modules why3_adapter_tests)
  (package kairos-why3-adapter)
- (libraries kairos_external_why3 kairos_proof_contract))
+ (libraries kairos_external_why3 kairos_why3_contract))

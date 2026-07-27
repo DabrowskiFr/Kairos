@@ -18,46 +18,6 @@
 
 open Core_syntax
 
-let runtime_guarantee_marker = "__kairos_g"
-
-let source_names (source_model : Verification_model.program_model) : ident list =
-  List.map (fun (node : Verification_model.node_model) -> node.node_name) source_model
-
-let source_name_of_runtime_name ~(source_names : ident list) (runtime_name : ident) :
-    ident =
-  if List.mem runtime_name source_names then runtime_name
-  else
-    match String.index_opt runtime_name '_' with
-    | None -> runtime_name
-    | Some _ ->
-        let marker_len = String.length runtime_guarantee_marker in
-        let rec find_marker i =
-          if i + marker_len > String.length runtime_name then None
-          else if
-            String.sub runtime_name i marker_len = runtime_guarantee_marker
-          then Some i
-          else find_marker (i + 1)
-        in
-        match find_marker 0 with
-        | None -> runtime_name
-        | Some idx ->
-            let suffix_start = idx + marker_len in
-            let suffix_is_digits =
-              suffix_start < String.length runtime_name
-              &&
-              let rec loop j =
-                if j = String.length runtime_name then true
-                else
-                  match runtime_name.[j] with
-                  | '0' .. '9' -> loop (j + 1)
-                  | _ -> false
-              in
-              loop suffix_start
-            in
-            let base = String.sub runtime_name 0 idx in
-            if suffix_is_digits && List.mem base source_names then base
-            else runtime_name
-
 let signature_of_model_node (node : Verification_model.node_model) :
     Ir.node_signature =
   {
@@ -123,11 +83,23 @@ let merge_for_source_node ~(runtime_nodes : (ident * Core_syntax.history_free Ir
         }
 
 let merge_by_source ~(source_model : Verification_model.program_model)
+    ~(reference_nodes : Orchestration.reference_node list)
     (nodes : Core_syntax.history_free Ir.node_ir list) : Core_syntax.history_free Ir.node_ir list =
-  let names = source_names source_model in
   let add_group groups (node : Core_syntax.history_free Ir.node_ir) =
+    let reference_name = node.semantics.sem_nname in
     let source_name =
-      source_name_of_runtime_name ~source_names:names node.semantics.sem_nname
+      match
+        List.find_opt
+          (fun (reference : Orchestration.reference_node) ->
+            reference.reference_model.node_name = reference_name)
+          reference_nodes
+      with
+      | Some reference -> reference.source_node_name
+      | None ->
+          invalid_arg
+            (Printf.sprintf
+               "Missing source provenance for reference IR node %s"
+               reference_name)
     in
     let previous =
       List.assoc_opt source_name groups |> Option.value ~default:[]

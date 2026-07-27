@@ -16,14 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Text renderers for pipeline artifact bundles. *)
+(** Text composition helpers for pipeline artifact bundles. *)
 
 val first_non_empty : string list -> string
 
 val join_non_empty : string list -> string
-
-val render_canonical :
-  Proof_kernel_types.exported_node_summary_ir list -> string
-
-val render_obligations_map :
-  Proof_kernel_types.exported_node_summary_ir list -> string

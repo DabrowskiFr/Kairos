@@ -30,4 +30,4 @@ type produced = {
 
 val produce_with_spot :
   Verification_model.program_model ->
-  (produced, Pipeline_types.error) result
+  (produced, Pipeline_error.t) result

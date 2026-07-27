@@ -12,4 +12,4 @@
   kairos_runtime_core
   kairos_automata_contract
   kairos_spot_adapter
-  kairos_external_timing))
+  kairos_runtime_telemetry))

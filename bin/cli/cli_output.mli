@@ -38,9 +38,3 @@ val write_product_bundle :
   out:string ->
   Cli_pipeline_service.automata_dump_data ->
   [> `Ok of unit ]
-
-val write_canonical_bundle :
-  out:string ->
-  short:bool ->
-  Cli_pipeline_service.automata_dump_data ->
-  [> `Ok of unit ]

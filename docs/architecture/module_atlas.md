@@ -60,7 +60,7 @@ Execution de l'outil:
 | 2 | `lib/engine/api.ml` | `run` | Façade publique ; délègue au moteur concret |
 | 3 | `lib/engine/engine_flow.ml` | `run` | Coordonne directement parsing, snapshot, sorties et timing |
 | 4 | `lib/adapters/in/kairos_lang/kairos_frontend.ml` | `parse_input` | Lit le fichier, parse, elabore, produit `Verification_model` |
-| 5 | `lib/adapters/out/runtime/orchestration/core/pipeline_build.ml` | `prepare_program` | Prepare le programme runtime |
+| 5 | `lib/adapters/out/runtime/orchestration/core/pipeline_build.ml` | `prepare_program` | Prepare le programme runtime, fusionne l'IR backend et calcule une fois les projections de contrats avec leur index de formules |
 | 6 | `lib/adapters/out/runtime/orchestration/core/contract_partition.ml` | `partition_program` | Regroupe ou preserve les contrats publics selon les options |
 | 7 | `lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml` | `produce_with_spot` | Produit un paquet d'automates fourni au core runtime |
 | 8 | `lib/adapters/out/runtime/orchestration/automata/automata_generation.ml` | `run` | Transforme assumptions/guarantees en automates via un builder injecte |
@@ -68,7 +68,7 @@ Execution de l'outil:
 | 10 | `lib/domain/verification/orchestration.ml` | `build_reference_product` | Point nomme du produit de reference, apres validation de forme des automates |
 | 11 | `lib/domain/verification/from_model.ml` | `of_model_program` | Produit les summaries depuis programme + automates valides pour le produit |
 | 12 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Conserve l'IR relationnel apres `Post`, puis produit l'IR backend via `Temporal_lower` et `Formula_sharing` |
-| 13 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles/IR utilises ensuite |
+| 13 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles/IR et les projections de contrats reutilisees par la preuve |
 | 14 | `lib/engine/pipeline_outputs.ml` | `build_outputs` | En mode `--prove`, evite les dumps lourds et lance le proof runner |
 | 15 | `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | `run` | Soumet le WhyML et attribue les resultats neutres |
 | 16 | `lib/adapters/out/provers/why3/*` | `Why_compile`, `Why_pipeline` | Projection de l'IR Kairos vers WhyML |
@@ -104,8 +104,8 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Automata | `Automaton_types.automata_spec` | `kairos_runtime_automata` + Spot adapter | `From_model`, graph renderers |
 | Product summaries | `Ir.node_ir list` | `From_model.of_model_program` | `Pre/Post/...`, renderers |
 | Relational proof IR | `Ir.node_ir list` | `Orchestration.build_instrumented_ir` apres `Post` | proof export |
-| Lowered backend IR | `Ir.program_ir` | `Orchestration.build_instrumented_ir` apres `Temporal_lower` | Why3 backend |
-| Rocq alignment projections | `Product_summary_projection.t`, `Obligation_family_projection.clause_family`, `Step_contract_projection.t` | `lib/domain/verification` | proof export, Why3 runtime view |
+| Lowered backend IR | `Ir.program_ir` | `Orchestration.build_instrumented_ir` apres `Temporal_lower` | fusion backend dans `Pipeline_build` |
+| Rocq alignment projections | `Product_summary_projection.t`, `Obligation_family_projection.clause_family`, `Step_contract_projection.t` | `lib/domain/verification`, instancies une fois par `Pipeline_build` | proof export, compilateur Why3, attribution des buts |
 | Runtime snapshot | `Runtime_snapshot.pipeline_snapshot` | `Pipeline_build` dans `kairos_runtime_core` | `Engine_flow`, proof runner, diagnostics |
 | Kernel IR | `Proof_kernel_types.node_ir` | `Proof_kernel_pass` | diagnostics, projection Rocq possible apres adequation, cost report |
 | Why3 AST/text | backend-specific | `Why_compile` | Contrat de preuve |
@@ -167,7 +167,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | --- | --- |
 | `core_syntax.ml` | Expressions, formules, statements, types de base |
 | `verification_model.ml` | Modele core du programme Kairos |
-| `ir.ml/mli` | IR de summaries produit x automates |
+| `ir.ml/mli` | IR de summaries produit x automates, indexe par phase historique ou sans historique |
 | `pre_k_layout.ml`, `pre_k_lowering.ml` | Representation explicite de l'historique temporel |
 | `product_build.ml` | Exploration du produit programme x automates |
 | `from_model.ml` | Conversion modele + automates -> summaries |
@@ -175,9 +175,11 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `pre.ml` | Ajoute les hypotheses de pas |
 | `product_reachability.ml` | Ajoute les obligations liees aux destinations inatteignables |
 | `post.ml` | Ajoute les obligations de sortie/progression |
-| `temporal_lower.ml` | Abaisse `pre/pre_k` vers le layout temporel |
+| `formula_canonical.ml` | Cle structurelle et internement generiques des formules |
+| `contract_formula_index.ml` | Construit les classes par égalité structurelle puis résout les occurrences indexées par `oid` |
+| `temporal_lower.ml` | Frontière typée : abaisse l'IR historique (`pre/pre_k`) vers l'IR sans historique |
 | `kernel_clause_projection.ml/mli` | Projection neutre des `KernelClause` Rocq et clauses classifiees |
-| `formula_sharing.ml` | Optimisation de representation, pas semantique |
+| `formula_sharing.ml` | Internement physique final, pas semantique |
 | `orchestration.ml` | Ordre des passes et point `build_reference_product` |
 
 ### Export Proof-Kernel / Rocq Futur
@@ -243,65 +245,27 @@ appartiennent directement à `lib/engine`.
 
 ### Backend Why3 Et Outils Externes
 
+Le backend Why3 interne est consolide en 15 modules, soit 30 fichiers
+`.ml`/`.mli`. Les responsabilites qui formaient auparavant des micro-modules
+sont maintenant locales au module qui possede effectivement la decision.
+
 | Module | Responsabilite |
 | --- | --- |
-| `why_runtime_view_types.ml` | Types partages de la vue runtime Why3 |
-| `why_runtime_view_slicing.ml` | Slicing des corps de transitions par formules utiles |
-| `why_runtime_view_actions.ml` | Structuration et simplification locale des actions runtime |
-| `why_runtime_view.ml` | Facade de construction de la vue runtime specialisee Why3 |
-| `why_compile_expr_primitives.ml` | Constructeurs Why3 `Ptree` de bas niveau |
-| `why_compile_expr_mapping.ml` | Mapping des types et operateurs Kairos vers Why3 |
-| `why_compile_expr_env.ml` | Environnement de compilation et acces aux variables |
-| `why_compile_expr_print.ml` | Cles textuelles stables des termes Why3 |
-| `why_compile_expr_compile.ml` | Compilation des expressions et formules Kairos |
-| `why_compile_expr.ml` | Facade historique du compilateur d'expressions Why3 |
-| `why_compile_ptree_terms.ml` | Constructeurs Why3 `Ptree` pour specs et termes booleens |
-| `why_compile_ptree_names.ml` | Analyse des noms utilises dans termes/specs/expressions Why3 |
-| `why_compile_ptree_binders.ml` | Conversion et filtrage des binders Why3 |
-| `why_compile_ptree_helpers.ml` | Facade historique des helpers Why3 `Ptree` |
-| `why_compile_logic_formula.ml` | Analyse et normalisation des formules logiques |
-| `why_compile_logic_decls.ml` | Declarations logiques et predicates Why3 |
-| `why_compile_logic_functions.ml` | Compilation des fonctions pures Kairos |
-| `why_compile_logic.ml` | Facade historique de la logique Why3 |
-| `why_product_step_names.ml` | Facade publique de nommage stable des helpers Why3 par pas produit |
+| `why_product_step_names.ml` | Nommage stable des helpers Why3 par pas produit |
+| `why_compile_expr.ml` | Constructeurs `Ptree`, mapping des types et operateurs, environnement, cles stables et compilation des expressions |
+| `why_compile_ptree_helpers.ml` | Construction de termes/specs, analyse des noms et conversion des binders Why3 |
+| `why_compile_logic.ml` | Declarations logiques et compilation des fonctions pures |
 | `why_compile_init_goals.ml` | Buts Why3 de coherence de l'etat initial |
-| `why_compile_formula_sharing_inventory.ml` | Inventaire et selection des formules Why3 partagees |
-| `why_compile_formula_sharing_emit.ml` | Emission des predicates Why3 de formules partagees |
-| `why_compile_formula_sharing_deps.ml` | Fermeture de dependances des formules partagees |
-| `why_compile_formula_sharing.ml` | Facade de partage des formules Why3 |
-| `why_compile_product_layout.ml` | Noms partages par le plan produit et son emission Why3 |
-| `why_compile_bundles.ml` | Factorisation des familles de faits Why3 en predicates auxiliaires |
-| `why_compile_product_bundle_state.ml` | Etat de generation des bundles partages pre/post |
-| `why_compile_product_group_boundary.ml` | Types frontieres des groupes produit |
-| `why_compile_product_group_policy.ml` | Politique d'eligibilite au groupage |
-| `why_compile_product_group_partition.ml` | Partition stable des pas produit |
-| `why_compile_product_group_factoring.ml` | Choix equivalent des specs groupees |
-| `why_compile_product_group_terms.ml` | Construction des entrees symboliques des helpers groupes |
-| `why_compile_product_group_cost.ml` | Modele de cout et decoupage des groupes produit |
-| `why_compile_product_groups.ml` | Plan explicite des helpers produit individuels/groupes |
-| `why_compile_product_spec_labels.ml` | Labels publics associes aux obligations produit |
-| `why_compile_product_spec_terms.ml` | Selection des termes et politique de partage des specs individuelles |
-| `why_compile_product_specs.ml` | Construction des specs Why3 des helpers produit |
-| `why_compile_product_metrics.ml` | Reporting des metriques du plan produit et des raisons individuelles |
-| `why_compile_contract_facts.ml` | Selection et compilation des familles de faits de contrat |
-| `why_compile_helper_unit.ml` | Type neutre d'un module helper Why3 emis |
-| `why_compile_product_helper_types.ml` | Contexte produit et alias vers le type neutre des helpers |
-| `why_compile_product_helper_body.ml` | Corps Why3 des helpers individuels/groupes |
-| `why_compile_product_individual_helper.ml` | Emission des helpers produit individuels |
-| `why_compile_product_grouped_helper.ml` | Emission des helpers produit groupes |
-| `why_compile_product_helpers.ml` | Dispatcher public d'emission des helpers produit |
-| `why_compile_product_plan_metrics.ml` | Observation diagnostique des plans produit |
-| `why_compile_product_plan.ml` | Construction du plan produit |
-| `why_compile_product_pipeline.ml` | Facade produit : enchaine facts, specs, plan, helpers |
-| `why_compile_node_types.ml` | Declarations de types Why3 communes d'un noeud |
-| `why_compile_node_inputs.ml` | Binders Why3 des entrees et historiques |
-| `why_compile_node_getters.ml` | Getters programme et logiques partages |
-| `why_compile_node_common.ml` | Facade du squelette commun Why3 d'un noeud |
+| `why_compile_bundles.ml` | Predicats compacts de precondition et reutilisation des postconditions multi-clauses |
+| `why_compile_product_group_terms.ml` | Construction des termes groupes avec factorisation canonique des preconditions communes |
+| `why_compile_product_groups.ml` | Partition, eligibilite et plan individuel/groupe des helpers produit |
+| `why_compile_product_specs.ml` | Specifications Why3 directes des helpers produit |
+| `why_compile_product_helpers.ml` | Type d'un helper, contexte, corps et emission des helpers individuels/groupes |
+| `why_compile_node_common.ml` | Types, binders d'entrees/historiques et getters communs d'un noeud Why3 |
 | `why_compile_modules.ml` | Assemblage final des declarations et helper units en modules Why3 |
-| `why_compile_step.ml` | Compilation imperative des corps de transition deja selectionnes |
-| `why_compile.ml/mli` | Facade publique et orchestration de la compilation Why3 d'un noeud |
-| `why_contracts.ml` | Contrats Why3 |
-| `why_pipeline.ml` | Generation VC/SMT textuelle |
+| `why_compile_step.ml` | Compilation imperative directe de `Ir.transition` et `Core_syntax.stmt` |
+| `why_compile.ml` | Facade publique et orchestration de la compilation Why3 d'un noeud |
+| `why_pipeline.ml` | Impression native de l'AST et generation VC/SMT textuelle |
 | `why_contract_unix_io.ml` | Helpers Unix/IPC du proof runner Why3 |
 | `why_contract_proof_types.ml` | Types de résultats, événements et timings de preuve Why3 |
 | `why_contract_smt_utils.ml` | Statuts, empreintes et dumps SMT-LIB |

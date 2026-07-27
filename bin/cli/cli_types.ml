@@ -33,9 +33,6 @@ type cli_args = {
   dump_automata : string option;
   dump_automata_short : string option;
   dump_product : string option;
-  dump_canonical : string option;
-  dump_canonical_short : string option;
-  dump_obligations_map : string option;
   dump_surface : string option;
   dump_elaborated : string option;
   dump_normalized_program : string option;
@@ -55,8 +52,6 @@ type cli_args = {
 type dump_mode =
   | Dump_product of { out : string }
   | Dump_automata of { out : string; short : bool }
-  | Dump_canonical of { out : string; short : bool }
-  | Dump_obligations_map of { out : string }
   | Dump_surface of { out : string }
   | Dump_elaborated of { out : string }
   | Dump_normalized_program of { out : string }

@@ -245,8 +245,6 @@ def scan_reference_kernel(repo: Path, kernel: dict[str, object]) -> None:
     for raw in raw_roots:
         if not isinstance(raw, str):
             fail("reference_kernel.path_roots entries must be strings")
-        if raw == "lib/domain/proof_export" or raw.startswith("lib/domain/proof_export/"):
-            fail("proof_export is a projection view and must not be in reference_kernel.path_roots")
         root = require_path(repo, raw)
         for path in ocaml_files(root):
             code = strip_ocaml_comments(path.read_text(encoding="utf-8", errors="replace"))

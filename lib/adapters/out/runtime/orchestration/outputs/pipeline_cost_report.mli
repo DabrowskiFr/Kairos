@@ -16,17 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Whole-pipeline cost report for proof generation.
-
-    The report is diagnostic only: it observes the prepared snapshot, exported
-    proof-kernel artifacts and generated WhyML text without changing the
-    obligations. *)
+(** Whole-pipeline cost report for proof generation. *)
 
 val render_json :
   input_file:string ->
-  artifact_build_s:float ->
   why_text_s:float ->
   snapshot:Runtime_snapshot.pipeline_snapshot ->
-  artifacts:Pipeline_artifact_bundle.t ->
   why_text:string ->
   string

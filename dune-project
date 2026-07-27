@@ -16,8 +16,6 @@
 (package
  (name kairos-spot-adapter))
 (package
- (name kairos-proof-contract))
-(package
- (name kairos-telemetry))
+ (name kairos-why3-contract))
 (package
  (name kairos-why3-adapter))

@@ -16,13 +16,19 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 open Core_syntax
-open Core_syntax_builders
 open Automaton_types
 
 module PT = Product_types
 module Vm = Verification_model
 
 let ( let* ) = Result.bind
+
+let rec all_results = function
+  | [] -> Ok []
+  | result :: rest ->
+      let* value = result in
+      let* values = all_results rest in
+      Ok (value :: values)
 
 let convert_state_invariants (node_name : ident) (inputs : vdecl list)
     (invs : Vm.state_invariant list) : Ir.state_invariant list =
@@ -102,9 +108,6 @@ let build_analyses
   in
   collect [] source_nodes
 
-let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
-  Core_fo_simplifier.simplify f
-
 let product_state_of_pt (st : PT.product_state) : Ir.product_state =
   {
     prog_state = st.prog_state;
@@ -119,112 +122,30 @@ let is_relevant_product_step ~(analysis : Temporal_automata.node_data) (step : P
   is_live_product_state ~analysis step.src
   && (analysis.assume_bad_idx < 0 || step.dst.assume_state <> analysis.assume_bad_idx)
 
-let classify_case ~(analysis : Temporal_automata.node_data) (dst : PT.product_state) : PT.step_class =
-  if analysis.assume_bad_idx >= 0 && dst.assume_state = analysis.assume_bad_idx then PT.Bad_assumption
-  else if analysis.guarantee_bad_idx >= 0 && dst.guarantee_state = analysis.guarantee_bad_idx then
-    PT.Bad_guarantee
-  else PT.Safe
-
 let transition_indices (program_transitions : Vm.program_step list) :
     (Vm.program_step, int) Hashtbl.t =
   program_transitions
   |> List.mapi (fun idx t -> (t, idx))
   |> List.to_seq |> Hashtbl.of_seq
 
-let program_outgoing (program_transitions : Vm.program_step list) :
-    (ident, Vm.program_step list) Hashtbl.t =
-  let tbl = Hashtbl.create 16 in
-  List.iter
-    (fun (t : Vm.program_step) ->
-      let prev = Hashtbl.find_opt tbl t.src_state |> Option.value ~default:[] in
-      Hashtbl.replace tbl t.src_state (t :: prev))
-    program_transitions;
-  tbl
-
-let automaton_outgoing (grouped : Automaton_types.transition list) :
-    (int, Automaton_types.transition list) Hashtbl.t =
-  let tbl = Hashtbl.create 16 in
-  List.iter
-    (fun (((src, _guard, _dst) as edge) : Automaton_types.transition) ->
-      let prev = Hashtbl.find_opt tbl src |> Option.value ~default:[] in
-      Hashtbl.replace tbl src (edge :: prev))
-    grouped;
-  tbl
-
-let edges_from_outgoing (outgoing : (int, Automaton_types.transition list) Hashtbl.t) idx =
-  Hashtbl.find_opt outgoing idx |> Option.value ~default:[]
-
 let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
-    ~(program_transitions : Vm.program_step list) ~(node : Core_syntax.historical Ir.node_ir) :
+    ~(program_transitions : Vm.program_step list) :
     Core_syntax.historical Ir.product_step_summary list =
   let transition_indices = transition_indices program_transitions in
-  let prog_outgoing = program_outgoing program_transitions in
-  let assume_outgoing = automaton_outgoing analysis.assume_grouped_edges in
-  let guarantee_outgoing = automaton_outgoing analysis.guarantee_grouped_edges in
   let groups = Hashtbl.create 32 in
   let order = ref [] in
-  let seen = Hashtbl.create 64 in
-  let q = Queue.create () in
-  let push_state st =
-    if not (Hashtbl.mem seen st) then (
-      Hashtbl.add seen st ();
-      Queue.add st q)
-  in
-  let _ = node in
-  push_state analysis.exploration.initial_state;
-  while not (Queue.is_empty q) do
-    let src = Queue.take q in
-    let prog_edges = Hashtbl.find_opt prog_outgoing src.prog_state |> Option.value ~default:[] in
-    let assume_edges = edges_from_outgoing assume_outgoing src.assume_state in
-    let guarantee_edges = edges_from_outgoing guarantee_outgoing src.guarantee_state in
-    List.iter
-      (fun (prog_transition : Vm.program_step) ->
-        match Hashtbl.find_opt transition_indices prog_transition with
-        | None -> ()
-        | Some step_uid ->
-            List.iter
-              (fun (((_assume_src, assume_guard_raw, assume_dst) as assume_edge) :
-                    Automaton_types.transition) ->
-                List.iter
-                  (fun (((_guarantee_src, guarantee_guard_raw, guarantee_dst) as guarantee_edge) :
-                        Automaton_types.transition) ->
-                    let dst =
-                      {
-                        PT.prog_state = prog_transition.dst_state;
-                        assume_state = assume_dst;
-                        guarantee_state = guarantee_dst;
-                      }
-                    in
-                    push_state dst;
-                    let step_class = classify_case ~analysis dst in
-                    let step =
-                      {
-                        PT.src;
-                        dst;
-                        prog_transition;
-                        prog_guard =
-                          (match prog_transition.guard_expr with
-                          | None -> mk_hbool true
-                          | Some g ->
-                              hexpr_of_expr g
-                              |> Core_syntax.historical_of_history_free
-                              |> simplify_fo);
-                        assume_edge;
-                        assume_guard = simplify_fo assume_guard_raw;
-                        guarantee_edge;
-                        guarantee_guard = simplify_fo guarantee_guard_raw;
-                        step_class;
-                      }
-                    in
-                    if is_relevant_product_step ~analysis step then (
-                      let key = (step_uid, step.src, step.assume_edge) in
-                      if not (Hashtbl.mem groups key) then order := key :: !order;
-                      let previous = Hashtbl.find_opt groups key |> Option.value ~default:[] in
-                      Hashtbl.replace groups key ((step, step_uid) :: previous)))
-                  guarantee_edges)
-              assume_edges)
-      prog_edges
-  done;
+  analysis.exploration.steps
+  |> List.iter (fun (step : PT.product_step) ->
+         match Hashtbl.find_opt transition_indices step.prog_transition with
+         | None -> ()
+         | Some step_uid ->
+             if is_relevant_product_step ~analysis step then (
+               let key = (step_uid, step.src, step.assume_edge) in
+               if not (Hashtbl.mem groups key) then order := key :: !order;
+               let previous =
+                 Hashtbl.find_opt groups key |> Option.value ~default:[]
+               in
+               Hashtbl.replace groups key ((step, step_uid) :: previous)));
   List.rev !order
   |> List.filter_map (fun key ->
          match Hashtbl.find_opt groups key with
@@ -301,16 +222,47 @@ let with_minimal_summaries ~(analyses : (ident * Temporal_automata.node_data) li
               Error (Printf.sprintf "Missing source model node for normalized node %s" node_name)
           | Some source_node -> Ok source_node.steps
         in
-        let summaries = build_minimal_summaries ~analysis ~program_transitions ~node in
+        let summaries = build_minimal_summaries ~analysis ~program_transitions in
         collect ({ node with summaries } :: acc) rest
   in
   collect [] nodes
 
-let of_model_program
+type analyzed_node = {
+  model : Vm.node_model;
+  analysis : Temporal_automata.node_data;
+  ir : Core_syntax.historical Ir.node_ir;
+}
+
+let analyze_model_program
     ~(automata : (Core_syntax.ident * automata_spec) list)
     (program : Vm.program_model) :
-    (Core_syntax.historical Ir.node_ir list, string) result =
+    (analyzed_node list, string) result =
   let source_nodes = source_nodes_by_name program in
   let* analyses = build_analyses ~automata ~source_nodes in
-  of_model_program_context program
-  |> with_minimal_summaries ~analyses ~source_nodes
+  let* nodes =
+    of_model_program_context program
+    |> with_minimal_summaries ~analyses ~source_nodes
+  in
+  nodes
+  |> List.map (fun (ir : Core_syntax.historical Ir.node_ir) ->
+         let node_name = ir.semantics.sem_nname in
+         let* model =
+           match List.assoc_opt node_name source_nodes with
+           | Some model -> Ok model
+           | None ->
+               Error
+                 (Printf.sprintf
+                    "Missing source model node for analyzed IR node %s"
+                    node_name)
+         in
+         let* analysis =
+           match List.assoc_opt node_name analyses with
+           | Some analysis -> Ok analysis
+           | None ->
+               Error
+                 (Printf.sprintf
+                    "Missing product analysis for analyzed IR node %s"
+                    node_name)
+         in
+         Ok { model; analysis; ir })
+  |> all_results

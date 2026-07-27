@@ -33,8 +33,8 @@ type worker_to_parent =
       result : Why_contract_proof_types.goal_proof_result;
     }
   | Worker_done of
-      External_timing.why3_worker_snapshot * External_timing.snapshot
-  | Worker_failed of string * External_timing.snapshot
+      Why_metrics.worker_snapshot * Why_metrics.snapshot
+  | Worker_failed of string * Why_metrics.snapshot
 
 type proof_worker = {
   worker_id : int;

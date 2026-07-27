@@ -83,7 +83,6 @@ export interface Outputs {
   guarantee_automaton_text: string;
   assume_automaton_text: string;
   product_text: string;
-  obligations_map_text: string;
   prune_reasons_text: string;
   program_dot: string;
   guarantee_automaton_dot: string;
@@ -115,8 +114,6 @@ export interface Outputs {
   assume_automaton_png_error: string | null;
   product_png: string | null;
   product_png_error: string | null;
-  historical_clauses_text: string;
-  eliminated_clauses_text: string;
 }
 
 export interface AutomataOutputs {
@@ -126,7 +123,6 @@ export interface AutomataOutputs {
   guarantee_automaton_text: string;
   assume_automaton_text: string;
   product_text: string;
-  obligations_map_text: string;
   prune_reasons_text: string;
   program_dot: string;
   guarantee_automaton_dot: string;
@@ -143,8 +139,6 @@ export interface AutomataOutputs {
   product_png: string | null;
   product_png_error: string | null;
   stage_meta: Array<[string, Array<[string, string]>]>;
-  historical_clauses_text: string;
-  eliminated_clauses_text: string;
 }
 
 export interface GoalsReadyPayload {
@@ -261,7 +255,6 @@ export type ArtifactId =
   | "assume"
   | "guarantee"
   | "product"
-  | "obligations_map"
   | "prune_reasons";
 
 export type GraphId = "program" | "assume" | "guarantee" | "product";
@@ -306,12 +299,6 @@ export const ARTIFACTS: ArtifactDescriptor[] = [
   { id: "assume", label: "Assume Automaton", kind: "graph", description: "Assumption automaton" },
   { id: "guarantee", label: "Guarantee Automaton", kind: "graph", description: "Guarantee automaton" },
   { id: "product", label: "Product Automaton", kind: "graph", description: "A x G x Program product" },
-  {
-    id: "obligations_map",
-    label: "Obligations Map",
-    kind: "text",
-    description: "Node and transition obligations"
-  },
   {
     id: "prune_reasons",
     label: "Prune Reasons",

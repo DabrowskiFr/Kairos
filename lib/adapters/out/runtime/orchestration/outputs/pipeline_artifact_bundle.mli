@@ -22,20 +22,15 @@
 *)
 
 type t = {
-  kernel_ir_nodes : Proof_kernel_types.node_ir list;
-  exported_node_summaries : Proof_kernel_types.exported_node_summary_ir list;
   guarantee_automaton_text : string;
   assume_automaton_text : string;
   product_text : string;
-  canonical_text : string;
-  obligations_map_text_raw : string;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
-  canonical_dot : string;
 }
 
-(** Build artifact texts/dots and exported kernel structures for [asts]. *)
+(** Build automata and product graph artifacts for [asts]. *)
 
 val build :
-  asts:Runtime_snapshot.ast_flow -> (t, string) result
+  asts:Runtime_snapshot.ast_flow -> t

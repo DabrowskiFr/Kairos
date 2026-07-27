@@ -30,14 +30,14 @@ let sanitize_csv_value value =
       | c -> c)
     value
 
-let solver_sum_s (goals : Pipeline_types.goal_info list) : float =
+let solver_sum_s (goals : Pipeline_proof_types.goal_info list) : float =
   List.fold_left (fun acc (_, _, time_s, _, _) -> acc +. time_s) 0.0 goals
 
 let goal_status_is_pending (_, status, _, _, _) =
   String.lowercase_ascii status = "pending"
 
 let why3_worker_timing_fields
-    (worker : External_timing.why3_worker_snapshot) =
+    (worker : Runtime_metrics.why3_worker_snapshot) =
   let prefix = Printf.sprintf "why3_worker_%d_" worker.worker_id in
   [
     (prefix ^ "input_goal_count", string_of_int worker.worker_input_goal_count);
@@ -54,7 +54,7 @@ let why3_worker_timing_fields
     (prefix ^ "last_goal", worker.worker_last_goal);
   ]
 
-let ir_size_count (name : string) (size : External_timing.ir_size_metrics) :
+let ir_size_count (name : string) (size : Runtime_metrics.ir_size_metrics) :
     int =
   match name with
   | "node_count" -> size.node_count
@@ -72,7 +72,7 @@ let ir_size_count (name : string) (size : External_timing.ir_size_metrics) :
       size.formula_occurrence_count - size.unique_formula_count
   | _ -> invalid_arg ("unknown IR size metric: " ^ name)
 
-let ir_pass_size_fields (pass : External_timing.ir_pass_snapshot) =
+let ir_pass_size_fields (pass : Runtime_metrics.ir_pass_snapshot) =
   let prefix = "ir_" ^ pass.pass_name ^ "_" in
   [
     "node_count";
@@ -98,7 +98,7 @@ let ir_pass_size_fields (pass : External_timing.ir_pass_snapshot) =
          ])
 
 let ir_fact_family_fields
-    (family : External_timing.ir_fact_family_snapshot) =
+    (family : Runtime_metrics.ir_fact_family_snapshot) =
   let prefix =
     "ir_family_" ^ family.pass_name ^ "_" ^ family.family_name ^ "_"
   in

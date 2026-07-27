@@ -16,11 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Contract = Kairos_proof_contract.Proof_backend_contract
+module Contract = Kairos_why3_contract.Why3_contract
 
 let build ~(status : string) ~(goal_text : string)
     ~(native_probe : Contract.solver_probe option) :
-    Pipeline_types.proof_diagnostic =
+    Pipeline_proof_types.proof_diagnostic =
   let status_norm = String.lowercase_ascii (String.trim status) in
   let native_probe_status =
     Option.map

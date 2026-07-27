@@ -16,40 +16,17 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Runtime-side generation of assumption and guarantee automata from temporal
-    contracts.
+(** Protocol adaptation and external construction of prepared automata.
 
-    This module is deliberately outside [kairos_domain_verification]: the
-    reference kernel consumes automata as parameters and does not formalize this
-    production step. *)
-open Core_syntax
-open Automaton_types
-(** Public alias for the normalized automaton representation used downstream. *)
-(* type automata_automaton = Automaton_types.automaton
-
-(** Complete automata bundle built for one node. *)
-type automata_build = Automaton_types.automata_build = {
-  (** Guarantee automaton built from normalized ensures formulas. *)
-  guarantee_automaton : automata_automaton;
-  (** Assumption automaton. It is trivial ([true]-loop) when no requires are
-      present. *)
-  assume_automaton : automata_automaton;
-} *)
-
-val build_for_node :
-  build_automaton:
-    (Kairos_automata_contract.Automata_exchange.request ->
-    Kairos_automata_contract.Automata_exchange.response) ->
-  Verification_model.node_model ->
-  automata_spec
-(** Build the full automata bundle for one node:
-    - collect guarantee atoms;
-    - build the guarantee automaton;
-    - build the assumption automaton (trivial when no requires are present). *)
+    Formula validation, normalization and atom preparation belong to
+    {!Automata_preparation}. *)
 
 val run :
   Verification_model.program_model ->
   build_automaton:
     (Kairos_automata_contract.Automata_exchange.request ->
     Kairos_automata_contract.Automata_exchange.response) ->
-  (ident * automata_spec) list * Flow_info.automata_info
+  ( (Core_syntax.ident * Automaton_types.automata_spec) list
+    * Flow_info.automata_info,
+    string )
+  result

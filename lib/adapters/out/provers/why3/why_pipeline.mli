@@ -30,10 +30,15 @@ type compilation_options = {
 type obligations_outputs = {
   vc_text : string;
   smt_text : string;
+  metrics :
+    Kairos_why3_contract.Why3_contract.execution_metrics;
 }
+
+type compilation_manifest = Why_compile.compiled_obligation list
 
 type whyml_output = {
   text : string;
+  manifest : compilation_manifest;
 }
 
 (** Compile Kairos IR to a neutral WhyML text artifact. *)

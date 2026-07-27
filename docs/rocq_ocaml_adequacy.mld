@@ -277,7 +277,7 @@ Safety clauses
 Safe step-contract extraction
   kairosSafeContractOfSummary with all pssSteps and lowerDedupEnsures
   Canonical_obligations.build_stage2 safe contract, consumed by
-  Step_contract_projection and Why_runtime_view
+  Step_contract_projection and the Why3 compiler
   ADEQUATE_IF
   Deduplication and lowering must be justified as preservation after the
   canonical Stage 2 contract exists.

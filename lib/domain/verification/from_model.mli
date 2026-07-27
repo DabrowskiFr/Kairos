@@ -19,8 +19,13 @@
 (** Build the minimal canonical IR from the internal verification model and
     automata analyses. *)
 
-val of_model_program :
+type analyzed_node = {
+  model : Verification_model.node_model;
+  analysis : Temporal_automata.node_data;
+  ir : Core_syntax.historical Ir.node_ir;
+}
+
+val analyze_model_program :
   automata:(Core_syntax.ident * Automaton_types.automata_spec) list ->
   Verification_model.program_model ->
-  (Core_syntax.historical Ir.node_ir list, string) result
-
+  (analyzed_node list, string) result

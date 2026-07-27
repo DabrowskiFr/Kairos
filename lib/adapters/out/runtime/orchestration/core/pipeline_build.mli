@@ -30,21 +30,22 @@ type prepared_program = {
   parse_info : Flow_info.parse_info;
   source_model : Verification_model.program_model;
   reference_program : Verification_model.program_model;
+  reference_provenance : Contract_partition.provenance list;
 }
 
 val prepare_program :
-  proof_optimizations:Pipeline_types.proof_optimizations ->
+  proof_optimizations:Pipeline_config.proof_optimizations ->
   imports:string list ->
   parse_info:Flow_info.parse_info ->
   verification_model:Verification_model.program_model ->
-  (prepared_program, Pipeline_types.error) result
+  (prepared_program, Pipeline_error.t) result
 
 val build_snapshot_from_supplied_automata :
   collect_instrumentation_info:bool ->
   collect_ir_metrics:bool ->
-  proof_encoding:Pipeline_types.proof_encoding ->
-  proof_optimizations:Pipeline_types.proof_optimizations ->
+  proof_encoding:Pipeline_config.proof_encoding ->
+  proof_optimizations:Pipeline_config.proof_optimizations ->
   prepared:prepared_program ->
   automata:(Core_syntax.ident * Automaton_types.automata_spec) list ->
   automata_info:Flow_info.automata_info ->
-  (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error) result
+  (Runtime_snapshot.pipeline_snapshot, Pipeline_error.t) result

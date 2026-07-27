@@ -106,7 +106,6 @@ export class AutomataPanel {
     };
     const textData = {
       labels: a?.labels_text ?? "",
-      obligations: a?.obligations_map_text ?? "",
       prune: a?.prune_reasons_text ?? ""
     };
 
@@ -169,7 +168,6 @@ ${panes}
     </div>
     <div class="side">
       <h3>Labels</h3><pre>${escapeHtml(textData.labels.slice(0, 4000))}</pre>
-      <h3>Obligations</h3><pre>${escapeHtml(textData.obligations.slice(0, 4000))}</pre>
       <h3>Prune Reasons</h3><pre>${escapeHtml(textData.prune.slice(0, 4000))}</pre>
     </div>
   </div>
@@ -816,7 +814,6 @@ export class ArtifactsPanel {
       assume: this.state.outputs?.assume_automaton_text ?? this.state.automata?.assume_automaton_text ?? "",
       guarantee: this.state.outputs?.guarantee_automaton_text ?? this.state.automata?.guarantee_automaton_text ?? "",
       product: this.state.outputs?.product_text ?? this.state.automata?.product_text ?? "",
-      obligations_map: this.state.outputs?.obligations_map_text ?? this.state.automata?.obligations_map_text ?? "",
       prune_reasons: this.state.outputs?.prune_reasons_text ?? this.state.automata?.prune_reasons_text ?? ""
     };
     const scriptNonce = nonce();

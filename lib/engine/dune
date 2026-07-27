@@ -3,6 +3,7 @@
  (public_name kairos-engine-runtime)
  (wrapped true)
  (modules
+  log
   graphviz_render
   runtime_defaults
   proof_diagnostics
@@ -12,8 +13,10 @@
   engine_vc_taxonomy
   engine_timing_meta
   engine_flow
+  engine_contract
   api)
  (private_modules
+  log
   runtime_defaults
   proof_diagnostics
   output_mapper
@@ -27,7 +30,7 @@
   fpath
   kairos_input_lang
   kairos_domain_core
-  kairos_proof_contract
+  kairos_why3_contract
   kairos_runtime_core
   kairos_runtime_automata
   kairos_runtime_proof
@@ -36,7 +39,8 @@
   kairos_artifact_graph_render
   kairos_artifact_text_render
   kairos_external_why3
-  kairos_external_timing
+  kairos_runtime_telemetry
   kairos_c_codegen
+  logs
   unix
   str))

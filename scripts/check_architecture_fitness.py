@@ -114,18 +114,31 @@ def check_concrete_engine(repo: Path) -> list[str]:
     )
 
     api = text(repo / "lib/engine/api.mli")
-    if not re.search(r"module\s+Contract\s*=\s*Pipeline_types", api):
-        violations.append("lib/engine/api.mli must expose the canonical Pipeline_types contract")
-    pipeline_definitions = [
-        path
-        for path in (repo / "lib").rglob("pipeline_types.ml")
-        if ".formatted" not in path.parts
-    ]
-    if len(pipeline_definitions) != 1:
+    if not re.search(r"module\s+Contract\s*=\s*Engine_contract", api):
         violations.append(
-            "the pipeline contract must have exactly one implementation; found "
-            + str(len(pipeline_definitions))
+            "lib/engine/api.mli must expose Engine_contract as its public contract"
         )
+    violations += require_absent(
+        repo,
+        [
+            "lib/adapters/out/runtime/orchestration/core/pipeline_types.ml",
+            "lib/adapters/out/runtime/orchestration/core/pipeline_types.mli",
+        ],
+    )
+    for module_name in (
+        "pipeline_config",
+        "pipeline_error",
+        "pipeline_proof_types",
+        "pipeline_artifacts",
+    ):
+        for suffix in (".ml", ".mli"):
+            required = (
+                repo
+                / "lib/adapters/out/runtime/orchestration/core"
+                / f"{module_name}{suffix}"
+            )
+            if not required.is_file():
+                violations.append(f"missing focused pipeline contract {required.relative_to(repo)}")
     return violations
 
 
@@ -157,20 +170,6 @@ def check_correction_dependencies(repo: Path) -> list[str]:
         ],
         [
             (r"\bZ3\b|\bFo_z3_solver\b|kairos_external_z3", "solver dependency in renderer"),
-            (
-                r"\bProof_kernel(?:_[A-Za-z0-9_]+)?\b|kairos_domain_proof_export",
-                "proof-export dependency in renderer",
-            ),
-        ],
-    )
-    violations += scan(
-        repo,
-        ["lib/adapters/out/provers/why3"],
-        [
-            (
-                r"\bProof_kernel(?:_[A-Za-z0-9_]+)?\b|kairos_domain_proof_export",
-                "Why backend must consume exported contracts, not proof-export internals",
-            )
         ],
     )
     violations += scan(
@@ -186,21 +185,58 @@ def check_correction_dependencies(repo: Path) -> list[str]:
         [
             "lib/domain/verification/automata_generation.ml",
             "lib/domain/verification/automata_generation.mli",
+            "lib/domain/core/ir.ml",
+            "lib/domain/core/ir.mli",
+            "lib/domain/core/ir_shared_types.ml",
+            "lib/domain/core/ir_shared_types.mli",
+            "lib/domain/core/ir_formula.ml",
+            "lib/domain/core/ir_formula.mli",
+            "lib/domain/core/ir_transition.ml",
+            "lib/domain/core/ir_transition.mli",
+            "lib/domain/core/log.ml",
+            "lib/domain/core/log.mli",
         ],
     )
+    for module_name in ("ir", "ir_shared_types", "ir_formula", "ir_transition"):
+        for suffix in (".ml", ".mli"):
+            required = repo / "lib/domain/verification" / f"{module_name}{suffix}"
+            if not required.is_file():
+                violations.append(
+                    f"verification IR module is missing: {required.relative_to(repo)}"
+                )
     return violations
 
 
 def check_external_contracts(repo: Path) -> list[str]:
-    return scan(
+    violations = require_absent(
         repo,
-        ["packages/automata-contract", "packages/proof-contract"],
+        ["packages/proof-contract", "kairos-proof-contract.opam"],
+    )
+    violations += scan(
+        repo,
+        ["packages/automata-contract", "packages/why3-contract"],
         [
             (r"\bCore_syntax\b|\bVerification_model\b", "Kairos domain dependency in tool contract"),
             (r"\bPipeline_types\b|\bRuntime_", "engine runtime dependency in tool contract"),
-            (r"\bWhy3\.", "Why3 implementation dependency in neutral contract"),
+            (r"\bWhy3\.", "Why3 implementation dependency in serialized tool contract"),
         ],
     )
+    violations += scan(
+        repo,
+        ["packages/why3"],
+        [
+            (
+                r"\bExternal_timing\b|\bRuntime_metrics\b|\bkairos_(?:external_)?timing\b",
+                "Kairos telemetry dependency in standalone Why3 adapter",
+            ),
+            (
+                r"\bPipeline_|\bVerification_model\b|\bCore_syntax\b",
+                "Kairos runtime/domain dependency in standalone Why3 adapter",
+            ),
+        ],
+    )
+    violations += require_absent(repo, ["packages/timing", "kairos-telemetry.opam"])
+    return violations
 
 
 def check_delivery_boundaries(repo: Path) -> list[str]:
@@ -246,7 +282,7 @@ def check_package_boundaries(repo: Path) -> list[str]:
         "kairos-engine-runtime": {
             "kairos",
             "kairos-automata-contract",
-            "kairos-proof-contract",
+            "kairos-why3-contract",
             "kairos-spot-adapter",
             "kairos-why3-adapter",
         },

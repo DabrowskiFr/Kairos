@@ -29,11 +29,19 @@ open Automaton_types
 type reference_product_input = {
   reference_program : Verification_model.program_model;
   reference_automata : (Core_syntax.ident * automata_spec) list;
+  reference_provenance : Contract_partition.provenance list;
 }
 
 (** Output of the reference product construction. *)
+type reference_node = {
+  source_node_name : Core_syntax.ident;
+  reference_model : Verification_model.node_model;
+  analysis : Temporal_automata.node_data;
+  ir : Core_syntax.historical Ir.node_ir;
+}
+
 type reference_product = {
-  reference_nodes : Core_syntax.historical Ir.node_ir list;
+  reference_nodes : reference_node list;
 }
 
 (** Instrumentation passes currently run after product summaries exist. *)

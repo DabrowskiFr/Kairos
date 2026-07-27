@@ -43,18 +43,6 @@
       "path": "lib/domain/proof_export/proof_kernel_types.mli",
       "role": "Diagnostic/exchange grouping of product steps and relational clauses.",
       "limitation": "It contains steps and clauses, but drops explicit summary identity, propagation_requires, requires, runtime_requires, ensures, safe cases and unsafe cases as first-class fields."
-    },
-    {
-      "name": "Why_runtime_view.runtime_product_transition_view",
-      "path": "lib/adapters/out/provers/why3/runtime/why_runtime_view_types.mli",
-      "role": "Why3-oriented runtime product transition view.",
-      "limitation": "It approximates step contracts but is backend-shaped, not a neutral StepContract projection: it lacks summary identity, explicit covered step list for grouped contracts, and lowered LowExpr data as a proof object."
-    },
-    {
-      "name": "Why_contracts.step_contract_info",
-      "path": "lib/adapters/out/provers/why3/contracts/why_contracts.ml",
-      "role": "Why3 terms and labels used for backend emission.",
-      "limitation": "It is already after backend term compilation, so it is too late to be the neutral step-contract projection."
     }
   ],
   "record_audit": [

@@ -28,10 +28,18 @@ let proof_optimizations_of_args args =
     else Pipeline.default_proof_optimizations
   in
   {
-    Pipeline.group_public_non_w_guarantees =
-      base.group_public_non_w_guarantees && not args.no_proof_grouping;
-    group_why3_product_steps =
-      base.group_why3_product_steps && not args.no_why3_product_step_grouping;
+    Pipeline.verification =
+      {
+        group_public_non_w_guarantees =
+          base.verification.group_public_non_w_guarantees
+          && not args.no_proof_grouping;
+      };
+    why3 =
+      {
+        Pipeline.group_product_steps =
+          base.why3.group_product_steps
+          && not args.no_why3_product_step_grouping;
+      };
   }
 
   type goal_info = string * string * float * string option * string option
@@ -44,9 +52,6 @@ let proof_optimizations_of_args args =
     assume_automaton_dot : string;
     product_text : string;
     product_dot : string;
-    canonical_text : string;
-    canonical_dot : string;
-    obligations_map_text : string;
   }
 
   type obligations_dump_data = {
@@ -88,9 +93,6 @@ let proof_optimizations_of_args args =
             assume_automaton_dot = out.assume_automaton_dot;
             product_text = out.product_text;
             product_dot = out.product_dot;
-            canonical_text = out.canonical_text;
-            canonical_dot = out.canonical_dot;
-            obligations_map_text = out.obligations_map_text;
           }
 
   let why_text_dump ~input_file ~proof_encoding ~proof_optimizations =

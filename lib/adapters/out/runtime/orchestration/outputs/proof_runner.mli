@@ -22,14 +22,14 @@ type run_output = {
   why_text : string;
   why_spans : (int * (int * int)) list;
   vc_text : string;
-  vc_spans_ordered : Pipeline_types.text_span list;
+  vc_spans_ordered : Pipeline_proof_types.text_span list;
   smt_text : string;
-  smt_spans_ordered : Pipeline_types.text_span list;
+  smt_spans_ordered : Pipeline_proof_types.text_span list;
   vc_ids_ordered : int list;
   vc_locs : (int * Loc.loc) list;
   vc_locs_ordered : Loc.loc list;
-  goals : Pipeline_types.goal_info list;
-  proof_traces : Pipeline_types.proof_trace list;
+  goals : Pipeline_proof_types.goal_info list;
+  proof_traces : Pipeline_proof_types.proof_trace list;
 }
 
 (** Run Why generation + VC/SMT dump + optional proof replay.
@@ -40,7 +40,7 @@ type run_output = {
 *)
 
 val run :
-  cfg:Pipeline_types.config ->
+  cfg:Pipeline_config.config ->
   instrumentation:Core_syntax.history_free Ir.node_ir list ->
   step_projections:Step_contract_projection.t list ->
-  (run_output, Pipeline_types.error) result
+  (run_output, Pipeline_error.t) result

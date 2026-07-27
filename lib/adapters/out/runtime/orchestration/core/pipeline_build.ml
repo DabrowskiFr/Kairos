@@ -37,12 +37,12 @@ let transition_contains_call (t : Verification_model.program_step) : bool =
 let node_uses_calls (n : Verification_model.node_model) : bool =
   List.exists transition_contains_call n.steps
 
-let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_types.error) result =
+let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_error.t) result =
   match List.find_opt node_uses_calls program with
   | None -> Ok ()
   | Some n ->
       Error
-        (Pipeline_types.Flow_error
+        (Pipeline_error.Flow_error
            (Printf.sprintf
               "Calls are not supported in this Kairos version (node '%s')."
               n.node_name))
@@ -50,7 +50,7 @@ let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_
 let ir_size_metrics :
     type phase.
     phase Ir.node_ir list ->
-    External_timing.ir_size_metrics =
+    Runtime_metrics.ir_size_metrics =
  fun nodes ->
   let summary_count = ref 0 in
   let safe_case_count = ref 0 in
@@ -123,7 +123,7 @@ let ir_pass_name = function
   | Orchestration.Formula_sharing_pass -> "formula_sharing"
 
 let record_ir_fact_family (family : Ir_fact_family_metrics.snapshot) =
-  External_timing.record_ir_fact_family
+  Runtime_metrics.record_ir_fact_family
     {
       pass_name = family.pass_name;
       family_name = family.family_name;
@@ -138,47 +138,55 @@ type prepared_program = {
   parse_info : Flow_info.parse_info;
   source_model : Verification_model.program_model;
   reference_program : Verification_model.program_model;
+  reference_provenance : Contract_partition.provenance list;
 }
 
 let prepare_program
-    ~(proof_optimizations : Pipeline_types.proof_optimizations)
+    ~(proof_optimizations : Pipeline_config.proof_optimizations)
     ~(imports : string list) ~(parse_info : Flow_info.parse_info)
     ~(verification_model : Verification_model.program_model) :
-    (prepared_program, Pipeline_types.error) result =
+    (prepared_program, Pipeline_error.t) result =
   try
     let p_model = verification_model in
     match reject_calls p_model with
     | Error _ as err -> err
     | Ok () ->
     let t_partition = Unix.gettimeofday () in
-    let partition_result =
-      Contract_partition.partition_program ~proof_optimizations p_model
+    let partition_policy : Contract_partition.policy =
+      {
+        group_public_non_w_guarantees =
+          proof_optimizations.verification.group_public_non_w_guarantees;
+      }
     in
-    External_timing.record_contract_partition
+    let partition_result =
+      Contract_partition.partition_program ~policy:partition_policy p_model
+    in
+    Runtime_metrics.record_contract_partition
       ~elapsed_s:(Unix.gettimeofday () -. t_partition);
-    let* runtime_model =
+    let* partitioned =
       partition_result
-      |> Result.map_error (fun msg -> Pipeline_types.Flow_error msg)
+      |> Result.map_error (fun msg -> Pipeline_error.Flow_error msg)
     in
     Ok
       {
         imports;
         parse_info;
         source_model = p_model;
-        reference_program = runtime_model;
+        reference_program = partitioned.program;
+        reference_provenance = partitioned.provenance;
       }
-  with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))
+  with exn -> Error (Pipeline_error.Flow_error (Printexc.to_string exn))
 
 let build_snapshot_from_supplied_automata
     ~(collect_instrumentation_info : bool)
     ~(collect_ir_metrics : bool)
-    ~(proof_encoding : Pipeline_types.proof_encoding)
-    ~(proof_optimizations : Pipeline_types.proof_optimizations)
+    ~(proof_encoding : Pipeline_config.proof_encoding)
+    ~(proof_optimizations : Pipeline_config.proof_optimizations)
     ~(prepared : prepared_program)
     ~(automata :
        (Core_syntax.ident * Automaton_types.automata_spec) list)
     ~(automata_info : Flow_info.automata_info) :
-    (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error)
+    (Runtime_snapshot.pipeline_snapshot, Pipeline_error.t)
     result =
   try
     let imports = prepared.imports in
@@ -187,18 +195,27 @@ let build_snapshot_from_supplied_automata
     let runtime_model = prepared.reference_program in
     let t_product = Unix.gettimeofday () in
     let reference_input : Orchestration.reference_product_input =
-      { reference_program = runtime_model; reference_automata = automata }
+      {
+        reference_program = runtime_model;
+        reference_automata = automata;
+        reference_provenance = prepared.reference_provenance;
+      }
     in
-    let p_summaries =
+    let reference_nodes =
       match Orchestration.build_reference_product reference_input with
-      | Error msg -> Error (Pipeline_types.Flow_error msg)
+      | Error msg -> Error (Pipeline_error.Flow_error msg)
       | Ok reference_product ->
-          External_timing.record_product ~elapsed_s:(Unix.gettimeofday () -. t_product);
+          Runtime_metrics.record_product ~elapsed_s:(Unix.gettimeofday () -. t_product);
           Ok reference_product.reference_nodes
     in
-    match p_summaries with
+    match reference_nodes with
     | Error _ as err -> err
-    | Ok p_summaries -> (
+    | Ok reference_nodes -> (
+        let p_summaries =
+          List.map
+            (fun (node : Orchestration.reference_node) -> node.ir)
+            reference_nodes
+        in
         let run_canonical_pass pass f nodes =
           let before =
             if collect_ir_metrics then Some (ir_size_metrics nodes) else None
@@ -207,18 +224,18 @@ let build_snapshot_from_supplied_automata
           let result = f nodes in
           let elapsed_s = Unix.gettimeofday () -. t_pass in
           (match pass with
-          | Orchestration.Pre_pass -> External_timing.record_pre ~elapsed_s
+          | Orchestration.Pre_pass -> Runtime_metrics.record_pre ~elapsed_s
           | Orchestration.Product_reachability_pass ->
-              External_timing.record_product_reachability ~elapsed_s
-          | Orchestration.Post_pass -> External_timing.record_post ~elapsed_s
+              Runtime_metrics.record_product_reachability ~elapsed_s
+          | Orchestration.Post_pass -> Runtime_metrics.record_post ~elapsed_s
           | Orchestration.Temporal_lower_pass ->
-              External_timing.record_temporal_lower ~elapsed_s
+              Runtime_metrics.record_temporal_lower ~elapsed_s
           | Orchestration.Formula_sharing_pass ->
-              External_timing.record_formula_sharing ~elapsed_s);
+              Runtime_metrics.record_formula_sharing ~elapsed_s);
           Option.iter
             (fun before ->
               let after_ = ir_size_metrics result in
-              External_timing.record_ir_pass
+              Runtime_metrics.record_ir_pass
                 { pass_name = ir_pass_name pass; before; after_ })
             before;
           result
@@ -230,11 +247,11 @@ let build_snapshot_from_supplied_automata
           let t_pass = Unix.gettimeofday () in
           let result = f nodes in
           let elapsed_s = Unix.gettimeofday () -. t_pass in
-          External_timing.record_temporal_lower ~elapsed_s;
+          Runtime_metrics.record_temporal_lower ~elapsed_s;
           Option.iter
             (fun before ->
               let after_ = ir_size_metrics result in
-              External_timing.record_ir_pass
+              Runtime_metrics.record_ir_pass
                 { pass_name = ir_pass_name pass; before; after_ })
             before;
           result
@@ -254,19 +271,20 @@ let build_snapshot_from_supplied_automata
             ~pass_runner
             p_summaries
         in
-        External_timing.record_canonical ~elapsed_s:(Unix.gettimeofday () -. t_canonical);
+        Runtime_metrics.record_canonical ~elapsed_s:(Unix.gettimeofday () -. t_canonical);
         let p_proof_instrumentation = instrumented_ir.proof_nodes in
         let ir_program = instrumented_ir.backend_program in
         let p_instrumentation = ir_program.nodes in
         let proof_backend_nodes =
           Runtime_ir_merge.merge_by_source ~source_model:p_model
+            ~reference_nodes
             p_instrumentation
         in
         let t_step_projection = Unix.gettimeofday () in
         let step_projections =
           List.map Step_contract_projection.of_ir_node proof_backend_nodes
         in
-        External_timing.record_step_projection
+        Runtime_metrics.record_step_projection
           ~elapsed_s:(Unix.gettimeofday () -. t_step_projection);
         let summaries_info : Flow_info.summaries_info = { warnings = [] }
         in
@@ -274,16 +292,16 @@ let build_snapshot_from_supplied_automata
           if collect_instrumentation_info then
             let t_info = Unix.gettimeofday () in
             let result =
-              Instrumentation_info_builder.instrumentation_info_of_ir ~automata
-                ~source_model:runtime_model ir_program
+              Instrumentation_info_builder.instrumentation_info_of_ir
+                ~reference_nodes ir_program
             in
-            External_timing.record_instrumentation_info
+            Runtime_metrics.record_instrumentation_info
               ~elapsed_s:(Unix.gettimeofday () -. t_info);
             result |> Result.map Option.some
           else Ok None
         in
         match instrumentation_info with
-        | Error msg -> Error (Pipeline_types.Flow_error msg)
+        | Error msg -> Error (Pipeline_error.Flow_error msg)
         | Ok instrumentation_info ->
         let asts : Runtime_snapshot.ast_flow =
           {
@@ -291,7 +309,7 @@ let build_snapshot_from_supplied_automata
             verification_model = p_model;
             reference_program = runtime_model;
             automata;
-            summaries = p_summaries;
+            reference_nodes;
             proof_instrumentation = p_proof_instrumentation;
             instrumentation = p_instrumentation;
             proof_backend_nodes;
@@ -310,4 +328,4 @@ let build_snapshot_from_supplied_automata
           { asts; infos; proof_encoding; proof_optimizations }
         in
         Ok snapshot)
-  with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))
+  with exn -> Error (Pipeline_error.Flow_error (Printexc.to_string exn))

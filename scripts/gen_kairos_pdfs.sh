@@ -9,7 +9,6 @@ Usage: gen_kairos_pdfs.sh FILE.kairos
 Generate PDFs from the DOT files produced by:
   --dump-automata
   --dump-product
-  --dump-canonical
 
 Also generates a full IR text dump via:
   --dump-ir-pretty
@@ -76,7 +75,6 @@ main() {
 
     "${cli_cmd[@]}" --dump-automata "$out_dir/$stem.automata" "$kairos_file"
     "${cli_cmd[@]}" --dump-product "$out_dir/$stem.product" "$kairos_file"
-    "${cli_cmd[@]}" --dump-canonical "$out_dir/$stem.canonical.dot" "$kairos_file"
     "${cli_cmd[@]}" --dump-ir-pretty="$out_dir/$stem.ir.pretty.txt" "$kairos_file"
   )
 

@@ -22,5 +22,5 @@ val build :
   status:string ->
   goal_text:string ->
   native_probe:
-    Kairos_proof_contract.Proof_backend_contract.solver_probe option ->
-  Pipeline_types.proof_diagnostic
+    Kairos_why3_contract.Why3_contract.solver_probe option ->
+  Pipeline_proof_types.proof_diagnostic

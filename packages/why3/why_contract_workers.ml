@@ -35,8 +35,8 @@ type worker_to_parent =
       result : goal_proof_result;
     }
   | Worker_done of
-      External_timing.why3_worker_snapshot * External_timing.snapshot
-  | Worker_failed of string * External_timing.snapshot
+      Why_metrics.worker_snapshot * Why_metrics.snapshot
+  | Worker_failed of string * Why_metrics.snapshot
 
 type proof_worker = {
   worker_id : int;
@@ -72,7 +72,7 @@ let prove_worker_tasks
     ~(worker_id : int)
     ~(output_fd : Unix.file_descr)
     (tasks : (int * Task.task) list) =
-  External_timing.reset ();
+  Why_metrics.reset ();
   Prove_client.set_max_running_provers 1;
   let worker_start_s = Unix.gettimeofday () in
   let last_goal = ref "" in
@@ -102,7 +102,7 @@ let prove_worker_tasks
         let result =
           match Hashtbl.find_opt proved_by_fingerprint fingerprint with
           | Some representative ->
-              External_timing.record_why3_duplicate_goal ();
+              Why_metrics.record_why3_duplicate_goal ();
               duplicate_detail_for_goal ~goal_name representative
           | None ->
               let result =
@@ -118,8 +118,8 @@ let prove_worker_tasks
         send_marshaled_value_fd output_fd
           (Worker_result { task_index; fingerprint; result }))
       tasks;
-    let timing = External_timing.snapshot () in
-    let worker_summary : External_timing.why3_worker_snapshot =
+    let timing = Why_metrics.snapshot () in
+    let worker_summary : Why_metrics.worker_snapshot =
       {
         worker_id;
         worker_input_goal_count = List.length tasks;
@@ -140,7 +140,7 @@ let prove_worker_tasks
   with exn ->
     close_persistent_z3 ();
     send_marshaled_value_fd output_fd
-      (Worker_failed (worker_error_message exn, External_timing.snapshot ()))
+      (Worker_failed (worker_error_message exn, Why_metrics.snapshot ()))
 
 let spawn_proof_worker
     ~(why3_main : Whyconf.main)

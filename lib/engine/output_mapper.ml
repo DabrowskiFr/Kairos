@@ -16,8 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Maps concrete runtime data into the engine's canonical output contract. *)
-let obligations_map_text ~(raw : string) : string = raw
+(** Maps concrete runtime data into the engine's output contract. *)
 
 let program_automaton_texts (asts : Runtime_snapshot.ast_flow) : string * string =
   Pipeline_outputs_helpers.program_automaton_texts asts
@@ -79,10 +78,10 @@ let graph_pngs ~(generate_main_png : bool) ~(program_dot : string)
     product_png,
     product_png_error )
 
-let map_outputs ~(cfg : Pipeline_types.config)
+let map_outputs ~(cfg : Pipeline_config.config)
     ~(snapshot : Runtime_snapshot.pipeline_snapshot)
     ~(artifacts : Pipeline_artifact_bundle.t) ~(proof : Proof_runner.run_output)
-    : Pipeline_types.outputs =
+    : Pipeline_artifacts.outputs =
   let program_dot, program_automaton_text = program_automaton_texts snapshot.asts in
   let labels_text =
     build_labels_text ~program_automaton_text ~artifacts
@@ -96,7 +95,7 @@ let map_outputs ~(cfg : Pipeline_types.config)
       ~product_dot:artifacts.product_dot
   in
   {
-    Pipeline_types.why_text = proof.why_text;
+    Pipeline_artifacts.why_text = proof.why_text;
     vc_text = proof.vc_text;
     smt_text = proof.smt_text;
     dot_text = artifacts.product_dot;
@@ -105,13 +104,10 @@ let map_outputs ~(cfg : Pipeline_types.config)
     guarantee_automaton_text = artifacts.guarantee_automaton_text;
     assume_automaton_text = artifacts.assume_automaton_text;
     product_text = artifacts.product_text;
-    canonical_text = artifacts.canonical_text;
-    obligations_map_text = obligations_map_text ~raw:artifacts.obligations_map_text_raw;
     program_dot;
     guarantee_automaton_dot = artifacts.guarantee_automaton_dot;
     assume_automaton_dot = artifacts.assume_automaton_dot;
     product_dot = artifacts.product_dot;
-    canonical_dot = artifacts.canonical_dot;
     flow_meta =
       Pipeline_outputs_helpers.flow_meta
         ~proof_encoding:snapshot.proof_encoding
@@ -122,7 +118,7 @@ let map_outputs ~(cfg : Pipeline_types.config)
     vc_locs_ordered = proof.vc_locs_ordered;
     vc_spans_ordered =
       List.map
-        (fun (span : Pipeline_types.text_span) ->
+        (fun (span : Pipeline_proof_types.text_span) ->
           (span.start_offset, span.end_offset))
         proof.vc_spans_ordered;
     why_spans = proof.why_spans;
@@ -141,14 +137,12 @@ let map_outputs ~(cfg : Pipeline_types.config)
     assume_automaton_png_error;
     product_png;
     product_png_error;
-    historical_clauses_text = "";
-    eliminated_clauses_text = "";
   }
 
 let map_automata_outputs ~(generate_png : bool)
     ~(snapshot : Runtime_snapshot.pipeline_snapshot)
     ~(artifacts : Pipeline_artifact_bundle.t) :
-    Pipeline_types.automata_outputs =
+    Pipeline_artifacts.automata_outputs =
   let program_dot, program_automaton_text = program_automaton_texts snapshot.asts in
   let labels_text =
     build_labels_text ~program_automaton_text ~artifacts
@@ -162,19 +156,16 @@ let map_automata_outputs ~(generate_png : bool)
       ~product_dot:artifacts.product_dot
   in
   {
-    Pipeline_types.dot_text = artifacts.product_dot;
+    Pipeline_artifacts.dot_text = artifacts.product_dot;
     labels_text;
     program_automaton_text;
     guarantee_automaton_text = artifacts.guarantee_automaton_text;
     assume_automaton_text = artifacts.assume_automaton_text;
     product_text = artifacts.product_text;
-    canonical_text = artifacts.canonical_text;
-    obligations_map_text = obligations_map_text ~raw:artifacts.obligations_map_text_raw;
     program_dot;
     guarantee_automaton_dot = artifacts.guarantee_automaton_dot;
     assume_automaton_dot = artifacts.assume_automaton_dot;
     product_dot = artifacts.product_dot;
-    canonical_dot = artifacts.canonical_dot;
     dot_png;
     dot_png_error;
     program_png;
@@ -189,6 +180,4 @@ let map_automata_outputs ~(generate_png : bool)
       Pipeline_outputs_helpers.flow_meta
         ~proof_encoding:snapshot.proof_encoding
         ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
-    historical_clauses_text = "";
-    eliminated_clauses_text = "";
   }

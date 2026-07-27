@@ -1,6 +1,6 @@
 (** Execute a neutral WhyML proof request without exposing Why3 values. *)
 
-module Contract = Kairos_proof_contract.Proof_backend_contract
+module Contract = Kairos_why3_contract.Why3_contract
 
 val execute :
   ?should_cancel:(unit -> bool) ->

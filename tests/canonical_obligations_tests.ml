@@ -593,41 +593,42 @@ let test_product_characteristics_entry_facts_shift_current_inputs () =
 let test_product_exploration_and_summary_parity () =
   let node = parity_model_node () in
   let automata = parity_automata () in
-  let analysis =
-    Product_build.analyze_node ~build:automata ~node ~program_transitions:node.steps
-  in
-  let expected = expected_product_case_keys ~analysis ~program_steps:node.steps in
-  let node_ir =
-    match From_model.of_model_program ~automata:[ (node.node_name, automata) ] [ node ] with
-    | Ok [ node_ir ] -> node_ir
-    | Ok nodes -> fail "failed: expected one IR node, got %d" (List.length nodes)
+  let analyzed =
+    match
+      From_model.analyze_model_program
+        ~automata:[ (node.node_name, automata) ] [ node ]
+    with
+    | Ok [ analyzed ] -> analyzed
+    | Ok nodes -> fail "failed: expected one analyzed node, got %d" (List.length nodes)
     | Error msg -> fail "failed: From_model rejected parity node: %s" msg
   in
+  let expected =
+    expected_product_case_keys ~analysis:analyzed.analysis
+      ~program_steps:node.steps
+  in
   check_equal_string_list "product exploration and summaries expose the same cases"
-    expected (actual_summary_case_keys node_ir)
+    expected (actual_summary_case_keys analyzed.ir)
 
 let test_bad_product_sources_do_not_generate_summaries () =
   let node = bad_source_model_node () in
   let automata = bad_source_automata () in
-  let analysis =
-    Product_build.analyze_node ~build:automata ~node
-      ~program_transitions:node.steps
+  let analyzed =
+    match
+      From_model.analyze_model_program
+        ~automata:[ (node.node_name, automata) ] [ node ]
+    with
+    | Ok [ analyzed ] -> analyzed
+    | Ok nodes -> fail "failed: expected one analyzed node, got %d" (List.length nodes)
+    | Error msg -> fail "failed: From_model rejected bad-source node: %s" msg
   in
+  let analysis = analyzed.analysis in
   check "product exploration retains edges from bad sources"
     (List.exists
        (fun (step : Product_types.product_step) ->
          step.src.assume_state = analysis.assume_bad_idx
          || step.src.guarantee_state = analysis.guarantee_bad_idx)
        analysis.exploration.steps);
-  let node_ir =
-    match
-      From_model.of_model_program
-        ~automata:[ (node.node_name, automata) ] [ node ]
-    with
-    | Ok [ node_ir ] -> node_ir
-    | Ok nodes -> fail "failed: expected one IR node, got %d" (List.length nodes)
-    | Error msg -> fail "failed: From_model rejected bad-source node: %s" msg
-  in
+  let node_ir = analyzed.ir in
   check "active source still generates summaries" (node_ir.summaries <> []);
   check "summary sources are active"
     (List.for_all

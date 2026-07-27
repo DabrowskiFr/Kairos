@@ -3,6 +3,10 @@
  (public_name kairos.domain_verification)
  (wrapped false)
  (modules
+  ir_shared_types
+  ir
+  ir_formula
+  ir_transition
   automaton_types
   product_types
   temporal_automata
@@ -24,6 +28,8 @@
   post
   formula_canonical
   contract_formula_index
+  contract_partition
+  automata_preparation
   temporal_lower
   step_contract_projection
   formula_sharing

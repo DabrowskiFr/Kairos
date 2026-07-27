@@ -37,7 +37,7 @@ let join_blocks_with_spans ~sep blocks =
       Buffer.add_string b s;
       offset := !offset + String.length s;
       spans :=
-        { Pipeline_types.start_offset = start_offset; end_offset = !offset } :: !spans)
+        { Pipeline_proof_types.start_offset = start_offset; end_offset = !offset } :: !spans)
     blocks;
   (Buffer.contents b, List.rev !spans)
 
@@ -45,16 +45,16 @@ let join_blocks_with_spans ~sep blocks =
 
 let bool_s b = if b then "true" else "false"
 
-let encoding_meta (proof_encoding : Pipeline_types.proof_encoding option) =
+let encoding_meta (proof_encoding : Pipeline_config.proof_encoding option) =
   match proof_encoding with
   | None -> []
   | Some encoding ->
       [
         ( "proof_encoding",
-          [ ("encoding", Pipeline_types.string_of_proof_encoding encoding) ] );
+          [ ("encoding", Pipeline_config.string_of_proof_encoding encoding) ] );
       ]
 
-let optimization_meta (proof_optimizations : Pipeline_types.proof_optimizations option) =
+let optimization_meta (proof_optimizations : Pipeline_config.proof_optimizations option) =
   match proof_optimizations with
   | None -> []
   | Some opts ->
@@ -62,8 +62,8 @@ let optimization_meta (proof_optimizations : Pipeline_types.proof_optimizations 
         ( "proof_optimizations",
           [
             ( "group_public_non_w_guarantees",
-              bool_s opts.group_public_non_w_guarantees );
-            ("group_why3_product_steps", bool_s opts.group_why3_product_steps);
+              bool_s opts.verification.group_public_non_w_guarantees );
+            ("group_why3_product_steps", bool_s opts.why3.group_product_steps);
           ] );
       ]
 

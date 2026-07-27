@@ -67,6 +67,7 @@ type individual_plan = {
 type grouped_plan = {
   index : int;
   contract : Step_contract_projection.step_contract;
+  group_size : int;
   formulas : Core_syntax.history_free Ir.summary_formula list;
   grouped_terms : Group_terms.t;
 }
@@ -110,6 +111,7 @@ let build ~(env : Why_compile_expr.env) ~formula_sharing
                  {
                    index;
                    contract;
+                   group_size = List.length entries;
                    formulas = formulas entries;
                    grouped_terms = grouped_terms entries;
                  };

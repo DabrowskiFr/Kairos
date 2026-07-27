@@ -10,16 +10,11 @@
   core_fo_simplifier_bool
   core_fo_simplifier
   pretty
-  log
   verification_model
   historical_initialization
   pre_k_layout
-  pre_k_lowering
-  ir
-  ir_shared_types
-  ir_formula
-  ir_transition)
+  pre_k_lowering)
  (private_modules core_fo_simplifier_keys core_fo_simplifier_bool)
- (libraries yojson logs logs.fmt fmt)
+ (libraries yojson)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))

@@ -82,13 +82,10 @@ type outputs = {
   guarantee_automaton_text : string;
   assume_automaton_text : string;
   product_text : string;
-  canonical_text : string;
-  obligations_map_text : string;
   program_dot : string;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
-  canonical_dot : string;
   flow_meta : (string * (string * string) list) list;
   goals : goal_info list;
   proof_traces : proof_trace list;
@@ -111,8 +108,6 @@ type outputs = {
   assume_automaton_png_error : string option;
   product_png : string option;
   product_png_error : string option;
-  historical_clauses_text : string;
-  eliminated_clauses_text : string;
 }
 [@@deriving yojson]
 
@@ -123,13 +118,10 @@ type automata_outputs = {
   guarantee_automaton_text : string;
   assume_automaton_text : string;
   product_text : string;
-  canonical_text : string;
-  obligations_map_text : string;
   program_dot : string;
   guarantee_automaton_dot : string;
   assume_automaton_dot : string;
   product_dot : string;
-  canonical_dot : string;
   dot_png : string option;
   dot_png_error : string option;
   program_png : string option;
@@ -141,8 +133,6 @@ type automata_outputs = {
   product_png : string option;
   product_png_error : string option;
   flow_meta : (string * (string * string) list) list;
-  historical_clauses_text : string;
-  eliminated_clauses_text : string;
 }
 [@@deriving yojson]
 

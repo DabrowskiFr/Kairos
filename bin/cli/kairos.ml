@@ -76,31 +76,11 @@ let cmd =
       & info [ "dump-product" ] ~docs:docs_graph ~docv:"FILE"
           ~doc:"Dump product automaton text.")
   in
-  let dump_canonical =
-    Arg.(
-      value & opt (some string) None
-      & info [ "dump-canonical" ] ~docs:docs_graph ~docv:"FILE"
-          ~doc:
-            "Dump the canonical proof-step structure as FILE.dot plus FILE.txt side artifacts.")
-  in
   let dump_automata_short =
     Arg.(
       value & opt (some string) None
       & info [ "dump-automata-short" ] ~docs:docs_graph ~docv:"FILE"
           ~doc:"Dump guarantee+assume automata text, plus short DOT side files without embedded formula legends.")
-  in
-  let dump_canonical_short =
-    Arg.(
-      value & opt (some string) None
-      & info [ "dump-canonical-short" ] ~docs:docs_graph ~docv:"FILE"
-          ~doc:
-            "Dump the canonical proof-step structure as a short FILE.dot plus FILE.txt side artifacts.")
-  in
-  let dump_obligations_map =
-    Arg.(
-      value & opt (some string) None
-      & info [ "dump-obligations-map" ] ~docs:docs_text ~docv:"FILE"
-          ~doc:"Dump mapping from transitions to generated clauses.")
   in
   let dump_surface =
     Arg.(
@@ -233,8 +213,7 @@ let cmd =
     let make_cli_args file check_frontend prove timeout_s proof_jobs proof_encoding
         stop_on_first_nonvalid no_proof_optimizations no_proof_grouping
         no_why3_product_step_grouping
-        dump_automata dump_product dump_canonical dump_automata_short
-        dump_canonical_short dump_obligations_map dump_surface dump_elaborated
+        dump_automata dump_product dump_automata_short dump_surface dump_elaborated
         dump_normalized_program dump_ir_pretty dump_cost_report emit_c dump_timings
         dump_goals dump_failed_smt dump_why dump_why3_vc dump_smt2 =
       {
@@ -250,10 +229,7 @@ let cmd =
         no_why3_product_step_grouping;
         dump_automata;
         dump_product;
-        dump_canonical;
         dump_automata_short;
-        dump_canonical_short;
-        dump_obligations_map;
         dump_surface;
         dump_elaborated;
         dump_normalized_program;
@@ -272,8 +248,7 @@ let cmd =
       const make_cli_args $ file $ check_frontend $ prove $ timeout_s
       $ proof_jobs $ proof_encoding $ stop_on_first_nonvalid $ no_proof_optimizations
       $ no_proof_grouping $ no_why3_product_step_grouping
-      $ dump_automata $ dump_product $ dump_canonical $ dump_automata_short
-      $ dump_canonical_short $ dump_obligations_map $ dump_surface
+      $ dump_automata $ dump_product $ dump_automata_short $ dump_surface
       $ dump_elaborated $ dump_normalized_program $ dump_ir_pretty
       $ dump_cost_report $ emit_c $ dump_timings $ dump_goals $ dump_failed_smt
       $ dump_why $ dump_why3_vc $ dump_smt2)

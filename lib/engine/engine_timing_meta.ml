@@ -36,12 +36,12 @@ let fmt_s = Engine_timing_fields.fmt_s
   let vc_taxonomy_fields = Engine_vc_taxonomy.fields
 
 let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
-    ~(snap_before : External_timing.snapshot)
-    (out : Pipeline_types.outputs) : Pipeline_types.outputs =
+    ~(snap_before : Runtime_metrics.snapshot)
+    (out : Pipeline_artifacts.outputs) : Pipeline_artifacts.outputs =
   let t_end = Unix.gettimeofday () in
   let counters =
-    External_timing.diff ~before:snap_before
-      ~after_:(External_timing.snapshot ())
+    Runtime_metrics.diff ~before:snap_before
+      ~after_:(Runtime_metrics.snapshot ())
   in
     let solver_s = solver_sum_s out.goals in
     let pending_goal_count =
@@ -86,13 +86,13 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
     let worker_count = List.length counters.why3_workers in
     let worker_wall_sum_s =
       List.fold_left
-        (fun acc (worker : External_timing.why3_worker_snapshot) ->
+        (fun acc (worker : Runtime_metrics.why3_worker_snapshot) ->
           acc +. worker.worker_wall_s)
         0.0 counters.why3_workers
     in
     let worker_wall_max_s =
       List.fold_left
-        (fun acc (worker : External_timing.why3_worker_snapshot) ->
+        (fun acc (worker : Runtime_metrics.why3_worker_snapshot) ->
           max acc worker.worker_wall_s)
         0.0 counters.why3_workers
     in
@@ -101,7 +101,7 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
       | [] -> 0.0
       | worker :: rest ->
           List.fold_left
-            (fun acc (worker : External_timing.why3_worker_snapshot) ->
+            (fun acc (worker : Runtime_metrics.why3_worker_snapshot) ->
               min acc worker.worker_wall_s)
             worker.worker_wall_s rest
     in
@@ -124,8 +124,8 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
     let worker_timing_fields =
       counters.why3_workers
       |> List.sort
-           (fun (left : External_timing.why3_worker_snapshot)
-                (right : External_timing.why3_worker_snapshot) ->
+           (fun (left : Runtime_metrics.why3_worker_snapshot)
+                (right : Runtime_metrics.why3_worker_snapshot) ->
              Int.compare left.worker_id right.worker_id)
       |> List.concat_map why3_worker_timing_fields
     in

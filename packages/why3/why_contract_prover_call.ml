@@ -45,7 +45,7 @@ let duplicate_detail_for_goal ~(goal_name : string)
 let prepare_task_with_timing ~(driver : Driver.driver) task =
   let t_prepare = Unix.gettimeofday () in
   let prepared = Driver.prepare_task driver task in
-  External_timing.record_why3_prepare
+  Why_metrics.record_why3_prepare
     ~elapsed_s:(Unix.gettimeofday () -. t_prepare);
   prepared
 
@@ -56,9 +56,9 @@ let print_prepared_task ~(handle : prover_handle) ~(prepared : Task.task) =
   let printing_info = Driver.print_task_prepared handle.driver fmt prepared in
   Format.pp_print_flush fmt ();
   let print_s = Unix.gettimeofday () -. t_print in
-  External_timing.record_why3_print ~elapsed_s:print_s;
+  Why_metrics.record_why3_print ~elapsed_s:print_s;
   let fingerprint = Smt_utils.smt_fingerprint (Buffer.contents buffer) in
-  External_timing.record_why3_smt_fingerprint fingerprint;
+  Why_metrics.record_why3_smt_fingerprint fingerprint;
   (buffer, fingerprint, printing_info, print_s)
 
 let spawn_prover_call
@@ -74,7 +74,7 @@ let spawn_prover_call
       ~limits ~goal_name ~get_model:printing_info handle.driver buffer
   in
   let spawn_s = Unix.gettimeofday () -. t_spawn in
-  External_timing.record_why3_spawn ~elapsed_s:spawn_s;
+  Why_metrics.record_why3_spawn ~elapsed_s:spawn_s;
   (call, spawn_s)
 
 let start_prover_call
@@ -96,7 +96,7 @@ let wait_on_prover_call call =
   let t_wait = Unix.gettimeofday () in
   let result = Call_provers.wait_on_call call in
   let wait_s = Unix.gettimeofday () -. t_wait in
-  External_timing.record_why3_wait ~elapsed_s:wait_s
+  Why_metrics.record_why3_wait ~elapsed_s:wait_s
     ~solver_s:result.Call_provers.pr_time;
   ( result,
     {
@@ -132,7 +132,7 @@ let result_after_optional_fallback
   | Call_provers.Valid, _ ->
       { goal_name; prover_result = primary_result; dump_path = None; timing }
   | _, Some fallback -> (
-      External_timing.record_why3_fallback ();
+      Why_metrics.record_why3_fallback ();
       let fallback_handle = Lazy.force fallback in
       let fallback_result, fallback_buffer, fallback_timing =
         run_prepared_task ~why3_main ~limits ~handle:fallback_handle ~prepared
@@ -204,7 +204,7 @@ let prove_printed_prepared_task
           ( primary_result,
             add_goal_timing { zero_goal_timing with spawn_s } wait_timing )
         else begin
-          External_timing.record_why3_wait ~elapsed_s:wait_s
+          Why_metrics.record_why3_wait ~elapsed_s:wait_s
             ~solver_s:result.Call_provers.pr_time;
           ( result,
             {

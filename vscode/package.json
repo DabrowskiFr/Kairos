@@ -40,7 +40,6 @@
     "onCommand:kairos.openAssumeText",
     "onCommand:kairos.openGuaranteeText",
     "onCommand:kairos.openProductText",
-    "onCommand:kairos.openObligationsMap",
     "onCommand:kairos.openPruneReasons",
     "onView:kairosOutline",
     "onView:kairosGoals",
@@ -173,10 +172,6 @@
       {
         "command": "kairos.openProductText",
         "title": "Kairos: Open Product Automaton"
-      },
-      {
-        "command": "kairos.openObligationsMap",
-        "title": "Kairos: Open Obligations Map"
       },
       {
         "command": "kairos.openPruneReasons",

@@ -124,24 +124,17 @@ function stripDotFieldsFromAutomata(outputs: AutomataOutputs): AutomataOutputs {
   };
 }
 
-function writeKirFiles(
-  inputFile: string,
-  productText: string,
-  historicalClausesText: string,
-  eliminatedClausesText: string
-): void {
-  if (!productText && !historicalClausesText && !eliminatedClausesText) {
+function writeKirFile(inputFile: string, productText: string): void {
+  if (!productText) {
     return;
   }
   try {
     const dir = path.dirname(inputFile);
     const base = path.basename(inputFile, path.extname(inputFile));
     fs.writeFileSync(path.join(dir, `${base}.kir`), productText, "utf8");
-    fs.writeFileSync(path.join(dir, `${base}.hist.kir`), historicalClausesText, "utf8");
-    fs.writeFileSync(path.join(dir, `${base}.plain.kir`), eliminatedClausesText, "utf8");
   } catch (err) {
     // Non-fatal: log but don't interrupt the run
-    console.error("[Kairos] Failed to write .kir files:", err);
+    console.error("[Kairos] Failed to write .kir file:", err);
   }
 }
 
@@ -611,7 +604,6 @@ ${rows
 </tbody></table>
 <h2>OBC+</h2><pre>${escapeHtmlForReport(outputs?.obc_text ?? "")}</pre>
 <h2>Why</h2><pre>${escapeHtmlForReport(outputs?.why_text ?? "")}</pre>
-<h2>Obligations Map</h2><pre>${escapeHtmlForReport(outputs?.obligations_map_text ?? state.automata?.obligations_map_text ?? "")}</pre>
 </body></html>`;
   }
 
@@ -902,7 +894,7 @@ ${rows
       )) as Outputs;
       const sanitized = stripDotFieldsFromOutputs(result);
       state.setOutputs(sanitized);
-      writeKirFiles(inputFile, result.product_text, result.historical_clauses_text, result.eliminated_clauses_text);
+      writeKirFile(inputFile, result.product_text);
       state.setStageSummary(formatStageSummary(sanitized));
       state.setPhase("completed", `${command} completed`, command);
       state.finishRun(runId, true, "completed", `${command} completed`);
@@ -964,7 +956,7 @@ ${rows
       const rawAutomata = result as AutomataOutputs;
       const automata = stripDotFieldsFromAutomata(rawAutomata);
       output.appendLine(`[Kairos] runAutomataPass: PNGs — program=${automata.program_png ?? "null"}, assume=${automata.assume_automaton_png ?? "null"}, guarantee=${automata.guarantee_automaton_png ?? "null"}, product=${automata.product_png ?? "null"}`);
-      writeKirFiles(inputFile, rawAutomata.product_text, rawAutomata.historical_clauses_text, rawAutomata.eliminated_clauses_text);
+      writeKirFile(inputFile, rawAutomata.product_text);
       state.setAutomata(automata);
       state.setPhase("completed", "Automata ready", "automata");
       state.finishRun(runId, true, "completed", "Automata ready");
@@ -1075,7 +1067,6 @@ ${rows
     vscode.commands.registerCommand("kairos.openAssumeText", async () => openKairosDoc("assume")),
     vscode.commands.registerCommand("kairos.openGuaranteeText", async () => openKairosDoc("guarantee")),
     vscode.commands.registerCommand("kairos.openProductText", async () => openKairosDoc("product")),
-    vscode.commands.registerCommand("kairos.openObligationsMap", async () => openKairosDoc("obligations_map")),
     vscode.commands.registerCommand("kairos.openPruneReasons", async () => openKairosDoc("prune_reasons")),
     vscode.commands.registerCommand("kairos.run", async () => runWith("run")),
     vscode.commands.registerCommand("kairos.build", async () => runWith("build")),

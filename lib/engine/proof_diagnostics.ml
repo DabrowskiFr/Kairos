@@ -17,10 +17,11 @@
  *---------------------------------------------------------------------------*)
 
 (** Proof diagnostics finalization used by the concrete engine flow. *)
-module Types = Pipeline_types
+module Proof = Pipeline_proof_types
+module Artifacts = Pipeline_artifacts
 
 let generic_diagnostic_for_status ~(status : string)
-    (diagnostic : Types.proof_diagnostic) : Types.proof_diagnostic =
+    (diagnostic : Proof.proof_diagnostic) : Proof.proof_diagnostic =
   let normalized = String.lowercase_ascii status in
   match normalized with
   | "valid" | "proved" ->
@@ -54,17 +55,17 @@ let generic_diagnostic_for_status ~(status : string)
         detail = "Inspect the failing VC and dumped SMT artifact.";
       }
 
-let apply_goal_results_to_outputs ~(out : Types.outputs)
+let apply_goal_results_to_outputs ~(out : Artifacts.outputs)
     ~(goal_results :
        (int * string * string * float * string option * string option) list) :
-    Types.outputs =
+    Artifacts.outputs =
   let results_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
   List.iter
     (fun ((idx, _, _, _, _, _) as item) -> Hashtbl.replace results_tbl idx item)
     goal_results;
   let proof_traces =
     List.map
-      (fun (trace : Types.proof_trace) ->
+      (fun (trace : Proof.proof_trace) ->
         match Hashtbl.find_opt results_tbl trace.goal_index with
         | None -> trace
         | Some (_idx, goal_name, status, time_s, dump_path, vc_id) ->
@@ -82,7 +83,7 @@ let apply_goal_results_to_outputs ~(out : Types.outputs)
   in
   let goals =
     List.map
-      (fun (trace : Types.proof_trace) ->
+      (fun (trace : Proof.proof_trace) ->
         ( trace.goal_name,
           trace.status,
           trace.time_s,

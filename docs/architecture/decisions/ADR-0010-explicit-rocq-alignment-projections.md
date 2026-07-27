@@ -19,10 +19,11 @@ Instead:
 - `Ir.product_step_summary` carries most product-summary logical fields;
 - `Proof_kernel_types.proof_step_summary_ir` carries product steps and
   relational clauses for diagnostics;
-- `Why_runtime_view.runtime_product_transition_view` approximates
-  step-contract data but is already shaped for Why3;
-- `Why_contracts.step_contract_info` is after Why3 term compilation and is too
-  backend-specific.
+- the Why3 backend historically duplicated step-contract data in a runtime
+  view, which has now been removed;
+- the former `Why_contracts.step_contract_info`, également trop spécifique au
+  backend, a été supprimé : `Why_compile_product_specs` compile directement
+  la projection neutre.
 
 The field-by-field audit is recorded in
 `docs/rocq_projection_audit.json`.
@@ -45,9 +46,9 @@ families are semantic proof schemas, not diagnostic provenance tags: they are
 the OCaml-side counterpart of Rocq `SummaryClauseFamilies`.
 
 These views may be serialized by `proof_export`, but `proof_export` must not
-be the owner of the concepts. Why3 helper generation must consume a backend
-view derived from the step-contract view, not define the step-contract
-principle itself.
+be the owner of the concepts. Why3 helper generation consumes the
+step-contract view directly and does not define the step-contract principle
+itself.
 
 ## Consequences
 
@@ -59,7 +60,7 @@ principle itself.
   results remain outside these Rocq-alignment views.
 - `Product_summary_projection`, `Obligation_family_projection`, and
   `Step_contract_projection` provide derived OCaml views of that boundary.
-  `proof_export` and the Why3 runtime view must consume these views
-  instead of reconstructing their own logical views.
+  `proof_export` and the Why3 compiler consume these views instead of
+  reconstructing their own logical views.
 - Remaining work is to make any future lowered proof exchange schema an
   explicit consumer of the same boundary.

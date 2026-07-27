@@ -105,9 +105,6 @@ let dump_mode_count args =
       args.dump_automata;
       args.dump_automata_short;
       args.dump_product;
-      args.dump_canonical;
-      args.dump_canonical_short;
-      args.dump_obligations_map;
       args.dump_surface;
       args.dump_elaborated;
       args.dump_normalized_program;
@@ -132,10 +129,10 @@ let validate_args args =
     Error "--dump-failed-smt requires --prove"
   else if has_dump_mode args && has_why_mode args then
     Error
-      "--dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-cost-report/--emit-c cannot be combined with --prove or Why3 dump options"
+      "--dump-product/--dump-automata/--dump-automata-short/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-cost-report/--emit-c cannot be combined with --prove or Why3 dump options"
   else if dump_mode_count args > 1 then
     Error
-      "Only one dump mode can be selected among --dump-product/--dump-automata/--dump-automata-short/--dump-canonical/--dump-canonical-short/--dump-obligations-map/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-cost-report/--emit-c"
+      "Only one dump mode can be selected among --dump-product/--dump-automata/--dump-automata-short/--dump-surface/--dump-elaborated/--dump-normalized-program/--dump-ir-pretty/--dump-cost-report/--emit-c"
   else Ok ()
 
 (* Preserve the previous precedence between dump options while converting the raw
@@ -150,15 +147,6 @@ let resolve_dump_mode args =
            (Dump_automata { out = get_some "dump-automata-short" args.dump_automata_short; short = true }))
   | _ when Option.is_some args.dump_product ->
       Ok (Some (Dump_product { out = get_some "dump-product" args.dump_product }))
-  | _ when Option.is_some args.dump_canonical ->
-      Ok (Some (Dump_canonical { out = get_some "dump-canonical" args.dump_canonical; short = false }))
-  | _ when Option.is_some args.dump_canonical_short ->
-      Ok
-        (Some
-           (Dump_canonical { out = get_some "dump-canonical-short" args.dump_canonical_short; short = true }))
-  | _ when Option.is_some args.dump_obligations_map ->
-      Ok
-        (Some (Dump_obligations_map { out = get_some "dump-obligations-map" args.dump_obligations_map }))
   | _ when Option.is_some args.dump_surface ->
       Ok (Some (Dump_surface { out = get_some "dump-surface" args.dump_surface }))
   | _ when Option.is_some args.dump_elaborated ->
@@ -201,11 +189,6 @@ let exec_dump_mode args = function
       with_instrumentation_pass args (write_product_bundle ~out)
   | Dump_automata { out; short } ->
       with_instrumentation_pass args (write_automata_bundle ~out ~short)
-  | Dump_canonical { out; short } ->
-      with_instrumentation_pass args (write_canonical_bundle ~out ~short)
-  | Dump_obligations_map { out } ->
-      with_instrumentation_pass args (fun artifacts ->
-          write_text_output out artifacts.Pipeline_service.obligations_map_text)
   | Dump_surface { out } -> with_surface_dump args (write_text_output out)
   | Dump_elaborated { out } -> with_elaborated_dump args (write_text_output out)
   | Dump_normalized_program { out } -> with_normalized_program args (write_text_output out)

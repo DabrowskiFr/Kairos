@@ -129,14 +129,12 @@ for entry in "${EXAMPLES[@]}"; do
   mkdir -p "$EX_OUT"
 
   PRODUCT_TXT="$EX_OUT/$STEM.product.txt"
-  OBLIGATIONS_TXT="$EX_OUT/$STEM.obligations.txt"
   VC_TXT="$EX_OUT/$STEM.vc.txt"
   TIMINGS_CSV="$EX_OUT/$STEM.timings.csv"
   PROVE_OUT="$EX_OUT/$STEM.prove.out"
   PROVE_ERR="$EX_OUT/$STEM.prove.err"
 
   "$CLI" --dump-product "$PRODUCT_TXT" "$FILE"
-  "$CLI" --dump-obligations-map "$OBLIGATIONS_TXT" "$FILE"
   "$CLI" --dump-why3-vc "$VC_TXT" "$FILE"
 
   set +e
@@ -193,20 +191,6 @@ for entry in "${EXAMPLES[@]}"; do
   CANONICAL_CONTRACTS="$CANONICAL_CONTRACTS_STAGE"
   SAFE_CASES="$CANONICAL_CASES_SAFE_STAGE"
   BAD_G_CASES="$CANONICAL_CASES_BAD_G_STAGE"
-  if [[ "$CANONICAL_CONTRACTS" == "NA" || "$SAFE_CASES" == "NA" || "$BAD_G_CASES" == "NA" ]]; then
-    CANONICAL_DOT="$EX_OUT/$STEM.canonical.dot"
-    CANONICAL_TXT="$EX_OUT/$STEM.canonical.txt"
-    "$CLI" --dump-canonical "$CANONICAL_DOT" "$FILE"
-    if [[ "$CANONICAL_CONTRACTS" == "NA" ]]; then
-      CANONICAL_CONTRACTS="$(grep -Ec '^C[0-9]+:' "$CANONICAL_TXT" || true)"
-    fi
-    if [[ "$SAFE_CASES" == "NA" ]]; then
-      SAFE_CASES="$(grep -Ec '^  κ[0-9]+\.safe:' "$CANONICAL_TXT" || true)"
-    fi
-    if [[ "$BAD_G_CASES" == "NA" ]]; then
-      BAD_G_CASES="$(grep -Ec '^  κ[0-9]+\.[0-9]+: BadGuarantee' "$CANONICAL_TXT" || true)"
-    fi
-  fi
 
   PRODUCT_STEPS="$PRODUCT_EDGES_FULL"
   if [[ "$PRODUCT_STEPS" == "NA" ]]; then

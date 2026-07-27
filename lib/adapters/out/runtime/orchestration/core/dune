@@ -4,15 +4,17 @@
  (wrapped false)
  (modules
   flow_info
-  pipeline_types
+  pipeline_config
+  pipeline_error
+  pipeline_proof_types
+  pipeline_artifacts
   runtime_snapshot
   runtime_ir_merge
   result_utils
   instrumentation_info_helpers
   instrumentation_info_builder
-  contract_partition
   pipeline_build)
  (libraries
   kairos_domain_core
   kairos_domain_verification
-  kairos_external_timing))
+  kairos_runtime_telemetry))

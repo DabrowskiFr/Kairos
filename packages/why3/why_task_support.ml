@@ -25,7 +25,7 @@ let timed record f =
   result
 
 let ptree_of_text ~(filename : string) ~(text : string) : Ptree.mlw_file =
-  timed External_timing.record_why3_parse (fun () ->
+  timed Why_metrics.record_why3_parse (fun () ->
       let lexbuf = Lexing.from_string text in
       Loc.set_file filename lexbuf;
       Lexer.parse_mlw_file lexbuf)
@@ -35,10 +35,10 @@ let module_ptrees_of_ptree ptree = [ ptree ]
 (* Type un ptree Why3 et extrait les tâches top-level sans éclatement VC. *)
 let tasks_of_ptree ~(env : Env.env) ~(ptree : Ptree.mlw_file) : Task.task list =
   let modules =
-    timed External_timing.record_why3_typecheck (fun () ->
+    timed Why_metrics.record_why3_typecheck (fun () ->
         Typing.type_mlw_file env [] "<generated>" ptree)
   in
-  timed External_timing.record_why3_task_extract (fun () ->
+  timed Why_metrics.record_why3_task_extract (fun () ->
       Wstdlib.Mstr.fold
         (fun _ m acc ->
           List.rev_append (Task.split_theory m.Pmodule.mod_theory None None) acc)
@@ -49,7 +49,7 @@ let tasks_of_ptrees ~(env : Env.env) ~(ptrees : Ptree.mlw_file list) : Task.task
   List.concat_map (fun ptree -> tasks_of_ptree ~env ~ptree) ptrees
 
 let tasks_of_theories (theories : Theory.theory Wstdlib.Mstr.t) : Task.task list =
-  timed External_timing.record_why3_task_extract (fun () ->
+  timed Why_metrics.record_why3_task_extract (fun () ->
       Wstdlib.Mstr.fold
         (fun _ th acc -> List.rev_append (Task.split_theory th None None) acc)
         theories []
@@ -73,7 +73,7 @@ let read_theories_of_text ~(env : Env.env) ~(filename : string) ~(text : string)
     (fun () ->
       output_string oc text;
       close_out oc;
-      timed External_timing.record_why3_typecheck (fun () ->
+      timed Why_metrics.record_why3_typecheck (fun () ->
           fst (Env.read_file Env.base_language env tmp)))
 
 let tasks_of_text ~(env : Env.env) ~(filename : string) ~(text : string) :
@@ -82,7 +82,7 @@ let tasks_of_text ~(env : Env.env) ~(filename : string) ~(text : string) :
   tasks_of_theories (read_theories_of_text ~env ~filename ~text)
 
 let split_vc_tasks ~(env : Env.env) (tasks : Task.task list) : Task.task list =
-  timed External_timing.record_why3_split_vc (fun () ->
+  timed Why_metrics.record_why3_split_vc (fun () ->
       List.concat_map (fun task -> Trans.apply_transform "split_vc" env task) tasks)
 
 (* Type un ptree Why3, extrait les tâches, puis applique le split VC pour obtenir
@@ -201,7 +201,7 @@ let setup_env () =
   | Some ctx -> ctx
   | None ->
       let ctx =
-        timed External_timing.record_why3_setup (fun () -> setup_env_uncached ())
+        timed Why_metrics.record_why3_setup (fun () -> setup_env_uncached ())
       in
       setup_env_cache := Some ctx;
       ctx

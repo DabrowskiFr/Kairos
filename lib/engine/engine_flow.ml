@@ -20,15 +20,15 @@
 let ( let* ) = Result.bind
 
 let error_of_frontend = function
-  | Kairos_frontend.Parse_error message -> Pipeline_types.Parse_error message
+  | Kairos_frontend.Parse_error message -> Pipeline_error.Parse_error message
   | Kairos_frontend.Elaboration_error message ->
-      Pipeline_types.Elaboration_error message
-  | Kairos_frontend.Type_error message -> Pipeline_types.Type_error message
+      Pipeline_error.Elaboration_error message
+  | Kairos_frontend.Type_error message -> Pipeline_error.Type_error message
   | Kairos_frontend.Well_formedness_error message ->
-      Pipeline_types.Well_formedness_error message
-  | Kairos_frontend.Io_error message -> Pipeline_types.Io_error message
+      Pipeline_error.Well_formedness_error message
+  | Kairos_frontend.Io_error message -> Pipeline_error.Io_error message
   | Kairos_frontend.Internal_error message ->
-      Pipeline_types.Internal_error message
+      Pipeline_error.Internal_error message
 
 let flow_parse_info (info : Kairos_frontend.parse_info) : Flow_info.parse_info =
   {
@@ -73,21 +73,21 @@ let build_outputs = Pipeline_outputs.build_outputs
 
 let explicit_product_optimizations (snapshot : snapshot) =
   match snapshot.proof_encoding with
-  | Pipeline_types.Explicit_product -> snapshot.proof_optimizations
+  | Pipeline_config.Explicit_product -> snapshot.proof_optimizations
 
-let why_compilation_options (opts : Pipeline_types.proof_optimizations) :
+let why_compilation_options (opts : Pipeline_config.proof_optimizations) :
     Why_pipeline.compilation_options =
   {
-    group_product_steps = opts.group_why3_product_steps;
+    group_product_steps = opts.why3.group_product_steps;
   }
 
 let instrumentation_from_snapshot ~generate_png ~(snapshot : snapshot) =
-  match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
-  | Error msg -> Error (Pipeline_types.Flow_error msg)
-  | Ok artifacts ->
-      Ok
-        (Output_mapper.map_automata_outputs ~generate_png ~snapshot
-           ~artifacts)
+  let artifacts =
+    Pipeline_artifact_bundle.build ~asts:snapshot.asts
+  in
+  Ok
+    (Output_mapper.map_automata_outputs ~generate_png ~snapshot
+       ~artifacts)
 
 let merged_instrumentation (snapshot : snapshot) =
   snapshot.asts.proof_backend_nodes
@@ -100,9 +100,9 @@ let render_why_text ~(snapshot : snapshot) : string =
     ~options:(why_compilation_options opts) ()
   |> fun output -> output.Why_pipeline.text
 
-let why_text ~(snapshot : snapshot) : Pipeline_types.why_outputs =
+let why_text ~(snapshot : snapshot) : Pipeline_artifacts.why_outputs =
   {
-    Pipeline_types.why_text = render_why_text ~snapshot;
+    Pipeline_artifacts.why_text = render_why_text ~snapshot;
     flow_meta =
       Pipeline_outputs.flow_meta
         ~proof_encoding:snapshot.proof_encoding
@@ -110,24 +110,19 @@ let why_text ~(snapshot : snapshot) : Pipeline_types.why_outputs =
   }
 
 let cost_report_from_snapshot ~input_file ~(snapshot : snapshot) :
-    (Pipeline_types.cost_report_outputs, Pipeline_types.error) result =
-  let t_artifacts = Unix.gettimeofday () in
-  match Pipeline_artifact_bundle.build ~asts:snapshot.asts with
-  | Error msg -> Error (Pipeline_types.Flow_error msg)
-  | Ok artifacts ->
-      let artifact_build_s = Unix.gettimeofday () -. t_artifacts in
-      let t_why = Unix.gettimeofday () in
-      let why_text = render_why_text ~snapshot in
-      let why_text_s = Unix.gettimeofday () -. t_why in
-      Ok
-        {
-          Pipeline_types.cost_report_json =
-            Pipeline_cost_report.render_json ~input_file ~artifact_build_s
-              ~why_text_s ~snapshot ~artifacts ~why_text;
-        }
+    (Pipeline_artifacts.cost_report_outputs, Pipeline_error.t) result =
+  let t_why = Unix.gettimeofday () in
+  let why_text = render_why_text ~snapshot in
+  let why_text_s = Unix.gettimeofday () -. t_why in
+  Ok
+    {
+      Pipeline_artifacts.cost_report_json =
+        Pipeline_cost_report.render_json ~input_file ~why_text_s ~snapshot
+          ~why_text;
+    }
 
 let obligations ~(snapshot : snapshot) :
-    Pipeline_types.obligations_outputs =
+    Pipeline_artifacts.obligations_outputs =
   let instrumentation = merged_instrumentation snapshot in
   let opts = explicit_product_optimizations snapshot in
   let out =
@@ -135,7 +130,8 @@ let obligations ~(snapshot : snapshot) :
       ~step_projections:snapshot.asts.step_projections
       ~options:(why_compilation_options opts)
   in
-  { Pipeline_types.vc_text = out.vc_text; smt_text = out.smt_text }
+  Runtime_metrics.record_why3_execution out.metrics;
+  { Pipeline_artifacts.vc_text = out.vc_text; smt_text = out.smt_text }
 
 let normalized_program_from_snapshot ~(snapshot : snapshot) : string =
   Ir_text_program_view_render.render_program
@@ -150,9 +146,9 @@ let pretty_program_from_snapshot ~(snapshot : snapshot) : string =
 
 let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
     ~(snapshot : snapshot) ~(vc_ids_ordered : int list) ~on_goal_done :
-    Pipeline_types.goal_result list =
+    Pipeline_proof_types.goal_result list =
   let whyml_text = render_why_text ~snapshot in
-  let module Contract = Kairos_proof_contract.Proof_backend_contract in
+  let module Contract = Kairos_why3_contract.Why3_contract in
   let options : Contract.execution_options =
     {
       timeout_s;
@@ -167,7 +163,7 @@ let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
   in
   let request = Contract.make_execution_request ~whyml_text ~options () in
   let finished = ref [] in
-  let _ =
+  let response =
     Why_execution.execute ~should_cancel ~on_goal_start:(fun _ -> ())
       ~on_goal_done:(fun result ->
         let idx = result.Contract.goal_index in
@@ -189,11 +185,12 @@ let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
         on_goal_done item)
       request
   in
+  Runtime_metrics.record_why3_execution response.metrics;
   List.sort
     (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> Int.compare a b)
     !finished
 
-  let is_minimal_prove_run (cfg : Pipeline_types.config) : bool =
+  let is_minimal_prove_run (cfg : Pipeline_config.config) : bool =
     cfg.prove && not cfg.wp_only && not cfg.compute_proof_diagnostics
     && not cfg.generate_vc_text && not cfg.generate_smt_text
     && not cfg.generate_dot_png && Option.is_none cfg.proof_progress_path
@@ -202,8 +199,8 @@ let instrumentation_pass ~generate_png ~input_file =
   let* frontend = parse_input ~input_file in
   let* snapshot =
     build_snapshot
-      ~proof_encoding:Pipeline_types.default_proof_encoding
-      ~proof_optimizations:Pipeline_types.default_proof_optimizations ~frontend
+      ~proof_encoding:Pipeline_config.default_proof_encoding
+      ~proof_optimizations:Pipeline_config.default_proof_optimizations ~frontend
       ~collect_instrumentation_info:true ~collect_ir_metrics:false
   in
   instrumentation_from_snapshot ~generate_png ~snapshot
@@ -248,12 +245,12 @@ let ir_pretty_dump ~proof_encoding ~proof_optimizations ~input_file =
   in
   Ok (pretty_program_from_snapshot ~snapshot)
 
-let run (cfg : Pipeline_types.config) =
+let run (cfg : Pipeline_config.config) =
   let t0 = Unix.gettimeofday () in
-  let snap_before = External_timing.snapshot () in
+  let snap_before = Runtime_metrics.snapshot () in
   let t_parse = Unix.gettimeofday () in
   let* frontend = parse_input ~input_file:cfg.input_file in
-  External_timing.record_frontend_parse
+  Runtime_metrics.record_frontend_parse
     ~elapsed_s:(Unix.gettimeofday () -. t_parse);
   let t_snapshot = Unix.gettimeofday () in
   let* snapshot =
@@ -264,7 +261,7 @@ let run (cfg : Pipeline_types.config) =
         ((not (is_minimal_prove_run cfg)) || cfg.collect_ir_metrics)
       ~collect_ir_metrics:cfg.collect_ir_metrics
   in
-  External_timing.record_snapshot_build
+  Runtime_metrics.record_snapshot_build
     ~elapsed_s:(Unix.gettimeofday () -. t_snapshot);
   let t_build_done = Unix.gettimeofday () in
   match build_outputs ~cfg ~snapshot with
@@ -275,7 +272,7 @@ let run (cfg : Pipeline_types.config) =
            ~snap_before out)
 
   let emit_goal_callbacks ?vc_ids_ordered ~on_outputs_ready ~on_goals_ready
-      ~on_goal_done (out : Pipeline_types.outputs) =
+      ~on_goal_done (out : Pipeline_artifacts.outputs) =
     on_outputs_ready { out with goals = [] };
     let goal_names = List.map (fun (g, _, _, _, _) -> g) out.goals in
     let vc_ids_ordered =
@@ -287,36 +284,36 @@ let run (cfg : Pipeline_types.config) =
         on_goal_done i goal status time_s dump_path vcid)
       out.goals
 
-  let run_diagnostics_with_callbacks ~should_cancel (cfg : Pipeline_types.config)
+  let run_diagnostics_with_callbacks ~should_cancel (cfg : Pipeline_config.config)
       ~on_outputs_ready ~on_goals_ready ~on_goal_done =
     match run cfg with
     | Error _ as e -> e
-    | Ok (out : Pipeline_types.outputs) ->
+    | Ok (out : Pipeline_artifacts.outputs) ->
         let vc_ids_ordered = List.init (List.length out.goals) (fun i -> i + 1) in
         emit_goal_callbacks ~vc_ids_ordered ~on_outputs_ready ~on_goals_ready
           ~on_goal_done out;
-        if should_cancel () then Error (Pipeline_types.Flow_error "Request cancelled")
+        if should_cancel () then Error (Pipeline_error.Flow_error "Request cancelled")
         else Ok out
 
   let run_minimal_prove_with_callbacks ~should_cancel
-      (cfg : Pipeline_types.config) snapshot ~on_outputs_ready ~on_goals_ready
+      (cfg : Pipeline_config.config) snapshot ~on_outputs_ready ~on_goals_ready
       ~on_goal_done =
     match build_outputs ~cfg ~snapshot with
     | Error _ as e -> e
-    | Ok (out : Pipeline_types.outputs) ->
+    | Ok (out : Pipeline_artifacts.outputs) ->
         emit_goal_callbacks ~on_outputs_ready ~on_goals_ready ~on_goal_done out;
-        if should_cancel () then Error (Pipeline_types.Flow_error "Request cancelled")
+        if should_cancel () then Error (Pipeline_error.Flow_error "Request cancelled")
         else Ok out
 
   let run_progressive_prove_with_callbacks ~should_cancel
-      (cfg : Pipeline_types.config) snapshot ~on_outputs_ready ~on_goals_ready
+      (cfg : Pipeline_config.config) snapshot ~on_outputs_ready ~on_goals_ready
       ~on_goal_done =
     let pending_cfg =
       { cfg with prove = false; compute_proof_diagnostics = false }
     in
     match build_outputs ~cfg:pending_cfg ~snapshot with
     | Error _ as e -> e
-    | Ok (pending_out : Pipeline_types.outputs) ->
+    | Ok (pending_out : Pipeline_artifacts.outputs) ->
         emit_goal_callbacks ~on_outputs_ready ~on_goals_ready ~on_goal_done
           pending_out;
         if not cfg.prove || cfg.wp_only then Ok pending_out
@@ -330,13 +327,13 @@ let run (cfg : Pipeline_types.config) =
                 on_goal_done idx goal status time_s dump vcid)
           in
           if should_cancel () then
-            Error (Pipeline_types.Flow_error "Request cancelled")
+            Error (Pipeline_error.Flow_error "Request cancelled")
           else
             Ok
               (Proof_diagnostics.apply_goal_results_to_outputs ~out:pending_out
                  ~goal_results)
 
-  let run_with_callbacks ~should_cancel (cfg : Pipeline_types.config)
+  let run_with_callbacks ~should_cancel (cfg : Pipeline_config.config)
       ~on_outputs_ready ~on_goals_ready ~on_goal_done =
     if cfg.compute_proof_diagnostics then
       run_diagnostics_with_callbacks ~should_cancel cfg ~on_outputs_ready

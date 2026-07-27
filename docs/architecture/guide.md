@@ -95,8 +95,13 @@ application/composition intermédiaire.
 | `Pre` | Reference | Ajoute les hypotheses necessaires aux pas produit |
 | `Product_reachability` | Reference extension | Ajoute des obligations d'inatteignabilite/preservation, ne doit pas etre vu comme pruning |
 | `Post` | Reference | Ajoute les obligations de sortie et de progression |
-| `Temporal_lower` | Reference normalization | Rend explicites `pre/pre_k` via le layout temporel |
+| `Temporal_lower` | Reference normalization | Frontière typée de l'IR historique vers l'IR sans historique ; rend explicites `pre/pre_k` via le layout temporel |
 | `Formula_sharing` | Obligation-preserving optimization | Ne doit que partager physiquement des formules egales |
+
+Le backend Why3 ne consomme que l'IR sans historique : il ne possède aucun
+cas de secours pour `HPreK`. L'index contractuel utilise l'égalité structurelle
+pendant sa construction, puis les `oid` des occurrences pour les recherches
+des backends.
 
 ## Alignement Rocq
 
@@ -132,10 +137,9 @@ Le fichier `../rocq_alignment_manifest.json` donne la table precise
 Rocq -> Kairos pour chacune de ces coupures.
 
 Le fichier `../rocq_projection_audit.json` donne la conclusion d'architecture :
-il faut introduire des projections explicites product-summary et
-step-contract, parce que les champs Rocq sont actuellement eparpilles entre
-`Ir.product_step_summary`, `Proof_kernel_types.proof_step_summary_ir`,
-`Why_runtime_view` et les contrats Why3.
+les projections explicites product-summary et step-contract concentrent les
+champs Rocq auparavant eparpilles. Le backend Why3 consomme maintenant
+directement `Step_contract_projection.step_contract`.
 
 La version machine-lisible de cette table est :
 
@@ -155,26 +159,28 @@ optimisation de representation en changement d'obligations.
 
 ![Intentional Why3 product backend](manual/why3-product-backend-intent.svg)
 
-- `why_compile_product_group_boundary` definit les types frontieres :
-  `proof_terms` pour l'emission, `profile` pour le diagnostic.
-- `why_compile_product_group_partition` regroupe les pas par transition
-  executable sans connaitre la politique de groupage.
-- `why_compile_product_group_policy` decide si un groupe est eligible et donne
-  la raison explicite d'un helper individuel.
-- `why_compile_product_group_terms` est une projection backend. Il transforme
-  les obligations deja choisies en termes Why3, sans politique de cout.
-- `why_compile_product_group_factoring` est une optimisation preservant les
-  obligations. Il choisit entre des formes logiquement equivalentes de la meme
-  spec groupee.
-- `why_compile_product_group_cost` est une heuristique backend. Il decoupe les
-  groupes selon un cout estime, sans supprimer d'obligation.
-- `why_compile_product_metrics` est du diagnostic. Il enregistre les choix et
-  couts, ainsi que les raisons d'individualisation ; il ne doit jamais
-  influencer la generation.
+- `why_compile_node_common` consomme directement `Ir.node_ir` pour la
+  signature et le layout temporel.
+- `why_contracts` consomme directement les contrats de
+  `Step_contract_projection`.
+- `why_compile_step` compile directement `Ir.transition` et
+  `Core_syntax.stmt`.
+- `why_compile_product_specs` construit directement les specifications
+  concretes des helpers depuis les contrats deja selectionnes.
+- `why_compile_product_groups` porte la partition stable, la politique de
+  groupage et le plan individuel/groupe.
+- `why_compile_product_group_terms` construit les termes pre/post groupes et
+  applique la factorisation canonique des preconditions communes.
+- `why_compile_product_helpers` emet les helpers individuels et groupes depuis
+  le plan et les specifications deja construits.
+- `why_compile` orchestre directement ces etapes sans couche de cablage
+  intermediaire.
 
-La metrique de factorisation sert a comprendre le backend. Elle ne doit pas
-etre lue par le noyau de reference, ni par Rocq, ni par une passe qui change le
-contenu canonique des obligations.
+Le partage de formules, la simplification du premier ordre, le slicing, la
+deduplication de termes, le groupage et la factorisation sont conserves. Le
+simplificateur d'actions, les coupes locales et le decoupage des groupes par un
+cout maximal ont ete supprimes. Le choix dynamique entre plusieurs
+factorisations et ses profils de cout ont egalement ete supprimes.
 
 ## Comment Utiliser Les Graphes Detaillees
 

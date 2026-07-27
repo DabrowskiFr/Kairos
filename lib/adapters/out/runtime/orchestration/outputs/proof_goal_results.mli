@@ -16,9 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Contract = Kairos_proof_contract.Proof_backend_contract
+module Contract = Kairos_why3_contract.Why3_contract
 
-type progress = { emit : Pipeline_types.goal_info -> unit }
+type progress = { emit : Pipeline_proof_types.goal_info -> unit }
 
 type t = {
   result_index : int;
@@ -35,7 +35,7 @@ val pending : index:int -> goal_name:string -> vcid:string option -> t
 
 val execute :
   progress:progress option ->
-  cfg:Pipeline_types.config ->
+  cfg:Pipeline_config.config ->
   whyml_text:string ->
   split_vc:bool ->
   emit_vc_text:bool ->
@@ -47,4 +47,4 @@ val results_of_response :
   vc_ids_ordered:int list -> Contract.execution_response -> t list
 
 val vc_ids_from_result_indices : t list -> int list
-val to_goal_info : t -> Pipeline_types.goal_info
+val to_goal_info : t -> Pipeline_proof_types.goal_info

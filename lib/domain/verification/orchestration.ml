@@ -30,17 +30,32 @@ open Automaton_types
 
 let ( let* ) = Result.bind
 
+let rec all_results = function
+  | [] -> Ok []
+  | result :: rest ->
+      let* value = result in
+      let* values = all_results rest in
+      Ok (value :: values)
+
 (** Type [reference_product_input]. *)
 
 type reference_product_input = {
   reference_program : Verification_model.program_model;
   reference_automata : (Core_syntax.ident * automata_spec) list;
+  reference_provenance : Contract_partition.provenance list;
 }
 
 (** Type [reference_product]. *)
 
+type reference_node = {
+  source_node_name : Core_syntax.ident;
+  reference_model : Verification_model.node_model;
+  analysis : Temporal_automata.node_data;
+  ir : Core_syntax.historical Ir.node_ir;
+}
+
 type reference_product = {
-  reference_nodes : Core_syntax.historical Ir.node_ir list;
+  reference_nodes : reference_node list;
 }
 
 (** Type [instrumented_ir_pass]. *)
@@ -90,10 +105,37 @@ let direct_pass_runner =
 (** [build_reference_product] helper value. *)
 
 let build_reference_product
-    ({ reference_program; reference_automata } : reference_product_input) :
+    ({ reference_program; reference_automata; reference_provenance } :
+      reference_product_input) :
     (reference_product, string) result =
+  let* analyzed_nodes =
+    From_model.analyze_model_program ~automata:reference_automata
+      reference_program
+  in
   let* reference_nodes =
-    From_model.of_model_program ~automata:reference_automata reference_program
+    analyzed_nodes
+    |> List.map (fun (node : From_model.analyzed_node) ->
+           let node_name = node.model.node_name in
+           match
+             List.find_opt
+               (fun (provenance : Contract_partition.provenance) ->
+                 provenance.reference_node_name = node_name)
+               reference_provenance
+           with
+           | Some provenance ->
+               Ok
+                 {
+                   source_node_name = provenance.source_node_name;
+                   reference_model = node.model;
+                   analysis = node.analysis;
+                   ir = node.ir;
+                 }
+           | None ->
+               Error
+                 (Printf.sprintf
+                    "Missing source provenance for reference node %s"
+                    node_name))
+    |> all_results
   in
   Ok { reference_nodes }
 

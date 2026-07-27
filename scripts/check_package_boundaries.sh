@@ -32,8 +32,7 @@ base_packages=(
   kairos
   kairos-automata-contract
   kairos-spot-adapter
-  kairos-proof-contract
-  kairos-telemetry
+  kairos-why3-contract
   kairos-why3-adapter
 )
 

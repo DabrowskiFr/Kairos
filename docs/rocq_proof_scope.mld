@@ -159,9 +159,8 @@ The `proof_export` data model is still not enough by itself:
 - [Proof_kernel_types.generated_clause_ir] is now only a typed alias to
   [Kernel_clause_projection.classified_clause] with a proof-export codec; it is
   not a second generated-clause data model;
-- [Why_runtime_view] is backend-shaped and must consume
-  [Step_contract_projection] rather than define the neutral [StepContract]
-  projection.
+- the Why3 compiler consumes [Step_contract_projection] directly rather than
+  defining a second backend-shaped [StepContract] projection.
 
 Therefore the implementation-side Rocq/paper correspondence should go through
 [Canonical_obligations] for the proof principle, then explain which derived

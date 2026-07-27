@@ -20,5 +20,4 @@
 
 val formula_population_json :
   Runtime_snapshot.pipeline_snapshot ->
-  Pipeline_artifact_bundle.t ->
   Pipeline_cost_report_common.Json.t

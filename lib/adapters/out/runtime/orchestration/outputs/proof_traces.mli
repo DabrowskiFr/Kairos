@@ -18,25 +18,25 @@
 
 (** Construction of public proof traces from proof results and artifacts. *)
 
-val needed : Pipeline_types.config -> bool
+val needed : Pipeline_config.config -> bool
 
 val build_from_execution :
   goals:
-    Kairos_proof_contract.Proof_backend_contract.goal_descriptor list ->
-  attributions:Proof_goal_attribution.t ->
+    Kairos_why3_contract.Why3_contract.goal_descriptor list ->
+  manifest:Why_pipeline.compilation_manifest ->
   goal_results:Proof_goal_results.t list ->
   vc_ids_ordered:int list ->
-  vc_spans_ordered:Pipeline_types.text_span list ->
-  smt_spans_ordered:Pipeline_types.text_span list ->
-  Pipeline_types.proof_trace list
+  vc_spans_ordered:Pipeline_proof_types.text_span list ->
+  smt_spans_ordered:Pipeline_proof_types.text_span list ->
+  Pipeline_proof_types.proof_trace list
 
 val build_fast :
-  attributions:Proof_goal_attribution.t ->
+  manifest:Why_pipeline.compilation_manifest ->
   Proof_goal_results.t list ->
-  Pipeline_types.proof_trace list
+  Pipeline_proof_types.proof_trace list
 
 val goals_of_proof_traces :
-  Pipeline_types.proof_trace list -> Pipeline_types.goal_info list
+  Pipeline_proof_types.proof_trace list -> Pipeline_proof_types.goal_info list
 
 val goals_of_goal_results :
-  Proof_goal_results.t list -> Pipeline_types.goal_info list
+  Proof_goal_results.t list -> Pipeline_proof_types.goal_info list

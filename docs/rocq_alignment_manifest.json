@@ -206,7 +206,6 @@
       "kairos_paths": [
         "lib/domain/verification/step_contract_projection.ml",
         "lib/domain/verification/step_contract_projection.mli",
-        "lib/adapters/out/provers/why3/runtime",
         "lib/adapters/out/provers/why3/compile",
         "lib/domain/core/pre_k_lowering.ml",
         "lib/domain/core/pre_k_lowering.mli"

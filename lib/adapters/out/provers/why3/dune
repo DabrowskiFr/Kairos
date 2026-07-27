@@ -5,7 +5,8 @@
  (modules why_pipeline)
  (libraries
   kairos_domain_core
-  kairos_proof_contract
+  kairos_domain_verification
+  kairos_why3_contract
   kairos_why3_compile
   kairos_external_why3
   why3))

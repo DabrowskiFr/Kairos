@@ -3,7 +3,7 @@
     Delivery adapters depend on this facade instead of importing domain,
     backend, or runtime-orchestration modules. *)
 
-module Contract = Pipeline_types
+module Contract = Engine_contract
 
 type config = Contract.config
 type error = Contract.error

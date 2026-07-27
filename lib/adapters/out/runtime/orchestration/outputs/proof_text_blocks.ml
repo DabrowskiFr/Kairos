@@ -29,7 +29,7 @@ let join_with_spans ~sep blocks =
       Buffer.add_string b s;
       offset := !offset + String.length s;
       spans :=
-        { Pipeline_types.start_offset = start_offset; end_offset = !offset }
+        { Pipeline_proof_types.start_offset = start_offset; end_offset = !offset }
         :: !spans)
     blocks;
   (Buffer.contents b, List.rev !spans)

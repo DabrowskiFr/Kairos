@@ -93,7 +93,7 @@ let open_session ~(argv : string array) () : session =
   in
   List.iter close_fd_noerr
     [ child_stdin_read; child_stdout_write; child_stderr_write ];
-  External_timing.record_why3_spawn
+  Why_metrics.record_why3_spawn
     ~elapsed_s:(Unix.gettimeofday () -. t_spawn);
   {
     pid;

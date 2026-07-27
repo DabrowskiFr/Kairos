@@ -91,13 +91,10 @@ let map_outputs (o : Contract.outputs) : Lsp_protocol.outputs =
     guarantee_automaton_text = o.guarantee_automaton_text;
     assume_automaton_text = o.assume_automaton_text;
     product_text = o.product_text;
-    canonical_text = o.canonical_text;
-    obligations_map_text = o.obligations_map_text;
     program_dot = o.program_dot;
     guarantee_automaton_dot = o.guarantee_automaton_dot;
     assume_automaton_dot = o.assume_automaton_dot;
     product_dot = o.product_dot;
-    canonical_dot = o.canonical_dot;
     flow_meta = o.flow_meta;
     goals = o.goals;
     proof_traces = List.map proof_trace_of_pipeline o.proof_traces;
@@ -124,8 +121,6 @@ let map_outputs (o : Contract.outputs) : Lsp_protocol.outputs =
     assume_automaton_png_error = o.assume_automaton_png_error;
     product_png = o.product_png;
     product_png_error = o.product_png_error;
-    historical_clauses_text = o.historical_clauses_text;
-    eliminated_clauses_text = o.eliminated_clauses_text;
   }
 
 let map_automata
@@ -138,13 +133,10 @@ let map_automata
     guarantee_automaton_text = o.guarantee_automaton_text;
     assume_automaton_text = o.assume_automaton_text;
     product_text = o.product_text;
-    canonical_text = o.canonical_text;
-    obligations_map_text = o.obligations_map_text;
     program_dot = o.program_dot;
     guarantee_automaton_dot = o.guarantee_automaton_dot;
     assume_automaton_dot = o.assume_automaton_dot;
     product_dot = o.product_dot;
-    canonical_dot = o.canonical_dot;
     dot_png = o.dot_png;
     dot_png_error = o.dot_png_error;
     program_png = o.program_png;
@@ -156,8 +148,6 @@ let map_automata
     product_png = o.product_png;
     product_png_error = o.product_png_error;
     flow_meta = o.flow_meta;
-    historical_clauses_text = o.historical_clauses_text;
-    eliminated_clauses_text = o.eliminated_clauses_text;
   }
 
 let map_why (o : Contract.why_outputs) : Lsp_protocol.why_outputs =

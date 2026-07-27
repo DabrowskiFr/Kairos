@@ -3,7 +3,6 @@
  (public_name kairos-engine-runtime.internal.runtime_proof)
  (wrapped false)
  (modules
-  proof_goal_attribution
   proof_goal_results
   proof_progress_output
   proof_text_blocks
@@ -12,11 +11,11 @@
   proof_runner)
  (libraries
   kairos_domain_core
-  kairos_proof_contract
+  kairos_why3_contract
   kairos_runtime_core
   kairos_why3
   kairos_why3_compile
-  kairos_external_timing
+  kairos_runtime_telemetry
   kairos_external_why3))
 
 (library
@@ -28,18 +27,14 @@
   pipeline_artifact_bundle_text
   pipeline_artifact_bundle
   pipeline_cost_report_common
-  pipeline_cost_report_labels
   pipeline_cost_report_syntax
   pipeline_cost_report_source
-  pipeline_cost_report_kernel
   pipeline_cost_report_why3
-  pipeline_cost_report_transition_lemmas
   pipeline_cost_report_facts
   pipeline_cost_report)
  (libraries
   kairos_domain_core
   kairos_domain_verification
-  kairos_domain_proof_export
   kairos_runtime_core
   kairos_artifact_graph_render
   yojson))

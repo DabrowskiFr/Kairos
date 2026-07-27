@@ -23,7 +23,7 @@ type ast_flow = {
   verification_model : Verification_model.program_model;
   reference_program : Verification_model.program_model;
   automata : (ident * Automaton_types.automata_spec) list;
-  summaries : Core_syntax.historical Ir.node_ir list;
+  reference_nodes : Orchestration.reference_node list;
   proof_instrumentation : Core_syntax.historical Ir.node_ir list;
   instrumentation : Core_syntax.history_free Ir.node_ir list;
   proof_backend_nodes : Core_syntax.history_free Ir.node_ir list;
@@ -40,6 +40,6 @@ type flow_infos = {
 type pipeline_snapshot = {
   asts : ast_flow;
   infos : flow_infos;
-  proof_encoding : Pipeline_types.proof_encoding;
-  proof_optimizations : Pipeline_types.proof_optimizations;
+  proof_encoding : Pipeline_config.proof_encoding;
+  proof_optimizations : Pipeline_config.proof_optimizations;
 }

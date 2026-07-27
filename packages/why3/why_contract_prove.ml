@@ -66,7 +66,7 @@ let prove_tasks_with_details
     goal_proof_result list =
   let indexed_tasks = List.mapi (fun i task -> (i, task)) tasks in
   let total_tasks = List.length indexed_tasks in
-  External_timing.record_why3_input_goals ~count:total_tasks;
+  Why_metrics.record_why3_input_goals ~count:total_tasks;
   let jobs = max 1 jobs in
   let proved_by_fingerprint = Hashtbl.create (total_tasks * 2 + 1) in
   let prepare_task task =
@@ -83,7 +83,7 @@ let prove_tasks_with_details
   in
   let finish_duplicate_detail ~pos ~task_index ~goal_name ~representative
       details =
-    External_timing.record_why3_duplicate_goal ();
+    Why_metrics.record_why3_duplicate_goal ();
     let detail = duplicate_detail_for_goal ~goal_name representative in
     let detail = finish_detail ~log_failure:false ~pos ~task_index ~detail in
     detail :: details
@@ -205,15 +205,15 @@ let prove_tasks_with_details
                   finish_worker_result ~task_index ~detail:result;
                   loop_active active_workers
               | Some (Worker_done (worker_summary, timing)) ->
-                  External_timing.add_snapshot timing;
-                  External_timing.record_why3_worker worker_summary;
+                  Why_metrics.add_snapshot timing;
+                  Why_metrics.record_why3_worker worker_summary;
                   finish_proof_worker worker;
                   loop_active
                     (List.filter
                        (fun other -> other.worker_id <> worker.worker_id)
                        active_workers)
               | Some (Worker_failed (message, timing)) ->
-                  External_timing.add_snapshot timing;
+                  Why_metrics.add_snapshot timing;
                   wait_for_all_proof_workers active_workers;
                   failwith
                     (Printf.sprintf "Why3 worker %d failed: %s"
@@ -226,7 +226,7 @@ let prove_tasks_with_details
   in
   if jobs = 1 then (
     let worker_start_s = Unix.gettimeofday () in
-    let before = External_timing.snapshot () in
+    let before = Why_metrics.snapshot () in
     let results =
       try
         let results = loop_sequential 0 [] indexed_tasks in
@@ -237,9 +237,9 @@ let prove_tasks_with_details
         raise exn
     in
     let timing =
-      External_timing.diff ~before ~after_:(External_timing.snapshot ())
+      Why_metrics.diff ~before ~after_:(Why_metrics.snapshot ())
     in
-    External_timing.record_why3_worker
+    Why_metrics.record_why3_worker
       {
         worker_id = 0;
         worker_input_goal_count = total_tasks;

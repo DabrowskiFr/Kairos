@@ -1,0 +1,6 @@
+(library
+ (name kairos_runtime_telemetry)
+ (public_name kairos-engine-runtime.internal.runtime_telemetry)
+ (wrapped false)
+ (modules runtime_metrics_types runtime_metrics_store runtime_metrics)
+ (libraries kairos_why3_contract unix))

@@ -28,7 +28,6 @@
   ../scripts/check_why_backend_guardrail.py
   check_c_codegen.sh
   check_elaboration_frontier.sh
-  check_proof_export_history.sh
   check_reference_stability.sh
   check_vstte_medical_examples.sh
   frontend/spec_past_formula_frontier.kairos
@@ -77,11 +76,6 @@
    (run python3 ../scripts/check_quality_baseline.py)
    (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_c_codegen.sh %{exe:../bin/cli/kairos.exe})
-   (run
-    bash
-    ./check_proof_export_history.sh
-    %{exe:../bin/cli/kairos.exe}
-    ok/history_self_pre_k.kairos)
    (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe})
    (run
     bash
@@ -114,7 +108,7 @@
 (test
  (name tool_contract_tests)
  (modules tool_contract_tests)
- (libraries kairos_proof_contract))
+ (libraries kairos_why3_contract))
 
 (test
  (name automata_exchange_adapter_tests)

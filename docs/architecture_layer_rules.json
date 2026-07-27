@@ -4,12 +4,11 @@
       "kairos_domain_core"
     ],
     "contracts": [
-      "kairos_proof_contract",
+      "kairos_why3_contract",
       "kairos_automata_contract"
     ],
     "domain": [
-      "kairos_domain_verification",
-      "kairos_domain_proof_export"
+      "kairos_domain_verification"
     ],
     "frontend": [
       "kairos_input_lang"
@@ -19,6 +18,7 @@
       "kairos_runtime_automata",
       "kairos_runtime_proof",
       "kairos_runtime_diagnostics",
+      "kairos_runtime_telemetry",
       "kairos_artifact_graph_render",
       "kairos_artifact_text_render",
       "kairos_c_codegen",
@@ -34,7 +34,6 @@
     ],
     "external": [
       "kairos_spot_adapter",
-      "kairos_external_timing",
       "kairos_external_why3"
     ]
   },

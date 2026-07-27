@@ -56,7 +56,7 @@ let empty_vc_taxonomy_acc sample_goal =
 
 let opt_value = function Some value -> value | None -> ""
 
-let add_trace_to_vc_taxonomy acc (trace : Pipeline_types.proof_trace) =
+let add_trace_to_vc_taxonomy acc (trace : Pipeline_proof_types.proof_trace) =
   acc.goal_count <- acc.goal_count + 1;
   begin
     match String.lowercase_ascii trace.status with
@@ -76,7 +76,7 @@ let add_trace_to_vc_taxonomy acc (trace : Pipeline_types.proof_trace) =
 let grouped_vc_taxonomy traces key_of_trace =
   let table = Hashtbl.create 64 in
   List.iter
-    (fun (trace : Pipeline_types.proof_trace) ->
+    (fun (trace : Pipeline_proof_types.proof_trace) ->
       let key = key_of_trace trace in
       let acc =
         match Hashtbl.find_opt table key with
@@ -118,7 +118,7 @@ let vc_taxonomy_summary_fields ~prefix ~rank labels acc =
       (row_prefix ^ "sample_goal", sanitize_csv_value acc.sample_goal);
     ]
 
-let fields (traces : Pipeline_types.proof_trace list) =
+let fields (traces : Pipeline_proof_types.proof_trace list) =
   let family_groups =
     grouped_vc_taxonomy traces (fun trace ->
         ( trace.obligation_kind,

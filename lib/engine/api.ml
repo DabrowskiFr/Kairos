@@ -1,4 +1,4 @@
-module Contract = Pipeline_types
+module Contract = Engine_contract
 module Flow = Engine_flow
 
 type config = Contract.config
@@ -64,16 +64,16 @@ let instrumentation_pass ~generate_png ~input_file =
   Flow.instrumentation_pass ~generate_png ~input_file
 
 let why_pass ~input_file =
-  Flow.why_pass ~proof_encoding:Pipeline_types.default_proof_encoding
-    ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
+  Flow.why_pass ~proof_encoding:Pipeline_config.default_proof_encoding
+    ~proof_optimizations:Pipeline_config.default_proof_optimizations ~input_file
 
 let why_pass_with_options ~proof_encoding ~proof_optimizations ~input_file =
   Flow.why_pass ~proof_encoding ~proof_optimizations ~input_file
 
 let obligations_pass ~input_file =
   Flow.obligations_pass
-    ~proof_encoding:Pipeline_types.default_proof_encoding
-    ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
+    ~proof_encoding:Pipeline_config.default_proof_encoding
+    ~proof_optimizations:Pipeline_config.default_proof_optimizations ~input_file
 
 let obligations_pass_with_options ~proof_encoding ~proof_optimizations
     ~input_file =
@@ -84,13 +84,13 @@ let cost_report ~proof_encoding ~proof_optimizations ~input_file =
 
 let normalized_program ~input_file =
   Flow.normalized_program
-    ~proof_encoding:Pipeline_types.default_proof_encoding
-    ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
+    ~proof_encoding:Pipeline_config.default_proof_encoding
+    ~proof_optimizations:Pipeline_config.default_proof_optimizations ~input_file
 
 let ir_pretty_dump ~input_file =
   Flow.ir_pretty_dump
-    ~proof_encoding:Pipeline_types.default_proof_encoding
-    ~proof_optimizations:Pipeline_types.default_proof_optimizations ~input_file
+    ~proof_encoding:Pipeline_config.default_proof_encoding
+    ~proof_optimizations:Pipeline_config.default_proof_optimizations ~input_file
 
 let normalized_program_with_options ~proof_encoding ~proof_optimizations
     ~input_file =

@@ -19,10 +19,7 @@
 open Core_syntax
 open Pretty
 open Pipeline_cost_report_common
-open Pipeline_cost_report_labels
 open Pipeline_cost_report_syntax
-
-module PK = Proof_kernel_types
 
 type fact_stat = {
   key : string;
@@ -34,6 +31,8 @@ type fact_stat = {
   mutable origins : StringSet.t;
   mutable phases : StringSet.t;
 }
+
+let origin_for_node node_name suffix = node_name ^ "." ^ suffix
 
 let new_fact_stat : type formula_phase.
     string ->
@@ -127,13 +126,6 @@ let formula_population_json_of_facts facts =
       ("top_repeated_facts", json_list json_fact_stat top);
     ]
 
-let add_rel_fact_formula table ~origin (fact : PK.relational_clause_fact_ir) =
-  let phase = phase_string fact.time in
-  match fact.desc with
-  | PK.RelFactPhaseFormula h | PK.RelFactFormula h ->
-      add_fact table ~origin ~phase h
-  | PK.RelFactProgramState _ | PK.RelFactGuaranteeState _ | PK.RelFactFalse -> ()
-
 let collect_summary_facts table (node : Core_syntax.history_free Ir.node_ir) =
   let node_name = node.semantics.sem_nname in
   let add_summary_formula origin phase (f : Core_syntax.history_free Ir.summary_formula) =
@@ -166,47 +158,6 @@ let collect_summary_facts table (node : Core_syntax.history_free Ir.node_ir) =
     (add_summary_formula "canonical.init_invariant_goal" "current_tick")
     node.init_invariant_goals
 
-let collect_kernel_facts table ~node_name (node : PK.node_ir) =
-  let origin suffix = origin_for_node node_name suffix in
-  List.iter
-    (fun (edge : PK.automaton_edge_ir) ->
-      add_fact table ~origin:(origin "kernel.assume_automaton.edge_guard")
-        ~phase:"step_tick_context" edge.guard)
-    node.assume_automaton.edges;
-  List.iter
-    (fun (edge : PK.automaton_edge_ir) ->
-      add_fact table ~origin:(origin "kernel.guarantee_automaton.edge_guard")
-        ~phase:"step_tick_context" edge.guard)
-    node.guarantee_automaton.edges;
-  List.iter
-    (fun (step : PK.product_step_ir) ->
-      add_fact table ~origin:(origin "kernel.product.program_guard")
-        ~phase:"step_tick_context" step.program_guard;
-      add_fact table ~origin:(origin "kernel.product.assume_guard")
-        ~phase:"step_tick_context" step.assume_edge.guard;
-      add_fact table ~origin:(origin "kernel.product.guarantee_guard")
-        ~phase:"step_tick_context" step.guarantee_edge.guard)
-    node.product_steps;
-  List.iter
-    (fun (summary : PK.proof_step_summary_ir) ->
-      List.iter
-        (fun (clause : PK.relational_generated_clause_ir) ->
-          let origin =
-            origin ("kernel.entry_clause." ^ clause_family_string clause.family)
-          in
-          List.iter (add_rel_fact_formula table ~origin) clause.hypotheses;
-          List.iter (add_rel_fact_formula table ~origin) clause.conclusions)
-        summary.entry_clauses;
-      List.iter
-        (fun (clause : PK.relational_generated_clause_ir) ->
-          let origin =
-            origin ("kernel.post_clause." ^ clause_family_string clause.family)
-          in
-          List.iter (add_rel_fact_formula table ~origin) clause.hypotheses;
-          List.iter (add_rel_fact_formula table ~origin) clause.conclusions)
-        summary.clauses)
-    node.proof_step_summaries
-
 let collect_source_ltl_facts table (node : Verification_model.node_model) =
   let origin suffix = origin_for_node node.node_name suffix in
   let rec go origin phase = function
@@ -227,18 +178,13 @@ let collect_source_ltl_facts table (node : Verification_model.node_model) =
         inv.formula)
     node.state_invariants
 
-let collect_all_facts snapshot artifacts =
+let collect_all_facts snapshot =
   let table = Hashtbl.create 4096 in
   List.iter (collect_source_ltl_facts table)
     snapshot.Runtime_snapshot.asts.verification_model;
   List.iter (collect_summary_facts table)
     snapshot.Runtime_snapshot.asts.instrumentation;
-  List.iter
-    (fun (summary : PK.exported_node_summary_ir) ->
-      collect_kernel_facts table ~node_name:summary.signature.node_name
-        summary.normalized_ir)
-    artifacts.Pipeline_artifact_bundle.exported_node_summaries;
   fact_stats table
 
-let formula_population_json snapshot artifacts =
-  collect_all_facts snapshot artifacts |> formula_population_json_of_facts
+let formula_population_json snapshot =
+  collect_all_facts snapshot |> formula_population_json_of_facts

@@ -195,14 +195,3 @@ let write_product_bundle ~out artifacts =
   write_target out artifacts.Pipeline_service.product_text;
   write_target (dot_base ^ ".dot") artifacts.Pipeline_service.product_dot;
   `Ok ()
-
-let write_canonical_bundle ~out ~short artifacts =
-  let dot_path = ensure_dot_path out in
-  let dot_base = dot_dump_base dot_path in
-  write_target
-    dot_path
-    (if short then
-       strip_dot_legend ~legend_id:"legend_canonical" artifacts.Pipeline_service.canonical_dot
-     else artifacts.Pipeline_service.canonical_dot);
-  write_target (dot_base ^ ".txt") artifacts.Pipeline_service.canonical_text;
-  `Ok ()

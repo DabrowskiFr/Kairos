@@ -44,6 +44,7 @@ type individual_plan = {
 type grouped_plan = {
   index : int;
   contract : Step_contract_projection.step_contract;
+  group_size : int;
   formulas : Core_syntax.history_free Ir.summary_formula list;
   grouped_terms : Why_compile_product_group_terms.t;
 }

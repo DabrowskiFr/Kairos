@@ -29,7 +29,6 @@ export class KairosDocProvider implements vscode.TextDocumentContentProvider {
       "assume",
       "guarantee",
       "product",
-      "obligations_map",
       "prune_reasons"
     ];
     kinds.forEach((kind) => this.refresh(kind));
@@ -61,8 +60,6 @@ export class KairosDocProvider implements vscode.TextDocumentContentProvider {
         return automata?.guarantee_automaton_text ?? out?.guarantee_automaton_text ?? "";
       case "product":
         return automata?.product_text ?? out?.product_text ?? "";
-      case "obligations_map":
-        return automata?.obligations_map_text ?? out?.obligations_map_text ?? "";
       case "prune_reasons":
         return automata?.prune_reasons_text ?? out?.prune_reasons_text ?? "";
       default:

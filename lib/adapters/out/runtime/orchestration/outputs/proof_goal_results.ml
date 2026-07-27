@@ -16,9 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Contract = Kairos_proof_contract.Proof_backend_contract
+module Contract = Kairos_why3_contract.Why3_contract
 
-type progress = { emit : Pipeline_types.goal_info -> unit }
+type progress = { emit : Pipeline_proof_types.goal_info -> unit }
 
 type t = {
   result_index : int;
@@ -69,7 +69,7 @@ let of_contract_result ~vc_ids_ordered (result : Contract.goal_result) =
     result_probe = result.probe;
   }
 
-let execute ~progress ~(cfg : Pipeline_types.config) ~whyml_text ~split_vc
+let execute ~progress ~(cfg : Pipeline_config.config) ~whyml_text ~split_vc
     ~emit_vc_text ~emit_smt_text ~diagnose_nonvalid =
   let proof_jobs = if cfg.stop_on_first_nonvalid then 1 else cfg.proof_jobs in
   let options : Contract.execution_options =
@@ -102,7 +102,11 @@ let execute ~progress ~(cfg : Pipeline_types.config) ~whyml_text ~split_vc
     if cfg.stop_on_first_nonvalid && not (Contract.proof_status_is_valid result.status)
     then stop_requested := true
   in
-  Why_execution.execute ~should_cancel ~on_goal_done request
+  let response =
+    Why_execution.execute ~should_cancel ~on_goal_done request
+  in
+  Runtime_metrics.record_why3_execution response.metrics;
+  response
 
 let results_of_response ~vc_ids_ordered (response : Contract.execution_response)
     =
@@ -111,7 +115,7 @@ let results_of_response ~vc_ids_ordered (response : Contract.execution_response)
 let vc_ids_from_result_indices results =
   List.map (fun result -> result.result_index + 1) results
 
-let to_goal_info (result : t) : Pipeline_types.goal_info =
+let to_goal_info (result : t) : Pipeline_proof_types.goal_info =
   ( result.result_goal_name,
     result.result_status,
     result.result_time_s,

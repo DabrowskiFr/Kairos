@@ -22,8 +22,6 @@
     analyses to populate flow metadata used by outputs and evaluation tools. *)
 
 open Core_syntax
-open Automaton_types
-
 (** Helper value. *)
 
 let ( let* ) = Result.bind
@@ -78,11 +76,15 @@ let instrumentation_info_of_node ~(analyses : (ident * Temporal_automata.node_da
 (** [instrumentation_info_of_ir] helper value. *)
 
 let instrumentation_info_of_ir
-    ~(automata : (Core_syntax.ident * automata_spec) list)
-    ~(source_model : Verification_model.program_model) (program : Ir.program_ir)
+    ~(reference_nodes : Orchestration.reference_node list)
+    (program : Ir.program_ir)
     : (Flow_info.instrumentation_info, string) result =
-  let source_nodes = Info_helpers.source_nodes_by_name source_model in
-  let* analyses = Info_helpers.build_analyses ~automata ~source_nodes in
+  let analyses =
+    List.map
+      (fun (node : Orchestration.reference_node) ->
+        (node.reference_model.node_name, node.analysis))
+      reference_nodes
+  in
   let node_results =
     program.nodes |> List.map (instrumentation_info_of_node ~analyses)
   in

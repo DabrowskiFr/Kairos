@@ -4,7 +4,6 @@
 This check enforces the "no monitor/instrumentation workaround" rule:
 - no backend-side ghost assignment trick based on synthetic __pre_k*/__aut_* vars
 - no explicit backend aut-state assignment patterns
-- no materialized __pre_k* identifiers in proof-export clauses
 """
 
 from __future__ import annotations
@@ -26,11 +25,6 @@ FORBIDDEN_BACKEND = [
     (re.compile(r"ghost\s*\(\s*vars\.__pre_k"), "ghost assignment on vars.__pre_k*"),
     (re.compile(r"ghost\s*\(\s*vars\.__aut_"), "ghost assignment on vars.__aut_*"),
 ]
-
-FORBIDDEN_EXPORT = [
-    (re.compile(r"__pre_k\d+_"), "materialized __pre_k* identifier in proof export"),
-]
-
 
 def scan_dir(repo: Path, roots: list[Path], patterns: list[tuple[re.Pattern[str], str]]) -> list[str]:
     violations: list[str] = []
@@ -60,14 +54,11 @@ def main() -> int:
     repo = Path(__file__).resolve().parents[1]
 
     backend_roots = [repo / "lib" / "adapters" / "out" / "provers" / "why3"]
-    export_roots = [repo / "lib" / "domain" / "proof_export"]
-
     violations = []
     violations.extend(scan_dir(repo, backend_roots, FORBIDDEN_BACKEND))
-    violations.extend(scan_dir(repo, export_roots, FORBIDDEN_EXPORT))
 
     if violations:
-        print("[why-guard] ERROR: forbidden backend/proof-export patterns detected:", file=sys.stderr)
+        print("[why-guard] ERROR: forbidden backend patterns detected:", file=sys.stderr)
         for v in violations:
             print(f"  - {v}", file=sys.stderr)
         return 1

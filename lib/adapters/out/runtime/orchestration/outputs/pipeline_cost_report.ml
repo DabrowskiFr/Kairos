@@ -33,20 +33,19 @@ let flow_meta_json snapshot =
                json_assoc (List.map (fun (k, v) -> (k, json_string v)) fields) );
            ])
 
-let proof_optimizations_json (opts : Pipeline_types.proof_optimizations) =
+let proof_optimizations_json (opts : Pipeline_config.proof_optimizations) =
   json_assoc
     [
-      ("group_public_non_w_guarantees", json_bool opts.group_public_non_w_guarantees);
-      ("group_why3_product_steps", json_bool opts.group_why3_product_steps);
+      ( "group_public_non_w_guarantees",
+        json_bool opts.verification.group_public_non_w_guarantees );
+      ("group_why3_product_steps", json_bool opts.why3.group_product_steps);
     ]
 
-let proof_encoding_json (encoding : Pipeline_types.proof_encoding) =
-  json_string (Pipeline_types.string_of_proof_encoding encoding)
+let proof_encoding_json (encoding : Pipeline_config.proof_encoding) =
+  json_string (Pipeline_config.string_of_proof_encoding encoding)
 
-let render_json ~input_file ~artifact_build_s ~why_text_s ~snapshot ~artifacts ~why_text =
-  let nodes =
-    List.map (Pipeline_cost_report_kernel.node_report_json snapshot) artifacts.Pipeline_artifact_bundle.exported_node_summaries
-  in
+let render_json ~input_file ~why_text_s
+    ~(snapshot : Runtime_snapshot.pipeline_snapshot) ~why_text =
   let root =
     json_assoc
       [
@@ -56,23 +55,19 @@ let render_json ~input_file ~artifact_build_s ~why_text_s ~snapshot ~artifacts ~
         ( "timings",
           json_assoc
             [
-              ("artifact_build_s", json_float artifact_build_s);
               ("why_text_generation_s", json_float why_text_s);
             ] );
         ("proof_optimizations", proof_optimizations_json snapshot.proof_optimizations);
         ("flow_meta", flow_meta_json snapshot);
         ("source", Pipeline_cost_report_source.source_json snapshot);
-        ("nodes", `List nodes);
         ( "formula_population",
-          Pipeline_cost_report_facts.formula_population_json snapshot artifacts );
-        ( "transition_lemma_candidates",
-          Pipeline_cost_report_transition_lemmas.json artifacts );
+          Pipeline_cost_report_facts.formula_population_json snapshot );
         ("why3", Pipeline_cost_report_why3.why3_json why_text ~why_text_s);
         ( "notes",
           json_list json_string
             [
               "This report is observational and does not change proof obligations.";
-              "Formula hashes are based on the current pretty-printed FO syntax.";
+              "Formula population is measured on source and canonical IR formulas.";
               "Why3 metrics are computed on generated WhyML text before VC/SMT solving.";
             ] );
       ]

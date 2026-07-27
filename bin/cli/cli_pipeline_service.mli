@@ -20,9 +20,6 @@ type automata_dump_data = {
   assume_automaton_dot : string;
   product_text : string;
   product_dot : string;
-  canonical_text : string;
-  canonical_dot : string;
-  obligations_map_text : string;
 }
 
 type obligations_dump_data = {

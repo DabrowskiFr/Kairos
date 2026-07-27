@@ -21,21 +21,25 @@ type produced = {
   automata_info : Flow_info.automata_info;
 }
 
+let ( let* ) = Result.bind
+
 let produce_with_spot (program : Verification_model.program_model) :
-    (produced, Pipeline_types.error) result =
+    (produced, Pipeline_error.t) result =
   try
     let build_automaton request =
       Kairos_spot_adapter.Spot_automaton_builder.build
         ~record_elapsed:(fun elapsed_s ->
-          External_timing.record_spot ~elapsed_s)
+          Runtime_metrics.record_spot ~elapsed_s)
         request
     in
     let t_automata = Unix.gettimeofday () in
-    let automata, automata_info =
+    let* automata, automata_info =
       Automata_generation.run program
         ~build_automaton
+      |> Result.map_error (fun message ->
+             Pipeline_error.Flow_error message)
     in
-    External_timing.record_automata_generation
+    Runtime_metrics.record_automata_generation
       ~elapsed_s:(Unix.gettimeofday () -. t_automata);
     Ok { automata; automata_info }
-  with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))
+  with exn -> Error (Pipeline_error.Flow_error (Printexc.to_string exn))

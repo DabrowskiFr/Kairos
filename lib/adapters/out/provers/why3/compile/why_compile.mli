@@ -22,9 +22,24 @@
     renderer, and proof runner. Node-local construction details live in focused
     [Why_compile_*] modules and are intentionally kept out of this interface. *)
 
+type compiled_obligation = {
+  generated_symbol : string;
+  source : string;
+  node_name : string;
+  transition : string;
+  obligation_kind : string;
+  obligation_family : string;
+  obligation_category : string option;
+}
+
+type compilation = {
+  ast : Why3.Ptree.mlw_file;
+  manifest : compiled_obligation list;
+}
+
 val compile_program_ast :
   ?group_why3_product_steps:bool ->
   nodes:Core_syntax.history_free Ir.node_ir list ->
   step_projections:Step_contract_projection.t list ->
   unit ->
-  Why3.Ptree.mlw_file
+  compilation

@@ -12,8 +12,7 @@ depends: [
   "dune" {>= "3.10"}
   "ocaml"
   "why3"
-  "kairos-proof-contract" {= version}
-  "kairos-telemetry" {= version}
+  "kairos-why3-contract" {= version}
 ]
 build: [
   ["dune" "build" "-p" name "-j" jobs]

@@ -17,9 +17,9 @@
  *---------------------------------------------------------------------------*)
 
 module Goal_results = Proof_goal_results
-module Contract = Kairos_proof_contract.Proof_backend_contract
+module Contract = Kairos_why3_contract.Why3_contract
 
-let needed (cfg : Pipeline_types.config) : bool =
+let needed (cfg : Pipeline_config.config) : bool =
   cfg.collect_ir_metrics || cfg.compute_proof_diagnostics
   || cfg.generate_vc_text || cfg.generate_smt_text
   || Option.is_some cfg.proof_progress_path
@@ -34,7 +34,7 @@ let base_trace ~idx ~goal_name ~status ~time_s
     ~(timing : Contract.goal_timing) ~solver_status ~vc_id ~vc_span
     ~smt_span ~dump_path ~diagnostic =
   {
-    Pipeline_types.goal_index = idx;
+    Pipeline_proof_types.goal_index = idx;
     stable_id = Printf.sprintf "vc-%03d" (idx + 1);
     goal_name;
     status;
@@ -60,15 +60,41 @@ let base_trace ~idx ~goal_name ~status ~time_s
     diagnostic;
   }
 
-let apply_attribution attributions goal_name trace =
-  Proof_goal_attribution.apply attributions ~goal_name trace
+let goal_name_lookup_key (goal_name : string) =
+  match String.index_opt goal_name '\'' with
+  | None -> goal_name
+  | Some index -> String.sub goal_name 0 index
 
-let build_from_execution ~goals ~attributions
+let manifest_index (manifest : Why_pipeline.compilation_manifest) =
+  let index = Hashtbl.create (List.length manifest * 2 + 1) in
+  List.iter
+    (fun (entry : Why_compile.compiled_obligation) ->
+      Hashtbl.replace index entry.generated_symbol entry)
+    manifest;
+  index
+
+let apply_manifest manifest goal_name
+    (trace : Pipeline_proof_types.proof_trace) =
+  match Hashtbl.find_opt manifest (goal_name_lookup_key goal_name) with
+  | None -> trace
+  | Some (entry : Why_compile.compiled_obligation) ->
+      {
+        trace with
+        source = entry.source;
+        node = Some entry.node_name;
+        transition = Some entry.transition;
+        obligation_kind = entry.obligation_kind;
+        obligation_family = Some entry.obligation_family;
+        obligation_category = entry.obligation_category;
+      }
+
+let build_from_execution ~goals ~manifest
     ~(goal_results : Proof_goal_results.t list)
     ~(vc_ids_ordered : int list)
-    ~(vc_spans_ordered : Pipeline_types.text_span list)
-    ~(smt_spans_ordered : Pipeline_types.text_span list) :
-    Pipeline_types.proof_trace list =
+    ~(vc_spans_ordered : Pipeline_proof_types.text_span list)
+    ~(smt_spans_ordered : Pipeline_proof_types.text_span list) :
+    Pipeline_proof_types.proof_trace list =
+  let manifest = manifest_index manifest in
   let goal_result_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
   List.iter
     (fun goal_result ->
@@ -104,10 +130,11 @@ let build_from_execution ~goals ~attributions
              ~dump_path:goal_result.Goal_results.result_dump_path
              ~diagnostic
          in
-         Some (apply_attribution attributions goal_name trace))
+         Some (apply_manifest manifest goal_name trace))
 
-let build_fast ~attributions (goal_results : Proof_goal_results.t list) :
-    Pipeline_types.proof_trace list =
+let build_fast ~manifest (goal_results : Proof_goal_results.t list) :
+    Pipeline_proof_types.proof_trace list =
+  let manifest = manifest_index manifest in
   goal_results
   |> List.map (fun goal_result ->
          let idx = goal_result.Goal_results.result_index in
@@ -127,15 +154,15 @@ let build_fast ~attributions (goal_results : Proof_goal_results.t list) :
              ~dump_path:goal_result.Goal_results.result_dump_path
              ~diagnostic
          in
-         apply_attribution attributions goal_name trace)
+         apply_manifest manifest goal_name trace)
 
-let goals_of_proof_traces (proof_traces : Pipeline_types.proof_trace list) :
-    Pipeline_types.goal_info list =
+let goals_of_proof_traces (proof_traces : Pipeline_proof_types.proof_trace list) :
+    Pipeline_proof_types.goal_info list =
   List.map
-    (fun (trace : Pipeline_types.proof_trace) ->
+    (fun (trace : Pipeline_proof_types.proof_trace) ->
       (trace.goal_name, trace.status, trace.time_s, trace.dump_path, trace.vc_id))
     proof_traces
 
 let goals_of_goal_results (goal_results : Proof_goal_results.t list) :
-    Pipeline_types.goal_info list =
+    Pipeline_proof_types.goal_info list =
   List.map Proof_goal_results.to_goal_info goal_results

@@ -18,8 +18,7 @@
 
 (** Why/VC/SMT obligations export pass extracted from the v2 pipeline implementation. *)
 
-module Proof_backend_contract =
-  Kairos_proof_contract.Proof_backend_contract
+module Why3_contract = Kairos_why3_contract.Why3_contract
 
 type compilation_options = {
   group_product_steps : bool;
@@ -28,10 +27,14 @@ type compilation_options = {
 type obligations_outputs = {
   vc_text : string;
   smt_text : string;
+  metrics : Why3_contract.execution_metrics;
 }
+
+type compilation_manifest = Why_compile.compiled_obligation list
 
 type whyml_output = {
   text : string;
+  manifest : compilation_manifest;
 }
 
 let render_program_ast (ast : Why3.Ptree.mlw_file) =
@@ -42,12 +45,15 @@ let render_program_ast (ast : Why3.Ptree.mlw_file) =
   Buffer.contents buffer
 
 let compile_whyml ~nodes ~step_projections ~(options : compilation_options) () =
-  let why_ast =
+  let compilation =
     Why_compile.compile_program_ast
       ~group_why3_product_steps:options.group_product_steps ~nodes
       ~step_projections ()
   in
-  { text = render_program_ast why_ast }
+  {
+    text = render_program_ast compilation.ast;
+    manifest = compilation.manifest;
+  }
 
 let join_blocks ~sep blocks =
   let buffer = Buffer.create 4096 in
@@ -61,7 +67,7 @@ let join_blocks ~sep blocks =
 let obligations_pass ~nodes ~step_projections ~(options : compilation_options) :
     obligations_outputs =
   let whyml = compile_whyml ~nodes ~step_projections ~options () in
-  let execution_options : Proof_backend_contract.execution_options =
+  let execution_options : Why3_contract.execution_options =
     {
       timeout_s = 1;
       jobs = 1;
@@ -74,7 +80,7 @@ let obligations_pass ~nodes ~step_projections ~(options : compilation_options) :
     }
   in
   let request =
-    Proof_backend_contract.make_execution_request ~whyml_text:whyml.text
+    Why3_contract.make_execution_request ~whyml_text:whyml.text
       ~options:execution_options ()
   in
   let response = Why_execution.execute request in
@@ -82,4 +88,5 @@ let obligations_pass ~nodes ~step_projections ~(options : compilation_options) :
     vc_text =
       join_blocks ~sep:"\n(* ---- goal ---- *)\n" response.vc_blocks;
     smt_text = join_blocks ~sep:"\n; ---- goal ----\n" response.smt_blocks;
+    metrics = response.metrics;
   }
