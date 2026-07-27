@@ -265,16 +265,10 @@ let build_for_node
   in
   { guarantee_automaton; assume_automaton }
 
-type automata_info = {
-  residual_state_count : int;
-  residual_edge_count : int;
-  warnings : string list;
-}
-
 let run (p : Verification_model.program_model)
     ~(build_automaton :
        Automata_exchange.request -> Automata_exchange.response) :
-    (ident * automata_spec) list * automata_info =
+    (ident * automata_spec) list * Flow_info.automata_info =
   let state_count = ref 0 in
   let edge_count = ref 0 in
   let warnings = ref [] in
@@ -288,7 +282,7 @@ let run (p : Verification_model.program_model)
         (n.node_name, build))
       p
   in
-  let info =
+  let info : Flow_info.automata_info =
     {
       residual_state_count = !state_count;
       residual_edge_count = !edge_count;

@@ -21,14 +21,6 @@ type produced = {
   automata_info : Flow_info.automata_info;
 }
 
-let flow_info_of_automata_info (info : Automata_generation.automata_info) :
-    Flow_info.automata_info =
-  {
-    residual_state_count = info.residual_state_count;
-    residual_edge_count = info.residual_edge_count;
-    warnings = info.warnings;
-  }
-
 let produce_with_spot (program : Verification_model.program_model) :
     (produced, Pipeline_types.error) result =
   try
@@ -45,9 +37,5 @@ let produce_with_spot (program : Verification_model.program_model) :
     in
     External_timing.record_automata_generation
       ~elapsed_s:(Unix.gettimeofday () -. t_automata);
-    Ok
-      {
-        automata;
-        automata_info = flow_info_of_automata_info automata_info;
-      }
+    Ok { automata; automata_info }
   with exn -> Error (Pipeline_types.Flow_error (Printexc.to_string exn))

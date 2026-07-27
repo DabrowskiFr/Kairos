@@ -36,12 +36,6 @@ type automata_build = Automaton_types.automata_build = {
   assume_automaton : automata_automaton;
 } *)
 
-type automata_info = {
-  residual_state_count : int;
-  residual_edge_count : int;
-  warnings : string list;
-}
-
 val build_for_node :
   build_automaton:
     (Kairos_automata_contract.Automata_exchange.request ->
@@ -58,4 +52,4 @@ val run :
   build_automaton:
     (Kairos_automata_contract.Automata_exchange.request ->
     Kairos_automata_contract.Automata_exchange.response) ->
-  (ident * automata_spec) list * automata_info
+  (ident * automata_spec) list * Flow_info.automata_info

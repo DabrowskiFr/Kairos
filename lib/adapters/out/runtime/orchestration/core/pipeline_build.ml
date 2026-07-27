@@ -134,11 +134,6 @@ type prepared_program = {
   reference_program : Verification_model.program_model;
 }
 
-type supplied_automata = {
-  automata : (Core_syntax.ident * Automaton_types.automata_spec) list;
-  automata_info : Flow_info.automata_info;
-}
-
 let prepare_program_from_frontend
     ~(proof_optimizations : Pipeline_types.proof_optimizations)
     ~(frontend : Application_ports.frontend_input) :
@@ -175,7 +170,9 @@ let build_snapshot_from_supplied_automata
     ~(proof_encoding : Pipeline_types.proof_encoding)
     ~(proof_optimizations : Pipeline_types.proof_optimizations)
     ~(prepared : prepared_program)
-    ~(supplied_automata : supplied_automata) :
+    ~(automata :
+       (Core_syntax.ident * Automaton_types.automata_spec) list)
+    ~(automata_info : Flow_info.automata_info) :
     (Runtime_snapshot.pipeline_snapshot, Pipeline_types.error)
     result =
   try
@@ -183,8 +180,6 @@ let build_snapshot_from_supplied_automata
     let parse_info = prepared.parse_info in
     let p_model = prepared.source_model in
     let runtime_model = prepared.reference_program in
-    let automata = supplied_automata.automata in
-    let automata_info = supplied_automata.automata_info in
     let t_product = Unix.gettimeofday () in
     let reference_input : Orchestration.reference_product_input =
       { reference_program = runtime_model; reference_automata = automata }

@@ -36,15 +36,10 @@ module Snapshot = struct
     let* produced_automata =
       Runtime_automata_source.produce_with_spot prepared.reference_program
     in
-    let supplied_automata : Pipeline_build.supplied_automata =
-      {
-        automata = produced_automata.automata;
-        automata_info = produced_automata.automata_info;
-      }
-    in
     Pipeline_build.build_snapshot_from_supplied_automata ~proof_encoding
       ~proof_optimizations ~collect_instrumentation_info ~collect_ir_metrics
-      ~prepared ~supplied_automata
+      ~prepared ~automata:produced_automata.automata
+      ~automata_info:produced_automata.automata_info
 end
 
 module Outputs = struct
