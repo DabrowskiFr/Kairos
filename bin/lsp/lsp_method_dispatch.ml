@@ -34,9 +34,9 @@ type family_dispatch =
 
 let families : (string * family_dispatch) list =
   [
-    ("standard", Lsp_standard_method_dispatch.dispatch);
-    ("kairos", Lsp_kairos_method_dispatch.dispatch);
-    ("run", Lsp_run_method_dispatch.dispatch);
+    ("standard", Lsp_standard_method_route.try_dispatch);
+    ("kairos", Lsp_kairos_method_route.try_dispatch);
+    ("run", Lsp_run_method_route.try_dispatch);
   ]
 
 let dispatch_known_method oc state ~method_name ~id_json ~params =

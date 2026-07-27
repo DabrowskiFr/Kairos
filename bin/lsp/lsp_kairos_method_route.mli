@@ -8,16 +8,13 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
-(** Declarative routing table for initialized non-streaming [kairos/*]
+(** Declarative routing and dispatch for initialized non-streaming [kairos/*]
     extension methods. *)
 
-type context = {
-  out_channel : out_channel;
-  state : Lsp_server_state.t;
-  params : Yojson.Safe.t;
-}
-
-type t
-
-val find : string -> t option
-val dispatch : t -> context -> id_json:Jsonrpc.Id.t option -> unit
+val try_dispatch :
+  out_channel ->
+  Lsp_server_state.t ->
+  method_name:string ->
+  id_json:Jsonrpc.Id.t option ->
+  params:Yojson.Safe.t ->
+  bool

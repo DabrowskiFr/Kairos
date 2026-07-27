@@ -55,5 +55,11 @@ let routes : t list =
           ~id ~params:ctx.params);
   ]
 
-let find method_name = Lsp_method_route.find routes method_name
-let dispatch = Lsp_method_route.dispatch
+let try_dispatch out_channel (state : Lsp_server_state.t) ~method_name ~id_json
+    ~params =
+  match Lsp_method_route.find routes method_name with
+  | None -> false
+  | Some route ->
+      let ctx = { out_channel; state; params } in
+      Lsp_method_route.dispatch route ctx ~id_json;
+      true

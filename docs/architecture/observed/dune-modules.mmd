@@ -230,7 +230,6 @@ flowchart TD
       id6731939(Lsp_symbol_view)
       id335239481(Lsp_symbol_context)
       id518393267(Lsp_standard_method_route)
-      id963899995(Lsp_standard_method_dispatch)
       id313878510(Lsp_server_state_gate)
       id329900714(Lsp_server_state)
       id960767203(Lsp_server_loop)
@@ -239,7 +238,6 @@ flowchart TD
       id1068920991(Lsp_run_preflight)
       id978926268(Lsp_run_notifications)
       id7415793(Lsp_run_method_route)
-      id367560320(Lsp_run_method_dispatch)
       id271342185(Lsp_run_execution_handler)
       id893702158(Lsp_run_context)
       id120913595(Lsp_run_config)
@@ -265,7 +263,6 @@ flowchart TD
       id577753920(Lsp_lifecycle_handlers)
       id807479292(Lsp_lifecycle_dispatch)
       id632187316(Lsp_kairos_method_route)
-      id563906611(Lsp_kairos_method_dispatch)
       id690377628(Lsp_jsonrpc_id)
       id273830107(Lsp_instrumentation_pass_handler)
       id13761490(Lsp_initialize_result_view)
@@ -956,7 +953,6 @@ flowchart TD
   id273830107-->id28170975
   id273830107-->id830492599
   id273830107-->id99359369
-  id563906611-->id632187316
   id632187316-->id300709069
   id632187316-->id774410026
   id632187316-->id873543456
@@ -975,9 +971,9 @@ flowchart TD
   id594208107-->id577753920
   id594208107-->id21891056
   id260667130-->id329900714
-  id460797106-->id563906611
-  id460797106-->id367560320
-  id460797106-->id963899995
+  id460797106-->id632187316
+  id460797106-->id7415793
+  id460797106-->id518393267
   id243241385-->id28170975
   id243241385-->id830492599
   id243241385-->id99359369
@@ -1005,7 +1001,6 @@ flowchart TD
   id893702158-->id329900714
   id271342185-->id48902564
   id271342185-->id268299137
-  id367560320-->id7415793
   id7415793-->id21891056
   id7415793-->id271342185
   id978926268-->id978494149
@@ -1019,7 +1014,6 @@ flowchart TD
   id960767203-->id862365031
   id329900714-->id860351168
   id313878510-->id329900714
-  id963899995-->id518393267
   id518393267-->id8737043
   id518393267-->id618237039
   id518393267-->id208168796
