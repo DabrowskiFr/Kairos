@@ -1,0 +1,100 @@
+// Paper-light medical infusion controller.
+//
+// This is the running example for the VSTTE tool paper. It keeps the proof
+// mechanisms used in the paper: input assumptions, specification histories,
+// direct LTL contracts, one reusable weak-until contract scheme, state
+// invariants, alarm latching, acknowledgement-based release, unexpected-flow
+// detection, and fallback transitions. It omits bolus, lockout, stop-hold,
+// dose partition, and free-flow accounting, which are kept in the artifact case
+// study.
+
+spec def holds_until_release(trigger: Formula, hold: Formula, clear: Formula) =
+  X G ($trigger => X($hold W $clear));
+
+node medical_infusion_light(
+  infusionRequested: bool, occlusion: bool,
+  ack: bool, rate: int, delivered: int,
+  maxRate: int, doseLimit: int)
+returns (motorOn: bool, alarmLatched: bool, totalDose: int)
+
+observers
+  measuredDose : int = delivered -> pre(measuredDose) + delivered;
+
+predicate hazardActive() = occlusion = true;
+predicate admittedAtInit() =
+  infusionRequested = true and not hazardActive()
+  and rate <= maxRate and delivered <= doseLimit;
+predicate admittedNow() =
+  infusionRequested = true and alarmLatched = false and not hazardActive()
+  and rate <= maxRate and totalDose + delivered <= doseLimit
+  and (motorOn = true or delivered = 0);
+predicate unexpectedFlow() = delivered > 0 and motorOn = false;
+predicate alarmCondition() =
+  hazardActive() or rate > maxRate or totalDose + delivered > doseLimit
+  or unexpectedFlow();
+predicate initialAlarmCondition() =
+  hazardActive() or rate > maxRate or delivered > doseLimit
+  or (delivered > 0 and not admittedAtInit());
+predicate clearAlarm() = ack = true and not alarmCondition();
+
+// Specification predicates reconstruct the state on which the current tick's
+// transition guard was evaluated. Inputs are current; stored values use pre.
+predicate admittedAtTickEntry() =
+  infusionRequested = true and pre(alarmLatched) = false and not hazardActive()
+  and rate <= maxRate and pre(totalDose) + delivered <= doseLimit
+  and (pre(motorOn) = true or delivered = 0);
+predicate unexpectedFlowAtTickEntry() =
+  delivered > 0 and pre(motorOn) = false;
+predicate doseWouldExceedAtTickEntry() =
+  pre(totalDose) + delivered > doseLimit;
+predicate alarmConditionAtTickEntry() =
+  hazardActive() or rate > maxRate or doseWouldExceedAtTickEntry()
+  or unexpectedFlowAtTickEntry();
+predicate clearAlarmAtTickEntry() =
+  ack = true and not alarmConditionAtTickEntry();
+
+action initDisplays() {
+  totalDose := delivered; }
+action finishTick() {
+  totalDose := totalDose + delivered; }
+
+contracts
+  requires: G (rate >= 0 and delivered >= 0
+    and maxRate >= 0 and doseLimit >= 0);
+  // C-Alarm-Response: unsafe observations include the tick's alarm response.
+  ensures: G ((hazardActive() or rate > maxRate) =>
+    alarmLatched = true and motorOn = false);
+  ensures: X G (doseWouldExceedAtTickEntry() => alarmLatched = true and motorOn = false);
+  ensures: X G (unexpectedFlowAtTickEntry() => alarmLatched = true and motorOn = false);
+  ensures: X G (alarmLatched = true => motorOn = false);
+  ensures: holds_until_release([alarmLatched = true and ack = false],
+    [alarmLatched = true and motorOn = false],[clearAlarmAtTickEntry()]);
+  ensures: X G (totalDose = measuredDose);
+  ensures: X G (motorOn = true => measuredDose <= doseLimit);
+states
+  Init(init), Idle, Running, AlarmResponse, AlarmLatched;
+invariants
+  in states except {Init}: // I-Display-History.
+    totalDose = measuredDose;
+  in states except {Init, Running}: motorOn = false; // I-Motor-Off.
+  in {AlarmResponse, AlarmLatched}: alarmLatched = true; // I-Alarm-State.
+transitions
+  Init:
+    to AlarmResponse when initialAlarmCondition()
+      { motorOn, alarmLatched := false, true; initDisplays(); }
+    to Running when admittedAtInit() { motorOn, alarmLatched := true, false; initDisplays(); }
+    to Idle { motorOn, alarmLatched := false, false; initDisplays(); }
+  Idle:
+    to AlarmResponse when alarmCondition() { motorOn, alarmLatched := false, true; finishTick(); }
+    to Running when admittedNow() { motorOn, alarmLatched := true, false; finishTick(); }
+  Running:
+    to AlarmResponse when alarmCondition() { motorOn, alarmLatched := false, true; finishTick(); }
+    to Running when admittedNow() { finishTick(); }
+    to Idle { motorOn, alarmLatched := false, false; finishTick(); }
+  AlarmResponse:
+    to AlarmResponse when alarmCondition() { finishTick(); }
+    to AlarmLatched { }
+  AlarmLatched:
+    to AlarmResponse when alarmCondition() { finishTick(); }
+    to Idle when clearAlarm() { motorOn, alarmLatched := false, false; }
+end

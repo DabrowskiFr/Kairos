@@ -1,0 +1,753 @@
+// VSTTE evaluation case only. The running example in the paper remains
+// examples/medical_infusion_light.kairos.
+//
+// Informal device model.
+//
+// Sources used to construct the pump model.
+// [S1] FDA, "Infusion Pumps".
+// [S2] FDA, "Examples of Reported Infusion Pump Problems".
+// [S3] FDA, "Infusion Pump Software Safety Research".
+// [S4] Open PCA Pump Requirements, version 1.0.0, 2020.
+// [S5] UMN Critical Systems Group, GPCA project and model help file.
+// Full URLs and the abstraction mapping are recorded in:
+// medical_infusion_controller.sources.md.
+//
+// This controller is a small abstraction of a patient-controlled analgesia
+// infusion pump, in the style of the FDA/UPenn GPCA and Open PCA examples
+// [S3,S4,S5]. A PCA pump delivers a prescribed basal infusion and may deliver
+// a bounded bolus dose when requested [S4,S5]. The bolus has explicit state:
+// a remaining dose while delivery is active, followed by a lockout period
+// during which a new bolus request is rejected. The pump must also prevent
+// hazards: line occlusion, unsafe door/cassette setup, excessive programmed
+// rate, excessive cumulative dose, excessive bolus delivery, and unexpected
+// measured flow while the actuator is off [S1,S2,S4].
+//
+// The model deliberately keeps only the signals needed for a compact Kairos
+// benchmark. The numeric constants below are abstract model limits, standing
+// for prescription/drug-library bounds in the real requirements [S4,S5]:
+//
+// - maximum admitted rate: 120 model units;
+// - maximum admitted cumulative dose: 1000 model units.
+// - requested bolus dose: 30 model units.
+// - post-bolus lockout: 3 controller ticks.
+//
+// Inputs.
+// - requestInfuse: clinician request for basal infusion.
+// - bolusRequest: patient or clinician request for bolus delivery.
+// - stopRequest: operator or safety-interlock command to stop therapy.
+// - occlusion: pressure/flow sensor reports a blocked line.
+// - doorOpen: pump door or cassette is not closed and locked.
+// - ack: operator acknowledges a latched alarm.
+// - rate: nonnegative programmed rate sample for this tick.
+// - delivered: nonnegative measured volume sampled over the controller tick.
+//   A positive sample is admitted only when the sampled safety conditions allow
+//   a delivery mode for this tick; otherwise it is treated as unexpected flow.
+//
+// Outputs.
+// - motorOn: pump actuator is enabled.
+// - bolusActive: the admitted delivery mode is bolus, not basal.
+// - alarmLatched: a safety alarm is latched.
+// - totalDose: displayed accumulated measured volume.
+// - peakRate: displayed maximum admitted infusion rate.
+// - bolusRemaining: remaining volume in the active bolus dose.
+// - lockoutRemaining: controller ticks before another bolus can start.
+//
+// Safety mapping.
+// - Occlusion and unsafe setup stop infusion and latch alarm [S1,S2,S4].
+// - A programmed rate above the drug-library bound is alarmed [S2,S4,S5].
+// - A cumulative dose that would exceed the bound is alarmed [S4].
+// - A bolus cannot deliver beyond its requested dose [S4,S5].
+// - After a bolus, lockout prevents another bolus request [S4,S5].
+// - Positive measured flow without an admitted delivery decision models unsafe
+//   free flow or residual uncommanded delivery [S2,S4].
+// - stopRequest stops both basal and bolus delivery [S4].
+// - After a stop, the controller spends one full tick idle before accepting
+//   another therapy request. This prevents stale requests from restarting
+//   infusion implicitly.
+// - A latched alarm cannot run the motor until acknowledgement [S4].
+// - Acknowledgement clears the alarm only when hazards disappear [S4].
+// - A newly latched alarm is visible for at least one full tick before it can
+//   be cleared; this separates hazard reporting from operator acknowledgement.
+// - Clearing an alarm never restarts therapy in the same tick [S4].
+// - bolusRequest has priority over basal infusion in this abstraction [S4].
+// - requestInfuse admits basal infusion only under safe conditions [S4,S5].
+
+// Abstract drug-library checks. These functions name prescription bounds used
+// by predicates and contracts; the constants are model units, not clinical
+// units.
+function rateWithinLimit(r: int): bool
+  ensures: result = { r <= 120 };
+= r <= 120;
+
+function doseWithinLimit(d: int): bool
+  ensures: result = { d <= 1000 };
+= d <= 1000;
+
+// Reusable temporal specification schemes.
+//
+// A `spec def` is not implementation code. It is notation for common LTL
+// shapes used below, so the contracts read as domain obligations rather than
+// repeated low-level temporal formulas.
+
+// State a property from the first stable state onward. The initial tick is
+// treated separately because the controller samples initial outputs there.
+spec def always_after_init(prop: Formula) =
+  X G($prop);
+
+// If a trigger holds now, the response must hold on the next state.
+spec def responds_now_next(trigger: Formula, response: Formula) =
+  G($trigger => X($response));
+
+// Same response pattern, but only after initialization.
+spec def responds_after_init(trigger: Formula, response: Formula) =
+  X G($trigger => X($response));
+
+// Once triggered, a hold condition must persist weak-until a clear condition.
+// This captures alarm latching: the alarm may persist forever if not cleared.
+spec def holds_until_release(
+  trigger: Formula, hold: Formula, clear: Formula
+) =
+  X G($trigger => X($hold W $clear));
+
+// Relate a public display/output to a specification history.
+spec def display_tracks_history(display: HExpr, hist: HExpr) =
+  X G(display = hist);
+
+// Express that one cumulative history is split into three classified parts.
+spec def partitions_history(
+  total: HExpr, part1: HExpr, part2: HExpr, part3: HExpr
+) =
+  X G(total = part1 + part2 + part3);
+
+// Bound a history whenever a condition holds.
+spec def bounded_while(cond: Formula, hist: HExpr, limit: HExpr) =
+  X G($cond => hist <= limit);
+
+// State that a historical peak dominates the current sample under a condition.
+spec def dominates_while(cond: Formula, peak: HExpr, current: HExpr) =
+  X G($cond => peak >= current);
+
+// Detect a strict increase of a history and require a next-step response.
+spec def increase_responds_next(hist: HExpr, response: Formula) =
+  X X G(hist > pre(hist) => X($response));
+
+// Detect a strict increase of a history and require a same-tick response.
+spec def increase_implies_current(hist: HExpr, response: Formula) =
+  X G(hist > pre(hist) => $response);
+
+// Node interface. Inputs are environment observations or operator requests.
+// Outputs are controller decisions and display/audit values.
+node medical_infusion_controller(
+  requestInfuse: bool, bolusRequest: bool, stopRequest: bool,
+  occlusion: bool, doorOpen: bool, ack: bool,
+  rate: int, delivered: int
+) returns (
+  motorOn: bool, bolusActive: bool, alarmLatched: bool,
+  totalDose: int, peakRate: int,
+  bolusRemaining: int, lockoutRemaining: int
+)
+observers
+  // Cumulative measured volume, regardless of whether delivery was admitted.
+  measuredDose : int =
+    delivered -> pre(measuredDose) + delivered;
+
+  // Historical maximum rate while the motor is enabled. Samples observed with
+  // motor off do not contribute to the admitted peak.
+  admittedRatePeak : int =
+    if motorOn = true then rate else 0 end ->
+    if motorOn = true and rate > pre(admittedRatePeak) then
+      rate
+    else
+      pre(admittedRatePeak)
+    end;
+
+  // Cumulative dose delivered in admitted basal mode.
+  basalDose : int =
+    if motorOn = true and bolusActive = false then delivered else 0 end ->
+    if motorOn = true and bolusActive = false then
+      pre(basalDose) + delivered
+    else
+      pre(basalDose)
+    end;
+
+  // Cumulative dose delivered in admitted bolus mode.
+  bolusDose : int =
+    if motorOn = true and bolusActive = true then delivered else 0 end ->
+    if motorOn = true and bolusActive = true then
+      pre(bolusDose) + delivered
+    else
+      pre(bolusDose)
+    end;
+
+  // Cumulative measured volume on ticks that end with delivery disabled. The
+  // alarm predicate below prevents positive non-admitted delivery from ending
+  // in ordinary Idle, so increases are alarmed at the same tick.
+  freeFlowDose : int =
+    if motorOn = false and delivered > 0 then delivered else 0 end ->
+    if motorOn = false and delivered > 0 then
+      pre(freeFlowDose) + delivered
+    else
+      pre(freeFlowDose)
+    end;
+
+// Physical hazard reported by sensors.
+predicate hazardActive() =
+  occlusion = true or doorOpen = true;
+
+// Drug-library rate check.
+predicate rateUnsafe() =
+  not rateWithinLimit(rate);
+
+// Initial dose check, before a previous total dose exists.
+predicate initialDoseUnsafe() =
+  not doseWithinLimit(delivered);
+
+// Bolus start is unsafe if the first delivered sample would exceed the
+// prescribed bolus dose.
+predicate initialBolusDoseUnsafe() =
+  bolusRequest = true and delivered > 30;
+
+// Stable-state dose projection, using the displayed cumulative dose.
+predicate doseWouldExceed() =
+  totalDose + delivered > 1000;
+
+// Active bolus cannot consume more than its remaining prescribed dose.
+predicate bolusDeliveryWouldExceed() =
+  bolusActive = true and delivered > bolusRemaining;
+
+// Initialization admission condition, where there is no previous alarm latch
+// and the first delivered sample is checked directly.
+predicate initiallySafeToRun() =
+  not hazardActive() and stopRequest = false
+  and rateWithinLimit(rate) and doseWithinLimit(delivered)
+  and not initialBolusDoseUnsafe();
+
+predicate initiallyBolusCanStart() =
+  initiallySafeToRun() and bolusRequest = true
+  and delivered <= 30;
+
+predicate initiallyBasalCanStart() =
+  initiallySafeToRun() and bolusRequest = false
+  and requestInfuse = true;
+
+// True when the first tick both satisfies safety checks and asks for therapy.
+predicate initiallyAdmittedDelivery() =
+  initiallyBolusCanStart() or initiallyBasalCanStart();
+
+// Initial delivered volume without an admitted therapy request is free flow.
+predicate initialUnexpectedFlow() =
+  delivered > 0 and not initiallyAdmittedDelivery();
+
+// Stable-state admission condition for any therapy mode.
+predicate safeToRun() =
+  not hazardActive() and stopRequest = false
+  and alarmLatched = false and rateWithinLimit(rate)
+  and totalDose + delivered <= 1000
+  and not bolusDeliveryWouldExceed()
+  and (motorOn = true or delivered = 0);
+
+// Therapy selected for this tick. Active bolus delivery continues until its
+// remaining dose is consumed; lockout blocks new boluses but can allow basal.
+predicate therapySelected() =
+  (bolusActive = true and bolusRemaining > 0)
+  or (requestInfuse = true
+      and (bolusRequest = false or lockoutRemaining > 0))
+  or (bolusRequest = true and lockoutRemaining = 0
+      and delivered <= 30);
+
+// Stable-state delivery is admitted only when the sampled conditions still
+// allow a therapy mode for this tick.
+predicate deliveryAdmitted() =
+  safeToRun() and therapySelected();
+
+// Free-flow or uncommanded-flow symptom: positive measured delivery without an
+// admitted basal or bolus decision for the current tick.
+predicate unexpectedFlow() =
+  delivered > 0 and not deliveryAdmitted();
+
+// Stable-state alarm causes.
+predicate alarmCondition() =
+  hazardActive() or rateUnsafe() or doseWouldExceed()
+  or bolusDeliveryWouldExceed() or unexpectedFlow();
+
+// Specification views of the same tests at the entry of the current tick.
+// Inputs are current; persistent controller values are read through pre.
+predicate doseWouldExceedAtTickEntry() =
+  pre(totalDose) + delivered > 1000;
+
+predicate bolusDeliveryWouldExceedAtTickEntry() =
+  pre(bolusActive) = true and delivered > pre(bolusRemaining);
+
+predicate safeToRunAtTickEntry() =
+  not hazardActive() and stopRequest = false
+  and pre(alarmLatched) = false and rateWithinLimit(rate)
+  and pre(totalDose) + delivered <= 1000
+  and not bolusDeliveryWouldExceedAtTickEntry()
+  and (pre(motorOn) = true or delivered = 0);
+
+predicate therapySelectedAtTickEntry() =
+  (pre(bolusActive) = true and pre(bolusRemaining) > 0)
+  or (requestInfuse = true
+      and (bolusRequest = false or pre(lockoutRemaining) > 0))
+  or (bolusRequest = true and pre(lockoutRemaining) = 0
+      and delivered <= 30);
+
+predicate unexpectedFlowAtTickEntry() =
+  delivered > 0
+  and not (safeToRunAtTickEntry() and therapySelectedAtTickEntry());
+
+predicate alarmConditionAtTickEntry() =
+  hazardActive() or rateUnsafe() or doseWouldExceedAtTickEntry()
+  or bolusDeliveryWouldExceedAtTickEntry()
+  or unexpectedFlowAtTickEntry();
+
+predicate alarmClearAllowedAtTickEntry() =
+  ack = true and not alarmConditionAtTickEntry();
+
+// Initialization alarm causes. This differs from `alarmCondition` because
+// there is not yet a meaningful previous cumulative dose.
+predicate initialAlarmCondition() =
+  hazardActive() or rateUnsafe() or initialDoseUnsafe()
+  or initialBolusDoseUnsafe() or initialUnexpectedFlow();
+
+predicate bolusCanStart() =
+  safeToRun() and bolusRequest = true
+  and bolusActive = false
+  and lockoutRemaining = 0
+  and delivered <= 30;
+
+predicate basalCanRun() =
+  safeToRun() and bolusRequest = false
+  and bolusActive = false
+  and requestInfuse = true;
+
+predicate noTherapyRequested() =
+  safeToRun() and bolusRequest = false
+  and bolusActive = false
+  and requestInfuse = false and lockoutRemaining = 0;
+
+// A therapy request is accepted only if the previous tick was already clear
+// and was not an operator stop. This is a specification predicate, not an
+// executable transition guard.
+predicate therapyAdmissionAllowed() =
+  pre(alarmLatched) = false and pre(stopRequest) = false;
+
+predicate bolusAdmitted() =
+  bolusCanStart() and therapyAdmissionAllowed()
+  and pre(lockoutRemaining) = 0;
+predicate basalAdmitted() =
+  basalCanRun() and therapyAdmissionAllowed();
+predicate noDeliveryAdmitted() =
+  noTherapyRequested() and therapyAdmissionAllowed();
+
+// Alarm clearing requires an acknowledgement and no active modeled alarm cause.
+predicate alarmClearAllowed() =
+  ack = true and not alarmCondition();
+
+// Previous-tick versions of the alarm-clear causes. They specify that clearing
+// requires the acknowledged safe condition to be stable across two ticks.
+predicate previousHazardActive() =
+  pre(occlusion) = true or pre(doorOpen) = true;
+
+predicate previousRateUnsafe() =
+  pre(rate) > 120;
+
+predicate previousDoseWouldExceed() =
+  pre(totalDose) + pre(delivered) > 1000;
+
+predicate previousBolusDeliveryWouldExceed() =
+  pre(bolusActive) = true and pre(delivered) > pre(bolusRemaining);
+
+predicate previousSafeToRun() =
+  not previousHazardActive() and pre(stopRequest) = false
+  and pre(alarmLatched) = false and pre(rate) <= 120
+  and pre(totalDose) + pre(delivered) <= 1000
+  and not previousBolusDeliveryWouldExceed()
+  and (pre(motorOn) = true or pre(delivered) = 0);
+
+predicate previousTherapySelected() =
+  (pre(bolusActive) = true and pre(bolusRemaining) > 0)
+  or (pre(requestInfuse) = true
+      and (pre(bolusRequest) = false or pre(lockoutRemaining) > 0))
+  or (pre(bolusRequest) = true and pre(lockoutRemaining) = 0
+      and pre(delivered) <= 30);
+
+predicate previousDeliveryAdmitted() =
+  previousSafeToRun() and previousTherapySelected();
+
+predicate previousUnexpectedFlow() =
+  pre(delivered) > 0 and not previousDeliveryAdmitted();
+
+predicate previousAlarmCondition() =
+  previousHazardActive() or previousRateUnsafe()
+  or previousDoseWouldExceed()
+  or previousBolusDeliveryWouldExceed()
+  or previousUnexpectedFlow();
+
+predicate previousAlarmClearAllowed() =
+  pre(ack) = true and not previousAlarmCondition();
+
+// Mode-selection actions set only the outputs chosen for the current tick.
+// They are not entry actions in the automaton sense.
+action selectIdle() {
+  motorOn, bolusActive, alarmLatched := false, false, false;
+}
+
+action selectBasal() {
+  motorOn, bolusActive, alarmLatched := true, false, false;
+}
+
+action selectBolus() {
+  motorOn, bolusActive, alarmLatched := true, true, false;
+}
+
+action selectAlarm() {
+  motorOn, bolusActive, alarmLatched := false, false, true;
+}
+
+// First-tick display update, after the target mode has been selected.
+action initDisplays() {
+  totalDose := delivered;
+  if motorOn = true then
+    peakRate := rate;
+  else
+    peakRate := 0;
+  end;
+}
+
+// Stable-tick dose and peak-rate update shared by all stable transitions.
+action finishTick() {
+  totalDose := totalDose + delivered;
+  if motorOn = true and rate > peakRate then
+    peakRate := rate;
+  else
+    peakRate := peakRate;
+  end;
+}
+
+action clearBolusAndTickLockout() {
+  bolusRemaining := 0;
+  if lockoutRemaining > 0 then
+    lockoutRemaining := lockoutRemaining - 1;
+  else
+    lockoutRemaining := 0;
+  end;
+}
+
+// Initialization actions select the first mode and initialize displays.
+action initIdle() {
+  selectIdle();
+  bolusRemaining, lockoutRemaining := 0, 0;
+  initDisplays();
+}
+
+action initBasal() {
+  selectBasal();
+  bolusRemaining, lockoutRemaining := 0, 0;
+  initDisplays();
+}
+
+action initBolus() {
+  selectBolus();
+  bolusRemaining := 30 - delivered;
+  lockoutRemaining := 0;
+  initDisplays();
+}
+
+action initAlarm() {
+  selectAlarm();
+  bolusRemaining, lockoutRemaining := 0, 0;
+  initDisplays();
+}
+
+// Stable-state actions select the next mode and finish the tick.
+action stepIdle() {
+  selectIdle();
+  bolusRemaining, lockoutRemaining := 0, 0;
+  finishTick();
+}
+
+action stepBasal() {
+  selectBasal();
+  bolusRemaining, lockoutRemaining := 0, 0;
+  finishTick();
+}
+
+action startBolus() {
+  selectBolus();
+  bolusRemaining := 30 - delivered;
+  lockoutRemaining := 0;
+  finishTick();
+}
+
+action continueBolus() {
+  selectBolus();
+  bolusRemaining := bolusRemaining - delivered;
+  lockoutRemaining := 0;
+  finishTick();
+}
+
+action beginLockoutIdle() {
+  selectIdle();
+  bolusRemaining := 0;
+  lockoutRemaining := 3;
+  finishTick();
+}
+
+action beginLockoutBasal() {
+  selectBasal();
+  bolusRemaining := 0;
+  lockoutRemaining := 3;
+  finishTick();
+}
+
+action tickLockoutIdle() {
+  selectIdle();
+  bolusRemaining := 0;
+  lockoutRemaining := lockoutRemaining - 1;
+  finishTick();
+}
+
+action tickLockoutBasal() {
+  selectBasal();
+  bolusRemaining := 0;
+  lockoutRemaining := lockoutRemaining - 1;
+  finishTick();
+}
+
+action finishLockoutIdle() {
+  selectIdle();
+  bolusRemaining, lockoutRemaining := 0, 0;
+  finishTick();
+}
+
+action finishLockoutBasal() {
+  selectBasal();
+  bolusRemaining, lockoutRemaining := 0, 0;
+  finishTick();
+}
+
+action stepStop() {
+  selectIdle();
+  clearBolusAndTickLockout();
+  finishTick();
+}
+
+action stopFromBolus() {
+  selectIdle();
+  bolusRemaining := 0;
+  lockoutRemaining := 3;
+  finishTick();
+}
+
+action stepAlarm() {
+  selectAlarm();
+  clearBolusAndTickLockout();
+  finishTick();
+}
+
+contracts
+  // Environmental assumptions on numeric input samples.
+  requires: G(rate >= 0);
+  requires: G(delivered >= 0);
+
+  // Public safety responses.
+  ensures: responds_now_next(
+    [hazardActive()], [alarmLatched = true and motorOn = false]);
+  ensures: responds_now_next(
+    [rateUnsafe()], [alarmLatched = true and motorOn = false]);
+  ensures: responds_after_init(
+    [doseWouldExceedAtTickEntry()],
+    [alarmLatched = true and motorOn = false]);
+  ensures: responds_after_init(
+    [bolusDeliveryWouldExceedAtTickEntry()],
+    [alarmLatched = true and motorOn = false]);
+  ensures: responds_now_next(
+    [stopRequest = true], [motorOn = false and bolusActive = false]);
+  ensures: always_after_init([alarmLatched = true => motorOn = false]);
+  ensures: holds_until_release(
+    [alarmLatched = true and ack = false],
+    [alarmLatched = true and motorOn = false],
+    [alarmClearAllowedAtTickEntry()]);
+  ensures: X X G(
+    pre(alarmLatched) = true and previousAlarmClearAllowed()
+    and alarmClearAllowed()
+    => alarmLatched = false and motorOn = false
+       and bolusActive = false);
+  ensures: always_after_init([lockoutRemaining > 0 => bolusActive = false]);
+  ensures: X X G(
+    pre(bolusActive) = true and pre(bolusRemaining) = 0
+    and pre(stopRequest) = false and not previousAlarmCondition()
+    and not alarmConditionAtTickEntry()
+    => lockoutRemaining > 0 and bolusActive = false);
+  ensures: bounded_while([motorOn = true], measuredDose, 1000);
+  ensures: bounded_while([motorOn = true], admittedRatePeak, 120);
+  ensures: increase_implies_current(
+    freeFlowDose, [alarmLatched = true and motorOn = false]);
+
+  // Therapy admission discipline.
+  ensures: always_after_init(
+    [bolusAdmitted() =>
+     motorOn = true and bolusActive = true and alarmLatched = false]);
+  ensures: always_after_init(
+    [basalAdmitted() =>
+     motorOn = true and bolusActive = false and alarmLatched = false]);
+  ensures: always_after_init(
+    [noDeliveryAdmitted() =>
+     motorOn = false and bolusActive = false and alarmLatched = false]);
+  ensures: always_after_init([bolusActive = true => motorOn = true]);
+
+  // Audit and display consistency.
+  ensures: display_tracks_history(totalDose, measuredDose);
+  ensures: partitions_history(
+    measuredDose, basalDose, bolusDose, freeFlowDose);
+  ensures: display_tracks_history(peakRate, admittedRatePeak);
+  ensures: dominates_while([motorOn = true], admittedRatePeak, rate);
+states
+  Init(init), Idle, BasalInfusing, BolusDelivering,
+  BolusLockoutIdle, BolusLockoutBasal,
+  StopHold, AlarmResponse, AlarmLatched;
+invariants
+  // State invariants are local proof annotations for the implementation.
+  // They intentionally mirror mode facts and simple numeric bounds.
+  in states except {Init}:
+    totalDose = measuredDose; peakRate = admittedRatePeak;
+    measuredDose = basalDose + bolusDose + freeFlowDose;
+    basalDose <= measuredDose; bolusDose <= measuredDose;
+    freeFlowDose <= measuredDose;
+    totalDose >= 0; peakRate >= 0; peakRate <= 120;
+    bolusRemaining >= 0; lockoutRemaining >= 0; lockoutRemaining <= 3;
+  in {BasalInfusing, BolusDelivering, BolusLockoutBasal}:
+    motorOn = true; totalDose <= 1000;
+  in states except {
+    Init, BasalInfusing, BolusDelivering, BolusLockoutBasal
+  }:
+    motorOn = false;
+  in BolusDelivering:
+    bolusActive = true;
+    bolusRemaining <= 30;
+    lockoutRemaining = 0;
+  in states except {Init, BolusDelivering}:
+    bolusActive = false;
+    bolusRemaining = 0;
+  in {BolusLockoutIdle, BolusLockoutBasal}:
+    lockoutRemaining > 0;
+  in {Idle, BasalInfusing, BolusDelivering}:
+    lockoutRemaining = 0;
+  in {AlarmResponse, AlarmLatched}:
+    alarmLatched = true;
+  in states except {Init, AlarmResponse, AlarmLatched}:
+    alarmLatched = false;
+transitions
+  // Initialization chooses the first mode. Startup free flow is treated as an
+  // alarm condition rather than accepted as ordinary delivery.
+  Init:
+    to AlarmResponse when initialAlarmCondition() {
+      initAlarm();
+    }
+    to StopHold when stopRequest = true { initIdle(); }
+    to BolusDelivering when initiallyBolusCanStart() {
+      initBolus();
+    }
+    to BasalInfusing when initiallyBasalCanStart() {
+      initBasal();
+    }
+    to Idle { initIdle(); }
+
+  // Therapy states use the same priority order: safety alarm, explicit stop,
+  // bolus start, basal admission, then idle.
+  Idle:
+    to AlarmResponse when alarmCondition() { stepAlarm(); }
+    to StopHold when stopRequest = true { stepStop(); }
+    to BolusDelivering when bolusCanStart() { startBolus(); }
+    to BasalInfusing when basalCanRun() {
+      stepBasal();
+    }
+    to Idle { stepIdle(); }
+
+  BasalInfusing:
+    to AlarmResponse when alarmCondition() { stepAlarm(); }
+    to StopHold when stopRequest = true { stepStop(); }
+    to BolusDelivering when bolusCanStart() { startBolus(); }
+    to BasalInfusing when basalCanRun() {
+      stepBasal();
+    }
+    to Idle { stepIdle(); }
+
+  // Bolus delivery has real memory: each admitted sample consumes the
+  // remaining bolus dose. Once it reaches zero, lockout starts.
+  BolusDelivering:
+    to AlarmResponse when alarmCondition() { stepAlarm(); }
+    to StopHold when stopRequest = true { stopFromBolus(); }
+    to BolusLockoutBasal
+      when bolusRemaining = 0 and requestInfuse = true {
+      beginLockoutBasal();
+    }
+    to BolusLockoutIdle when bolusRemaining = 0 {
+      beginLockoutIdle();
+    }
+    to BolusDelivering { continueBolus(); }
+
+  // During lockout, basal therapy may continue but bolus requests are ignored.
+  BolusLockoutIdle:
+    to AlarmResponse when alarmCondition() { stepAlarm(); }
+    to StopHold when stopRequest = true { stepStop(); }
+    to BolusLockoutBasal
+      when lockoutRemaining > 1 and requestInfuse = true {
+      tickLockoutBasal();
+    }
+    to BolusLockoutIdle when lockoutRemaining > 1 {
+      tickLockoutIdle();
+    }
+    to BasalInfusing
+      when lockoutRemaining = 1 and requestInfuse = true {
+      finishLockoutBasal();
+    }
+    to Idle { finishLockoutIdle(); }
+
+  BolusLockoutBasal:
+    to AlarmResponse when alarmCondition() { stepAlarm(); }
+    to StopHold when stopRequest = true { stepStop(); }
+    to BolusLockoutBasal
+      when lockoutRemaining > 1 and requestInfuse = true {
+      tickLockoutBasal();
+    }
+    to BolusLockoutIdle when lockoutRemaining > 1 {
+      tickLockoutIdle();
+    }
+    to BasalInfusing
+      when lockoutRemaining = 1 and requestInfuse = true {
+      finishLockoutBasal();
+    }
+    to Idle { finishLockoutIdle(); }
+
+  // StopHold materializes the mandatory stopped tick after stopRequest. It can
+  // let an existing bolus lockout continue, but cannot start therapy.
+  StopHold:
+    to AlarmResponse when alarmCondition() { stepAlarm(); }
+    to StopHold when stopRequest = true { stepStop(); }
+    to BolusLockoutIdle when lockoutRemaining > 1 {
+      tickLockoutIdle();
+    }
+    to Idle { finishLockoutIdle(); }
+
+  // AlarmResponse materializes the mandatory alarm response. It cannot clear
+  // immediately, even if acknowledgement is already present.
+  AlarmResponse:
+    to AlarmResponse when alarmCondition() { stepAlarm(); }
+    to AlarmLatched { stepAlarm(); }
+
+  // AlarmLatched is sticky until acknowledgement and disappearance of causes.
+  // Clearing never restarts therapy in the same tick.
+  AlarmLatched:
+    to AlarmResponse when alarmCondition() { stepAlarm(); }
+    to StopHold when alarmClearAllowed() and stopRequest = true {
+      stepStop();
+    }
+    to BolusLockoutIdle
+      when alarmClearAllowed() and lockoutRemaining > 1 {
+      tickLockoutIdle();
+    }
+    to Idle when alarmClearAllowed() { finishLockoutIdle(); }
+    to AlarmLatched { stepAlarm(); }
+end

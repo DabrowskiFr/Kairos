@@ -30,7 +30,10 @@
   check_elaboration_frontier.sh
   check_proof_export_history.sh
   check_reference_stability.sh
+  check_vstte_medical_examples.sh
   frontend/spec_past_formula_frontier.kairos
+  ../examples/medical_infusion_light.kairos
+  ../examples/evaluation/case_studies/medical_infusion_controller.kairos
   ok/action_contract_inline.kairos
   ok/explicit_single_route_safety.kairos
   ok/enum_quantified_predicate.kairos
@@ -79,7 +82,13 @@
     ./check_proof_export_history.sh
     %{exe:../bin/cli/kairos.exe}
     ok/history_self_pre_k.kairos)
-   (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe}))))
+   (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe})
+   (run
+    bash
+    ./check_vstte_medical_examples.sh
+    %{exe:../bin/cli/kairos.exe}
+    ../examples/medical_infusion_light.kairos
+    ../examples/evaluation/case_studies/medical_infusion_controller.kairos))))
 
 (test
  (name product_group_policy_partition_tests)
@@ -91,6 +100,16 @@
  (name canonical_obligations_tests)
  (modules canonical_obligations_tests)
  (libraries kairos_domain_core kairos_domain_verification))
+
+(test
+ (name formula_canonical_tests)
+ (modules formula_canonical_tests)
+ (libraries kairos_domain_core kairos_domain_verification))
+
+(test
+ (name hexpr_phase_json_tests)
+ (modules hexpr_phase_json_tests)
+ (libraries kairos_domain_core))
 
 (test
  (name tool_contract_tests)
