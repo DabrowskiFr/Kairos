@@ -199,18 +199,9 @@ Remaining targets:
 - review `product_characteristics.ml` after the correction-boundary API is
   stable.
 
-Refactoring target:
-
-```sh
-python3 scripts/check_quality_baseline.py --max-module-lines 400
-```
-
-Temporary exceptions must be named and justified.
-The current no-regression baseline is:
-
-```sh
-python3 scripts/check_quality_baseline.py --max-module-lines 517
-```
+File size remains useful as inventory information, but it is not a global
+quality gate. Refactoring decisions must instead be justified by cohesion,
+coupling, or an identified stable sub-responsibility.
 
 ### Q7. Formatting And Namespaces Are Deliberate
 
