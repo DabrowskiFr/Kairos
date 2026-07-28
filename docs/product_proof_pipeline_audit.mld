@@ -50,38 +50,32 @@ state facts.
 This file is therefore the main place where the current approximation can
 create spurious source product states in later proof obligations.
 
-{1 Kernel clauses}
+{1 Active contract construction}
 
-[lib/domain/verification/kernel_clause_projection.ml] owns the neutral
-Rocq-facing kernel clauses and introduces three time classes:
+The implementation does not materialize a second family of Rocq-shaped kernel
+clauses. [Ir.product_step_summary] remains the active carrier through [Pre],
+[Product_reachability], [Post] and [Temporal_lower].
 
-- [PreviousTick], for facts about the completed previous instant;
-- [CurrentTick], for facts about the completed current instant;
-- [StepTickContext], for facts that hold during the current step.
+[Step_contract_projection] then constructs the contracts actually used for
+proof:
 
-The step clauses use previous program/guarantee states together with
-step-context program and assumption guards to prove current program and
-guarantee states. Safety obligations for bad-guarantee edges also keep the bad
-guarantee case in [StepTickContext].
+- safe contracts retain the admissible successor conditions;
+- bad-guarantee contracts retain every excluded unsafe condition;
+- historical reads have already crossed the typed [Temporal_lower] boundary;
+- [Proof_plan] attaches partition provenance and performs prover-independent
+  grouping and factorization.
 
-[lib/domain/proof_export/proof_kernel_generated_clauses.ml] is only the
-entry point that invokes these neutral clauses for the proof-kernel pass.
-Serialization is handled by a codec for [Kernel_clause_projection]; it is not a
-second generated-clause record.
+The delicate information remains [propagation_requires], because it comes from
+the weak pre-generation described above. Removing the unused kernel-clause
+copy does not strengthen or weaken it.
 
-This separation is the right shape. The delicate family is
-[PhaseStepPreSummary], which reuses [propagation_requires] as a previous phase
-formula. Since [propagation_requires] comes from the weak pre-generation
-described above, this clause inherits the same approximation.
+{1 Product boundary}
 
-{1 Product export}
-
-[lib/domain/proof_export/proof_kernel_product.ml] exports explicit product
-steps. Its feasibility filter currently rejects only steps whose source is
-already in a bad assumption or bad guarantee state. It does not filter edges by
-syntactic satisfiability of mixed source/destination facts.
-
-That is the conservative behavior expected by the temporal phase semantics.
+Explicit product states, product steps and their safe/bad classification are
+owned by [Product_build], [Product_types] and [From_model]. No separate export
+filters or reorders them before contract construction. In particular, the
+active path does not remove an edge by syntactic satisfiability of mixed
+source/destination facts.
 
 {1 Things that must not be done}
 

@@ -12,9 +12,9 @@ artifacts.
 {1 Main areas in the repository}
 
 - `lib/adapters/out/provers/why3`
-  Direct Kairos IR-to-WhyML translation and backend planning.
+  Translation of completed [Proof_plan] values to WhyML.
 
-- `packages/proof-contract`
+- `packages/why3-contract`
   Versioned neutral WhyML execution policy, goal results, events, VC/SMT
   blocks, timings, and diagnostic probes.
 
@@ -30,9 +30,10 @@ artifacts.
 
 {1 Notes}
 
-The Why3 backend is driven by canonical obligations and proof views emitted by
-the middle-end. Generated Why code is a compilation artifact. Backend
-grouping and sharing choices should follow {!page-pipeline_cost_model}.
+The Why3 backend is driven by the completed [Proof_plan] emitted by the
+verification domain. Generated Why code is a compilation artifact. Grouping
+and sharing choices are fixed before the backend and should follow
+{!page-pipeline_cost_model}.
 
 The current reference proof-obligation encoding is named [explicit-product].
 It is selected by default and can be stated explicitly with

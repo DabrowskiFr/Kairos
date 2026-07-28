@@ -13,16 +13,16 @@ should understand a runtime import/export object.
 
 ## Decision
 
-Remove `.kobj` from the implementation and documentation. The proof path and
-future Rocq boundary use proof-kernel structures directly, not a modular
-runtime object.
+Remove `.kobj` from the implementation and documentation. The proof path is
+read directly from the active implementation objects, not from a modular
+runtime or Rocq-shaped exchange object.
 
 ## Consequences
 
 - CLI options `--dump-kobj-*` are removed.
 - LSP/VSCode `kairos/kobj*` commands are removed.
 - The `kairos_kobj` library is removed.
-- `Pipeline_artifact_bundle` renders diagnostics from `Proof_kernel_types`
+- `Pipeline_artifact_bundle` renders diagnostics directly from reference nodes
   without constructing `Kairos_object`.
 - Tests now check reference-view stability instead of `.kobj` stability.
 

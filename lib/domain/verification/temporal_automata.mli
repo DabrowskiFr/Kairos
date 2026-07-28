@@ -19,13 +19,13 @@
 (** Product-automata analysis output.
 
     This interface describes the per-node product exploration data reused by
-    IR construction, proof export and artifact renderers. *)
+    IR construction, proof planning and artifact renderers. *)
 
 open Core_syntax
 (** Result of the explicit product exploration for one normalized node.
 
     The node data keeps both the reachable product graph itself and the metadata
-    needed later by renderers and proof-export passes:
+    needed later by renderers and proof-planning passes:
     - indices of the bad states in the assumption and guarantee automata;
     - printable labels for automaton states;
     - grouped automaton edges as they were built upstream. *)

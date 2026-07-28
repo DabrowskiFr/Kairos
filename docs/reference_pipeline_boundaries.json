@@ -19,9 +19,8 @@
     "outputs": [
       "Ir.node_ir list",
       "Product_types.product_step list",
-      "Product_types.product_step_summary list",
-      "Canonical_obligations.stage1",
-      "Canonical_obligations.stage2"
+      "Ir.product_step_summary list",
+      "Step_contract_projection.step_contract list"
     ],
     "path_roots": [
       "lib/domain/core",
@@ -46,8 +45,10 @@
       "lib/domain/verification/product_reachability.mli",
       "lib/domain/verification/temporal_lower.ml",
       "lib/domain/verification/temporal_lower.mli",
-      "lib/domain/verification/canonical_obligations.ml",
-      "lib/domain/verification/canonical_obligations.mli",
+      "lib/domain/verification/formula_canonical.ml",
+      "lib/domain/verification/formula_canonical.mli",
+      "lib/domain/verification/step_contract_projection.ml",
+      "lib/domain/verification/step_contract_projection.mli",
       "lib/domain/verification/orchestration.ml",
       "lib/domain/verification/orchestration.mli"
     ],
@@ -70,16 +71,6 @@
       }
     ]
   },
-  "exchange_views": {
-    "description": "Derived views used for diagnostics, cost reports, and possible Rocq synchronization after an adequacy decision. They must not define the essential theorem.",
-    "outputs": [
-      "Proof_kernel_types.node_ir",
-      "Proof_kernel_types.exported_node_summary_ir"
-    ],
-    "path_roots": [
-      "lib/domain/proof_export"
-    ]
-  },
   "rocq_alignment_manifest": "docs/rocq_alignment_manifest.json",
   "rocq_boundary": {
     "description": "Architecture classification for checking adequacy with the existing Rocq formalization. This is not a generated Rocq theorem inventory.",
@@ -90,21 +81,16 @@
       "pre_requirements",
       "post_ensures",
       "temporal_lowering",
-      "canonical_obligations"
+      "step_contract_projection"
     ],
     "extension_stage_names": [
       "product_reachability_obligations"
     ],
-      "projection_stage_names": [
-        "obligation_family_projection",
-        "kernel_clause_projection",
-        "product_summary_projection",
-        "step_contract_projection",
-        "proof_kernel_export"
-    ],
+    "projection_stage_names": [],
     "excluded_stage_names": [
       "surface_elaboration",
       "automata_generation",
+      "proof_planning",
       "runtime_orchestration",
       "why3_backend"
     ]
@@ -271,6 +257,8 @@
       "paths": [
         "lib/domain/verification/temporal_lower.ml",
         "lib/domain/verification/temporal_lower.mli",
+        "lib/domain/verification/formula_canonical.ml",
+        "lib/domain/verification/formula_canonical.mli",
         "lib/domain/core/pre_k_layout.ml",
         "lib/domain/core/pre_k_layout.mli",
         "lib/domain/core/pre_k_lowering.ml",
@@ -296,97 +284,54 @@
       ]
     },
     {
-      "name": "product_summary_projection",
-      "classification": "reference_projection",
-      "paths": [
-        "lib/domain/verification/product_summary_projection.ml",
-        "lib/domain/verification/product_summary_projection.mli"
-      ],
-      "rocq_scope": "projection",
-      "rocq_role": "Neutral OCaml projection for product-summary objects corresponding to ProofStepSummary and summary-case data. It is derived from Ir.node_ir and must stay independent from proof-export JSON and Why3.",
-      "rocq_alignment_units": [
-        "product_summary_generation"
-      ]
-    },
-    {
-      "name": "canonical_obligations",
+      "name": "step_contract_projection",
       "classification": "reference",
       "paths": [
-        "lib/domain/verification/canonical_obligations.ml",
-        "lib/domain/verification/canonical_obligations.mli"
+        "lib/domain/verification/step_contract_projection.ml",
+        "lib/domain/verification/step_contract_projection.mli"
       ],
       "rocq_scope": "essential",
-      "rocq_role": "Names the canonical Stage 1 clause family and Stage 2 step-contract family before proof_export, backend grouping, Why3 lowering, or diagnostics. This is the implementation-side object to compare with the Rocq proof principle.",
+      "rocq_role": "Active implementation construction of proof contracts directly from lowered product summaries, before prover-independent planning and Why3 compilation. It is compared semantically with POPL without reproducing Rocq proof stages.",
       "rocq_alignment_units": [
         "product_summary_generation",
         "step_contract_extraction",
         "generated_obligation_validity"
       ],
       "allowed_effects": [
-        "expose canonical Stage 1 clauses",
-        "extract canonical Stage 2 contracts",
-        "keep one bad-guarantee contract per unsafe case"
+        "construct safe and bad-guarantee contracts from active summaries",
+        "split top-level forbidden disjunctions",
+        "deduplicate formulas while preserving obligation meaning"
       ],
       "forbidden_effects": [
-        "group unsafe cases",
-        "split forbidden formulas for backend convenience",
+        "change product topology",
         "lower formulas to Why3",
-        "depend on backend options"
+        "depend on solver or backend scheduling options"
       ]
     },
     {
-      "name": "obligation_family_projection",
-      "classification": "reference_projection",
+      "name": "proof_planning",
+      "classification": "obligation_preserving_optimization",
       "paths": [
-        "lib/domain/verification/obligation_family_projection.ml",
-        "lib/domain/verification/obligation_family_projection.mli"
+        "lib/domain/verification/contract_formula_index.ml",
+        "lib/domain/verification/contract_formula_index.mli",
+        "lib/domain/verification/proof_plan.ml",
+        "lib/domain/verification/proof_plan.mli"
       ],
-      "rocq_scope": "projection",
-      "rocq_role": "Neutral semantic classification of generated obligation families. These are proof schemas, not diagnostic provenance tags.",
+      "rocq_scope": "excluded",
+      "rocq_role": "Backend-independent grouping, factorization, sharing, and provenance attachment after the active contracts have been fixed. POPL adequacy is stated before these representation choices.",
       "rocq_alignment_units": [
-        "product_summary_generation",
         "generated_obligation_validity"
-      ]
-    },
-    {
-      "name": "kernel_clause_projection",
-      "classification": "reference_projection",
-      "paths": [
-        "lib/domain/verification/kernel_clause_projection.ml",
-        "lib/domain/verification/kernel_clause_projection.mli"
       ],
-      "rocq_scope": "projection",
-      "rocq_role": "Neutral OCaml projection for KernelClause, TimedFact, product anchors, and classified clause families before proof_export JSON, relational lowering, or Why3.",
-      "rocq_alignment_units": [
-        "product_summary_generation",
-        "generated_obligation_validity"
-      ]
-    },
-    {
-      "name": "step_contract_projection",
-      "classification": "reference_projection",
-      "paths": [
-        "lib/domain/verification/step_contract_projection.ml",
-        "lib/domain/verification/step_contract_projection.mli"
+      "allowed_effects": [
+        "retain every active step contract with its partition provenance",
+        "group safe contracts for the same executable transition",
+        "factor common conditions without changing their meaning",
+        "assign stable sharing identifiers to repeated postconditions"
       ],
-      "rocq_scope": "projection",
-      "rocq_role": "Derived grouped OCaml view of canonical Stage 2 contracts before Why3 helper naming, term sharing, or solver scheduling. It must be constructed from Canonical_obligations.stage2.",
-      "rocq_alignment_units": [
-        "product_summary_generation",
-        "step_contract_extraction"
-      ]
-    },
-    {
-      "name": "proof_kernel_export",
-      "classification": "reference_projection",
-      "paths": [
-        "lib/domain/proof_export"
-      ],
-      "rocq_scope": "projection",
-      "rocq_role": "Versioned exchange/projection data for diagnostics and possible Rocq synchronization after an explicit adequacy decision. It is not the semantic source of the theorem.",
-      "rocq_alignment_units": [
-        "product_summary_generation",
-        "step_contract_extraction"
+      "forbidden_effects": [
+        "add, remove, or modify active step contracts",
+        "merge distinct executable transitions or erase product-state identity",
+        "introduce Why3 types, terms, or solver policies"
       ]
     },
     {
@@ -406,7 +351,7 @@
       "classification": "backend",
       "paths": [
         "lib/adapters/out/provers/why3",
-        "packages/proof-contract",
+        "packages/why3-contract",
         "packages/why3"
       ],
       "rocq_scope": "excluded",

@@ -111,7 +111,7 @@ let cmd =
       value & opt (some string) None
       & info [ "dump-cost-report" ] ~docs:docs_text ~docv:"FILE"
           ~doc:
-            "Dump a JSON cost report from source, automata, product summaries, proof kernel, and generated WhyML.")
+            "Dump a JSON cost report from source formulas, active product summaries, and generated WhyML.")
   in
   let emit_c =
     Arg.(

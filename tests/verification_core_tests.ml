@@ -742,4 +742,4 @@ let () =
   test_product_exploration_and_summary_parity ();
   test_bad_product_sources_do_not_generate_summaries ();
   test_product_automata_normal_form_validation ();
-  print_endline "canonical_obligations_tests: ok"
+  print_endline "verification_core_tests: ok"

@@ -20,7 +20,4 @@
 
 val condition_text : string -> string
 val c_expr : C_codegen_env.expr_env -> Core_syntax.expr -> (string, string) result
-val c_hexpr :
-  C_codegen_env.expr_env ->
-  'phase Core_syntax.hexpr ->
-  (string, string) result
+val c_hexpr : C_codegen_env.expr_env -> 'phase Core_syntax.hexpr -> (string, string) result

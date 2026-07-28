@@ -6,9 +6,8 @@ Keep the separation between the scientific kernel, the concrete engine, and
 external tools, with explicit boundaries between:
 
 1. the reference kernel;
-2. the proof-kernel exchange view;
-3. backend-independent proof planning;
-4. runtime orchestration and diagnostics.
+2. backend-independent proof planning;
+3. runtime orchestration and diagnostics.
 
 The current codebase is not wrong because it has runtime adapters. It is risky
 because `runtime` has become the place where many unrelated concerns meet.
@@ -33,14 +32,13 @@ The following choices are structurally good:
 | Area | Current state | Architectural concern | Direction |
 | --- | --- | --- | --- |
 | Concrete engine | `Api` delegates to private `Engine_flow`, which calls focused core, automata, proof, and diagnostic libraries | The concrete flow necessarily coordinates several concerns | Keep it explicit and concrete; do not recreate forwarding layers without an independent implementation or policy |
-| Proof export | Used by runtime diagnostics/cost reports, possible Rocq exchange projection | Exchange view and diagnostic needs can evolve at different speeds | Keep Why3/backend metadata out of this schema; justify selected fields against the Rocq alignment manifest before synchronization |
 | External automata | Spot builds automata supplied to the reference kernel | Spot translation is not part of the correction story, but malformed automata must not be consumed silently | Keep automata explicit parameters of the reference kernel; validate product-level normal form before exploration; state monitor-correctness claims relative to supplied automata |
 | Source elaboration | Frontend is outside current Rocq boundary | Desugaring can change semantics | Later add an elaboration theorem or a checked core export |
 
 The Rocq alignment source is explicit in
-`docs/rocq_alignment_manifest.json`. The POPL mathematical formalization
-should follow those Rocq theorem cuts first, then describe how the Kairos
-implementation exposes the corresponding artifacts.
+`docs/rocq_alignment_manifest.json`. POPL fixes the Rocq proof claims; the
+active OCaml pipeline fixes the implementation architecture. Their
+correspondence is semantic and does not require matching proof-stage modules.
 
 ## Target Architecture
 
@@ -52,11 +50,10 @@ Surface language
   -> external automata producer
   -> supplied automata response
   -> reference kernel
-  -> product summaries / clause families
-  -> canonical obligations
-  -> derived step-contract views / lowering
+  -> product summaries
+  -> temporal lowering
+  -> active step contracts
   -> backend-independent proof plan
-  -> proof-kernel derived views when needed
   -> backend projections
   -> external provers/renderers
 ```
@@ -111,14 +108,14 @@ Externalization uses typed contracts without imposing processes:
 kairos-automata-contract
   -> Automata_exchange (neutral, versioned and JSON serializable)
 
-kairos-proof-contract
+kairos-why3-contract
   -> Proof_backend_contract (neutral WhyML execution and result protocol)
 
 kairos-spot-adapter
   -> depends only on kairos-automata-contract and Unix
 
 kairos-why3-adapter
-  -> depends only on kairos-proof-contract, kairos-telemetry, and Why3
+  -> depends only on kairos-why3-contract and Why3
 
 Kairos_engine.Graphviz_render
   -> engine-owned Graphviz process service; consumes DOT text
@@ -131,13 +128,12 @@ Spot package imports no internal Kairos library. The call remains in-process.
 Kairos still owns the semantic projection from its relational IR to WhyML.
 The independently buildable Why3 adapter starts at the generated WhyML text
 and consumes an explicit `Proof_backend_contract.request`; it imports neither
-the Kairos IR nor the proof-export projection. It owns task normalization,
-solver results, events, and native probes, returning only neutral contract
-values. Calls remain in-process.
+the Kairos IR nor its proof plan. It owns task normalization, solver results,
+events, and native probes, returning only neutral contract values. Calls
+remain in-process.
 
 The split is kept honest by architecture fitness checks: the core library must
-not depend on Spot, Why3, or proof export, the proof library must not depend on
-proof export, and diagnostics must not become a Why3 backend.
+not depend on Spot or Why3, and diagnostics must not become a Why3 backend.
 
 ## Resolved Boundary Issue: Graph Rendering
 
@@ -147,12 +143,12 @@ graph view needs formula simplification, the simplification must happen before
 rendering or through an explicit diagnostic-preparation stage, not by making
 the renderer depend on an SMT adapter.
 
-## Resolved Boundary Issue: Proof Export And Backends
+## Resolved Boundary Issue: Proof Export
 
-The Why3 backend and artifact renderers no longer depend on
-`kairos_domain_proof_export`. The proof-kernel exchange view is still built by
-the runtime when diagnostics or cost reports need it, but backend proof
-planning must use its own runtime/reference projection.
+The unused proof-export schema was removed. Diagnostics read the active
+reference nodes and summaries, while Why3 consumes the completed
+`Proof_plan.t`. No exchange schema mediates or duplicates the implementation
+obligations.
 
 ## Resolved Boundary Issue: Runtime Split
 

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "rocq_source": {
-    "description": "PaperCore Rocq formalization used as the source of truth for the mathematical POPL presentation.",
+    "description": "Frozen POPL PaperCore formalization used as the Rocq reference for mathematical claims; the active Kairos implementation remains the source of its architecture.",
     "directory": "/Users/fdabrowski/Repos/kairos/kairos-spec/kairos-rocq",
-    "branch": "lab/rocq-paper-core",
+    "branch": "development",
     "commit": "f3facc051901245e33a4d79676fcff6fcd464087",
     "logical_root": "KairosRocq",
     "public_results": [
@@ -30,9 +30,8 @@
     ]
   },
   "paper_formalization_source": {
-    "principle": "The POPL mathematical presentation should follow the Rocq concepts, names, and theorem cuts first; Kairos implementation names are secondary.",
+    "principle": "POPL PaperCore fixes the Rocq proof claims, while the active Kairos pipeline fixes the implementation architecture. Alignment compares their semantic objects without imposing Rocq proof-stage boundaries on OCaml.",
     "main_theorem_shape": "GeneratedObligationsValid -> contract_valid, plus semantic-witness completeness for product-local certificates",
-    "projection_audit": "docs/rocq_projection_audit.json",
     "paper_sections_suggested_by_rocq": [
       "source language and well-formed programs",
       "instrumented runs and observations",
@@ -161,37 +160,34 @@
     },
     {
       "name": "product_summary_generation",
-      "proof_role": "Produces proof-step summaries, clause families, requirements, safe cases, unsafe cases, and ensures from source program plus supplied automata.",
+      "proof_role": "Produces the transition summaries, requirements, safe cases, unsafe cases, and ensures used to construct implementation obligations.",
       "rocq_modules": [
         "theories/PaperCore/ProductSummaries.v",
         "theories/PaperCore/GeneratedObligations.v",
         "theories/PaperCore/TemporalAssertions.v"
       ],
       "kairos_paths": [
+        "lib/domain/verification/ir.ml",
+        "lib/domain/verification/ir.mli",
+        "lib/domain/verification/from_model.ml",
+        "lib/domain/verification/from_model.mli",
         "lib/domain/verification/pre.ml",
         "lib/domain/verification/pre.mli",
         "lib/domain/verification/post.ml",
         "lib/domain/verification/post.mli",
         "lib/domain/verification/product_characteristics.ml",
         "lib/domain/verification/product_characteristics.mli",
+        "lib/domain/verification/product_reachability.ml",
+        "lib/domain/verification/product_reachability.mli",
         "lib/domain/verification/temporal_lower.ml",
-        "lib/domain/verification/temporal_lower.mli",
-        "lib/domain/verification/obligation_family_projection.ml",
-        "lib/domain/verification/obligation_family_projection.mli",
-        "lib/domain/verification/product_summary_projection.ml",
-        "lib/domain/verification/product_summary_projection.mli",
-        "lib/domain/verification/kernel_clause_projection.ml",
-        "lib/domain/verification/kernel_clause_projection.mli",
-        "lib/domain/proof_export/proof_kernel_step_summaries.ml",
-        "lib/domain/proof_export/proof_kernel_generated_clauses.ml"
+        "lib/domain/verification/temporal_lower.mli"
       ],
-      "architecture_status": "Pre/Post are correction-relevant; Temporal_lower is backend-only; Product_summary_projection, Kernel_clause_projection and Obligation_family_projection are neutral alignment views; proof_export must consume the relational post-Post IR and preserve historical reads",
+      "architecture_status": "Ir.product_step_summary is the active carrier; From_model, Pre, Product_reachability, Post and Temporal_lower form the implementation path without a separate Rocq-stage projection",
       "must_be_identifiable_in_kairos": [
-        "ProofStepSummaryIdentity: program transition id, product source, assume guard",
-        "propagation_requires, requires, runtime_requires, ensures",
+        "program transition, product source, assumption guard and trace identity",
+        "propagation requirements, requirements, elaboration checks and ensures",
         "safe cases and unsafe cases",
-        "entry clauses and non-entry clause families",
-        "safe summary grouping and its coverage/preservation argument"
+        "the direct construction order of the active implementation summaries"
       ]
     },
     {
@@ -210,7 +206,7 @@
         "lib/domain/core/pre_k_lowering.ml",
         "lib/domain/core/pre_k_lowering.mli"
       ],
-      "architecture_status": "Step_contract_projection is the neutral alignment view; Why3 scheduling and encoding choices are backend",
+      "architecture_status": "Step_contract_projection is the active implementation construction of proof contracts; its name does not denote a Rocq-stage mirror, and Why3 scheduling and encoding remain backend concerns",
       "must_be_identifiable_in_kairos": [
         "safe step contract generation from summaries",
         "bad-guarantee step contract generation from unsafe cases",
@@ -227,14 +223,14 @@
         "theories/PaperCore/Soundness.v"
       ],
       "kairos_paths": [
-        "lib/domain/verification/obligation_family_projection.ml",
-        "lib/domain/verification/obligation_family_projection.mli",
-        "lib/domain/verification/kernel_clause_projection.ml",
-        "lib/domain/verification/kernel_clause_projection.mli",
+        "lib/domain/verification/step_contract_projection.ml",
+        "lib/domain/verification/step_contract_projection.mli",
+        "lib/domain/verification/proof_plan.ml",
+        "lib/domain/verification/proof_plan.mli",
         "lib/adapters/out/provers/why3",
         "lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml"
       ],
-      "architecture_status": "external proof discharge is backend; the set and meaning of obligations must be determined before backend execution",
+      "architecture_status": "Step_contract_projection determines the active obligation content, Proof_plan determines prover-independent grouping, and external proof discharge remains backend-specific",
       "must_be_identifiable_in_kairos": [
         "safe obligation validity",
         "unsafe obligation validity",
@@ -275,11 +271,13 @@
       "reason": "Rocq theorem is relative to supplied automata."
     },
     {
-      "name": "why3_backend_planning",
+      "name": "proof_planning_and_why3_backend",
       "kairos_paths": [
+        "lib/domain/verification/contract_formula_index.ml",
+        "lib/domain/verification/proof_plan.ml",
         "lib/adapters/out/provers/why3"
       ],
-      "reason": "Why3 encoding, helper grouping, worker scheduling, and solver statuses discharge obligations but do not define them."
+      "reason": "Proof-plan grouping and sharing must preserve the active contracts; Why3 encoding, worker scheduling, and solver statuses then discharge them without defining them."
     },
     {
       "name": "diagnostics_and_dumps",

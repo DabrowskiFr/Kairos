@@ -59,12 +59,6 @@ digraph KairosArchitectureMap {
     penwidth=3
   ];
 
-  proof_export [
-    label="Proof-kernel export\ndiagnostics / optional Rocq exchange\nlib/domain/proof_export",
-    fillcolor="#dbeafe",
-    penwidth=2
-  ];
-
   runtime [
     label="Focused runtime services\ncore / automata / proof / diagnostics\nlib/adapters/out/runtime",
     fillcolor="#fed7aa"
@@ -104,21 +98,17 @@ digraph KairosArchitectureMap {
   engine -> runtime [label="concrete flow"];
   runtime -> core;
   runtime -> kernel [label="reference product"];
-  runtime -> proof_export [label="kernel data"];
   runtime -> artifacts [label="human outputs"];
   runtime -> external [label="Spot/timing"];
   engine -> graphviz_service [label="PNG outputs"];
   graphviz_service -> external [label="Graphviz"];
   kernel -> core;
-  proof_export -> core;
-  proof_export -> kernel;
   why3_backend -> core;
   why3_backend -> kernel;
   runtime -> why3_backend [label="prove/dump why"];
   why3_backend -> external [label="Why3/Z3"];
   artifacts -> external [label="Graphviz"];
   kernel -> rocq [label="essential boundary"];
-  proof_export -> rocq [style=dashed, label="optional exchange"];
 
   subgraph cluster_legend {
     label="Legend";
@@ -130,7 +120,7 @@ digraph KairosArchitectureMap {
       fillcolor="#bbf7d0"
     ];
     legend_projection [
-      label="blue = exchange projection / engine facade",
+      label="blue = engine facade / process service",
       fillcolor="#dbeafe"
     ];
     legend_adapter [

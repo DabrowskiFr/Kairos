@@ -5,7 +5,6 @@
 | Risk | Severity | Why it matters | Mitigation |
 | --- | --- | --- | --- |
 | Runtime facade can grow again | Medium | The public adapter facade still coordinates proof, diagnostics, and rendering | Keep split-library dependency checks in CI |
-| Proof export used for several audiences | Medium | Rocq exchange and diagnostics can evolve at different speeds | Keep proof export as a projection until an adequacy decision makes selected fields stable |
 | Spot/LTL translation outside the formal claim | Medium | Proof results are relative to the automata supplied to the reference kernel, not to Spot's translation correctness | Keep this parametric assumption explicit in the Rocq adequacy boundary and architecture docs; validate product-level automata normal form before exploration |
 | Frontend outside Rocq boundary | Medium | Desugaring can hide semantic changes | Plan an elaboration theorem or checked core export |
 | Architecture workflow was stale | High | Broken checks give false confidence | Keep architecture checks in `dune runtest` and CI |
@@ -20,15 +19,15 @@ The removed modular object no longer participates in:
 - minimal `--prove`;
 - Rocq adequacy-boundary documentation.
 
-This reduces one source of architectural confusion. It does not solve the
-runtime/proof-export boundary by itself.
+This reduces one source of architectural confusion. It does not by itself
+prove that runtime planning preserves the active contracts.
 
 ## Resolved Risks
 
 | Risk | Resolution |
 | --- | --- |
 | Graph renderer depends on Z3 adapter | Removed the stale `kairos_external_z3` dependency from `kairos_artifact_graph_render`; `scripts/check_architecture_fitness.py` now prevents it from returning. |
-| Why3/backend/renderers depend on proof export | Removed stale `kairos_domain_proof_export` dependencies from Why3 and artifact renderers; architecture fitness checks now prevent the exchange view from becoming backend input. |
+| Unused proof export duplicates the active pipeline | Removed the schema; diagnostics use reference nodes and Why3 consumes `Proof_plan.t`. |
 | Runtime layer too broad | Keep focused `kairos_runtime_core`, `kairos_runtime_automata`, `kairos_runtime_proof`, and `kairos_runtime_diagnostics` libraries behind the concrete private `Engine_flow`. |
 | Runtime core invokes Spot | Moved Spot-backed automata production to `kairos_runtime_automata`; `kairos_runtime_core` now consumes supplied automata. |
 | Product consumes malformed automata silently | `Product_build` validates the normal form needed by product exploration before building summaries. |

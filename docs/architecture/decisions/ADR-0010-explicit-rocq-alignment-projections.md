@@ -2,7 +2,16 @@
 
 ## Status
 
-Accepted, implemented for derived OCaml views exposing proof objects
+Superseded on 2026-07-28.
+
+The explicit Stage 1 alignment views had no production consumer and duplicated
+data already present in the active IR. They were removed. POPL PaperCore
+remains the Rocq reference, but its proof-stage decomposition no longer
+prescribes the OCaml module structure. Alignment now compares the active
+`Ir.product_step_summary`, `Step_contract_projection` and `Proof_plan` objects
+directly with the mathematical roles in POPL.
+
+The text below records the superseded decision.
 
 ## Context
 
@@ -25,8 +34,8 @@ Instead:
   backend, a été supprimé : `Why_compile_product_specs` compile directement
   la projection neutre.
 
-The field-by-field audit is recorded in
-`docs/rocq_projection_audit.json`.
+The former field-by-field projection audit was removed with the unused views;
+the direct adequacy gaps are now recorded in `docs/rocq_ocaml_adequacy.mld`.
 
 ## Decision
 

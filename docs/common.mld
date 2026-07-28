@@ -9,7 +9,7 @@ pipeline.
 common
   -> shared formula and syntax utilities
   -> shared semantic program data
-  -> shared proof IR data
+  -> active product summaries and proof contracts
   -> shared metadata exchanged across stages
 ]}
 
@@ -18,7 +18,7 @@ common
 - {!module-Automaton_types}
   Shared semantic automata data.
 
-- {!module-Fo_simplifier}
+- {!module-Core_fo_simplifier}
   Formula simplification.
 
 - {!module-Core_syntax_builders}
@@ -30,23 +30,14 @@ common
 - {!module-Ir}
   Normalized program representation used by the middle-end.
 
-- {!module-Ir}
-  Shared proof-obligation IR types.
+- {!module-Step_contract_projection}
+  Active proof contracts constructed from lowered product summaries.
 
-- {!module-Proof_kernel_types}
-  Shared proof-kernel IR types.
+- {!module-Proof_plan}
+  Prover-independent grouping, sharing and partition provenance.
 
-- {!module-Ast_provenance}
-  Source-formula wrapper helpers with stable identifiers and locations.
-
-- {!module-Provenance}
-  Provenance graph primitives.
-
-- {!module-Flow_info}
-  Per-flow metadata exported by the pipeline.
-
-- {!module-Temporal_support}
-  Shared bounded-history helpers.
+- {!module-Ir_formula}
+  Formula wrappers with stable occurrence identifiers and metadata.
 
 - {!module-Pre_k_layout}
   [pre_k] layout extraction for one node.
@@ -57,10 +48,9 @@ common
 {1 Representative Types}
 
 {[
-type contract_formula = {
-  value : Ast.ltl;
-  oid : int;
-  loc : Ast.loc option;
+type summary_formula = {
+  logic : history_free hexpr;
+  meta : formula_meta;
 }
 ]}
 
@@ -76,13 +66,12 @@ type product_state_ir = {
 
 A useful reading order is:
 
-1. `Provenance`
-2. `Temporal_support`
-3. `Ir`
-4. `Ir`
-5. `Proof_kernel_types`
-6. `Core_syntax_builders`, `Fo_simplifier`, `Fo_time`
-7. `Automaton_types`
+1. `Ir`
+2. `Ir_formula`
+3. `Step_contract_projection`
+4. `Proof_plan`
+5. `Core_syntax_builders`, `Core_fo_simplifier`, `Fo_time`
+6. `Automaton_types`
 
 {1 Scope}
 

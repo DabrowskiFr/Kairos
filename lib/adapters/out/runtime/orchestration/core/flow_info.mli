@@ -44,7 +44,7 @@ type summaries_info = { warnings : string list }
 (** Metadata produced after IR construction.
 
     This record only stores structural counters and pass warnings.
-    Rendering and proof-export payloads are produced later by output modules. *)
+    Rendering and proof payloads are produced later by output modules. *)
 type instrumentation_info = {
   (** Non-fatal warnings emitted while building proof artifacts. *)
   warnings : string list;

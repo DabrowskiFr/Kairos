@@ -10,8 +10,10 @@ CLI
   -> runtime core prepares program
   -> external automata source produces supplied automata
   -> runtime core builds reference product + instrumented IR
+  -> active step contracts
+  -> completed Proof_plan
   -> proof runner
-  -> Kairos IR-to-WhyML projection
+  -> Proof_plan-to-WhyML projection
   -> neutral proof contract
   -> standalone Why3 adapter/provers
   -> minimal proof output
@@ -24,8 +26,8 @@ Pipeline_artifact_bundle.build must not run in the minimal prove path.
 ```
 
 This is not just a performance preference. It prevents diagnostics, graph
-rendering, cost reporting, and proof-kernel inspection views from becoming
-implicit dependencies of ordinary proof execution.
+rendering and cost reporting from becoming implicit dependencies of ordinary
+proof execution.
 
 ## Scenario: Diagnostic Dump
 
@@ -35,12 +37,12 @@ CLI or LSP
   -> private Engine_flow
   -> frontend + runtime snapshot
   -> Pipeline_artifact_bundle.build
-  -> graph/text/canonical/obligations-map output
+  -> graph/text output
   -> Kairos_engine.Graphviz_render when PNG output is requested
 ```
 
-Diagnostic dumps may inspect proof-kernel summaries, but they must not define
-which obligations exist. They are projections of already-computed data.
+Diagnostic dumps inspect reference nodes and active summaries, but they must
+not define which obligations exist.
 
 ## Scenario: External Automata Production
 
@@ -64,8 +66,9 @@ CLI
   -> Kairos_engine.Api
   -> private Engine_flow
   -> snapshot
-  -> Kairos IR-to-WhyML projection
-  -> `kairos-proof-contract`
+  -> completed Proof_plan
+  -> Proof_plan-to-WhyML projection
+  -> `kairos-why3-contract`
   -> `kairos-why3-adapter`
   -> Why3 task or SMT text
 ```
@@ -76,24 +79,18 @@ external adapter receives generated WhyML and never receives Kairos IR values.
 It also retains all Why3 tasks, parse trees, prover answers, and native probes;
 runtime orchestration receives neutral goal descriptors and proof results.
 
-## Scenario: Future Rocq Exchange Projection
+## Scenario: Rocq Adequacy Comparison
 
 ```text
 core model + supplied automata
   -> essential reference boundary
-  -> proof-kernel exchange schema
-  -> optional Rocq adequacy/synchronization check
+  -> active summaries and proof contracts
+  -> Rocq adequacy comparison
 ```
 
-The exchange is a projection candidate. If it is used for Rocq
-synchronization, it should be versioned and independent from:
-
-- Why3 helper names;
-- worker scheduling;
-- Z3/Why3 statuses;
-- Graphviz rendering;
-- cost-report metrics;
-- diagnostic formatting.
+The comparison targets the objects the implementation actually constructs. It
+does not require an exchange schema or matching OCaml modules for internal
+Rocq proof stages.
 
 ## Runtime View Assessment
 

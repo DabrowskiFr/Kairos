@@ -10,16 +10,14 @@ Ce document décrit l'ordre de dépendance vérifié par
 niveau 0
   kairos
   kairos-automata-contract
-  kairos-proof-contract
-  kairos-telemetry
+  kairos-why3-contract
 
 niveau 1
   kairos-spot-adapter
     -> kairos-automata-contract
 
   kairos-why3-adapter
-    -> kairos-proof-contract
-    -> kairos-telemetry
+    -> kairos-why3-contract
 
 niveau 2
   kairos-engine-runtime
@@ -35,7 +33,7 @@ niveau 3
 ```
 
 Les paquets d'un même niveau peuvent être construits en parallèle.
-`kairos-automata-contract` et `kairos-proof-contract` restent séparés : leurs
+`kairos-automata-contract` et `kairos-why3-contract` restent séparés : leurs
 modules et leurs consommateurs sont distincts, et une fusion ne réduirait pas
 le nombre de frontières Findlib utiles.
 

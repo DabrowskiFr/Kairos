@@ -14,13 +14,7 @@
   fo_time
   fo_contradiction
   fo_current_input
-  obligation_family_projection
   product_characteristics
-  product_summary_projection
-  kernel_clause_projection_formula
-  kernel_clause_projection_transition_id
-  kernel_clause_projection
-  canonical_obligations
   ir_fact_family_metrics
   from_model
   pre
@@ -34,7 +28,4 @@
   step_contract_projection
   proof_plan
   orchestration)
- (private_modules
-  kernel_clause_projection_formula
-  kernel_clause_projection_transition_id)
  (libraries kairos_domain_core))

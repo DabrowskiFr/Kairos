@@ -26,7 +26,7 @@ not the original surface phrase.
 
 For the current implementation:
 
-- local predicates are not a proof-kernel feature; they are expanded before the
+- local predicates are not a verification-kernel feature; they are expanded before the
   core pipeline;
 - observers are not operational program state; they elaborate to generated
   ghost variables and ghost-only updates, with no influence on observable
@@ -38,7 +38,7 @@ For the current implementation:
   generated delay/snapshot ghosts;
 - high-level safety schemas such as [maintainedUntil] should be ordinary
   [spec def] declarations or explicit LTL formulas using [G], [X] and [W],
-  not proof-kernel features;
+  not verification-kernel features;
 - pure functions and enum literals are core constructs and must be accounted
   for when lowering to Why3 or to any formal semantic model.
 

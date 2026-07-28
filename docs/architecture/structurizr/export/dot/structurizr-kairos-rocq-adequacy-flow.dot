@@ -1,0 +1,25 @@
+digraph {
+  compound=true
+  graph [fontname="Arial", rankdir=TB, ranksep=1.0, nodesep=1.0]
+  node [fontname="Arial", shape=box, margin="0.4,0.3"]
+  edge [fontname="Arial"]
+  label=<<br /><font point-size="34">Dynamic View: Kairos</font>>
+
+  subgraph cluster_7 {
+    margin=25
+    label=<<font point-size="24"><br />Kairos</font><br /><font point-size="19">[Software System]</font>>
+    labelloc=b
+    color="#444444"
+    fontcolor="#444444"
+    fillcolor="#444444"
+
+    20 [id=20,shape=rect, label=<<font point-size="34">Domain core</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Core syntax, verification<br />model, shared IR, temporal<br />layout, and formula utilities.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
+    21 [id=21,shape=rect, label=<<font point-size="34">Verification domain</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Builds the reference product,<br />summaries and active<br />contracts, then applies<br />obligation-preserving proof<br />planning.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
+  }
+
+  2 [id=2,shape=rect, label=<<font point-size="34">Rocq formalization</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">Formal model of the<br />correction-critical<br />verification kernel.</font>>, style=filled, color="#0a524d", fillcolor="#0f766e", fontcolor="#ffffff"]
+
+  2 -> 21 [id=58, label=<<font point-size="24">1. compares POPL roles<br />with active summaries and<br />contracts</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  21 -> 20 [id=45, label=<<font point-size="24">2. uses the active core<br />model and formulas</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+
+}

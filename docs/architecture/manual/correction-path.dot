@@ -72,14 +72,14 @@ digraph KairosCorrectionPath {
   ];
 
   obligations [
-    label="Essential obligations\ncorrection / progression\nrelative completeness",
+    label="Active step contracts\nStep_contract_projection\ncorrection / progression",
     fillcolor="#4ade80",
     penwidth=3
   ];
 
-  kernel_export [
-    label="Proof-kernel export\nProof_kernel_types.node_ir\nprojection candidate",
-    fillcolor="#dbeafe",
+  proof_plan [
+    label="Backend-independent proof plan\npartition provenance / grouping / sharing",
+    fillcolor="#fde68a",
     penwidth=2
   ];
 
@@ -91,7 +91,7 @@ digraph KairosCorrectionPath {
   ];
 
   backend [
-    label="Why3 backend\nslicing, grouping, printing, solver calls\nnot the source of truth",
+    label="Why3 backend\nmechanical translation, printing, solver calls\nnot the source of truth",
     fillcolor="#fecdd3"
   ];
 
@@ -110,10 +110,8 @@ digraph KairosCorrectionPath {
   obligations -> rocq [label="adequacy check"];
   prepost -> reachability [style=dashed, label="optional invariant scheme"];
   reachability -> obligations [style=dashed];
-  obligations -> kernel_export [style=dashed, label="derived exchange view"];
-  kernel_export -> rocq [style=dashed, label="optional sync format"];
-
-  temporal -> backend [style=dashed, label="lowered, interned formulas"];
+  obligations -> proof_plan;
+  proof_plan -> backend;
   backend -> external [style=dashed];
   external -> automata [style=dashed, label="Spot may produce them"];
 }

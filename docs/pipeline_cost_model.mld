@@ -122,27 +122,27 @@ The expected output is not just a larger formula. It should be a formula DAG
 with stable identifiers, so later passes can distinguish genuine duplication
 from necessary phase-specific copies.
 
-{2 Proof kernel}
+{2 Step contracts}
 
-The proof kernel turns summaries into clauses and obligations. This is the
-right place to remove tautological clauses and to count semantic duplication.
+[Step_contract_projection] turns lowered summaries into the contracts consumed
+by [Proof_plan]. This is the right place to count semantic duplication.
 
 The cost report should record:
 
-- number of clauses by origin;
-- number of hypotheses and conclusions per clause;
-- tautological clauses removed;
-- formulas with high fanout across clauses;
-- formulas that appear in both entry and post clauses;
-- clauses protected by [R_p] reachability facts.
+- number of contracts by class and origin;
+- number of preconditions, postconditions and exclusions per contract;
+- formulas with high fanout across contracts;
+- formulas that appear in both requirements and postconditions;
+- contracts protected by [R_p] reachability facts.
 
-Removing [true] clauses is a representation cleanup. Removing a product case
-is not. The report should make this distinction explicit.
+Removing a redundant [true] formula is a representation cleanup. Removing a
+product case is not. The report should make this distinction explicit.
 
-{2 Backend planning}
+{2 Proof planning}
 
-Before emitting WhyML, the backend should make an explicit plan for grouping
-and sharing. The plan should be reportable independently of the generated text.
+Before emitting WhyML, [Proof_plan] makes grouping, factorization, and sharing
+decisions explicit. The plan is reportable independently of the generated
+text and can be consumed by another backend.
 
 The cost report should record:
 
@@ -154,7 +154,7 @@ The cost report should record:
 - selected local cuts;
 - formulas intentionally left inline.
 
-The backend should choose among four representations:
+Future proof-planning policies may choose among four representations:
 
 - inline a formula when it is small or used once;
 - define a global predicate when a large formula has high fanout and moderate
@@ -254,40 +254,40 @@ completeness with respect to the Rocq formalization.
 
 {1 Rocq alignment}
 
-The Rocq development should not need to know Why3-specific thresholds, but it
-must see the same semantic objects:
+The Rocq development should not need to know proof-planning or Why3-specific
+thresholds. Adequacy is compared at the semantic boundary:
 
 - product-step enumeration;
 - grouped disjunctions for safe successors;
-- proof-kernel clauses;
-- certified reachability facts [R_p];
-- definitional sharing or explicit cuts.
+- active step contracts;
+- certified reachability facts [R_p].
 
-Thresholds such as "share formulas larger than 120 nodes" are backend
-heuristics. They must elaborate to either a definitional abbreviation or an
-explicit cut in the common proof view. The formal argument should be invariant
-under changing those thresholds.
+Thresholds such as "share formulas larger than 120 nodes" are
+obligation-preserving planning heuristics outside this boundary. The formal
+argument should be invariant under changing them.
 
-{1 Proposed instrumentation}
+{1 Current report and proposed enrichment}
 
-The next implementation step should be metrics-only:
+The current command is:
 
 {[
 kairos ... --dump-cost-report path/to/report.json
 ]}
 
-The report should contain one section per stage:
+The current JSON report contains [source], [formula_population], and [why3],
+plus configuration, timings, flow metadata, and notes. It does not yet expose
+all intermediate stages below.
+
+A future enrichment may add:
 
 {[
 {
-  "source": { ... },
   "automata": { ... },
   "product": { ... },
   "summaries": { ... },
   "temporal_lowering": { ... },
-  "proof_kernel": { ... },
-  "backend_plan": { ... },
-  "why3": { ... },
+  "proof_contracts": { ... },
+  "proof_plan": { ... },
   "smt": { ... }
 }
 ]}
@@ -303,5 +303,5 @@ The first useful report for the medical example should answer these questions:
 - which shared predicates have high arity or deep dependency chains;
 - whether the process reaches SMT tasks or stops in Why3 declaration typing.
 
-Only after this report exists should we tune sharing thresholds or introduce
-new local cuts.
+Only after the relevant measurements exist should we tune sharing policies or
+introduce new local cuts.

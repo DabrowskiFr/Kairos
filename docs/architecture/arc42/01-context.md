@@ -35,10 +35,9 @@ elaborated Kairos model
   -> reference obligations
 ```
 
-Everything after that boundary, including proof-kernel exchange projections,
-can be useful, but must be replaceable without changing the correction story:
+Everything after that boundary can be useful, but must be replaceable without
+changing the correction story:
 
-- proof-kernel exchange views;
 - Why3 projection;
 - SMT execution;
 - worker scheduling;
@@ -49,12 +48,10 @@ can be useful, but must be replaceable without changing the correction story:
 ## Current Architectural Question
 
 The current architecture should not be accepted blindly. The main question is
-whether `runtime` and `proof_export` are real semantic boundaries or accidental
-implementation groupings. Today:
+whether runtime groupings represent real responsibilities or accidental
+implementation layers. Today:
 
 - `domain/verification` is a plausible reference-kernel home;
-- `domain/proof_export` is a plausible exchange-projection home, not the
-  essential semantic boundary itself;
 - `adapters/out/runtime` is split into core, automata, proof, diagnostics, and
   facade libraries, but the facade still coordinates several concerns;
 - the Why3 backend should be a projection from the reference/runtime proof view,

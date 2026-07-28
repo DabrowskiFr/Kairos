@@ -21,7 +21,10 @@ module Boolean = Core_fo_simplifier_bool
 module Keys = Core_fo_simplifier_keys
 
 let simplify_cache_limit = 20000
-let simplify_cache : (string, Core_syntax.historical Core_syntax.hexpr) Hashtbl.t = Hashtbl.create 4096
+
+let simplify_cache : (string, Core_syntax.historical Core_syntax.hexpr) Hashtbl.t =
+  Hashtbl.create 4096
+
 let key_of_hexpr = Keys.key_of_hexpr
 
 let rec simplify_uncached (f : Core_syntax.historical Core_syntax.hexpr) :

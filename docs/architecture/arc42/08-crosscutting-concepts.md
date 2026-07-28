@@ -20,12 +20,20 @@ Reference stages may:
 - construct product states and steps;
 - add obligations;
 - normalize temporal references;
-- expose data from which a proof-kernel exchange view can be derived.
+- construct the active step contracts consumed by proof planning.
+
+Proof planning may:
+
+- group contracts for the same executable transition;
+- factor common conditions;
+- assign sharing identifiers;
+- attach partition provenance.
+
+These transformations must preserve every active contract.
 
 Backend stages may:
 
-- share terms;
-- group helpers;
+- materialize the grouping and sharing fixed by `Proof_plan`;
 - choose Why3 encodings;
 - schedule prover calls;
 - render diagnostics;
@@ -64,8 +72,7 @@ This boundary must not be confused with a scientific abstraction. Removing
 the former application, composition, autonomous engine-contract,
 `verification_runtime`, and `runtime_outputs` forwarding layers changes
 ownership and data flow only. It does not change the reference product,
-obligations, temporal normalization, proof-export projections, or backend
-semantics.
+obligations, temporal normalization, proof plans, or backend semantics.
 
 ## External Tool Boundaries
 

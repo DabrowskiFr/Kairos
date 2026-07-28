@@ -31,8 +31,9 @@ Ir.node_ir list
   + canonical source/destination obligations
 ```
 
-`Proof_kernel_types.node_ir` plus exported node summaries are projection
-candidates derived from this boundary, not part of the essential kernel.
+`Ir.product_step_summary`, `Step_contract_projection.step_contract` and
+`Proof_plan.t` expose the active path from summaries to backend-independent
+proof planning. No separate exchange projection is part of the kernel.
 
 The reference boundary is tracked in
 `docs/reference_pipeline_boundaries.json` and checked by

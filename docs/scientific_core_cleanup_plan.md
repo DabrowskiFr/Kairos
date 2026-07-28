@@ -4,7 +4,7 @@
 
 - Working branch: `scientific-core-cleanup`
 - Starting commit: `a8384eb6`
-- `development` and `origin/development` were updated to `a8384eb6`.
+- `development` and `origin/development` were updated to `27fe2d63`.
 - The architecture simplification campaign passed before this branch was
   created.
 - Slice 1, duplicate Stage 2 removal, is implemented and locally validated.
@@ -18,6 +18,8 @@
   and locally validated.
 - Slice 5.2 and 5.3, physical-sharing characterization and removal of the
   redundant terminal pass and telemetry, are implemented.
+- Slice 6, removal of unused OCaml mirrors of the Rocq proof-stage
+  decomposition, is implemented and locally validated.
 - No Rocq file or test has been touched.
 
 ## Validation Baseline
@@ -487,11 +489,37 @@ In order:
 3. remove the corresponding pass enum, telemetry, and reporting fields —
    completed.
 
-### Deferred — Stage 1/Rocq-alignment projections
+### Slice 6 — Remove unused Rocq-stage mirrors
 
-Do not remove the unused Stage 1 projection modules in this branch without an
-explicit decision. They are code-dead in production but still participate in
-the documented formal-alignment story.
+The implementation remains the architectural reference. POPL PaperCore is the
+Rocq reference for mathematical claims, but its internal proof-stage
+decomposition does not prescribe the OCaml module structure.
+
+The following closed, production-dead chain is removed:
+
+- `Canonical_obligations`;
+- `Product_summary_projection`;
+- `Kernel_clause_projection` and its two private helpers;
+- `Obligation_family_projection`.
+
+This removes 1,136 lines of OCaml without changing any active obligation.
+`Ir.product_step_summary`, `Step_contract_projection` and `Proof_plan` remain
+the active implementation path. The two Stage 1 audit pages and the projection
+manifest that enforced the removed mirrors are also retired.
+
+Focused validation:
+
+- domain verification, runtime core, Why3 compile, and the two related test
+  executables build;
+- `verification_core_tests`: OK;
+- `proof_plan_partition_tests`: OK;
+- reference-boundary, architecture-manifest, architecture-fitness, layer, and
+  quality checks: OK;
+- formatting and Odoc builds: OK;
+- architecture graphs regenerated from the resulting Dune graph.
+
+No medical replay or Rocq test was run: the removed subgraph had no active
+consumer and no obligation shape changed.
 
 ## Validation Strategy
 
@@ -509,7 +537,5 @@ generated WhyML or changing its executed body.
 
 ## Next Action
 
-The currently planned non-Rocq cleanup slices and their strategic validation
-are complete. Commit the accumulated Slice 4 and Slice 5 changes when
-requested. The unused Stage 1/Rocq-alignment projections remain deferred and
-require an explicit decision.
+Slice 6 is complete. No further code change is part of this slice; commit and
+push remain separate explicit actions.

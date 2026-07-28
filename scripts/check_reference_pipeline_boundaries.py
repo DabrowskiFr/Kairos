@@ -40,8 +40,8 @@ REQUIRED_STAGE_NAMES = {
     "product_reachability_obligations",
     "post_ensures",
     "temporal_lowering",
-    "kernel_clause_projection",
-    "proof_kernel_export",
+    "step_contract_projection",
+    "proof_planning",
     "runtime_orchestration",
     "why3_backend",
 }
@@ -289,17 +289,6 @@ def main() -> int:
     if not isinstance(kernel, dict):
         fail("reference_kernel must be an object")
     scan_reference_kernel(repo, kernel)
-    exchange_views = raw.get("exchange_views")
-    if not isinstance(exchange_views, dict):
-        fail("exchange_views must be an object")
-    raw_exchange_roots = exchange_views.get("path_roots")
-    if not isinstance(raw_exchange_roots, list) or not raw_exchange_roots:
-        fail("exchange_views.path_roots must be a non-empty list")
-    for rel in raw_exchange_roots:
-        if not isinstance(rel, str):
-            fail("exchange_views.path_roots entries must be strings")
-        require_path(repo, rel)
-
     print("[reference-boundary] OK: reference boundary manifest checks passed")
     return 0
 

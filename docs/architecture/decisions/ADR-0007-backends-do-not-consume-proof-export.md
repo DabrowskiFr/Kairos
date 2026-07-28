@@ -2,7 +2,12 @@
 
 ## Status
 
-Accepted
+Superseded on 2026-07-28.
+
+`proof_export` was removed entirely. The active backend boundary is now
+`Proof_plan.t`, constructed from `Step_contract_projection`. The historical
+decision below remains useful only as a record of why an exchange schema must
+not be shaped by Why3.
 
 ## Context
 

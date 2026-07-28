@@ -72,7 +72,6 @@ def main() -> int:
         "docs/architecture/structurizr/workspace.dsl",
         "docs/reference_pipeline_boundaries.json",
         "docs/rocq_alignment_manifest.json",
-        "docs/rocq_projection_audit.json",
         "docs/architecture_layer_rules.json",
         "scripts/check_layer_dependencies.py",
         "scripts/check_quality_baseline.py",

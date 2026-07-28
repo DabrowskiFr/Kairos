@@ -39,16 +39,13 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
       core = container "Domain core" "Core syntax, verification model, shared IR, temporal layout, and formula utilities." "OCaml" {
         tags "Reference"
       }
-      verification = container "Reference verification kernel" "Validates supplied automata normal form, then builds product summaries and reference proof obligations from the core model." "OCaml" {
+      verification = container "Verification domain" "Builds the reference product, summaries and active contracts, then applies obligation-preserving proof planning." "OCaml" {
         tags "Reference"
         product = component "Product construction" "Validates automata normal form and builds product states, product steps, and product summaries from program plus automata." "OCaml"
         passes = component "Reference passes" "Runs Pre, Product_reachability, and Post to shape correction/progression obligations." "OCaml"
         temporal = component "Temporal normalization" "Lowers pre/pre_k through explicit temporal layout and interns location-free results." "OCaml"
-      }
-      proofExport = container "Proof-kernel export" "Builds exchange projection data used by diagnostics and possible Rocq synchronization after an adequacy decision." "OCaml / JSON" {
-        tags "Projection"
-        kernelTypes = component "Proof-kernel schema" "Serializable product, clause, and summary structures." "OCaml / JSON"
-        kernelPass = component "Proof-kernel pass" "Compiles one reference node into the exchange schema." "OCaml"
+        contracts = component "Step contract construction" "Constructs active proof contracts directly from lowered product summaries." "OCaml"
+        proofPlan = component "Proof planning" "Attaches partition provenance and selects backend-independent grouping, factorization, and sharing." "OCaml"
       }
       why3Backend = container "Why3 backend" "Translates completed proof plans to WhyML and calls proof services." "OCaml / Why3" {
         tags "Backend"
@@ -74,17 +71,14 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
 
     frontend -> core "Produces Verification_model"
     engine -> verification "Builds the reference product and instrumented IR"
-    engine -> proofExport "Builds kernel exchange artifacts"
     engine -> artifacts "Builds human-facing outputs"
     engine -> why3Backend "Requests Why3 proof projection and execution"
     engine -> externalAdapters "Requests automata production, timing, and proof services"
     engine -> graphviz "Invokes Graphviz on rendered DOT text"
 
     verification -> core "Uses core syntax, IR, and temporal layout"
-    proofExport -> core "Serializes core formulas and signatures"
-    proofExport -> verification "Uses product and automata analysis"
     why3Backend -> core "Compiles formulas, statements, and types"
-    why3Backend -> verification "Consumes product summaries"
+    why3Backend -> proofPlan "Translates completed Proof_plan values"
     why3Backend -> externalAdapters "Calls Why3 services"
     cBackend -> core "Compiles normalized program models"
     artifacts -> verification "Renders product and automata analyses"
@@ -94,12 +88,11 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
     externalAdapters -> z3 "Runs selected SMT checks"
 
     rocq -> verification "Checks adequacy against the essential reference boundary"
-    rocq -> proofExport "May consume a versioned exchange projection"
 
     product -> passes "Produces product summaries"
     passes -> temporal "Produces obligation-shaped IR"
-    temporal -> kernelPass "Provides temporally explicit reference formulas"
-    kernelPass -> kernelTypes "Builds schema values"
+    temporal -> contracts "Provides temporally explicit summaries"
+    contracts -> proofPlan "Provides active proof contracts"
 
     api -> flow "Delegates to the concrete flow"
     flow -> frontend "Parses and elaborates"
@@ -114,7 +107,7 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
     outputs -> diagnostics "Builds diagnostics only when requested"
     outputs -> graphvizInvoke "Renders PNG only when requested"
     graphvizInvoke -> graphviz "Invokes external process"
-    diagnostics -> kernelPass "Builds proof-kernel diagnostics"
+    diagnostics -> verification "Reads reference nodes and active summaries"
   }
 
   views {
@@ -146,7 +139,7 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
       engine -> externalAdapters "produces supplied automata through Spot adapter"
       externalAdapters -> spot "builds property automata"
       engine -> verification "builds reference product and IR"
-      engine -> why3Backend "projects proof obligations"
+      engine -> why3Backend "translates completed proof plans"
       why3Backend -> externalAdapters "calls Why3/provers"
       externalAdapters -> why3 "submits proof tasks"
       externalAdapters -> z3 "uses SMT solver through proof stack"
@@ -159,16 +152,13 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
       engine -> externalAdapters "produces supplied automata through Spot adapter"
       externalAdapters -> spot "builds property automata"
       engine -> verification "builds reference product"
-      engine -> proofExport "builds proof-kernel diagnostic view"
       engine -> artifacts "renders text/graph outputs"
       engine -> graphviz "uses Kairos_engine.Graphviz_render when needed"
     }
 
-    dynamic kairos "kairos-rocq-sync-flow" {
-      rocq -> verification "aligns with essential reference boundary"
-      rocq -> proofExport "may inspect exchange projection"
-      proofExport -> verification "projects reference product and clauses"
-      proofExport -> core "uses core formulas and signatures"
+    dynamic kairos "kairos-rocq-adequacy-flow" {
+      rocq -> verification "compares POPL roles with active summaries and contracts"
+      verification -> core "uses the active core model and formulas"
     }
 
     styles {

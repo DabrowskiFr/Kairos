@@ -3,7 +3,7 @@ digraph {
   graph [fontname="Arial", rankdir=LR, ranksep=1.0, nodesep=1.0]
   node [fontname="Arial", shape=box, margin="0.4,0.3"]
   edge [fontname="Arial"]
-  label=<<br /><font point-size="34">Component View: Kairos - Reference verification kernel</font>>
+  label=<<br /><font point-size="34">Component View: Kairos - Verification domain</font>>
 
   subgraph cluster_7 {
     margin=25
@@ -15,7 +15,7 @@ digraph {
 
     subgraph cluster_21 {
       margin=25
-      label=<<font point-size="24"><br />Reference verification kernel</font><br /><font point-size="19">[Container: OCaml]</font>>
+      label=<<font point-size="24"><br />Verification domain</font><br /><font point-size="19">[Container: OCaml]</font>>
       labelloc=b
       color="#444444"
       fontcolor="#444444"
@@ -24,17 +24,21 @@ digraph {
       22 [id=22,shape=rect, label=<<font point-size="34">Product construction</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Validates automata normal form<br />and builds product states,<br />product steps, and product<br />summaries from program plus<br />automata.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
       23 [id=23,shape=rect, label=<<font point-size="34">Reference passes</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Runs Pre,<br />Product_reachability, and Post<br />to shape<br />correction/progression<br />obligations.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
       24 [id=24,shape=rect, label=<<font point-size="34">Temporal<br />normalization</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Lowers pre/pre_k through<br />explicit temporal layout and<br />interns location-free results.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      25 [id=25,shape=rect, label=<<font point-size="34">Step contract<br />construction</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Constructs active proof<br />contracts directly from<br />lowered product summaries.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
+      26 [id=26,shape=rect, label=<<font point-size="34">Proof planning</font><br /><font point-size="19">[Component: OCaml]</font><br /><br /><font point-size="24">Attaches partition provenance<br />and selects<br />backend-independent grouping,<br />factorization, and sharing.</font>>, style=filled, color="#444444", fillcolor="#ffffff", fontcolor="#444444"]
     }
 
     10 [id=10,shape=rect, label=<<font point-size="34">Concrete engine</font><br /><font point-size="19">[Container: OCaml / kairos-engine-runtime]</font><br /><br /><font point-size="24">Public Kairos_engine.Api,<br />private Engine_flow, canonical<br />Pipeline_types contract,<br />focused runtime services, and<br />Kairos-specific output<br />coordination.</font>>, style=filled, color="#7d3a06", fillcolor="#b45309", fontcolor="#ffffff"]
-    25 [id=25,shape=rect, label=<<font point-size="34">Proof-kernel export</font><br /><font point-size="19">[Container: OCaml / JSON]</font><br /><br /><font point-size="24">Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
+    27 [id=27,shape=rect, label=<<font point-size="34">Why3 backend</font><br /><font point-size="19">[Container: OCaml / Why3]</font><br /><br /><font point-size="24">Translates completed proof<br />plans to WhyML and calls proof<br />services.</font>>, style=filled, color="#850c2a", fillcolor="#be123c", fontcolor="#ffffff"]
   }
 
-  10 -> 25 [id=41, label=<<font point-size="24">Builds kernel exchange<br />artifacts</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  22 -> 23 [id=64, label=<<font point-size="24">Produces product summaries</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  23 -> 24 [id=65, label=<<font point-size="24">Produces obligation-shaped<br />IR</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  24 -> 25 [id=67, label=<<font point-size="24">Provides temporally<br />explicit reference<br />formulas</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  10 -> 22 [id=79, label=<<font point-size="24">Supplies automata for<br />validation</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  10 -> 23 [id=83, label=<<font point-size="24">Builds instrumented IR</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  10 -> 27 [id=41, label=<<font point-size="24">Requests Why3 proof<br />projection and execution</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  27 -> 26 [id=47, label=<<font point-size="24">Translates completed<br />Proof_plan values</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  22 -> 23 [id=60, label=<<font point-size="24">Produces product summaries</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  23 -> 24 [id=61, label=<<font point-size="24">Produces obligation-shaped<br />IR</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  24 -> 25 [id=62, label=<<font point-size="24">Provides temporally<br />explicit summaries</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  25 -> 26 [id=63, label=<<font point-size="24">Provides active proof<br />contracts</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  10 -> 22 [id=72, label=<<font point-size="24">Supplies automata for<br />validation</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  10 -> 23 [id=76, label=<<font point-size="24">Builds instrumented IR</font>>, style="dashed", color="#444444", fontcolor="#444444"]
 
 }

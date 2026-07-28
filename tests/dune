@@ -12,7 +12,6 @@
   ../docs/reference_pipeline_boundaries.json
   ../docs/reference_verification_architecture.mld
   ../docs/rocq_alignment_manifest.json
-  ../docs/rocq_projection_audit.json
   ../.github/workflows/architecture.yml
   ../.github/workflows/package-boundaries.yml
   (glob_files ../*.opam)
@@ -95,8 +94,8 @@
  (libraries kairos_domain_core kairos_domain_verification))
 
 (test
- (name canonical_obligations_tests)
- (modules canonical_obligations_tests)
+ (name verification_core_tests)
+ (modules verification_core_tests)
  (libraries kairos_domain_core kairos_domain_verification))
 
 (test

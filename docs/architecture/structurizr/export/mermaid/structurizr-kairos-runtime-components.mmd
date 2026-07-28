@@ -33,28 +33,24 @@ graph LR
 
       19["<div style='font-weight: bold'>Kairos frontend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Parses the surface language<br />and elaborates it to the core<br />verification model.</div>"]
       style 19 fill:#7c3aed,stroke:#5628a5,color:#ffffff
-      21["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</div>"]
+      21["<div style='font-weight: bold'>Verification domain</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Builds the reference product,<br />summaries and active<br />contracts, then applies<br />obligation-preserving proof<br />planning.</div>"]
       style 21 fill:#166534,stroke:#0f4624,color:#ffffff
-      25["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</div>"]
-      style 25 fill:#075985,stroke:#043e5d,color:#ffffff
-      31["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Narrow Automata_exchange and<br />Proof_backend_contract<br />boundaries for Spot, Why3,<br />Z3, and timing services.</div>"]
-      style 31 fill:#6b7280,stroke:#4a4f59,color:#ffffff
+      30["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Narrow Automata_exchange and<br />Proof_backend_contract<br />boundaries for Spot, Why3,<br />Z3, and timing services.</div>"]
+      style 30 fill:#6b7280,stroke:#4a4f59,color:#ffffff
     end
 
-    25-. "<div>Uses product and automata<br />analysis</div><div style='font-size: 70%'></div>" .->21
-    21-. "<div>Provides temporally explicit<br />reference formulas</div><div style='font-size: 70%'></div>" .->25
     11-. "<div>Delegates to the concrete<br />flow</div><div style='font-size: 70%'></div>" .->12
     12-. "<div>Parses and elaborates</div><div style='font-size: 70%'></div>" .->19
     12-. "<div>Builds a runtime snapshot</div><div style='font-size: 70%'></div>" .->13
     12-. "<div>Selects and maps outputs</div><div style='font-size: 70%'></div>" .->15
     13-. "<div>Requests supplied automata</div><div style='font-size: 70%'></div>" .->14
-    14-. "<div>Calls Spot adapter</div><div style='font-size: 70%'></div>" .->31
+    14-. "<div>Calls Spot adapter</div><div style='font-size: 70%'></div>" .->30
     14-. "<div>Supplies automata for<br />validation</div><div style='font-size: 70%'></div>" .->21
     13-. "<div>Builds reference product from<br />validated automata</div><div style='font-size: 70%'></div>" .->21
     15-. "<div>Runs minimal proof path</div><div style='font-size: 70%'></div>" .->16
     15-. "<div>Builds diagnostics only when<br />requested</div><div style='font-size: 70%'></div>" .->17
     15-. "<div>Renders PNG only when<br />requested</div><div style='font-size: 70%'></div>" .->18
     18-. "<div>Invokes external process</div><div style='font-size: 70%'></div>" .->6
-    17-. "<div>Builds proof-kernel<br />diagnostics</div><div style='font-size: 70%'></div>" .->25
+    17-. "<div>Reads reference nodes and<br />active summaries</div><div style='font-size: 70%'></div>" .->21
 
   end

@@ -1,197 +1,115 @@
-{0 Rocq Alignment Boundary}
+{0 Rocq Proof Scope}
 
-This page records how Kairos should stay alignable with the existing Rocq
-formalization and with the mathematical formalization intended for the paper.
-The direction is fixed:
+Kairos uses two distinct reference points:
 
-{[
-Rocq formalization
-  -> paper mathematical presentation
-  -> Kairos implementation alignment boundary
-]}
+- the active OCaml pipeline defines the architecture and the objects actually
+  consumed by the implementation;
+- the frozen POPL PaperCore development defines the Rocq theorem against which
+  the corresponding mathematical claims are compared.
 
-The OCaml implementation does not invent the proof architecture. It must
-expose the semantic objects that correspond to the Rocq proof architecture,
-and it must mark everything else as derived view, backend, diagnostic, or
-external tooling.
-Syntactic sugar is also outside this Rocq core: observers, history
-definitions, concise assignments, and other surface conveniences must be
-elaborated before the Rocq-facing boundary.
+The Rocq proof decomposition is not an implementation architecture.  In
+particular, its historical Stage 1 / Stage 2 split must not cause Kairos to
+retain duplicate OCaml records or unused projection modules.
 
-The machine-readable source of truth is
-[docs/rocq_alignment_manifest.json]. It records:
+{1 Frozen POPL Reference}
 
-- the Rocq repository, paper branch, and immutable commit used for alignment;
-- the public theorem entry points;
-- the Rocq concepts that the paper should present;
-- the Kairos modules that must expose matching artifacts;
-- the implementation details that are outside the Rocq core.
-
-The field-by-field audit is [docs/rocq_projection_audit.json]. Its conclusion
-is architectural: Kairos needs explicit product-summary and step-contract
-views so that the proof-relevant objects can be inspected before backend
-encoding. These views are derived from the semantic boundary; they are not the
-formal source of the Rocq or paper theorem. The decision is recorded in
-[docs/architecture/decisions/ADR-0010-explicit-rocq-alignment-projections.md].
-
-The current principle-level adequacy audit is
-{!page-rocq_ocaml_adequacy}. It records which Rocq objects already match the
-OCaml implementation, which correspondences need a preservation lemma, and
-which proof-relevant gaps must be resolved before claiming full adequacy.
-
-{1 Rocq Source}
-
-The current Rocq source recorded by the manifest is:
+The machine-readable source is [docs/rocq_alignment_manifest.json]:
 
 {[
-/Users/fdabrowski/Repos/kairos/kairos-spec/kairos-rocq
-branch lab/rocq-paper-core
-commit f3facc051901245e33a4d79676fcff6fcd464087
+repository /Users/fdabrowski/Repos/kairos/kairos-spec/kairos-rocq
+branch     development
+commit     f3facc051901245e33a4d79676fcff6fcd464087
 ]}
 
-The paper branch is treated as a frozen source reference.  The Kairos checks do
-not require the local Rocq checkout to be on that branch.  They verify instead
-that the recorded branch still points to the recorded commit and that the
-recorded theorem files and names exist at that commit.  This keeps ordinary
-Kairos development independent from Rocq work branches while preventing silent
-drift of the paper reference.
+The commit is immutable.  Moving a worktree or advancing another paper branch
+does not change the reference until the manifest is deliberately updated.
 
-The public theorem cut used by the paper is centered on:
+The public results tracked by Kairos are:
 
-- [local_obligations_sound] in [theories/PaperCore/Soundness.v];
-- [generated_obligations_sound] in
-  [theories/PaperCore/GeneratedObligations.v];
-- [concrete_environment_generated_obligations_sound] in
-  [theories/PaperCore/ConcreteAdequacy.v];
-- [true_annotations_have_semantic_witness] in
-  [theories/PaperCore/RelativeCompleteness.v].
+- [local_obligations_sound];
+- [generated_obligations_sound];
+- [concrete_environment_generated_obligations_sound];
+- [true_annotations_have_semantic_witness].
 
-The core theorem shape is:
+They establish the POPL proof principle for a transition system equipped with
+supplied assumption and guarantee automata, product-local certificates and
+generated obligations.
+
+{1 Active Implementation Boundary}
+
+The implementation path is read directly from the OCaml pipeline:
 
 {[
-GeneratedObligationsValid
-  -> contract_valid
+Verification_model
+  + supplied automata
+  -> From_model / Product_build
+  -> Ir.product_step_summary
+  -> Pre
+  -> Product_reachability
+  -> Post
+  -> Temporal_lower
+  -> Step_contract_projection
+  -> Proof_plan
+  -> Why3 compilation and proof execution
 ]}
 
-The paper formalization should present this structure mathematically, with
-notation adapted for readability but with the same proof cuts.
+[Ir.product_step_summary] is the active carrier for product transition
+identity, requirements, safe cases, unsafe cases and postconditions.
+[Step_contract_projection] constructs the contracts actually consumed by
+[Proof_plan].  [Proof_plan] makes prover-independent grouping and sharing
+decisions.  Why3 only translates that plan.
 
-The internal Rocq module organization should preserve this cut.  In particular,
-definition modules may introduce the mathematical predicates used by the paper,
-while construction-correctness modules may contain the local singleton, fold, or
-lookup facts needed to prove those predicates for the generated objects.  Those
-local facts are not additional paper principles and should not force new final
-theorems.
+There is no additional OCaml [KernelClause], [TimedFact], clause-family or
+product-summary projection layer.  Such records were unused copies introduced
+only to mirror the internal organization of an older Rocq development.
 
-{1 What Kairos Must Expose}
+{1 What Rocq Covers}
 
-Kairos must make the following proof-relevant units identifiable:
+The POPL development supplies the mathematical account for:
 
-- normalized source program and well-formedness assumptions;
-- the boundary between surface elaboration checks and the normalized
-  Rocq-facing core program;
-- instrumented runs, observations, and temporal slots;
-- supplied assumption and guarantee automata, plus the implementation point
-  where their product-level normal form is validated;
-- product-state and product-step anchors;
-- step classification into safe, bad-assumption, and bad-guarantee cases;
-- product-summary proof-step summaries;
-- product-summary clause families and their coverage;
-- step-contract extraction and lowering;
-- generated safe, unsafe, and initialization obligations;
-- the canonical obligation set before Why3 grouping, scheduling, or solver
-  execution.
+- transition-system execution and source transition priority;
+- assumption and guarantee automata supplied as parameters;
+- product states and product transitions;
+- local invariant obligations;
+- generated-obligation soundness;
+- global assume-guarantee validity;
+- the historical-expression frontier represented at paper level.
 
-These are not optional diagnostics. They are the implementation-side handles
-needed to state that Kairos matches the Rocq theorem and the paper
-formalization.
+{1 What Remains Outside}
 
-{1 Proof-Principle Cut}
+The frozen POPL theorem does not certify:
 
-The current Rocq proof has a useful pipeline cut:
+- parsing, typing, desugaring or the complete Kairos frontend;
+- Spot translation from LTL to automata;
+- the OCaml product-exploration algorithm;
+- the exact OCaml construction of step contracts;
+- [Proof_plan] grouping, factorization or sharing;
+- Why3 encoding, solver scheduling, Z3, diagnostics or dumps.
+
+These exclusions do not make those implementation layers unimportant.  They
+mean only that their correspondence or preservation argument is not supplied
+by the frozen Rocq theorem.
+
+{1 Alignment Rule}
+
+Alignment is semantic and directional:
 
 {[
-source program + supplied automata
-  -> automata normal-form validation at the product boundary
-  -> product summaries and clause families
-       (ProofStepSummary + SummaryClauseFamilies)
-  -> step contracts
-       (StepContract)
-  -> generated obligation validity
-  -> global automata validity
+active OCaml object
+  <-> mathematical role in POPL PaperCore
 ]}
 
-In Kairos, this means:
+It is not:
 
-- [Product_build], [From_model], [Pre], [Post], and [Temporal_lower] are
-  proof-relevant reference stages;
-- [Canonical_obligations] is the reference boundary that names the canonical
-  Stage 1 clauses and Stage 2 contracts before export, backend grouping, or
-  Why3 lowering;
-- [Product_reachability] is a proof-relevant extension only if it is justified
-  as a general invariant principle, not as pruning;
-- [Proof_kernel_types] and related [proof_export] modules are projection
-  candidates that may witness product-summary objects, but they are not
-  automatically the theorem source;
-- Why3 modules are backend realization territory: the step-contract extraction
-  and lowering relation is proof-relevant, while helper names, grouping,
-  worker counts, dumps, and solver statuses are not.
+{[
+Rocq file or proof stage
+  -> mandatory OCaml module with the same record decomposition
+]}
 
-The derived OCaml views are now split into:
+An OCaml abstraction is retained only when the implementation uses it or when
+it expresses a genuine implementation invariant.  A dormant view is not an
+adequacy proof and must not be preserved merely because it resembles a Rocq
+record.
 
-- [Product_summary_projection], which exposes product-summary identity,
-  requirements, runtime requirements, ensures, and safe/unsafe cases;
-- [Kernel_clause_projection], which exposes [KernelClause], [TimedFact],
-  product anchors and classified clause families before proof-export lowering;
-- [Obligation_family_projection], which classifies generated clauses by proof
-  schema and exposes the Rocq-facing [SummaryClauseFamilies] predicates;
-- [Step_contract_projection], which exposes pre-Why3 step contracts with
-  summary identity and covered cases as a grouped view of
-  [Canonical_obligations.stage2].
-
-The `proof_export` data model is still not enough by itself:
-
-- [Ir.product_step_summary] has most summary logic but lacks explicit steps
-  and clause families;
-- [Proof_kernel_types.proof_step_summary_ir] has steps and clauses but lacks
-  first-class summary identity, requires, ensures, safe cases, and unsafe
-  cases;
-- [Proof_kernel_types.generated_clause_ir] is now only a typed alias to
-  [Kernel_clause_projection.classified_clause] with a proof-export codec; it is
-  not a second generated-clause data model;
-- the Why3 compiler consumes [Step_contract_projection] directly rather than
-  defining a second backend-shaped [StepContract] projection.
-
-Therefore the implementation-side Rocq/paper correspondence should go through
-[Canonical_obligations] for the proof principle, then explain which derived
-views expose or group those objects before diagnostics and Why3 emission.
-
-{1 Paper Consequence}
-
-The POPL paper should not present an OCaml-centric pipeline first and then try
-to retrofit Rocq. It should present the Rocq-backed mathematical objects:
-
-- program semantics and observation traces;
-- contract automata and assume-guarantee validity;
-- product anchors and summaries;
-- local obligations and step contracts;
-- soundness from generated obligations.
-
-The implementation section can then explain how Kairos exposes and realizes
-these objects, and which parts are deliberately outside the theorem.
-
-{1 Enforcement}
-
-The alignment is checked by:
-
-- [scripts/check_rocq_alignment_manifest.py], which verifies the recorded
-  Rocq paper branch/commit, theorem files at that commit, theorem names, and
-  Kairos paths;
-- [scripts/check_reference_pipeline_boundaries.py], which verifies the
-  implementation-side reference/projection/backend classification;
-- [tests/check_reference_stability.sh], which checks that backend-only options
-  do not change canonical reference views.
-
-These checks are not proofs. They keep the implementation architecture clean
-enough that the adequacy proof obligation remains visible instead of being
-buried in Why3, dumps, or diagnostics.
+The current gaps and the direct object-by-object comparison are recorded in
+{!page-rocq_ocaml_adequacy}.

@@ -7,7 +7,7 @@ This document is the human-readable companion of
 
 - `foundation`: syntax, models, IR, and temporal layout in `domain_core`;
 - `contracts`: neutral automata and proof-backend protocols;
-- `domain`: reference verification and proof-export projections;
+- `domain`: reference verification, active proof contracts, and proof planning;
 - `frontend`: parsing, elaboration, and lowering of the Kairos language;
 - `runtime`: snapshot construction, automata production, proof execution,
   diagnostics, renderers, code generation, and the Kairos-to-Why3 backend;

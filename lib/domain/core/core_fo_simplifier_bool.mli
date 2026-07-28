@@ -18,5 +18,8 @@
 
 (** Boolean reconstruction and bounded DNF simplifications. *)
 
-val rebuild_and_syntax : Core_syntax.historical Core_syntax.hexpr list -> Core_syntax.historical Core_syntax.hexpr
-val rebuild_or_syntax : Core_syntax.historical Core_syntax.hexpr list -> Core_syntax.historical Core_syntax.hexpr
+val rebuild_and_syntax :
+  Core_syntax.historical Core_syntax.hexpr list -> Core_syntax.historical Core_syntax.hexpr
+
+val rebuild_or_syntax :
+  Core_syntax.historical Core_syntax.hexpr list -> Core_syntax.historical Core_syntax.hexpr

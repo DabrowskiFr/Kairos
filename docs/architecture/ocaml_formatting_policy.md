@@ -36,7 +36,3 @@ them should keep that alias clean.
 - `lib/adapters/out/codegen/c/c_codegen*.mli`
 - `lib/domain/core/core_fo_simplifier*.ml`
 - `lib/domain/core/core_fo_simplifier*.mli`
-- `lib/domain/verification/kernel_clause_projection_formula.ml`
-- `lib/domain/verification/kernel_clause_projection_formula.mli`
-- `lib/domain/verification/kernel_clause_projection_transition_id.ml`
-- `lib/domain/verification/kernel_clause_projection_transition_id.mli`

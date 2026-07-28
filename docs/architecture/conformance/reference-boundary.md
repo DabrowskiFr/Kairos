@@ -8,13 +8,10 @@ and implementation mechanics.
 - core model;
 - supplied automata;
 - product states and product steps;
-- reference obligations;
+- lowered product-summary IR;
+- active `Step_contract_projection.step_contract` values;
 - temporal lowering;
 - historical-initialization source well-formedness checks.
-
-## Projection Scope
-
-- proof-kernel exchange structures derived from the essential boundary.
 
 ## Out Of Scope
 
@@ -26,6 +23,11 @@ and implementation mechanics.
 - CLI/LSP/VSCode presentation;
 - worker scheduling;
 - diagnostic formatting.
+- `Proof_plan` grouping, factorization, and sharing choices.
+
+`Proof_plan` is outside the essential Rocq boundary but still belongs to the
+verification domain. It must preserve every active step contract and its
+provenance.
 
 ## Current Enforcement
 
@@ -53,10 +55,7 @@ The boundary is enforced by:
 
 ## Current Weaknesses
 
-- The proof-kernel exchange view is useful to diagnostics and possible Rocq
-  synchronization. It is a projection, not the essential boundary. Backend
-  planning must stay on a separate projection and must not consume the
-  exchange schema directly.
+- Full adequacy between the active summaries/contracts and POPL is not proved.
 - The frontend is outside the current formal boundary.
 
 These are architectural debts, not failures. They become failures if they make

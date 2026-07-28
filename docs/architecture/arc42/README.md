@@ -15,7 +15,7 @@ Read in this order:
 6. `11-risks.md`
 
 The current architecture keeps a strict scientific boundary and a concrete
-engine flow. The focused runtime/proof-export cuts remain visible so the
-essential Rocq adequacy boundary is not confused with an exchange projection,
-while single-instance application ports and forwarding layers have been
-removed.
+engine flow. Active summaries, step contracts and proof plans remain visible
+so Rocq adequacy is assessed against implementation objects rather than an
+unused exchange projection, while single-instance application ports and
+forwarding layers have been removed.

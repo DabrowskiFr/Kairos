@@ -18,9 +18,9 @@
 <!-- canonical -->
 <g id="node1" class="node">
 <title>canonical</title>
-<path fill="#dcfce7" stroke="#1f2937" stroke-width="2" d="M177.77,-47C177.77,-47 44.87,-47 44.87,-47 38.87,-47 32.87,-41 32.87,-35 32.87,-35 32.87,-23 32.87,-23 32.87,-17 38.87,-11 44.87,-11 44.87,-11 177.77,-11 177.77,-11 183.77,-11 189.77,-17 189.77,-23 189.77,-23 189.77,-35 189.77,-35 189.77,-41 183.77,-47 177.77,-47"/>
-<text xml:space="preserve" text-anchor="middle" x="111.32" y="-30.75" font-family="Helvetica,sans-Serif" font-size="10.00">Formalization + exported IR/kobj</text>
-<text xml:space="preserve" text-anchor="middle" x="111.32" y="-19.5" font-family="Helvetica,sans-Serif" font-size="10.00">canonical obligations</text>
+<path fill="#dcfce7" stroke="#1f2937" stroke-width="2" d="M171.77,-47C171.77,-47 50.87,-47 50.87,-47 44.87,-47 38.87,-41 38.87,-35 38.87,-35 38.87,-23 38.87,-23 38.87,-17 44.87,-11 50.87,-11 50.87,-11 171.77,-11 171.77,-11 177.77,-11 183.77,-17 183.77,-23 183.77,-23 183.77,-35 183.77,-35 183.77,-41 177.77,-47 171.77,-47"/>
+<text xml:space="preserve" text-anchor="middle" x="111.32" y="-30.75" font-family="Helvetica,sans-Serif" font-size="10.00">Active Kairos IR + Proof_plan</text>
+<text xml:space="preserve" text-anchor="middle" x="111.32" y="-19.5" font-family="Helvetica,sans-Serif" font-size="10.00">implementation obligations</text>
 </g>
 <!-- step_projection -->
 <g id="node2" class="node">
@@ -32,8 +32,8 @@
 <!-- canonical&#45;&gt;step_projection -->
 <g id="edge1" class="edge">
 <title>canonical&#45;&gt;step_projection</title>
-<path fill="none" stroke="#374151" d="M190.49,-29C232.31,-29 283.78,-29 326.19,-29"/>
-<polygon fill="#374151" stroke="#374151" points="326.08,-31.63 333.58,-29 326.08,-26.38 326.08,-31.63"/>
+<path fill="none" stroke="#374151" d="M184.74,-29C227.59,-29 281.98,-29 326.4,-29"/>
+<polygon fill="#374151" stroke="#374151" points="326.13,-31.63 333.63,-29 326.13,-26.38 326.13,-31.63"/>
 <text xml:space="preserve" text-anchor="middle" x="271.02" y="-30.2" font-family="Helvetica,sans-Serif" font-size="9.00">project per partition</text>
 </g>
 <!-- proof_plan -->

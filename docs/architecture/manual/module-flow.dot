@@ -79,30 +79,36 @@ digraph KairosModuleFlow {
   ];
 
   passes [
-    label="Pre / Post / Temporal_lower\nessential obligation pipeline",
+    label="Pre / Product_reachability / Post / Temporal_lower\nactive obligation pipeline",
     fillcolor="#86efac",
     penwidth=3
   ];
 
-  reachability [
-    label="Product_reachability\nreference extension\nnot pruning",
+  contracts [
+    label="Step_contract_projection\nactive safe / bad-guarantee contracts",
+    fillcolor="#4ade80",
+    penwidth=3
+  ];
+
+  proof_plan [
+    label="Proof_plan\npartition provenance, grouping, sharing",
     fillcolor="#fde68a",
     penwidth=2
   ];
 
   snapshot_data [
-    label="Runtime_snapshot.ast_flow\nverification_model\nruntime_model\nautomata\nsummaries\ninstrumentation",
+    label="Runtime_snapshot\nmodels / automata / lowered IR / proof plans",
     fillcolor="#fed7aa"
   ];
 
-  proof_export [
-    label="kairos_runtime_diagnostics\nPipeline_artifact_bundle\nProof_kernel_pass\nexchange projection",
+  diagnostics [
+    label="kairos_runtime_diagnostics\nPipeline_artifact_bundle\ngraphs / text / cost reports",
     fillcolor="#dbeafe",
     penwidth=2
   ];
 
   why3 [
-    label="kairos_runtime_proof + kairos_why3\nWhy_runtime_view\nWhy_compile / Proof_runner",
+    label="kairos_runtime_proof + kairos_why3\nProof_plan -> Why_compile -> Proof_runner",
     fillcolor="#fecdd3"
   ];
 
@@ -133,15 +139,15 @@ digraph KairosModuleFlow {
   partition -> reference;
   automata -> reference;
   reference -> passes;
-  passes -> reachability [style=dashed, label="extension"];
-  passes -> snapshot_data;
-  reachability -> snapshot_data [style=dashed];
-  snapshot_data -> proof_export [label="non-prove diagnostics"];
+  passes -> contracts;
+  contracts -> proof_plan;
+  proof_plan -> snapshot_data;
+  snapshot_data -> diagnostics [label="non-prove diagnostics"];
   snapshot_data -> why3 [label="prove / why dumps"];
   why3 -> external;
   engine_flow -> outputs [label="select outputs"];
   snapshot_data -> outputs;
-  proof_export -> outputs [label="artifact modes"];
+  diagnostics -> outputs [label="artifact modes"];
   why3 -> outputs;
   outputs -> graphviz_service [label="PNG requested"];
   graphviz_service -> external;

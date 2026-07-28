@@ -27,7 +27,7 @@ digraph Why3ProductBackendIntent {
   ];
 
   canonical [
-    label="Formalization + exported IR/kobj\ncanonical obligations",
+    label="Active Kairos IR + Proof_plan\nimplementation obligations",
     fillcolor="#dcfce7",
     penwidth=2
   ];

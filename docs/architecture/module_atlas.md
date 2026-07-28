@@ -44,7 +44,6 @@ La separation essentielle est :
 Correction:
   lib/domain/core
   lib/domain/verification
-  lib/domain/proof_export
 
 Execution de l'outil:
   lib/engine
@@ -60,19 +59,21 @@ Execution de l'outil:
 | 2 | `lib/engine/api.ml` | `run` | Façade publique ; délègue au moteur concret |
 | 3 | `lib/engine/engine_flow.ml` | `run` | Coordonne directement parsing, snapshot, sorties et timing |
 | 4 | `lib/adapters/in/kairos_lang/kairos_frontend.ml` | `parse_input` | Lit le fichier, parse, elabore, produit `Verification_model` |
-| 5 | `lib/adapters/out/runtime/orchestration/core/pipeline_build.ml` | `prepare_program` | Prepare le programme runtime, fusionne l'IR backend et calcule une fois les projections de contrats avec leur index de formules |
-| 6 | `lib/adapters/out/runtime/orchestration/core/contract_partition.ml` | `partition_program` | Regroupe ou preserve les contrats publics selon les options |
+| 5 | `lib/adapters/out/runtime/orchestration/core/pipeline_build.ml` | `prepare_program` | Prepare le programme runtime et coordonne la construction du snapshot |
+| 6 | `lib/domain/verification/contract_partition.ml` | `partition_program` | Regroupe ou preserve les contrats publics selon les options |
 | 7 | `lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml` | `produce_with_spot` | Produit un paquet d'automates fourni au core runtime |
 | 8 | `lib/adapters/out/runtime/orchestration/automata/automata_generation.ml` | `run` | Transforme assumptions/guarantees en automates via un builder injecte |
 | 9 | `packages/spot/spot_automaton_builder.ml` | `build` | Paquet autonome appelant Spot sur le contrat neutre |
 | 10 | `lib/domain/verification/orchestration.ml` | `build_reference_product` | Point nomme du produit de reference, apres validation de forme des automates |
 | 11 | `lib/domain/verification/from_model.ml` | `analyze_model_program` | Construit directement, pour chaque noeud, le modele, l'analyse produit et l'IR avec ses summaries |
 | 12 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Enchaine les passes historiques, puis retourne directement l'IR abaisse et interne par `Temporal_lower` |
-| 13 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles, l'IR abaisse et les plans de preuve reutilises par les sorties |
-| 14 | `lib/engine/pipeline_outputs.ml` | `build_outputs` | En mode `--prove`, evite les dumps lourds et lance le proof runner |
-| 15 | `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | `run` | Soumet le WhyML et attribue les resultats neutres |
-| 16 | `lib/adapters/out/provers/why3/*` | `Why_compile`, `Why_pipeline` | Projection de l'IR Kairos vers WhyML |
-| 17 | `packages/why3/*` | `Why_execution`, `Why_contract_prove` | Paquet autonome encapsulant tous les types et appels Why3/provers |
+| 13 | `lib/domain/verification/step_contract_projection.ml` | `of_ir_node` | Construit les contrats actifs depuis chaque partition abaissee |
+| 14 | `lib/domain/verification/proof_plan.ml` | `build_program` | Attache la provenance et choisit groupage, factorisation et partage |
+| 15 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles, l'IR abaisse et les plans de preuve reutilises par les sorties |
+| 16 | `lib/engine/pipeline_outputs.ml` | `build_outputs` | En mode `--prove`, evite les dumps lourds et lance le proof runner |
+| 17 | `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | `run` | Soumet le WhyML et attribue les resultats neutres |
+| 18 | `lib/adapters/out/provers/why3/*` | `Why_compile`, `Why_pipeline` | Traduit le `Proof_plan` complete vers WhyML |
+| 19 | `packages/why3/*` | `Why_execution`, `Why_contract_prove` | Paquet autonome encapsulant tous les types et appels Why3/provers |
 
 Point important : en mode `--prove` minimal, `Pipeline_outputs.is_prove_only_run`
 fait que `Pipeline_artifact_bundle.build` n'est pas appele. Donc les graphes
@@ -84,9 +85,8 @@ et gros dumps ne sont pas produits.
 | --- | --- | --- | --- |
 | 1 | `bin/cli/kairos.ml` | `exec_dump_mode` | Choisit le dump demande |
 | 2 | `lib/engine/api.ml`, `lib/engine/engine_flow.ml` | passe de dump demandee | Construit le snapshot et choisit la projection sans use-case intermediaire |
-| 3 | `lib/adapters/out/runtime/orchestration/outputs/pipeline_artifact_bundle.ml` | `build` | Construit graphes, textes et donnees proof-kernel |
-| 4 | `lib/domain/proof_export/proof_kernel_pass.ml` | `compile_node` | Produit `Proof_kernel_types.node_ir` |
-| 5 | `lib/engine/output_mapper.ml` | `map_outputs` | Assemble les sorties canoniques |
+| 3 | `lib/adapters/out/runtime/orchestration/outputs/pipeline_artifact_bundle.ml` | `build` | Construit les graphes et textes depuis les noeuds de reference |
+| 4 | `lib/engine/output_mapper.ml` | `map_outputs` | Assemble les sorties canoniques |
 
 Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 `--prove`.
@@ -104,10 +104,10 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Automata | `Automaton_types.automata_spec` | `kairos_runtime_automata` + Spot adapter | `From_model`, graph renderers |
 | Product summaries | `Ir.node_ir list` | `From_model.analyze_model_program` | `Pre/Post/...`, renderers |
 | IR historique transitoire | `Ir.node_ir list` | `Orchestration.build_instrumented_ir` apres `Post` | `Temporal_lower` uniquement, valeur non retenue |
-| Lowered backend IR | `Ir.program_ir` | `Orchestration.build_instrumented_ir` apres `Temporal_lower` | `Pipeline_build`, diagnostics et planification de preuve |
+| IR abaisse | `Ir.program_ir` | `Orchestration.build_instrumented_ir` apres `Temporal_lower` | `Pipeline_build`, diagnostics et construction des contrats |
+| Contrats de pas transitoires | `Step_contract_projection.step_contract list` | `Step_contract_projection.of_ir_node` | `Proof_plan.build_program` |
 | Plan de preuve | `Proof_plan.t` | `lib/domain/verification`, construit une fois par `Pipeline_build` depuis les contrats de pas | compilateur Why3, attribution des buts |
 | Runtime snapshot | `Runtime_snapshot.pipeline_snapshot` | `Pipeline_build` dans `kairos_runtime_core` | `Engine_flow`, proof runner, diagnostics |
-| Kernel IR | `Proof_kernel_types.node_ir` | `Proof_kernel_pass` | diagnostics, projection Rocq possible apres adequation, cost report |
 | Why3 AST/text | backend-specific | `Why_compile` | Contrat de preuve |
 | Proof backend request | `Proof_backend_contract.request` | `Why_pipeline` | `kairos-why3-adapter` |
 
@@ -178,21 +178,9 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `formula_canonical.ml` | Cle structurelle et internement generiques des formules |
 | `contract_formula_index.ml` | Construit les classes par égalité structurelle puis résout les occurrences indexées par `oid` |
 | `temporal_lower.ml` | Frontière typée : abaisse l'IR historique (`pre/pre_k`) et interne les résultats sans localisation |
-| `kernel_clause_projection.ml/mli` | Projection neutre des `KernelClause` Rocq et clauses classifiees |
+| `step_contract_projection.ml/mli` | Construit directement les contrats actifs depuis les summaries abaisses |
+| `proof_plan.ml/mli` | Attache la provenance de partition et choisit groupage, factorisation et partage avant Why3 |
 | `orchestration.ml` | Ordre des passes et point `build_reference_product` |
-
-### Export Proof-Kernel / Rocq Futur
-
-| Module | Responsabilite |
-| --- | --- |
-| `proof_kernel_types.ml/mli` | Format d'echange proof-kernel |
-| `proof_kernel_product.ml` | Produit explicite exporte |
-| `proof_kernel_product_lookup.ml` | Appariement entre pas produit exportes et summaries canoniques |
-| `proof_kernel_clause_context.ml/mli` | Bridge de contexte produit IR vers `Kernel_clause_projection` |
-| `proof_kernel_generated_clauses.ml` | Adaptateur depuis `Kernel_clause_projection` avant lowering relationnel |
-| `proof_kernel_clause_lowering.ml` | Clauses relationnelles |
-| `proof_kernel_step_summaries.ml` | Groupes de pas proof-kernel |
-| `proof_kernel_pass.ml` | Compilation d'un noeud vers `Proof_kernel_types.node_ir` |
 
 ### Runtime Et Sorties
 
@@ -213,17 +201,14 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `proof_trace_diagnostics.ml` | Diagnostics attaches aux traces de preuve |
 | `proof_traces.ml` | Construction des traces de preuve publiques |
 | `proof_runner.ml` | Orchestre la projection Why3, les taches et les sorties de preuve |
-| `kairos_runtime_diagnostics` | Diagnostics, graphes, proof-export, rapports de cout |
+| `kairos_runtime_diagnostics` | Diagnostics, graphes et rapports de cout |
 | `pipeline_artifact_bundle_text.ml` | Rendus texte du bundle d'artefacts |
-| `pipeline_artifact_bundle.ml` | Construit graphes, textes d'inspection et donnees proof-kernel |
+| `pipeline_artifact_bundle.ml` | Construit graphes et textes d'inspection depuis les noeuds de reference |
 | `pipeline_cost_report_common.ml` | Primitives JSON, collections et statistiques du rapport de cout |
 | `pipeline_cost_report_syntax.ml` | Metriques syntaxiques du rapport de cout |
-| `pipeline_cost_report_labels.ml` | Labels stables pour origines, phases et etats produit |
 | `pipeline_cost_report_source.ml` | Section source du rapport de cout |
-| `pipeline_cost_report_kernel.ml` | Sections proof-kernel et summaries canoniques du rapport de cout |
 | `pipeline_cost_report_why3.ml` | Section texte Why3 du rapport de cout |
-| `pipeline_cost_report_transition_lemmas.ml` | Analyse diagnostique des candidats de lemmes de transition |
-| `pipeline_cost_report_facts.ml` | Population de formules et repetitions dans le rapport de cout |
+| `pipeline_cost_report_facts.ml` | Population de formules et repetitions dans l'IR actif |
 | `pipeline_cost_report.ml` | Composition du rapport de cout du pipeline |
 
 La façade et les sorties ne constituent plus des bibliothèques runtime
@@ -286,7 +271,7 @@ partage et la provenance pour tous les backends.
 | Ou sont ajoutees les hypotheses de pas ? | `pre.ml` |
 | Ou sont ajoutees les obligations de sortie ? | `post.ml` |
 | Ou est gere `pre/pre_k` ? | `temporal_lower.ml`, `pre_k_layout.ml`, `pre_k_lowering.ml` |
-| Ou est produit le format Rocq ? | `proof_kernel_pass.ml`, `proof_kernel_types.mli` |
+| Ou sont construits les contrats de preuve ? | `step_contract_projection.ml`, puis `proof_plan.ml` |
 | Ou sont les optimisations Why3 ? | Voir la section "Backend Why3 Et Outils Externes" ci-dessus |
 | Ou sont les options CLI ? | `bin/cli/kairos.ml`, `pipeline_types.ml` |
 

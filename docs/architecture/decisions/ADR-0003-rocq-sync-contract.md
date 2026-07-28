@@ -2,7 +2,13 @@
 
 ## Status
 
-Proposed
+Superseded on 2026-07-28.
+
+The proposed proof-kernel exchange types were removed because they had no
+consumer that justified a stable exchange schema. A future Rocq exchange
+format must start from an explicit use case; it must not be introduced merely
+to mirror the proof decomposition. The text below records the superseded
+proposal.
 
 ## Context
 

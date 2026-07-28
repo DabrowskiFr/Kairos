@@ -12,7 +12,6 @@ Start here:
 - `externalization_audit.md` (historical, superseded by ADR-0021)
 - `engine_runtime_split_audit.md` (historical, superseded by ADR-0021)
 - `../rocq_alignment_manifest.json`
-- `../rocq_projection_audit.json`
 - `why3_product_backend_alignment.md`
 - `arc42/README.md`
 - `decisions/`
@@ -21,10 +20,8 @@ Start here:
 `guide.md` is the human reading guide. `module_atlas.md` maps responsibilities
 to concrete OCaml files and entry functions.
 `../rocq_alignment_manifest.json` is the machine-readable map from the
-existing Rocq formalization to the Kairos implementation units that must expose
-matching proof artifacts. `../rocq_projection_audit.json` records the
-field-by-field comparison between Rocq proof records and current Kairos
-projection structures. The Why3 product backend alignment note compares the
+POPL Rocq formalization to the active Kairos implementation objects. The Why3
+product backend alignment note compares the
 intended local backend architecture with the observed Dune dependency graph.
 
 The arc42 notes record the architecture assessment, including which parts of
@@ -51,7 +48,6 @@ The intentional architecture is maintained as a Structurizr DSL model:
 
 - `structurizr/workspace.dsl`
 - `../rocq_alignment_manifest.json`
-- `../rocq_projection_audit.json`
 
 The Structurizr model describes the architecture we want: delivery adapters,
 the Kairos frontend, the scientific core, the concrete `Engine_flow`, focused
@@ -59,9 +55,8 @@ runtime services, backends, and external tools. `Kairos_engine.Api.Contract`
 exposes the canonical `Pipeline_types` values; there is no separate
 application/composition layer or autonomous engine contract. The Rocq
 alignment manifest records which pieces of that architecture correspond to
-the existing Rocq theorem cuts. The projection audit records why
-product-summary and step-contract data need explicit OCaml projection
-boundaries, with a recorded mapping to Rocq Stage 1 and Stage 2.
+the existing POPL theorem. The comparison is semantic and does not impose the
+internal Rocq proof-stage decomposition on the OCaml modules.
 
 Structurizr is the source of truth for high-level C4 views. Generated exports
 are written under:

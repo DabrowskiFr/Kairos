@@ -35,10 +35,8 @@ thresholds. The architectural boundary between the reference verification
 kernel and backend optimizations is fixed in
 {!page-reference_verification_architecture}. The Rocq adequacy boundary is
 recorded in {!page-rocq_proof_scope}; the current Rocq/OCaml adequacy audit
-is {!page-rocq_ocaml_adequacy}; the Stage 1 case-by-case arbitration is
-{!page-stage1_ocaml_rocq_arbitration}, with the phase-fact audit in
-{!page-stage1_phase_facts_audit}; the machine-readable Rocq/Kairos alignment
-is [docs/rocq_alignment_manifest.json]. The conservative plan for replacing
+is {!page-rocq_ocaml_adequacy}; the machine-readable Rocq/Kairos alignment is
+[docs/rocq_alignment_manifest.json]. The conservative plan for replacing
 edge-oriented proof emission with a grouped encoding is recorded in
 {!page-grouped_product_encoding_plan}.
 
@@ -52,8 +50,6 @@ edge-oriented proof emission with a grouped encoding is recorded in
 - {!page-rocq_frontend_boundary}
 - {!page-rocq_proof_scope}
 - {!page-rocq_ocaml_adequacy}
-- {!page-stage1_ocaml_rocq_arbitration}
-- {!page-stage1_phase_facts_audit}
 - {!page-reference_verification_architecture}
 - {!page-temporal_phase_semantics}
 - {!page-product_proof_pipeline_audit}
@@ -71,9 +67,9 @@ edge-oriented proof emission with a grouped encoding is recorded in
 {1 Common API}
 
 - {!modules:Automaton_types}
-- {!modules:Core_syntax_builders Fo_simplifier Fo_time}
-- {!modules:Ir Proof_kernel_types}
-- {!modules:Ast_provenance Provenance Flow_info Temporal_support Pre_k_layout Pre_k_lowering Syntax_pretty}
+- {!modules:Core_syntax_builders Core_fo_simplifier Fo_time}
+- {!modules:Ir Ir_formula Step_contract_projection Proof_plan}
+- {!modules:Pre_k_layout Pre_k_lowering Pretty}
 
 {1 Example Shapes}
 

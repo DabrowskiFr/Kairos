@@ -10,8 +10,6 @@ Commencer par l'atlas des modules si tu cherches quel fichier ouvrir :
 - `module_atlas.md`
 - `../rocq_alignment_manifest.json` pour savoir quelle unite Kairos doit
   matcher quelle couche Rocq.
-- `../rocq_projection_audit.json` pour le detail champ par champ
-  `ProofStepSummary` / `SummaryClauseFamilies` / `StepContract`.
 
 Puis regarder cette carte simplifiee :
 
@@ -23,10 +21,6 @@ Le code important pour la correction est en vert :
 
 - `lib/domain/core`
 - `lib/domain/verification`
-
-`lib/domain/proof_export` est une projection d'echange utile pour les
-diagnostics et une synchronisation Rocq future, mais ce n'est pas le noyau
-essentiel a prouver.
 
 Le reste est necessaire pour faire tourner l'outil, mais ne doit pas definir
 la semantique de verification :
@@ -50,10 +44,10 @@ Core program model
   + supplied automata
   + validation de forme normale des automates
   -> reference product
-  -> product summaries and clause families
-  -> step contracts / lowering
-  -> obligations essentielles
-  -> vues derivees pour export/diagnostic si necessaire
+  -> product summaries
+  -> temporal lowering
+  -> active step contracts
+  -> proof plan
 ```
 
 La regle de lecture est simple :
@@ -61,7 +55,7 @@ La regle de lecture est simple :
 ```text
 Si une transformation change ce chemin, elle concerne la correction.
 Si elle change seulement Why3, les dumps, le scheduling ou le rendu,
-elle ne doit pas changer la sortie kernel.
+elle ne doit pas changer les contrats actifs.
 ```
 
 ## Table Des Blocs
@@ -73,13 +67,12 @@ elle ne doit pas changer la sortie kernel.
 | Frontend | `lib/adapters/in/kairos_lang` | Parse et elabore le langage de surface | Pas encore, sauf theoreme d'elaboration futur |
 | Domain core | `lib/domain/core` | Syntaxe, modeles, IR, temporal layout | Oui |
 | Verification kernel | `lib/domain/verification` | Valide la forme des automates, produit programme x automates, obligations de reference | Oui, avec classification par passe |
-| Obligations canoniques | `lib/domain/verification/canonical_obligations.*` | Familles Stage 1 / Stage 2 a comparer avec Rocq, avant export et backend | Reference |
-| Rocq alignment views | `lib/domain/verification/product_summary_projection.*`, `lib/domain/verification/kernel_clause_projection.*`, `lib/domain/verification/obligation_family_projection.*`, `lib/domain/verification/step_contract_projection.*` | Vues derivees product-summary, KernelClause, familles d'obligations et step-contract consommees par proof_export et Why3 | Projection |
-| Proof export | `lib/domain/proof_export` | Vue d'echange proof-kernel pour diagnostics et Rocq futur | Projection, peut servir de temoin des vues product-summary / step-contract |
+| Summaries et contrats | `Ir.product_step_summary`, `Step_contract_projection` | Porte les summaries actifs puis construit directement les contrats de preuve | Reference |
+| Plan de preuve | `Proof_plan` | Attache la provenance et choisit groupage, factorisation et partage avant Why3 | Optimisation preservant les obligations |
 | Services runtime | `lib/adapters/out/runtime` | Snapshot, automates fournis, preuve et diagnostics appelés par `Engine_flow` | Non |
 | Why3 backend | `lib/adapters/out/provers/why3` | Projection Why3 et choix backend | Non |
 | Artifacts | `lib/adapters/out/artifacts` | Rendus texte/graphe/diagnostic | Non |
-| Contrats et outils externes | `packages/automata-contract`, `packages/proof-contract`, Spot, Why3 et timing | Protocoles étroits et adaptateurs indépendants du noyau | Non |
+| Contrats et outils externes | `packages/automata-contract`, `packages/why3-contract`, Spot, Why3 et timing | Protocoles étroits et adaptateurs indépendants du noyau | Non |
 | Graphviz | `Kairos_engine.Graphviz_render` | Appel du processus Graphviz à partir de texte DOT déjà construit | Non |
 
 La frontière publique du moteur n'est plus un paquet de DTO séparé.
@@ -104,11 +97,11 @@ des backends.
 
 ## Alignement Rocq
 
-La formalisation Rocq courante prise comme source est :
+La formalisation Rocq POPL prise comme reference est :
 
 ```text
 /Users/fdabrowski/Repos/kairos/kairos-spec/kairos-rocq
-branch lab/rocq-paper-core
+branch development
 commit f3facc051901245e33a4d79676fcff6fcd464087
 ```
 
@@ -119,26 +112,24 @@ GeneratedObligationsValid
   -> contract_valid
 ```
 
-Pour le papier, on part de ces coupures Rocq :
+Deux references ont des roles distincts :
 
-- programmes bien formes ;
-- runs instrumentes et observations ;
-- automates de contrat ;
-- ancres produit et summaries ;
-- projection product-summary : `ProofStepSummary` /
-  `SummaryClauseFamilies` (coupe Rocq Stage 1) ;
-- obligations canoniques : clauses Stage 1 et `StepContract` Stage 2 ;
-- vue step-contract : contrats groupes derives pour le backend ;
-- validite des obligations generees ;
-- soundness globale.
+- le pipeline OCaml actif definit l'architecture de l'implantation ;
+- POPL PaperCore definit les enonces Rocq auxquels comparer les objets
+  mathematiques correspondants.
 
-Le fichier `../rocq_alignment_manifest.json` donne la table precise
-Rocq -> Kairos pour chacune de ces coupures.
+Le decoupage interne de la preuve Rocq ne prescrit donc aucun module OCaml.
+L'alignement compare directement :
 
-Le fichier `../rocq_projection_audit.json` donne la conclusion d'architecture :
-les projections explicites product-summary et step-contract concentrent les
-champs Rocq auparavant eparpilles. Le backend Why3 consomme maintenant
-directement `Step_contract_projection.step_contract`.
+```text
+Ir.product_step_summary
+  -> Step_contract_projection.step_contract
+  -> Proof_plan.t
+```
+
+avec les roles mathematiques exposes par POPL. Le fichier
+`../rocq_alignment_manifest.json` donne cette table et
+`../rocq_ocaml_adequacy.mld` conserve les ecarts qui restent a prouver.
 
 La version machine-lisible de cette table est :
 
@@ -208,10 +199,11 @@ simplifiee ci-dessus.
 1. Est-ce que je change le chemin de correction ?
 2. Est-ce que Rocq doit voir cette transformation ?
 3. Est-ce une normalisation semantique ou une optimisation ?
-4. Est-ce que cette optimisation peut changer la sortie proof-kernel ?
+4. Est-ce que cette optimisation peut changer les contrats actifs ou le plan
+   de preuve ?
 5. Est-ce que l'information appartient au programme, au produit, aux
    obligations, au backend, ou au reporting ?
 6. Est-ce que le changement depend d'un outil externe ?
 
 Si la reponse a 1 ou 2 est oui, le changement doit passer par le manifeste de
-frontiere et les tests de stabilite kernel.
+frontiere et les tests de stabilite du chemin actif.
