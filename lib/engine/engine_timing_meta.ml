@@ -72,7 +72,7 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
     let snapshot_known_stages_s =
       counters.contract_partition_s +. counters.automata_generation_s
       +. counters.product_s +. counters.canonical_s
-      +. counters.step_projection_s
+      +. counters.proof_planning_s
       +. counters.instrumentation_info_s
     in
     let snapshot_unaccounted_s =
@@ -143,7 +143,7 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
         ("frontend_parse_s", fmt_s counters.frontend_parse_s);
         ("snapshot_build_s", fmt_s counters.snapshot_build_s);
         ("contract_partition_s", fmt_s counters.contract_partition_s);
-        ("step_projection_s", fmt_s counters.step_projection_s);
+        ("proof_planning_s", fmt_s counters.proof_planning_s);
         ("automata_generation_s", fmt_s counters.automata_generation_s);
         ("build_outputs_s", fmt_s (t_end -. t_build_done));
         ("spot_s", fmt_s counters.spot_s);

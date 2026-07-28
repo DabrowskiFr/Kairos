@@ -25,9 +25,6 @@ let is_prove_only_run (cfg : Pipeline_config.config) : bool =
   && not cfg.compute_proof_diagnostics
   && Option.is_none cfg.proof_progress_path
 
-let proof_instrumentation_of_asts asts =
-  asts.Runtime_snapshot.proof_backend_nodes
-
 let minimal_outputs_of_proof ~(snapshot : Runtime_snapshot.pipeline_snapshot)
     (proof : Proof_runner.run_output) : Pipeline_artifacts.outputs =
   {
@@ -77,15 +74,11 @@ let minimal_outputs_of_proof ~(snapshot : Runtime_snapshot.pipeline_snapshot)
 
 let build_outputs ~(cfg : Pipeline_config.config)
     ~(snapshot : Runtime_snapshot.pipeline_snapshot) :
-    (Pipeline_artifacts.outputs, Pipeline_error.t) result =
+  (Pipeline_artifacts.outputs, Pipeline_error.t) result =
   let asts = snapshot.asts in
-  let proof_instrumentation = proof_instrumentation_of_asts asts in
   if is_prove_only_run cfg then (
     let t_proof = Unix.gettimeofday () in
-    match
-      Proof_runner.run ~cfg ~instrumentation:proof_instrumentation
-        ~step_projections:asts.step_projections
-    with
+    match Proof_runner.run ~cfg ~proof_plans:asts.proof_plans with
     | Error _ as err -> err
     | Ok proof ->
         Runtime_metrics.record_output_proof_run
@@ -101,10 +94,7 @@ let build_outputs ~(cfg : Pipeline_config.config)
     Runtime_metrics.record_output_artifact
       ~elapsed_s:(Unix.gettimeofday () -. t_artifacts);
     let t_proof = Unix.gettimeofday () in
-    match
-      Proof_runner.run ~cfg ~instrumentation:proof_instrumentation
-        ~step_projections:asts.step_projections
-    with
+    match Proof_runner.run ~cfg ~proof_plans:asts.proof_plans with
     | Error _ as err -> err
     | Ok proof ->
         Runtime_metrics.record_output_proof_run

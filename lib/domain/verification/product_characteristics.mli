@@ -43,7 +43,9 @@
 type t
 
 val build : node:Core_syntax.historical Ir.node_ir -> t
-(** Build the characteristic table for one node. *)
+(** Compute the characteristic table for one node. This function has no global
+    cache; callers that need the table across several passes must share the
+    returned value explicitly. *)
 
 val entry_facts_of_product_state :
   t -> Ir.product_state -> Core_syntax.historical Core_syntax.hexpr list

@@ -159,28 +159,25 @@ optimisation de representation en changement d'obligations.
 
 ![Intentional Why3 product backend](manual/why3-product-backend-intent.svg)
 
-- `why_compile_node_common` consomme directement `Ir.node_ir` pour la
-  signature et le layout temporel.
-- `why_contracts` consomme directement les contrats de
-  `Step_contract_projection`.
+- `step_contract_projection` derive les contrats apres l'analyse de portee de
+  chaque partition de reference.
+- `proof_plan` assemble un plan par noeud source et porte la provenance, le
+  groupage, la factorisation et les decisions de partage.
+- `why_compile_node_common` traduit la signature et le layout temporel deja
+  valides par le plan.
 - `why_compile_step` compile directement `Ir.transition` et
   `Core_syntax.stmt`.
-- `why_compile_product_specs` construit directement les specifications
-  concretes des helpers depuis les contrats deja selectionnes.
-- `why_compile_product_groups` porte la partition stable, la politique de
-  groupage et le plan individuel/groupe.
-- `why_compile_product_group_terms` construit les termes pre/post groupes et
-  applique la factorisation canonique des preconditions communes.
+- `why_compile_formula_sharing` et `why_compile_bundles` materialisent les
+  partages deja selectionnes.
+- `why_compile_product_specs` traduit les conditions planifiees en
+  specifications concretes sans les comparer ni les regrouper.
 - `why_compile_product_helpers` emet les helpers individuels et groupes depuis
-  le plan et les specifications deja construits.
-- `why_compile` orchestre directement ces etapes sans couche de cablage
-  intermediaire.
+  le plan termine.
+- `why_compile` orchestre cette traduction mecanique.
 
-Le partage de formules, la simplification du premier ordre, le slicing, la
-deduplication de termes, le groupage et la factorisation sont conserves. Le
-simplificateur d'actions, les coupes locales et le decoupage des groupes par un
-cout maximal ont ete supprimes. Le choix dynamique entre plusieurs
-factorisations et ses profils de cout ont egalement ete supprimes.
+Why3 ne choisit plus la forme logique des obligations. Les anciennes
+comparaisons de termes `Ptree`, la planification Why3 et la factorisation locale
+ont disparu ; un autre backend peut consommer le meme `Proof_plan`.
 
 ## Comment Utiliser Les Graphes Detaillees
 
@@ -191,8 +188,8 @@ Les vues automatiques sont dans `observed/`.
 - `observed/dune-modules.svg` : utile pour enqueter localement, mais trop
   dense comme vue de depart.
 - `observed/why3-product-backend.svg` : vue filtree des dependances observees
-  du backend Why3 produit, a utiliser avant le graphe complet quand on travaille
-  sur le plan et l'emission des helpers produit.
+  entre le plan generique et l'emission Why3, a utiliser avant le graphe
+  complet.
 
 Comparer cette vue observee avec `manual/why3-product-backend-intent.svg` :
 la premiere dit ce que Dune voit, la seconde dit quelle separation on veut

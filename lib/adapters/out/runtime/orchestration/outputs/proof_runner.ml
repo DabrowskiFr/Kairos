@@ -30,27 +30,12 @@ type run_output = {
   proof_traces : Pipeline_proof_types.proof_trace list;
 }
 
-let run ~(cfg : Pipeline_config.config)
-    ~(instrumentation : Core_syntax.history_free Ir.node_ir list)
-    ~(step_projections : Step_contract_projection.t list) :
+let run ~(cfg : Pipeline_config.config) ~(proof_plans : Proof_plan.t list) :
     (run_output, Pipeline_error.t) result =
   try
     let progress = Proof_progress_output.open_csv cfg.proof_progress_path in
     let t_why_gen = Unix.gettimeofday () in
-    let opts =
-      match cfg.proof_encoding with
-      | Pipeline_config.Explicit_product -> cfg.proof_optimizations
-    in
-    let compilation_options : Why_pipeline.compilation_options =
-      {
-        group_product_steps = opts.why3.group_product_steps;
-      }
-    in
-    let whyml =
-      Why_pipeline.compile_whyml ~nodes:instrumentation
-        ~step_projections
-        ~options:compilation_options ()
-    in
+    let whyml = Why_pipeline.compile_whyml ~proof_plans () in
     let backend_why_text = whyml.text in
     let output_why_text = if cfg.generate_why_text then whyml.text else "" in
     Runtime_metrics.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);

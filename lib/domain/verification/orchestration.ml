@@ -146,14 +146,21 @@ let build_instrumented_ir
     ?(pass_runner = direct_pass_runner)
     (initial_nodes : Core_syntax.historical Ir.node_ir list) :
     instrumented_ir =
+  let product_characteristics =
+    initial_nodes
+    |> List.map (fun (node : Core_syntax.historical Ir.node_ir) ->
+           Product_characteristics.build ~node)
+  in
   let pre_nodes =
     initial_nodes
     |> pass_runner.run_historical Pre_pass
-         (Pre.run_program ?observe_family:observe_fact_family)
+         (Pre.run_program ?observe_family:observe_fact_family
+            ~product_characteristics)
     |> pass_runner.run_historical Product_reachability_pass
          Product_reachability.run_program
     |> pass_runner.run_historical Post_pass
-         (Post.run_program ?observe_family:observe_fact_family)
+         (Post.run_program ?observe_family:observe_fact_family
+            ~product_characteristics)
   in
   let backend_nodes =
     pre_nodes

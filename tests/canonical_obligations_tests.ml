@@ -356,15 +356,6 @@ let actual_summary_case_keys (node : Core_syntax.historical Ir.node_ir) =
          in
          safe @ unsafe)
 
-let count_bad_contracts : type phase.
-    phase Canonical_obligations.step_contract list -> int =
- fun contracts ->
-  contracts
-  |> List.filter (fun c ->
-         c.Canonical_obligations.step_class
-         = Canonical_obligations.StepBadGuarantee)
-  |> List.length
-
 let find_grouped_bad_contract
     (contracts : Step_contract_projection.step_contract list) =
   List.find_opt
@@ -373,41 +364,34 @@ let find_grouped_bad_contract
       = Step_contract_projection.StepBadGuarantee)
     contracts
 
-let test_stage2_keeps_unsafe_cases_canonical () =
-  let product_summaries =
-    sample_node () |> Product_summary_projection.of_ir_node
-  in
-  let canonical = Canonical_obligations.build_stage2 product_summaries in
-  check "canonical safe + two unsafe contracts"
-    (List.length canonical.step_contracts = 3);
-  check "canonical has one bad-guarantee contract per unsafe case"
-    (count_bad_contracts canonical.step_contracts = 2);
-  check "canonical unsafe contracts are not split"
-    (canonical.step_contracts
-    |> List.filter (fun c ->
-           c.Canonical_obligations.step_class
-           = Canonical_obligations.StepBadGuarantee)
-    |> List.for_all
-         (fun
-           (c :
-             Core_syntax.historical Canonical_obligations.step_contract)
-         ->
-           List.length c.forbidden = 1));
-  let grouped =
+let test_step_contracts_cover_unsafe_cases_once () =
+  let contracts =
     sample_node () |> fun node -> Temporal_lower.run_program [ node ]
     |> List.hd |> Step_contract_projection.of_ir_node
   in
-  check "grouped view keeps canonical family"
-    (count_bad_contracts grouped.canonical.step_contracts = 2);
-  check "grouped view has safe + grouped unsafe"
-    (List.length grouped.step_contracts = 2);
-  match find_grouped_bad_contract grouped.step_contracts with
-  | None -> fail "failed: missing grouped bad-guarantee contract"
+  check "contract view has safe + unsafe"
+    (List.length contracts = 2);
+  match find_grouped_bad_contract contracts with
+  | None -> fail "failed: missing bad-guarantee contract"
   | Some bad ->
-      check "grouped unsafe covers both canonical unsafe cases"
-        (List.length bad.covered_cases = 2);
-      check "grouped unsafe may split top-level disjunctions for the backend"
-        (List.length bad.forbidden = 3)
+      let forbidden_keys =
+        Step_contract_projection.exclusions bad
+        |> List.map
+             (fun
+               (formula : Core_syntax.history_free Ir.summary_formula)
+             ->
+               Formula_canonical.key formula.logic)
+        |> List.sort Stdlib.compare
+      in
+      let expected_keys =
+        [ hvar "bad_a"; hvar "bad_b"; hvar "bad_c" ]
+        |> List.map (fun formula ->
+               Core_syntax.history_free_of_historical formula
+               |> Option.get |> Formula_canonical.key)
+        |> List.sort Stdlib.compare
+      in
+      check "every unsafe guard piece occurs exactly once"
+        (forbidden_keys = expected_keys)
 
 let test_temporal_endpoint_shifts () =
   let is_input name = String.equal name "i" in
@@ -491,8 +475,13 @@ let test_temporal_endpoint_shift_semantics () =
 
 let test_initial_state_requires_history_stability () =
   let node = input_history_node () in
+  let product_characteristics = Product_characteristics.build ~node in
   let enriched =
-    match Pre.run_program [ node ] with
+    match
+      Pre.run_program
+        ~product_characteristics:[ product_characteristics ]
+        [ node ]
+    with
     | [ enriched ] -> enriched
     | nodes -> fail "failed: expected one enriched node, got %d" (List.length nodes)
   in
@@ -743,7 +732,7 @@ let test_product_automata_normal_form_validation () =
       analyze multiple_bad_guarantee)
 
 let () =
-  test_stage2_keeps_unsafe_cases_canonical ();
+  test_step_contracts_cover_unsafe_cases_once ();
   test_temporal_endpoint_shifts ();
   test_temporal_endpoint_shift_semantics ();
   test_initial_state_requires_history_stability ();

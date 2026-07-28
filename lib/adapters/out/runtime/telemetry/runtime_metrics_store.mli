@@ -44,7 +44,7 @@ val record_snapshot_build : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent building the verification snapshot. *)
 
 val record_contract_partition : elapsed_s:float -> unit
-val record_step_projection : elapsed_s:float -> unit
+val record_proof_planning : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent partitioning contracts. *)
 
 val record_automata_generation : elapsed_s:float -> unit

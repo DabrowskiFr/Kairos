@@ -1,16 +1,17 @@
 flowchart LR
   %% Observed dependencies from odep. Arrow means "depends on".
-  subgraph Inputs["Inputs"]
+  subgraph Domain_Planning["Domain Planning"]
     Step_contract_projection["Step_contract_projection"]
+    Contract_formula_index["Contract_formula_index"]
+    Proof_plan["Proof_plan"]
   end
   subgraph Product_Orchestration["Product Orchestration"]
     Why_compile["Why_compile"]
     Why_compile_bundles["Why_compile_bundles"]
     Why_compile_modules["Why_compile_modules"]
   end
-  subgraph Planning_and_Specs["Planning and Specs"]
-    Why_compile_product_groups["Why_compile_product_groups"]
-    Why_compile_product_group_terms["Why_compile_product_group_terms"]
+  subgraph Why_Translation["Why Translation"]
+    Why_compile_formula_sharing["Why_compile_formula_sharing"]
     Why_compile_product_specs["Why_compile_product_specs"]
   end
   subgraph Helper_Emission["Helper Emission"]
@@ -23,15 +24,16 @@ flowchart LR
     Why_product_step_names["Why_product_step_names"]
   end
 
+  Proof_plan --> Contract_formula_index
+  Proof_plan --> Step_contract_projection
   Why_compile --> Why_compile_modules
   Why_compile_bundles --> Why_compile_ptree_helpers
+  Why_compile_formula_sharing --> Why_compile_ptree_helpers
   Why_compile_modules --> Why_compile_product_helpers
-  Why_compile_product_group_terms --> Why_compile_ptree_helpers
-  Why_compile_product_groups --> Why_compile_product_specs
-  Why_compile_product_helpers --> Why_compile_product_groups
+  Why_compile_product_helpers --> Why_compile_product_specs
   Why_compile_product_helpers --> Why_compile_step
   Why_compile_product_helpers --> Why_product_step_names
   Why_compile_product_specs --> Why_compile_bundles
-  Why_compile_product_specs --> Why_compile_product_group_terms
+  Why_compile_product_specs --> Why_compile_formula_sharing
   Why_compile_ptree_helpers --> Why_compile_expr
   Why_compile_step --> Why_compile_ptree_helpers

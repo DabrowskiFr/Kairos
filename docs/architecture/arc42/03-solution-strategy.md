@@ -7,7 +7,7 @@ external tools, with explicit boundaries between:
 
 1. the reference kernel;
 2. the proof-kernel exchange view;
-3. backend proof planning;
+3. backend-independent proof planning;
 4. runtime orchestration and diagnostics.
 
 The current codebase is not wrong because it has runtime adapters. It is risky
@@ -55,6 +55,7 @@ Surface language
   -> product summaries / clause families
   -> canonical obligations
   -> derived step-contract views / lowering
+  -> backend-independent proof plan
   -> proof-kernel derived views when needed
   -> backend projections
   -> external provers/renderers
@@ -63,8 +64,8 @@ Surface language
 The most important rule is:
 
 ```text
-Backend options may change proof planning and performance.
-Backend options must not change the reference kernel view.
+Proof-planning options may change the completed proof plan and performance.
+Proof-planning and backend options must not change the reference kernel view.
 ```
 
 ## Near-Term Refactoring Direction
@@ -74,7 +75,7 @@ Do not start with a large module split. First enforce the invariants:
 - reference stages are classified in `docs/reference_pipeline_boundaries.json`;
 - architecture rules reject forbidden layer dependencies;
 - `--prove` stays free from artifact-bundle construction;
-- backend-only options are tested against stable reference views;
+- proof-planning and runtime options are tested against stable reference views;
 - ADRs document each boundary-changing decision.
 
 The concrete engine now separates coordination from focused runtime services:

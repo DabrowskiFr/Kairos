@@ -28,31 +28,19 @@ let state_guard env rec_name state_name =
   let local_env = { env with rec_name } in
   term_eq (term_of_var local_env "st") (mk_term (Tident (qid1 state_name)))
 
-let step_pre_terms_with_rec formula_sharing env rec_name
-    (sc : Step_contract_projection.step_contract) =
-  state_guard env rec_name sc.program_step.src_state
-  :: List.map
-       (fun (formula : Core_syntax.history_free Ir.summary_formula) ->
-         formula_term_with_rec formula_sharing env rec_name formula)
-       (Step_contract_projection.preconditions sc)
+let compile_condition formula_sharing env = function
+  | Proof_plan.State_is state ->
+      state_guard env env.rec_name state
+  | Proof_plan.Formula formula ->
+      formula_term_with_rec formula_sharing env env.rec_name formula
+  | Proof_plan.Not_formula formula ->
+      mk_term
+        (Tnot
+           (formula_term_with_rec formula_sharing env env.rec_name
+              formula))
 
-let step_post_terms_with_rec formula_sharing env rec_name
-    (sc : Step_contract_projection.step_contract) =
-  let forbidden =
-    List.map
-      (fun (formula : Core_syntax.history_free Ir.summary_formula) ->
-        mk_term
-          (Tnot
-             (formula_term_with_rec formula_sharing env rec_name formula)))
-      (Step_contract_projection.exclusions sc)
-  in
-  let post =
-    List.map
-      (fun (formula : Core_syntax.history_free Ir.summary_formula) ->
-        formula_term_with_rec formula_sharing env rec_name formula)
-      (Step_contract_projection.postconditions sc)
-  in
-  forbidden @ post
+let compile_conditions formula_sharing env conditions =
+  List.map (compile_condition formula_sharing env) conditions
 
 type individual_contract = {
   decls : Ptree.decl list;
@@ -61,7 +49,7 @@ type individual_contract = {
 }
 
 type grouped_contract = {
-  post_pred_decl : Ptree.decl;
+  decls : Ptree.decl list;
   spec : Ptree.spec;
   post_call : pre_snapshot_name:string -> Ptree.term;
   used_inputs : used_inputs;
@@ -69,54 +57,39 @@ type grouped_contract = {
 
 let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ])
 
-let compile_formula formula_sharing env (formula : Core_syntax.history_free Ir.summary_formula) =
-  Why_compile_formula_sharing.compile formula_sharing ~env formula
-
-let compile_preconditions formula_sharing env sc =
-  Step_contract_projection.preconditions sc
-  |> List.map (compile_formula formula_sharing env)
-  |> uniq_terms
-
-let compile_postconditions formula_sharing env sc =
-  Step_contract_projection.postconditions sc
-  |> List.map (compile_formula formula_sharing env)
-  |> uniq_terms
-
-let compile_exclusions formula_sharing env sc =
-  Step_contract_projection.exclusions sc
-  |> List.map (fun formula ->
-         mk_term (Tnot (compile_formula formula_sharing env formula)))
-  |> uniq_terms
-
 let individual_helper_contract ~env ~inputs ~formula_sharing ~formula_imports
-    ~helper_name ~shared_post_call
-    (sc : Step_contract_projection.step_contract) =
-  let pre_formulas = Step_contract_projection.preconditions sc in
-  let post_formulas =
-    Step_contract_projection.exclusions sc
-    @ Step_contract_projection.postconditions sc
+    ~helper_name ~bundles (individual : Proof_plan.individual) =
+  let pre_formulas =
+    Proof_plan.formulas_of_conditions individual.preconditions
   in
-  let (guard, pre), pre_used =
+  let pre_terms, pre_used =
     collect_used_inputs env (fun env ->
-        ( state_guard env env.rec_name sc.program_step.src_state,
-          compile_preconditions formula_sharing env sc ))
+        compile_conditions formula_sharing env
+          individual.preconditions)
   in
   let pre_decl, pre_call =
     Why_compile_bundles.predicate_decl_and_call ~inputs ~used_inputs:pre_used
-      ~name:(helper_name ^ "_pre") (guard :: pre)
+      ~name:(helper_name ^ "_pre") pre_terms
   in
-  let raw_post, post_used =
-    collect_used_inputs env (fun env ->
-        compile_exclusions formula_sharing env sc
-        @ compile_postconditions formula_sharing env sc)
-  in
-  let post_decls, post_terms, local_post_formulas =
-    if List.length raw_post > 1 then
-      let import_, call =
-        shared_post_call ~used_inputs:post_used ~formulas:post_formulas raw_post
-      in
-      ([ import_ ], [ call ], [])
-    else ([], raw_post, post_formulas)
+  let post_decls, post_terms, post_used, local_post_formulas =
+    match individual.shared_postcondition_id with
+    | Some shared_postcondition_id ->
+        let import_, call, used_inputs =
+          Why_compile_bundles.shared_postcondition_call bundles
+            shared_postcondition_id
+        in
+        ([ import_ ], [ call ], used_inputs, [])
+    | None ->
+        let terms, used_inputs =
+          collect_used_inputs env (fun env ->
+              compile_conditions formula_sharing env
+                individual.postconditions)
+        in
+        ( [],
+          terms,
+          used_inputs,
+          Proof_plan.formulas_of_conditions
+            individual.postconditions )
   in
   {
     decls =
@@ -141,8 +114,63 @@ let individual_helper_contract ~env ~inputs ~formula_sharing ~formula_imports
 let predicate_param_of_name name =
   (loc, Some (ident name), false, Ptree.PTtyapp (qid1 "vars", []))
 
-let grouped_helper_contract ~env ~inputs ~post_pred_name
-    (grouped : Why_compile_product_group_terms.t) =
+let pre_vars_name = "__pre_vars"
+let post_vars_name = "__post_vars"
+
+let conjunction_term formula_sharing env conditions =
+  compile_conditions formula_sharing env conditions
+  |> term_and_list
+
+let alternatives_term formula_sharing env alternatives =
+  alternatives
+  |> List.map (conjunction_term formula_sharing env)
+  |> term_or_list
+
+let grouped_post_body formula_sharing env
+    (grouped : Proof_plan.grouped) =
+  let pre_env = { env with rec_name = pre_vars_name } in
+  let post_env = { env with rec_name = post_vars_name } in
+  let implications =
+    grouped.conditional_posts
+    |> List.map (fun (post : Proof_plan.conditional_post) ->
+           term_implies
+             (alternatives_term formula_sharing pre_env
+                post.alternatives)
+             (conjunction_term formula_sharing post_env
+                post.conclusions))
+    |> term_and_list
+  in
+  match grouped.common_preconditions with
+  | [] -> implications
+  | common ->
+      term_implies
+        (conjunction_term formula_sharing pre_env common)
+        implications
+
+let grouped_formulas (grouped : Proof_plan.grouped) =
+  let conditional_formulas =
+    grouped.conditional_posts
+    |> List.concat_map (fun (post : Proof_plan.conditional_post) ->
+           List.concat_map Proof_plan.formulas_of_conditions
+             post.alternatives
+           @ Proof_plan.formulas_of_conditions post.conclusions)
+  in
+  List.concat_map Proof_plan.formulas_of_conditions
+    grouped.precondition_alternatives
+  @ Proof_plan.formulas_of_conditions grouped.common_preconditions
+  @ conditional_formulas
+
+let grouped_helper_contract ~env ~inputs ~formula_sharing
+    ~formula_imports ~post_pred_name (grouped : Proof_plan.grouped) =
+  let pre_term, pre_inputs =
+    collect_used_inputs env (fun env ->
+        alternatives_term formula_sharing env
+          grouped.precondition_alternatives)
+  in
+  let post_body, post_inputs =
+    collect_used_inputs env (fun env ->
+        grouped_post_body formula_sharing env grouped)
+  in
   let input_binders_without_vars =
     match inputs with _vars :: rest -> rest | [] -> []
   in
@@ -151,13 +179,13 @@ let grouped_helper_contract ~env ~inputs ~post_pred_name
       (fun (_, id_opt, _, _) ->
         match id_opt with
         | None -> true
-        | Some id -> StringSet.mem id.Ptree.id_str grouped.post_inputs)
+        | Some id -> StringSet.mem id.Ptree.id_str post_inputs)
       input_binders_without_vars
   in
   let post_pred_params =
     [
-      predicate_param_of_name Why_compile_product_group_terms.pre_vars_name;
-      predicate_param_of_name Why_compile_product_group_terms.post_vars_name;
+      predicate_param_of_name pre_vars_name;
+      predicate_param_of_name post_vars_name;
     ]
     @ List.filter_map param_of_binder post_input_binders
   in
@@ -169,7 +197,7 @@ let grouped_helper_contract ~env ~inputs ~post_pred_name
           ld_ident = ident post_pred_name;
           ld_params = post_pred_params;
           ld_type = None;
-          ld_def = Some grouped.post_body;
+          ld_def = Some post_body;
         };
       ]
   in
@@ -185,7 +213,7 @@ let grouped_helper_contract ~env ~inputs ~post_pred_name
   in
   let spec =
     {
-      Ptree.sp_pre = [ grouped.pre_term ];
+      Ptree.sp_pre = [ pre_term ];
       sp_post = [];
       sp_xpost = [];
       sp_reads = [];
@@ -198,8 +226,10 @@ let grouped_helper_contract ~env ~inputs ~post_pred_name
     }
   in
   {
-    post_pred_decl;
+    decls =
+      formula_imports (grouped_formulas grouped)
+      @ [ post_pred_decl ];
     spec;
     post_call;
-    used_inputs = StringSet.union grouped.pre_inputs grouped.post_inputs;
+    used_inputs = StringSet.union pre_inputs post_inputs;
   }

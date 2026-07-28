@@ -20,25 +20,29 @@ let default_proof_encoding = Explicit_product
 
 type verification_optimizations = {
   group_public_non_w_guarantees : bool;
+  group_step_contracts : bool;
 }
-
-type why3_optimizations = { group_product_steps : bool }
 
 type proof_optimizations = {
   verification : verification_optimizations;
-  why3 : why3_optimizations;
 }
 
 let reference_proof_optimizations =
   {
-    verification = { group_public_non_w_guarantees = false };
-    why3 = { group_product_steps = false };
+    verification =
+      {
+        group_public_non_w_guarantees = false;
+        group_step_contracts = false;
+      };
   }
 
 let default_proof_optimizations =
   {
-    verification = { group_public_non_w_guarantees = true };
-    why3 = { group_product_steps = true };
+    verification =
+      {
+        group_public_non_w_guarantees = true;
+        group_step_contracts = true;
+      };
   }
 
 type config = {

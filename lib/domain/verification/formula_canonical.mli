@@ -8,6 +8,12 @@ val key :
   'phase Core_syntax.hexpr ->
   key
 
+val negated_key :
+  ?normalize:('phase Core_syntax.hexpr -> 'phase Core_syntax.hexpr) ->
+  'phase Core_syntax.hexpr ->
+  key
+(** Canonical key of the explicit logical negation of a formula. *)
+
 val create_pool : ?size:int -> unit -> 'phase pool
 
 val intern :

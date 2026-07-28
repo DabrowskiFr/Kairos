@@ -39,6 +39,9 @@ let rec exact_key :
 
 let key ?(normalize = Fun.id) formula = exact_key (normalize formula)
 
+let negated_key ?(normalize = Fun.id) formula =
+  KUn (Core_syntax.Not, exact_key (normalize formula))
+
 type 'phase pool = (key, 'phase Core_syntax.hexpr) Hashtbl.t
 
 let create_pool ?(size = 512) () = Hashtbl.create size

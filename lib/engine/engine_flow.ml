@@ -71,16 +71,6 @@ let build_snapshot ~collect_instrumentation_info ~collect_ir_metrics
 
 let build_outputs = Pipeline_outputs.build_outputs
 
-let explicit_product_optimizations (snapshot : snapshot) =
-  match snapshot.proof_encoding with
-  | Pipeline_config.Explicit_product -> snapshot.proof_optimizations
-
-let why_compilation_options (opts : Pipeline_config.proof_optimizations) :
-    Why_pipeline.compilation_options =
-  {
-    group_product_steps = opts.why3.group_product_steps;
-  }
-
 let instrumentation_from_snapshot ~generate_png ~(snapshot : snapshot) =
   let artifacts =
     Pipeline_artifact_bundle.build ~asts:snapshot.asts
@@ -89,15 +79,10 @@ let instrumentation_from_snapshot ~generate_png ~(snapshot : snapshot) =
     (Output_mapper.map_automata_outputs ~generate_png ~snapshot
        ~artifacts)
 
-let merged_instrumentation (snapshot : snapshot) =
-  snapshot.asts.proof_backend_nodes
+let proof_plans (snapshot : snapshot) = snapshot.asts.proof_plans
 
 let render_why_text ~(snapshot : snapshot) : string =
-  let instrumentation = merged_instrumentation snapshot in
-  let opts = explicit_product_optimizations snapshot in
-  Why_pipeline.compile_whyml ~nodes:instrumentation
-    ~step_projections:snapshot.asts.step_projections
-    ~options:(why_compilation_options opts) ()
+  Why_pipeline.compile_whyml ~proof_plans:(proof_plans snapshot) ()
   |> fun output -> output.Why_pipeline.text
 
 let why_text ~(snapshot : snapshot) : Pipeline_artifacts.why_outputs =
@@ -123,12 +108,8 @@ let cost_report_from_snapshot ~input_file ~(snapshot : snapshot) :
 
 let obligations ~(snapshot : snapshot) :
     Pipeline_artifacts.obligations_outputs =
-  let instrumentation = merged_instrumentation snapshot in
-  let opts = explicit_product_optimizations snapshot in
   let out =
-    Why_pipeline.obligations_pass ~nodes:instrumentation
-      ~step_projections:snapshot.asts.step_projections
-      ~options:(why_compilation_options opts)
+    Why_pipeline.obligations_pass ~proof_plans:(proof_plans snapshot)
   in
   Runtime_metrics.record_why3_execution out.metrics;
   { Pipeline_artifacts.vc_text = out.vc_text; smt_text = out.smt_text }

@@ -18,7 +18,7 @@
 | Verification kernel | `lib/domain/verification` | Product construction and reference passes | Correction-critical |
 | Proof export | `lib/domain/proof_export` | Exchange structures and summaries derived from the kernel | Projection candidate |
 | Runtime orchestration | `lib/adapters/out/runtime` | Snapshots, outputs, proof runs, diagnostics | Should stay outside correction |
-| Why3 projection | `lib/adapters/out/provers/why3` | Kairos IR to WhyML compilation and proof planning | Backend only |
+| Why3 projection | `lib/adapters/out/provers/why3` | Mechanical translation of completed `Proof_plan.t` values to WhyML | Backend only |
 | Artifacts | `lib/adapters/out/artifacts` | Text/graph/diagnostic rendering | Backend only |
 | External adapter markers | `lib/adapters/out/external` | Relocation markers only | None |
 

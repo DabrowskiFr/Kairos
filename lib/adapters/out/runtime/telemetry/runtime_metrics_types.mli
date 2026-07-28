@@ -66,7 +66,7 @@ type snapshot = {
   frontend_parse_s : float;
   snapshot_build_s : float;
   contract_partition_s : float;
-  step_projection_s : float;
+  proof_planning_s : float;
   automata_generation_s : float;
   spot_s : float;
   spot_calls : int;

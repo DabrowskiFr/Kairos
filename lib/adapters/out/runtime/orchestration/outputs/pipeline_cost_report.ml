@@ -38,7 +38,7 @@ let proof_optimizations_json (opts : Pipeline_config.proof_optimizations) =
     [
       ( "group_public_non_w_guarantees",
         json_bool opts.verification.group_public_non_w_guarantees );
-      ("group_why3_product_steps", json_bool opts.why3.group_product_steps);
+      ("group_step_contracts", json_bool opts.verification.group_step_contracts);
     ]
 
 let proof_encoding_json (encoding : Pipeline_config.proof_encoding) =

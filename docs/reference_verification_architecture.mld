@@ -290,8 +290,10 @@ Third, enforce the manifest with scripts. Checks should fail when:
 The current regression for the fourth point is
 [tests/check_reference_stability.sh]. It compares the normalized program and
 proof IR dumps produced for the same source program under different
-backend-only options. This test deliberately does not vary source-level or
-proof-shaping options such as public guarantee grouping.
+proof-planning and runtime options. In particular, disabling step-contract
+grouping may change the completed proof plan, but must not change either
+reference view. Source-level transformations such as public guarantee grouping
+remain outside this comparison.
 
 For design history, use short Architecture Decision Records. An ADR should
 record one decision, its alternatives, and the invariant that must survive
@@ -363,49 +365,38 @@ needed for later Rocq adequacy checking is recorded in
 
 {2 Why3 Product Backend Boundary}
 
-The Why3 product backend has a compact internal boundary. This boundary is not
-part of the Rocq synchronization contract, but it prevents backend
-representation choices from becoming implicit proof-obligation construction.
+The backend boundary is the private, backend-independent [Proof_plan.t].
+[Pipeline_build] builds that plan once and stores it in the runtime snapshot.
+Why3 generation and goal attribution consume the same value.
 
-- [Why_compile_node_common] consumes history-free [Ir.node_ir] directly for
-  node declarations and temporal binders.
-- [Why_compile_step] consumes [Ir.transition] and [Core_syntax.stmt] directly.
-- [Why_compile_product_specs] builds concrete Why3 helper specifications
-  directly from [Step_contract_projection.step_contract], without an
-  intermediate compiled-contract representation.
-- [Why_compile_product_groups] owns stable partitioning, grouping eligibility,
-  and the explicit individual/grouped helper plan.
-- [Why_compile_product_group_terms] builds symbolic grouped pre/post terms and
-  applies the canonical common-precondition factorization.
-- [Why_compile_product_helpers] emits individual and grouped helpers from the
-  completed plan and specifications.
-- [Why_compile] wires these passes directly without an intermediate
-  orchestration module.
+- [Step_contract_projection] derives step contracts independently in every
+  reference partition, after its own reachability analysis.
+- [Contract_formula_index] selects repeated canonical formulas without Why3
+  terms.
+- [Proof_plan] assembles the source-node view, preserves partition provenance,
+  groups compatible safe contracts, factors common preconditions, groups
+  identical conclusions, and selects shared postconditions.
+- [Why_compile_node_common] translates the planned source signature and
+  temporal layout.
+- [Why_compile_product_specs] translates planned logical conditions to concrete
+  Why3 specifications without comparing or regrouping [Ptree] terms.
+- [Why_compile_product_helpers] emits the already selected individual or
+  grouped helper.
+- [Why_compile_step] translates [Ir.transition] and [Core_syntax.stmt].
+- [Why_compile] orders these translations and builds the manifest.
 
-The domain-level [Contract_formula_index] identifies repeated canonical
-propositional formulas once for all backends. It uses structural keys while
-building equivalence classes, then resolves indexed occurrences directly by
-their [oid]. The Why3 compiler only
-materializes that index as isolated predicates and imports. Its other
-proof-shape transformations are compact predicates for multi-clause helper
-contracts and grouping with the fixed common-precondition factorization.
-Optional first-order simplification, body slicing, and configurable term
-deduplication were removed.
-
-[Pipeline_build] constructs [Step_contract_projection.t] values, including
-their formula indexes, once from the merged backend IR and stores them in the
-runtime snapshot. Why3 generation and goal attribution consume the same
-prebuilt values; neither backend service recomputes formula equivalence or
-contract projection.
+The output types of [Proof_plan] are private: a backend can inspect the
+completed plan but cannot construct inconsistent sharing identifiers or
+factored obligations. [Why_compile_formula_sharing] and
+[Why_compile_bundles] only materialize decisions present in the plan.
 
 The permitted data flow is:
 
 {[
-reference obligations
-  -> prebuilt step-contract projection and canonical formula index
-  -> helper specifications and stable grouping plan
-  -> symbolic terms and canonical common-precondition factoring
-  -> helper emission
+partition-local history-free IR
+  -> step-contract projection
+  -> backend-independent proof plan
+  -> mechanical Why3 translation
 ]}
 
 {1 Cleanup Plan}

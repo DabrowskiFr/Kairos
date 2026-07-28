@@ -228,9 +228,9 @@ La frontière Dune `kairos_why3_expr`, devenue sans consommateur autre que
 plus que deux bibliothèques Dune : compilation et façade.
 
 Les alias `proof_terms` et `grouped_terms`, ainsi que l'accesseur identité
-associé, ont enfin été supprimés. Le record
-`Why_compile_product_group_terms.t` circule désormais directement entre la
-construction du plan et la spécification des helpers.
+associé, ont enfin été supprimés. La planification a ensuite quitté Why3 :
+`Proof_plan.t`, dans le domaine de vérification, porte directement les
+obligations individuelles ou groupées et leur factorisation.
 
 L'audit sémantique des abstractions appelées a ensuite retiré la transition
 dupliquée dans les entrées de groupe, un conteneur mono-champ, les records de
@@ -437,20 +437,19 @@ taille WhyML et de **63,57 %** sur le temps total observé.
 La canonicalisation est désormais générique. `Formula_canonical` fournit la
 clé structurelle et l'internement physique ; `Temporal_lower` mémoïse
 l'abaissement par formule d'entrée et interne ses résultats ;
-`Step_contract_projection` construit l'index contractuel consommable par tout
-backend. `Contract_formula_index` emploie les clés structurelles uniquement
-pendant la construction des classes, puis associe chaque `oid` d'occurrence
-indexée à sa définition partagée. Les recherches du backend ne reparcourent
-donc plus les formules. `Pipeline_build` calcule une seule fois les projections
-sur l'IR backend fusionné et les conserve dans le snapshot ; génération Why et
-attribution des buts consomment ensuite exactement ces projections, sans les
-reconstruire. Les deux services génériques `Formula_canonical` et
-`Contract_formula_index` représentent 191 lignes ; l'émetteur de partage Why3
-en représente 171.
+`Proof_plan` construit l'index contractuel consommable par tout backend.
+`Contract_formula_index` emploie les clés structurelles uniquement pendant la
+construction des classes, puis associe chaque `oid` d'occurrence indexée à sa
+définition partagée. Les recherches du backend ne reparcourent donc plus les
+formules. `Pipeline_build` calcule une seule fois les contrats sur chaque
+partition, puis le plan par nœud source ; génération Why et attribution des
+buts consomment exactement ce plan, sans reconstruire ni comparer les
+formules.
 
 Les mesures séparées confirment où se trouve désormais le coût. Sur light,
-la passe physique terminale `formula_sharing_s` prend 0,4 ms et la projection
-avec index `step_projection_s` 14,7 ms en médiane sur cinq exécutions ; la
+la passe physique terminale `formula_sharing_s` prend 0,4 ms et la
+planification avec index `proof_planning_s` 14,7 ms en médiane sur cinq
+exécutions ; la
 génération Why prend 25,1 ms. Sur full, ces trois mesures valent
 respectivement 47,1 ms, 758,7 ms et 667,4 ms. Le full reste à 656/656 buts
 prouvés en 35,73 s. Le calcul d'identité et de réutilisation n'est donc plus
@@ -459,7 +458,7 @@ un travail du backend Why et sa dépense est visible comme passe générique.
 La validation stratégique effectuée après l'indexation directe par `oid`
 donne les résultats suivants :
 
-| Corpus | Résultat | Temps total | Projection | Partage | Génération Why |
+| Corpus | Résultat | Temps total | Planification | Partage | Génération Why |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | `tests/ok` | 44/44 | — | — | — | — |
 | Médical light | 83/83 | 0,990 s | 18,5 ms | 0,55 ms | 22,8 ms |

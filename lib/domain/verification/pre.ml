@@ -76,9 +76,10 @@ type node_generation = {
   invariant_of_state : ident -> Core_syntax.historical Core_syntax.hexpr option;
 }
 
-let compute_generation ~(node : Core_syntax.historical Abs.node_ir) : node_generation =
+let compute_generation ~product_characteristics
+    ~(node : Core_syntax.historical Abs.node_ir) : node_generation =
   {
-    product_characteristics = Product_characteristics.build ~node;
+    product_characteristics;
     state_stability = List.map stability_formula (non_input_program_var_names node);
     invariant_of_state = (fun st -> conj_fo (invariants_of_state node st));
   }
@@ -102,8 +103,12 @@ let add_formula_family ~record_family ~family_name formulas acc =
   record_family ~family_name ~candidates:formulas ~inserted:(List.rev inserted);
   acc
 
-let run_node ~record_family (n : Core_syntax.historical Abs.node_ir) : Core_syntax.historical Abs.node_ir =
-  let pre_generation = compute_generation ~node:n in
+let run_node ~record_family ~product_characteristics
+    (n : Core_syntax.historical Abs.node_ir) :
+    Core_syntax.historical Abs.node_ir =
+  let pre_generation =
+    compute_generation ~product_characteristics ~node:n
+  in
   let input_names = Fo_current_input.input_names n.semantics.sem_inputs in
   let summaries =
     List.map
@@ -141,7 +146,9 @@ let run_node ~record_family (n : Core_syntax.historical Abs.node_ir) : Core_synt
   in
   { n with summaries }
 
-let run_program ?observe_family (p : Core_syntax.historical Abs.node_ir list) : Core_syntax.historical Abs.node_ir list =
+let run_program ?observe_family ~product_characteristics
+    (p : Core_syntax.historical Abs.node_ir list) :
+    Core_syntax.historical Abs.node_ir list =
   let collector =
     match observe_family with
     | None -> None
@@ -154,7 +161,12 @@ let run_program ?observe_family (p : Core_syntax.historical Abs.node_ir list) : 
         Ir_fact_family_metrics.add collector ~pass_name:"pre" ~family_name
           ~candidates ~inserted
   in
-  let result = List.map (run_node ~record_family) p in
+  let result =
+    List.map2
+      (fun product_characteristics node ->
+        run_node ~record_family ~product_characteristics node)
+      product_characteristics p
+  in
   (match (collector, observe_family) with
   | Some collector, Some observer -> Ir_fact_family_metrics.emit collector observer
   | _ -> ());

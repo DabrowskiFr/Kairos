@@ -32,15 +32,13 @@ type run_output = {
   proof_traces : Pipeline_proof_types.proof_trace list;
 }
 
-(** Run Why generation + VC/SMT dump + optional proof replay.
+(** Run Why generation + VC/SMT dump + optional proof replay from the canonical
+    backend-independent proof plans.
 
-    [instrumentation] is the final IR node list to compile.
     The returned [run_output] contains textual artifacts, spans, goal status,
-    and detailed proof traces.
-*)
+    and detailed proof traces. *)
 
 val run :
   cfg:Pipeline_config.config ->
-  instrumentation:Core_syntax.history_free Ir.node_ir list ->
-  step_projections:Step_contract_projection.t list ->
+  proof_plans:Proof_plan.t list ->
   (run_output, Pipeline_error.t) result

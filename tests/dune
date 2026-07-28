@@ -87,8 +87,12 @@
 (test
  (name product_group_policy_partition_tests)
  (modules product_group_policy_partition_tests)
- (package kairos-engine-runtime)
- (libraries kairos_why3_compile))
+ (libraries kairos_domain_core kairos_domain_verification))
+
+(test
+ (name proof_plan_partition_tests)
+ (modules proof_plan_partition_tests)
+ (libraries kairos_domain_core kairos_domain_verification))
 
 (test
  (name canonical_obligations_tests)

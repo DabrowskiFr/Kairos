@@ -18,13 +18,11 @@ val default_proof_encoding : proof_encoding
 
 type verification_optimizations = {
   group_public_non_w_guarantees : bool;
+  group_step_contracts : bool;
 }
-
-type why3_optimizations = { group_product_steps : bool }
 
 type proof_optimizations = {
   verification : verification_optimizations;
-  why3 : why3_optimizations;
 }
 
 val reference_proof_optimizations : proof_optimizations

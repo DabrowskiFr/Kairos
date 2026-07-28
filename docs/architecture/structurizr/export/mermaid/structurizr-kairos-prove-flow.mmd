@@ -15,7 +15,7 @@ graph TB
       style 20 fill:#166534,stroke:#0f4624,color:#ffffff
       21["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</div>"]
       style 21 fill:#166534,stroke:#0f4624,color:#ffffff
-      29["<div style='font-weight: bold'>Why3 backend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / Why3]</div><div style='font-size: 80%; margin-top:10px'>Projects proof obligations to<br />Why3, performs backend-only<br />representation choices, and<br />calls proof services.</div>"]
+      29["<div style='font-weight: bold'>Why3 backend</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / Why3]</div><div style='font-size: 80%; margin-top:10px'>Translates completed proof<br />plans to WhyML and calls<br />proof services.</div>"]
       style 29 fill:#be123c,stroke:#850c2a,color:#ffffff
       32["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Narrow Automata_exchange and<br />Proof_backend_contract<br />boundaries for Spot, Why3,<br />Z3, and timing services.</div>"]
       style 32 fill:#6b7280,stroke:#4a4f59,color:#ffffff

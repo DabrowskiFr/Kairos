@@ -19,8 +19,6 @@
 
 (** Emit individual or grouped WhyML helpers from one product-step plan. *)
 
-module Product_groups = Why_compile_product_groups
-module Group_terms = Why_compile_product_group_terms
 module Product_specs = Why_compile_product_specs
 module Step_names = Why_product_step_names
 
@@ -34,11 +32,7 @@ type context = {
   inputs : Why3.Ptree.binder list;
   formula_sharing : Why_compile_formula_sharing.t;
   formula_imports : Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list;
-  shared_post_call :
-    used_inputs:Why_compile_expr.used_inputs ->
-    formulas:Core_syntax.history_free Ir.summary_formula list ->
-    Why3.Ptree.term list ->
-    Why3.Ptree.decl * Why3.Ptree.term;
+  bundles : Why_compile_bundles.t;
 }
 
 open Why3
@@ -76,10 +70,10 @@ let grouped_body ~env transition ~post_call =
   mk_expr
     (Elet (ident pre_snapshot_name, true, Expr.RKnone, snapshot_expr, body))
 
-let build_individual (ctx : context) (plan : Product_groups.individual_plan) :
+let build_individual (ctx : context) (plan : Proof_plan.individual) :
     helper_unit =
   let i = plan.index in
-  let sc = plan.contract in
+  let sc = plan.member.contract in
   let helper_name =
     ident (Step_names.product_step_helper_name ~index:i sc)
   in
@@ -88,7 +82,7 @@ let build_individual (ctx : context) (plan : Product_groups.individual_plan) :
       ~formula_sharing:ctx.formula_sharing
       ~formula_imports:ctx.formula_imports
       ~helper_name:helper_name.Ptree.id_str
-      ~shared_post_call:ctx.shared_post_call sc
+      ~bundles:ctx.bundles plan
   in
   let helper_body, body_inputs =
     collect_used_inputs ctx.env (fun env ->
@@ -107,10 +101,10 @@ let build_individual (ctx : context) (plan : Product_groups.individual_plan) :
       @ [ Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ];
   }
 
-let build_grouped (ctx : context) (plan : Product_groups.grouped_plan) :
+let build_grouped (ctx : context) (plan : Proof_plan.grouped) :
     helper_unit =
   let first_i = plan.index in
-  let first_sc = plan.contract in
+  let first_sc = plan.representative.contract in
   let helper_name =
     ident
       (Step_names.product_step_group_helper_name ~index:first_i first_sc)
@@ -118,7 +112,8 @@ let build_grouped (ctx : context) (plan : Product_groups.grouped_plan) :
   let post_pred_name = helper_name.Ptree.id_str ^ "_post" in
   let grouped_contract =
     Product_specs.grouped_helper_contract ~env:ctx.env ~inputs:ctx.inputs
-      ~post_pred_name plan.grouped_terms
+      ~formula_sharing:ctx.formula_sharing
+      ~formula_imports:ctx.formula_imports ~post_pred_name plan
   in
   let helper_body, body_inputs =
     collect_used_inputs ctx.env (fun env ->
@@ -134,20 +129,17 @@ let build_grouped (ctx : context) (plan : Product_groups.grouped_plan) :
   {
     helper_name = helper_name.Ptree.id_str;
     decls =
-      ctx.formula_imports plan.formulas
-      @ [
-        grouped_contract.post_pred_decl;
-        Ptree.Dlet (helper_name, false, Expr.RKnone, fn);
-      ];
+      grouped_contract.decls
+      @ [ Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ];
   }
 
 let kernel_step_helper_units ~env ~inputs ~formula_sharing ~formula_imports
-    ~shared_post_call plan =
+    ~bundles plan =
   let ctx =
-    { env; inputs; formula_sharing; formula_imports; shared_post_call }
+    { env; inputs; formula_sharing; formula_imports; bundles }
   in
   plan
   |> List.map (function
-       | Product_groups.Individual individual ->
+       | Proof_plan.Individual individual ->
            build_individual ctx individual
-       | Product_groups.Grouped grouped -> build_grouped ctx grouped)
+       | Proof_plan.Grouped grouped -> build_grouped ctx grouped)

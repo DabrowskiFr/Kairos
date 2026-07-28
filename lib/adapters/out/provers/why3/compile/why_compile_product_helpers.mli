@@ -29,10 +29,6 @@ val kernel_step_helper_units :
   formula_sharing:Why_compile_formula_sharing.t ->
   formula_imports:
     (Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list) ->
-  shared_post_call:
-    (used_inputs:Why_compile_expr.used_inputs ->
-    formulas:Core_syntax.history_free Ir.summary_formula list ->
-    Why3.Ptree.term list ->
-    Why3.Ptree.decl * Why3.Ptree.term) ->
-  Why_compile_product_groups.helper_plan_item list ->
+  bundles:Why_compile_bundles.t ->
+  Proof_plan.obligation list ->
   helper_unit list

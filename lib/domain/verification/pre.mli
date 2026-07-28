@@ -26,9 +26,13 @@
 
     Initial states do not carry ordinary state invariants; this is enforced by
     the frontend/model validation boundary, so this pass does not generate
-    initial invariant goals. *)
+    initial invariant goals.
+
+    [product_characteristics] contains one analysis per input node, in the same
+    order. *)
 
 val run_program :
   ?observe_family:Ir_fact_family_metrics.observer ->
+  product_characteristics:Product_characteristics.t list ->
   Core_syntax.historical Ir.node_ir list ->
   Core_syntax.historical Ir.node_ir list

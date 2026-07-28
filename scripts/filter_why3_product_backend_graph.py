@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Generate a focused observed graph for the Why3 product backend.
+"""Generate a focused observed graph for proof planning and Why3 emission.
 
 The source graph is the full odep module DOT graph. This script keeps a curated
-set of modules around product-step helper planning/emission, but the edges are
-still observed dependencies from the generated Dune graph.
+set of modules around the backend-independent proof plan and product-step
+helper emission. Edges are observed dependencies from the generated Dune
+graph.
 """
 
 from __future__ import annotations
@@ -15,9 +16,11 @@ from pathlib import Path
 
 GROUPS = [
     (
-        "Inputs",
+        "Domain Planning",
         [
             "Step_contract_projection",
+            "Contract_formula_index",
+            "Proof_plan",
         ],
     ),
     (
@@ -29,10 +32,9 @@ GROUPS = [
         ],
     ),
     (
-        "Planning and Specs",
+        "Why Translation",
         [
-            "Why_compile_product_groups",
-            "Why_compile_product_group_terms",
+            "Why_compile_formula_sharing",
             "Why_compile_product_specs",
         ],
     ),

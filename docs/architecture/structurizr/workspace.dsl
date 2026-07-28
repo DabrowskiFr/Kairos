@@ -51,7 +51,7 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
         kernelTypes = component "Proof-kernel schema" "Serializable product, clause, and summary structures." "OCaml / JSON"
         kernelPass = component "Proof-kernel pass" "Compiles one reference node into the exchange schema." "OCaml"
       }
-      why3Backend = container "Why3 backend" "Projects proof obligations to Why3, performs backend-only representation choices, and calls proof services." "OCaml / Why3" {
+      why3Backend = container "Why3 backend" "Translates completed proof plans to WhyML and calls proof services." "OCaml / Why3" {
         tags "Backend"
       }
       cBackend = container "C backend" "Projects normalized Kairos programs to portable C99 files." "OCaml / C" {

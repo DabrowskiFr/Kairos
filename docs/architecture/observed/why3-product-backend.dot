@@ -12,11 +12,13 @@ digraph "why3_product_backend" {
   edge [fontname="Helvetica", fontsize=9, color="#64748b", arrowsize=0.7];
 
   subgraph cluster_0 {
-    label="Inputs";
+    label="Domain Planning";
     style="rounded,filled";
     color="#dbeafe";
     fillcolor="#ffffff";
     "Step_contract_projection" [label="Step_contract_projection"];
+    "Contract_formula_index" [label="Contract_formula_index"];
+    "Proof_plan" [label="Proof_plan"];
   }
 
   subgraph cluster_1 {
@@ -30,12 +32,11 @@ digraph "why3_product_backend" {
   }
 
   subgraph cluster_2 {
-    label="Planning and Specs";
+    label="Why Translation";
     style="rounded,filled";
     color="#fef3c7";
     fillcolor="#ffffff";
-    "Why_compile_product_groups" [label="Why_compile_product_groups"];
-    "Why_compile_product_group_terms" [label="Why_compile_product_group_terms"];
+    "Why_compile_formula_sharing" [label="Why_compile_formula_sharing"];
     "Why_compile_product_specs" [label="Why_compile_product_specs"];
   }
 
@@ -58,16 +59,17 @@ digraph "why3_product_backend" {
     "Why_product_step_names" [label="Why_product_step_names"];
   }
 
+  "Proof_plan" -> "Contract_formula_index";
+  "Proof_plan" -> "Step_contract_projection";
   "Why_compile" -> "Why_compile_modules";
   "Why_compile_bundles" -> "Why_compile_ptree_helpers";
+  "Why_compile_formula_sharing" -> "Why_compile_ptree_helpers";
   "Why_compile_modules" -> "Why_compile_product_helpers";
-  "Why_compile_product_group_terms" -> "Why_compile_ptree_helpers";
-  "Why_compile_product_groups" -> "Why_compile_product_specs";
-  "Why_compile_product_helpers" -> "Why_compile_product_groups";
+  "Why_compile_product_helpers" -> "Why_compile_product_specs";
   "Why_compile_product_helpers" -> "Why_compile_step";
   "Why_compile_product_helpers" -> "Why_product_step_names";
   "Why_compile_product_specs" -> "Why_compile_bundles";
-  "Why_compile_product_specs" -> "Why_compile_product_group_terms";
+  "Why_compile_product_specs" -> "Why_compile_formula_sharing";
   "Why_compile_ptree_helpers" -> "Why_compile_expr";
   "Why_compile_step" -> "Why_compile_ptree_helpers";
 }

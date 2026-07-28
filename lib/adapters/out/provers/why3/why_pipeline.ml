@@ -16,13 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Why/VC/SMT obligations export pass extracted from the v2 pipeline implementation. *)
+(** WhyML, VC, and SMT export from backend-independent proof plans. *)
 
 module Why3_contract = Kairos_why3_contract.Why3_contract
-
-type compilation_options = {
-  group_product_steps : bool;
-}
 
 type obligations_outputs = {
   vc_text : string;
@@ -44,11 +40,9 @@ let render_program_ast (ast : Why3.Ptree.mlw_file) =
   Format.pp_print_flush formatter ();
   Buffer.contents buffer
 
-let compile_whyml ~nodes ~step_projections ~(options : compilation_options) () =
+let compile_whyml ~proof_plans () =
   let compilation =
-    Why_compile.compile_program_ast
-      ~group_why3_product_steps:options.group_product_steps ~nodes
-      ~step_projections ()
+    Why_compile.compile_program_ast ~proof_plans ()
   in
   {
     text = render_program_ast compilation.ast;
@@ -64,9 +58,8 @@ let join_blocks ~sep blocks =
     blocks;
   Buffer.contents buffer
 
-let obligations_pass ~nodes ~step_projections ~(options : compilation_options) :
-    obligations_outputs =
-  let whyml = compile_whyml ~nodes ~step_projections ~options () in
+let obligations_pass ~proof_plans : obligations_outputs =
+  let whyml = compile_whyml ~proof_plans () in
   let execution_options : Why3_contract.execution_options =
     {
       timeout_s = 1;

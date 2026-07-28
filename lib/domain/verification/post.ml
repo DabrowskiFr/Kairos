@@ -140,8 +140,8 @@ let enrich_product_step_summary ~(record_family : family_name:string ->
 
 type node_generation = { summaries : Core_syntax.historical Abs.product_step_summary list }
 
-let compute_generation ~record_family ~(node : Core_syntax.historical Abs.node_ir) : node_generation =
-  let product_characteristics = Product_characteristics.build ~node in
+let compute_generation ~record_family ~product_characteristics
+    ~(node : Core_syntax.historical Abs.node_ir) : node_generation =
   {
     summaries =
       List.map
@@ -149,11 +149,17 @@ let compute_generation ~record_family ~(node : Core_syntax.historical Abs.node_i
         node.summaries;
   }
 
-let run_node ~record_family (n : Core_syntax.historical Abs.node_ir) : Core_syntax.historical Abs.node_ir =
-  let post_generation = compute_generation ~record_family ~node:n in
+let run_node ~record_family ~product_characteristics
+    (n : Core_syntax.historical Abs.node_ir) :
+    Core_syntax.historical Abs.node_ir =
+  let post_generation =
+    compute_generation ~record_family ~product_characteristics ~node:n
+  in
   { n with summaries = post_generation.summaries }
 
-let run_program ?observe_family (p : Core_syntax.historical Abs.node_ir list) : Core_syntax.historical Abs.node_ir list =
+let run_program ?observe_family ~product_characteristics
+    (p : Core_syntax.historical Abs.node_ir list) :
+    Core_syntax.historical Abs.node_ir list =
   let collector =
     match observe_family with
     | None -> None
@@ -166,7 +172,12 @@ let run_program ?observe_family (p : Core_syntax.historical Abs.node_ir list) : 
         Ir_fact_family_metrics.add collector ~pass_name:"post" ~family_name
           ~candidates ~inserted
   in
-  let result = List.map (run_node ~record_family) p in
+  let result =
+    List.map2
+      (fun product_characteristics node ->
+        run_node ~record_family ~product_characteristics node)
+      product_characteristics p
+  in
   (match (collector, observe_family) with
   | Some collector, Some observer -> Ir_fact_family_metrics.emit collector observer
   | _ -> ());

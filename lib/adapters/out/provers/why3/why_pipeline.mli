@@ -16,15 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Pipeline entry points for the Why3 backend.
-
-    Exposes the obligations export pass in the form expected by the Kairos
-    pipeline. *)
-
-(** Kairos-owned policy for compiling its IR to WhyML. *)
-type compilation_options = {
-  group_product_steps : bool;
-}
+(** Pipeline entry points for translating proof plans and exporting Why3
+    obligations. *)
 
 (** Text payload emitted by the obligations pass. *)
 type obligations_outputs = {
@@ -43,16 +36,12 @@ type whyml_output = {
 
 (** Compile Kairos IR to a neutral WhyML text artifact. *)
 val compile_whyml :
-  nodes:Core_syntax.history_free Ir.node_ir list ->
-  step_projections:Step_contract_projection.t list ->
-  options:compilation_options ->
+  proof_plans:Proof_plan.t list ->
   unit ->
   whyml_output
 
 (** Compile Kairos IR to WhyML, then submit the neutral WhyML request to the
     independent Why3 adapter. *)
 val obligations_pass :
-  nodes:Core_syntax.history_free Ir.node_ir list ->
-  step_projections:Step_contract_projection.t list ->
-  options:compilation_options ->
+  proof_plans:Proof_plan.t list ->
   obligations_outputs

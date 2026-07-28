@@ -16,17 +16,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Main WhyML compiler from canonical IR.
+(** Mechanical WhyML translation of completed proof plans.
 
-    This module orchestrates the Why3 backend for a node: common declarations,
-    contracts, product-step helpers, initial goals, and final module assembly. *)
+    Logical grouping, factorization, and sharing decisions are owned by
+    {!Proof_plan}; this module only orders their Why3 representation and builds
+    the compilation manifest. *)
 
 open Why3
 module Bundles = Why_compile_bundles
 module Modules = Why_compile_modules
 module Node_common = Why_compile_node_common
 module Product_helpers = Why_compile_product_helpers
-module Product_plan = Why_compile_product_groups
+module Product_specs = Why_compile_product_specs
 module Ptree_helpers = Why_compile_ptree_helpers
 
 type compiled_obligation = {
@@ -67,8 +68,8 @@ let transition_source (contract : Step_contract_projection.step_contract) =
     contract.program_step.dst_state contract.transition_id
 
 let individual_manifest ~node_name ~generated_symbol
-    (plan : Product_plan.individual_plan) =
-  let contract = plan.contract in
+    (plan : Proof_plan.individual) =
+  let contract = plan.member.contract in
   let obligation_kind, obligation_category =
     obligation_class contract.step_class
   in
@@ -76,18 +77,16 @@ let individual_manifest ~node_name ~generated_symbol
     generated_symbol;
     source =
       Printf.sprintf
-        "helper=%s;product_src=%s;product_dst=%s;requires=%d;\
-         local_requires=%d;propagates=%d;ensures=%d;\
+        "helper=%s;partition=%s;product_src=%s;requires=%d;\
+         local_requires=%d;ensures=%d;\
          elaboration_checks=%d;forbidden=%d"
-        generated_symbol
+        generated_symbol plan.member.partition_name
         (product_state_source contract.product_src)
-        (product_state_source contract.product_dst)
         (List.length contract.requires)
         (List.length contract.runtime_requires)
-        (List.length contract.propagates)
         (List.length contract.ensures)
         (List.length contract.elaboration_checks)
-        (List.length contract.forbidden);
+        (List.length (Step_contract_projection.exclusions contract));
     node_name;
     transition = transition_source contract;
     obligation_kind;
@@ -96,8 +95,8 @@ let individual_manifest ~node_name ~generated_symbol
   }
 
 let grouped_manifest ~node_name ~generated_symbol
-    (plan : Product_plan.grouped_plan) =
-  let contract = plan.contract in
+    (plan : Proof_plan.grouped) =
+  let contract = plan.representative.contract in
   let obligation_kind, obligation_category =
     obligation_class contract.step_class
   in
@@ -105,17 +104,19 @@ let grouped_manifest ~node_name ~generated_symbol
     generated_symbol;
     source =
       Printf.sprintf
-        "helper=%s;group_size=%d;product_src=%s;requires=%d;\
-         local_requires=%d;propagates=%d;ensures=%d;\
+        "helper=%s;group_size=%d;partitions=%s;product_src=%s;requires=%d;\
+         local_requires=%d;ensures=%d;\
          elaboration_checks=%d;forbidden=%d"
-        generated_symbol plan.group_size
+        generated_symbol (List.length plan.members)
+        (plan.members
+        |> List.map (fun member -> member.Proof_plan.partition_name)
+        |> String.concat ",")
         (product_state_source contract.product_src)
         (List.length contract.requires)
         (List.length contract.runtime_requires)
-        (List.length contract.propagates)
         (List.length contract.ensures)
         (List.length contract.elaboration_checks)
-        (List.length contract.forbidden);
+        (List.length (Step_contract_projection.exclusions contract));
     node_name;
     transition = transition_source contract;
     obligation_kind;
@@ -126,36 +127,26 @@ let grouped_manifest ~node_name ~generated_symbol
 let manifest_of_helper ~node_name plan
     (unit : Product_helpers.helper_unit) =
   match plan with
-  | Product_plan.Individual individual ->
+  | Proof_plan.Individual individual ->
       individual_manifest ~node_name ~generated_symbol:unit.helper_name
         individual
-  | Product_plan.Grouped grouped ->
+  | Proof_plan.Grouped grouped ->
       grouped_manifest ~node_name ~generated_symbol:unit.helper_name grouped
 
-let compile_node ?(group_why3_product_steps = true)
-    (node : Core_syntax.history_free Ir.node_ir)
-    (step_projection : Step_contract_projection.t) :
-    node_compilation =
-  let info = Node_common.prepare_ir_node node in
+let compile_node (plan : Proof_plan.t) : node_compilation =
+  let semantics = plan.semantics in
+  let temporal_layout = plan.temporal_layout in
+  let info = Node_common.prepare ~semantics ~temporal_layout in
   let module_name = info.module_name in
   let imports = info.imports in
   let common_module_name = Modules.common_module_name module_name in
   let common_import = Ptree_helpers.import_module common_module_name in
   let env = info.env in
   let inputs = info.inputs in
-  let step_contracts =
-    match step_projection.step_contracts with
-    | [] ->
-        invalid_arg
-          (Printf.sprintf
-             "Why3 backend requires product-step contracts for node %s; the \
-              reference-product pipeline produced no product transitions"
-             node.semantics.sem_nname)
-    | step_contracts -> step_contracts
-  in
+  let obligations = plan.obligations in
   let formula_sharing =
     Why_compile_formula_sharing.build ~env ~inputs
-      step_projection.formula_index
+      plan.formula_index
   in
   let shared_formula_modules =
     Why_compile_formula_sharing.definition_modules formula_sharing
@@ -165,18 +156,15 @@ let compile_node ?(group_why3_product_steps = true)
     Why_compile_formula_sharing.imports_for formula_sharing ~module_name
   in
   let bundles =
-    Bundles.create ~module_name ~imports ~common_import ~inputs
+    Bundles.create ~module_name ~imports ~common_import ~env ~inputs
       ~formula_imports
-  in
-  let helper_plan =
-    Product_plan.build ~env ~formula_sharing ~group_why3_product_steps
-      step_contracts
+      ~compile_conditions:
+        (Product_specs.compile_conditions formula_sharing)
+      plan.shared_postconditions
   in
   let helper_units =
     Product_helpers.kernel_step_helper_units ~env ~inputs ~formula_sharing
-      ~formula_imports
-      ~shared_post_call:(Bundles.shared_post_call bundles)
-      helper_plan
+      ~formula_imports ~bundles obligations
   in
   let shared_post_modules = Bundles.shared_post_modules bundles in
 
@@ -188,17 +176,13 @@ let compile_node ?(group_why3_product_steps = true)
         ~kernel_step_helper_units:helper_units;
     manifest =
       List.map2
-        (manifest_of_helper ~node_name:node.semantics.sem_nname)
-        helper_plan helper_units;
+        (manifest_of_helper ~node_name:semantics.sem_nname)
+        obligations helper_units;
   }
 
-let compile_program_ast ?(group_why3_product_steps = true)
-    ~(nodes : Core_syntax.history_free Ir.node_ir list)
-    ~(step_projections : Step_contract_projection.t list) () =
+let compile_program_ast ~(proof_plans : Proof_plan.t list) () =
   let node_compilations =
-    List.map2
-      (compile_node ~group_why3_product_steps)
-      nodes step_projections
+    List.map compile_node proof_plans
   in
   {
     ast =

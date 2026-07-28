@@ -199,20 +199,22 @@ let cmd =
           ~doc:
             "Disable the optimization that groups public non-W guarantees into a single proof node.")
   in
-  let no_why3_product_step_grouping =
+  let no_step_contract_grouping =
     Arg.(
       value & flag
-      & info [ "no-why3-product-step-grouping" ] ~docs:docs_proof
+      & info
+          [ "no-step-contract-grouping" ]
+          ~docs:docs_proof
           ~doc:
-            "Disable grouping of safe product-step Why3 helpers by executable \
-             transition. Bad-guarantee exclusion helpers are kept individual.")
+            "Disable grouping of safe step contracts by executable transition. \
+             Bad-guarantee exclusion obligations are kept individual.")
   in
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
     let make_cli_args file check_frontend prove timeout_s proof_jobs proof_encoding
         stop_on_first_nonvalid no_proof_optimizations no_proof_grouping
-        no_why3_product_step_grouping
+        no_step_contract_grouping
         dump_automata dump_product dump_automata_short dump_surface dump_elaborated
         dump_normalized_program dump_ir_pretty dump_cost_report emit_c dump_timings
         dump_goals dump_failed_smt dump_why dump_why3_vc dump_smt2 =
@@ -226,7 +228,7 @@ let cmd =
         stop_on_first_nonvalid;
         no_proof_optimizations;
         no_proof_grouping;
-        no_why3_product_step_grouping;
+        no_step_contract_grouping;
         dump_automata;
         dump_product;
         dump_automata_short;
@@ -247,7 +249,7 @@ let cmd =
     Term.(
       const make_cli_args $ file $ check_frontend $ prove $ timeout_s
       $ proof_jobs $ proof_encoding $ stop_on_first_nonvalid $ no_proof_optimizations
-      $ no_proof_grouping $ no_why3_product_step_grouping
+      $ no_proof_grouping $ no_step_contract_grouping
       $ dump_automata $ dump_product $ dump_automata_short $ dump_surface
       $ dump_elaborated $ dump_normalized_program $ dump_ir_pretty
       $ dump_cost_report $ emit_c $ dump_timings $ dump_goals $ dump_failed_smt

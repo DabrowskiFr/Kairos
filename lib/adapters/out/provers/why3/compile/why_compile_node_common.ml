@@ -149,8 +149,8 @@ let imports =
     Duseimport (loc, false, [ (qid1 "array.Array", None) ]);
   ]
 
-let prepare_ir_node (node : Core_syntax.history_free Ir.node_ir) : t =
-  let semantics = node.semantics in
+let prepare ~(semantics : Ir.node_signature)
+    ~(temporal_layout : Ir.temporal_layout) : t =
   let module_name = module_name_of_node semantics.sem_nname in
   let type_state = compile_state_type semantics in
   let type_enum_decls = compile_enum_types semantics in
@@ -162,7 +162,7 @@ let prepare_ir_node (node : Core_syntax.history_free Ir.node_ir) : t =
          (semantics.sem_locals @ semantics.sem_outputs)
   in
   let env = { rec_name = "vars"; rec_vars; used_inputs = None } in
-  let inputs = compile_inputs node.temporal_layout semantics in
+  let inputs = compile_inputs temporal_layout semantics in
   let function_decls =
     List.map compile_pure_function_decl semantics.sem_function_decls
   in

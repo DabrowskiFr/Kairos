@@ -105,7 +105,7 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Product summaries | `Ir.node_ir list` | `From_model.of_model_program` | `Pre/Post/...`, renderers |
 | Relational proof IR | `Ir.node_ir list` | `Orchestration.build_instrumented_ir` apres `Post` | proof export |
 | Lowered backend IR | `Ir.program_ir` | `Orchestration.build_instrumented_ir` apres `Temporal_lower` | fusion backend dans `Pipeline_build` |
-| Rocq alignment projections | `Product_summary_projection.t`, `Obligation_family_projection.clause_family`, `Step_contract_projection.t` | `lib/domain/verification`, instancies une fois par `Pipeline_build` | proof export, compilateur Why3, attribution des buts |
+| Plan de preuve | `Proof_plan.t` | `lib/domain/verification`, construit une fois par `Pipeline_build` depuis les contrats de pas | compilateur Why3, attribution des buts |
 | Runtime snapshot | `Runtime_snapshot.pipeline_snapshot` | `Pipeline_build` dans `kairos_runtime_core` | `Engine_flow`, proof runner, diagnostics |
 | Kernel IR | `Proof_kernel_types.node_ir` | `Proof_kernel_pass` | diagnostics, projection Rocq possible apres adequation, cost report |
 | Why3 AST/text | backend-specific | `Why_compile` | Contrat de preuve |
@@ -245,21 +245,20 @@ appartiennent directement à `lib/engine`.
 
 ### Backend Why3 Et Outils Externes
 
-Le backend Why3 interne est consolide en 15 modules, soit 30 fichiers
-`.ml`/`.mli`. Les responsabilites qui formaient auparavant des micro-modules
-sont maintenant locales au module qui possede effectivement la decision.
+Le backend Why3 interne est consolide en 13 modules, soit 26 fichiers
+`.ml`/`.mli`. La planification n'en fait plus partie : `proof_plan.ml`, dans le
+domaine de verification, fixe une seule fois le groupage, la factorisation, le
+partage et la provenance pour tous les backends.
 
 | Module | Responsabilite |
 | --- | --- |
 | `why_product_step_names.ml` | Nommage stable des helpers Why3 par pas produit |
-| `why_compile_expr.ml` | Constructeurs `Ptree`, mapping des types et operateurs, environnement, cles stables et compilation des expressions |
-| `why_compile_ptree_helpers.ml` | Construction de termes/specs, analyse des noms et conversion des binders Why3 |
+| `why_compile_expr.ml` | Constructeurs `Ptree`, mapping des types et operateurs, environnement et compilation des expressions |
+| `why_compile_ptree_helpers.ml` | Construction de termes/specs et conversion des binders Why3 |
 | `why_compile_logic.ml` | Declarations logiques et compilation des fonctions pures |
-| `why_compile_init_goals.ml` | Buts Why3 de coherence de l'etat initial |
-| `why_compile_bundles.ml` | Predicats compacts de precondition et reutilisation des postconditions multi-clauses |
-| `why_compile_product_group_terms.ml` | Construction des termes groupes avec factorisation canonique des preconditions communes |
-| `why_compile_product_groups.ml` | Partition, eligibilite et plan individuel/groupe des helpers produit |
-| `why_compile_product_specs.ml` | Specifications Why3 directes des helpers produit |
+| `why_compile_formula_sharing.ml` | Emission WhyML de l'index de formules partagees choisi par le domaine |
+| `why_compile_bundles.ml` | Emission des preconditions nommees et postconditions partagees deja planifiees |
+| `why_compile_product_specs.ml` | Traduction directe des conditions planifiees en specifications Why3 |
 | `why_compile_product_helpers.ml` | Type d'un helper, contexte, corps et emission des helpers individuels/groupes |
 | `why_compile_node_common.ml` | Types, binders d'entrees/historiques et getters communs d'un noeud Why3 |
 | `why_compile_modules.ml` | Assemblage final des declarations et helper units en modules Why3 |

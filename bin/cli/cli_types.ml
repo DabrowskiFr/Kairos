@@ -29,7 +29,7 @@ type cli_args = {
   stop_on_first_nonvalid : bool;
   no_proof_optimizations : bool;
   no_proof_grouping : bool;
-  no_why3_product_step_grouping : bool;
+  no_step_contract_grouping : bool;
   dump_automata : string option;
   dump_automata_short : string option;
   dump_product : string option;

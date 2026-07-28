@@ -22,9 +22,13 @@
     - admissible/excluded branch guards,
     - postcondition [D] as safe disjunction,
     - destination invariants shifted in post-state coordinates and injected
-      into [ensures]. *)
+      into [ensures].
+
+    [product_characteristics] contains one analysis per input node, in the same
+    order. *)
 
 val run_program :
   ?observe_family:Ir_fact_family_metrics.observer ->
+  product_characteristics:Product_characteristics.t list ->
   Core_syntax.historical Ir.node_ir list ->
   Core_syntax.historical Ir.node_ir list

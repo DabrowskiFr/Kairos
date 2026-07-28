@@ -1,4 +1,4 @@
-# Why3 Product Backend Alignment
+# Proof Planning and Why3 Backend Alignment
 
 This note compares the intentional view:
 
@@ -8,89 +8,82 @@ with the observed Dune dependency view:
 
 - `observed/why3-product-backend.svg`
 
-The backend has been consolidated from many one-purpose files into 17 modules
-(34 `.ml`/`.mli` files). The goal of the focused graph is now to verify the
-semantic direction of the product-helper pipeline, not to preserve boundaries
-between implementation details that live in the same module.
+The focused graph checks one architectural direction: logical proof-shape
+decisions belong to the verification domain, while the Why3 backend only
+translates an already completed plan.
 
-## Alignment Summary
-
-The intended critical flow is:
+## Critical Flow
 
 ```text
-canonical IR + step-contract projection
+history-free enriched IR, kept per reference partition
+  -> Step_contract_projection
+  -> Proof_plan
+       - preserve partition-local reachability
+       - assemble source-node plans
+       - group compatible safe step contracts
+       - factor grouped pre/post conditions
+       - select shared formulas and postconditions
   -> Why_compile
   -> Why_compile_product_specs
-  -> Why_compile_product_groups
-  -> Why_compile_product_group_terms
   -> Why_compile_product_helpers
   -> Why_compile_modules
 ```
 
-`Why_compile_product_specs` uses `Why_compile_bundles` only to keep
-multi-clause contracts compact. `Why_compile_product_helpers` delegates
-imperative body compilation to `Why_compile_step`.
+`Proof_plan` is backend-independent and contains the source signature, merged
+temporal layout, partition provenance, individual or grouped obligations,
+factored conditional postconditions, and explicit sharing identifiers. Its
+private output types prevent downstream clients from constructing inconsistent
+plans.
 
-The following transformations remain explicit backend choices:
+`Why_compile_formula_sharing` and `Why_compile_bundles` materialize sharing
+decisions as WhyML predicates and modules. They do not compare formulas or
+choose which clauses to share. `Why_compile_product_specs` translates planned
+conditions to `Ptree` terms without regrouping or factorization.
 
-- compact predicates for individual helper preconditions and reusable
-  multi-clause postconditions;
-- WhyML materialization of the backend-independent repeated-formula index;
-- grouping compatible product steps with the fixed common-precondition
-  factorization.
+## Ownership
 
-Formula equivalence and reuse detection are owned by
-`Contract_formula_index`, not by the Why3 backend. Optional first-order
-simplification, transition-body slicing, and configurable term deduplication
-have been removed.
-
-`Contract_formula_index` uses structural keys only while constructing
-equivalence classes. It then maps each indexed occurrence `oid` directly to
-the selected shared definition, so backend lookups do not traverse formulas.
-
-The boundary is also typed by temporal phase: `Temporal_lower` transforms
-historical IR into history-free IR, and the Why3 backend accepts only the
-history-free form. It has no fallback case for `HPreK`.
-
-`Pipeline_build` constructs each `Step_contract_projection.t` and its formula
-index once, then stores them in the runtime snapshot. Why3 generation and goal
-attribution consume the same projections; they do not independently rescan
-the IR or decide formula equivalence.
-
-## Consolidated Ownership
-
-| Module | Owned decisions |
+| Module | Responsibility |
 | --- | --- |
-| `Why_compile_node_common` | Direct consumption of node signatures and temporal layouts. |
-| `Why_compile_step` | Direct compilation of `Ir.transition` and `Core_syntax.stmt`. |
-| `Why_compile_product_specs` | Direct compilation of `Step_contract_projection.step_contract` into concrete helper specs. |
-| `Why_compile_formula_sharing` | WhyML declarations, calls, parameters, and imports for the domain-level formula index. |
-| `Why_compile_product_groups` | Stable partitioning, grouping eligibility, and the individual/grouped plan. |
-| `Why_compile_product_group_terms` | Typed grouped terms and canonical common-precondition factoring. |
-| `Why_compile_product_helpers` | Helper-unit shape, individual/grouped bodies, and concrete emission. |
-| `Why_compile` | Direct ordering and wiring of the product-specific passes. |
+| `Step_contract_projection` | Derive backend-neutral step contracts after partition-local reachability analysis. |
+| `Contract_formula_index` | Select structurally repeated formulas independently of any prover representation. |
+| `Proof_plan` | Own grouping policy, stable partitioning, common-precondition factoring, conclusion grouping, postcondition sharing, provenance, and temporal-layout validation. |
+| `Why_compile_node_common` | Translate the planned source signature and temporal layout to WhyML declarations. |
+| `Why_compile_formula_sharing` | Emit declarations, calls, parameters, and imports for the preselected formula index. |
+| `Why_compile_bundles` | Emit preselected shared postconditions and resolve their identifiers. |
+| `Why_compile_product_specs` | Translate planned conditions to individual and grouped WhyML specifications. |
+| `Why_compile_product_helpers` | Emit helper bodies for the transition already selected by the plan. |
+| `Why_compile_step` | Translate `Ir.transition` and `Core_syntax.stmt` mechanically. |
+| `Why_compile` | Order the translation and assemble its manifest. |
 
-This consolidation removes forwarding facades while retaining boundaries that
-separate semantic input, representation choice, planning, and emission.
+The former `Why_compile_product_groups` and
+`Why_compile_product_group_terms` modules were removed. No equality test over
+Why3 `Ptree` remains in the planning path.
 
-## Accepted Support Dependencies
+## Temporal and Semantic Guardrails
 
-| Observed dependency | Status | Reason | Guardrail |
-| --- | --- | --- | --- |
-| `Why_compile -> Why_compile_bundles` | Accepted | The compiler owns reusable multi-clause post predicates. | Bundling must not select or delete product obligations. |
-| `Why_compile_product_specs -> Why_compile_bundles` | Accepted | Individual preconditions are named without changing their clauses. | Bundling changes representation only. |
-| `Why_compile_product_groups -> Why_compile_product_group_terms` | Accepted | Planning requests grouped symbolic terms after stable partitioning and eligibility checks. | Factoring must remain logically equivalent to the unfactored group. |
-| `Why_compile_product_helpers -> Why_compile_step` | Accepted | Helper emission compiles the already selected transition body. | Body compilation must not reconstruct temporal semantics. |
-| `Why_compile_modules -> Why_compile_product_helpers` | Accepted | Final module assembly consumes the consolidated helper-unit type. | Assembly must not alter helper specs or choose grouping. |
-| `Why_compile_bundles -> Why_compile_ptree_helpers` | Accepted | Bundles construct predicates and inspect Why3 term names. | Ptree helpers remain representation utilities. |
+`Temporal_lower` crosses the typed boundary from historical to history-free
+formulas. `Proof_plan` retains the temporal slot layout needed to interpret
+those lowered reads; Why3 has no fallback for `HPreK` and does not reconstruct
+history.
 
-## Current Conclusion
+Reachability is computed independently in every reference partition before
+planning. Grouped obligations retain all members and their partition
+provenance. Grouping never merges product automata or reinterprets local
+product-state indices.
 
-The correction boundary stays upstream: the formalization and exported
-IR/kobj determine the canonical obligations. The Why3 backend projects those
-obligations and chooses a proof-oriented representation; generated Why3
-helpers do not define the semantics.
+The generated WhyML body is only a compilation artefact. It must not introduce
+a monitor, product-state instrumentation, temporal assignments, or execution
+filtering to compensate for an upstream mismatch.
 
-The observed graph is acceptable if representation utilities remain
-downstream from canonical contracts and no generated backend artefact feeds
-back into specs, group planning, or canonical obligations.
+## Validation
+
+The migrated plan preserves the measured proof shape:
+
+- medical light: 83 helpers, 83/83 valid goals;
+- medical full: 651 helpers, 656/656 valid goals;
+- disabled step-contract grouping still changes only the proof plan, not the
+  normalized or pretty reference IR views.
+
+The observed dependency graph is acceptable when every arrow from Why3 points
+toward translation utilities or the completed `Proof_plan`, and no generated
+term feeds back into domain planning.

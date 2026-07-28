@@ -16,11 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Public facade of the Why3 backend compiler.
+(** Public facade of the Why3 proof-plan translator.
 
-    This module exposes only the entry points needed by the proof pipeline,
-    renderer, and proof runner. Node-local construction details live in focused
-    [Why_compile_*] modules and are intentionally kept out of this interface. *)
+    This module exposes only the entry point needed by the proof pipeline.
+    Node-local WhyML construction details remain private and may not alter the
+    completed {!Proof_plan.t}. *)
 
 type compiled_obligation = {
   generated_symbol : string;
@@ -38,8 +38,6 @@ type compilation = {
 }
 
 val compile_program_ast :
-  ?group_why3_product_steps:bool ->
-  nodes:Core_syntax.history_free Ir.node_ir list ->
-  step_projections:Step_contract_projection.t list ->
+  proof_plans:Proof_plan.t list ->
   unit ->
   compilation

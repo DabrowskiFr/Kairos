@@ -16,25 +16,10 @@ open Why_compile_expr
 open Why_compile_ptree_helpers
 
 type t = {
-  module_name : string;
-  imports : Ptree.decl list;
-  common_import : Ptree.decl;
-  inputs : Ptree.binder list;
-  formula_imports : Core_syntax.history_free Ir.summary_formula list -> Ptree.decl list;
-  post_table : (Ptree.term, string * Ptree.term) Hashtbl.t;
-  mutable post_modules_rev : (Ptree.ident * Ptree.decl list) list;
+  entries :
+    (int, string * Ptree.term * Why_compile_expr.used_inputs) Hashtbl.t;
+  modules : (Ptree.ident * Ptree.decl list) list;
 }
-
-let create ~module_name ~imports ~common_import ~inputs ~formula_imports =
-  {
-    module_name;
-    imports;
-    common_import;
-    inputs;
-    formula_imports;
-    post_table = Hashtbl.create 32;
-    post_modules_rev = [];
-  }
 
 let predicate_decl_and_call ~inputs ~used_inputs ~name terms =
   let body = term_and_list terms in
@@ -62,29 +47,52 @@ let predicate_decl_and_call ~inputs ~used_inputs ~name terms =
   in
   (decl, mk_term (Tidapp (qid1 name, args)))
 
-let shared_post_call state ~used_inputs ~formulas terms =
-  let key = term_and_list terms in
-  match Hashtbl.find_opt state.post_table key with
-  | Some (module_name, call) -> (import_module module_name, call)
-  | None ->
-      let index = Hashtbl.length state.post_table + 1 in
-      let module_name =
-        Printf.sprintf "%s__Post_%03d" state.module_name index
-      in
-      let predicate_name =
-        Printf.sprintf "shared_post_bundle_%03d" index
-      in
-      let decl, call =
-        predicate_decl_and_call ~inputs:state.inputs ~used_inputs
-          ~name:predicate_name terms
-      in
-      Hashtbl.add state.post_table key (module_name, call);
-      state.post_modules_rev <-
-        ( ident module_name,
-          state.imports @ [ state.common_import ]
-          @ state.formula_imports formulas
-          @ [ decl ] )
-        :: state.post_modules_rev;
-      (import_module module_name, call)
+let create ~module_name ~imports ~common_import ~env ~inputs
+    ~formula_imports ~compile_conditions
+    (shared_postconditions : Proof_plan.shared_postcondition list) =
+  let entries = Hashtbl.create (List.length shared_postconditions) in
+  let modules =
+    List.map
+      (fun (shared : Proof_plan.shared_postcondition) ->
+        if Hashtbl.mem entries shared.id then
+          invalid_arg
+            (Printf.sprintf
+               "Why_compile_bundles.create: duplicate shared \
+                postcondition id %d"
+               shared.id);
+        let terms, used_inputs =
+          collect_used_inputs env (fun env ->
+              compile_conditions env shared.conditions)
+        in
+        let shared_module_name =
+          Printf.sprintf "%s__Post_%03d" module_name shared.id
+        in
+        let predicate_name =
+          Printf.sprintf "shared_post_bundle_%03d" shared.id
+        in
+        let declaration, call =
+          predicate_decl_and_call ~inputs ~used_inputs
+            ~name:predicate_name terms
+        in
+        Hashtbl.add entries shared.id
+          (shared_module_name, call, used_inputs);
+        ( ident shared_module_name,
+          imports @ [ common_import ]
+          @ formula_imports
+              (Proof_plan.formulas_of_conditions shared.conditions)
+          @ [ declaration ] ))
+      shared_postconditions
+  in
+  { entries; modules }
 
-let shared_post_modules state = List.rev state.post_modules_rev
+let shared_postcondition_call state id =
+  match Hashtbl.find_opt state.entries id with
+  | Some (module_name, call, used_inputs) ->
+      (import_module module_name, call, used_inputs)
+  | None ->
+      invalid_arg
+        (Printf.sprintf
+           "Why_compile_bundles.shared_postcondition_call: unknown id %d"
+           id)
+
+let shared_post_modules state = state.modules

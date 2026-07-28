@@ -63,7 +63,8 @@ let optimization_meta (proof_optimizations : Pipeline_config.proof_optimizations
           [
             ( "group_public_non_w_guarantees",
               bool_s opts.verification.group_public_non_w_guarantees );
-            ("group_why3_product_steps", bool_s opts.why3.group_product_steps);
+            ( "group_step_contracts",
+              bool_s opts.verification.group_step_contracts );
           ] );
       ]
 

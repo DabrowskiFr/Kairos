@@ -125,17 +125,6 @@ let term_var (env : env) (x : ident) : Ptree.term_desc =
 let term_of_var (env : env) (name : ident) : Ptree.term =
   mk_term (term_var env name)
 
-let uniq_terms (terms : Ptree.term list) : Ptree.term list =
-  let seen = Hashtbl.create (List.length terms) in
-  List.filter
-    (fun term ->
-      if Hashtbl.mem seen term then false
-      else begin
-        Hashtbl.add seen term ();
-        true
-      end)
-    terms
-
 let negate_expr (e : Ptree.expr) : Ptree.expr = mk_expr (Enot e)
 
 let rec compile_expr (env : env) (e : expr) : Ptree.expr =

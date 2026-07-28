@@ -78,9 +78,6 @@ val is_rec_var : env -> Core_syntax.ident -> bool
 (** [term_of_var env name] builds the term for variable [name]. *)
 val term_of_var : env -> Core_syntax.ident -> Why3.Ptree.term
 
-(** Removes structurally duplicate terms while preserving their order. *)
-val uniq_terms : Why3.Ptree.term list -> Why3.Ptree.term list
-
 (** [compile_expr env e] compiles an immediate Kairos expression to a Why3
     expression. Local and output variables are accessed through the [vars]
     record; inputs are direct parameters. *)

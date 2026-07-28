@@ -33,8 +33,7 @@ type ast_flow = {
   reference_nodes : Orchestration.reference_node list;
   proof_instrumentation : Core_syntax.historical Ir.node_ir list;
   instrumentation : Core_syntax.history_free Ir.node_ir list;
-  proof_backend_nodes : Core_syntax.history_free Ir.node_ir list;
-  step_projections : Step_contract_projection.t list;
+  proof_plans : Proof_plan.t list;
 }
 
 type flow_infos = {

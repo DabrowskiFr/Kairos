@@ -9,8 +9,6 @@
   why_compile_logic
   why_product_step_names
   why_compile_bundles
-  why_compile_product_group_terms
-  why_compile_product_groups
   why_compile_product_specs
   why_compile_product_helpers
   why_compile_modules

@@ -23,7 +23,7 @@ open Runtime_metrics_types
 let frontend_parse_s = ref 0.0
 let snapshot_build_s = ref 0.0
 let contract_partition_s = ref 0.0
-let step_projection_s = ref 0.0
+let proof_planning_s = ref 0.0
 let automata_generation_s = ref 0.0
 let spot_s = ref 0.0
 let spot_calls = ref 0
@@ -66,7 +66,7 @@ let reset () =
   frontend_parse_s := 0.0;
   snapshot_build_s := 0.0;
   contract_partition_s := 0.0;
-  step_projection_s := 0.0;
+  proof_planning_s := 0.0;
   automata_generation_s := 0.0;
   spot_s := 0.0;
   spot_calls := 0;
@@ -110,7 +110,7 @@ let snapshot () : snapshot =
     frontend_parse_s = !frontend_parse_s;
     snapshot_build_s = !snapshot_build_s;
     contract_partition_s = !contract_partition_s;
-    step_projection_s = !step_projection_s;
+    proof_planning_s = !proof_planning_s;
     automata_generation_s = !automata_generation_s;
     spot_s = !spot_s;
     spot_calls = !spot_calls;
@@ -163,8 +163,8 @@ let diff ~before ~(after_ : snapshot) : snapshot =
       max 0.0 (after_.snapshot_build_s -. before.snapshot_build_s);
     contract_partition_s =
       max 0.0 (after_.contract_partition_s -. before.contract_partition_s);
-    step_projection_s =
-      max 0.0 (after_.step_projection_s -. before.step_projection_s);
+    proof_planning_s =
+      max 0.0 (after_.proof_planning_s -. before.proof_planning_s);
     automata_generation_s =
       max 0.0 (after_.automata_generation_s -. before.automata_generation_s);
     spot_s = max 0.0 (after_.spot_s -. before.spot_s);
@@ -249,8 +249,8 @@ let record_snapshot_build ~elapsed_s =
 let record_contract_partition ~elapsed_s =
   contract_partition_s := !contract_partition_s +. max 0.0 elapsed_s
 
-let record_step_projection ~elapsed_s =
-  step_projection_s := !step_projection_s +. max 0.0 elapsed_s
+let record_proof_planning ~elapsed_s =
+  proof_planning_s := !proof_planning_s +. max 0.0 elapsed_s
 
 let record_automata_generation ~elapsed_s =
   automata_generation_s := !automata_generation_s +. max 0.0 elapsed_s

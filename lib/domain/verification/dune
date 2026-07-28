@@ -32,6 +32,7 @@
   automata_preparation
   temporal_lower
   step_contract_projection
+  proof_plan
   formula_sharing
   orchestration)
  (private_modules

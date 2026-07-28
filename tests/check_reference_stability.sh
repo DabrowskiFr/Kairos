@@ -31,7 +31,7 @@ compare_artifact() {
   local label="$3"
 
   if ! diff -u "$left" "$right" > "$tmpdir/$label.diff"; then
-    echo "Reference output changed under backend-only options: $label" >&2
+    echo "Reference output changed under proof-planning/runtime options: $label" >&2
     cat "$tmpdir/$label.diff" >&2
     exit 1
   fi
@@ -49,14 +49,14 @@ compare_variant() {
 
 dump_reference_view "$tmpdir/default"
 
-dump_reference_view "$tmpdir/backend-disabled" \
-  --no-why3-product-step-grouping
+dump_reference_view "$tmpdir/planning-disabled" \
+  --no-step-contract-grouping
 
 dump_reference_view "$tmpdir/backend-scheduling" \
   --proof-jobs=4 \
   --timeout-s=1
 
-compare_variant "backend-disabled"
+compare_variant "planning-disabled"
 compare_variant "backend-scheduling"
 
-echo "[reference-stability] OK: backend-only options do not change reference views"
+echo "[reference-stability] OK: planning/runtime options do not change reference views"

@@ -275,17 +275,55 @@ let build_snapshot_from_supplied_automata
         let p_proof_instrumentation = instrumented_ir.proof_nodes in
         let ir_program = instrumented_ir.backend_program in
         let p_instrumentation = ir_program.nodes in
-        let proof_backend_nodes =
-          Runtime_ir_merge.merge_by_source ~source_model:p_model
-            ~reference_nodes
+        let t_proof_planning = Unix.gettimeofday () in
+        if
+          List.length reference_nodes
+          <> List.length p_instrumentation
+        then
+          invalid_arg
+            "Pipeline_build: reference-node and lowered-IR counts differ";
+        let partition_inputs =
+          List.map
+            (fun node ->
+              let reference_name =
+                node.Ir.semantics.sem_nname
+              in
+              let reference =
+                reference_nodes
+                |> List.find_opt
+                     (fun
+                       (reference : Orchestration.reference_node)
+                     ->
+                       reference.reference_model.node_name
+                       = reference_name)
+                |> function
+                | Some reference -> reference
+                | None ->
+                    invalid_arg
+                      (Printf.sprintf
+                         "Pipeline_build: missing source provenance for \
+                          reference IR node %s"
+                         reference_name)
+              in
+              ({
+                 Proof_plan.source_node_name =
+                   reference.source_node_name;
+                 node;
+               }
+                : Proof_plan.partition_input))
             p_instrumentation
         in
-        let t_step_projection = Unix.gettimeofday () in
-        let step_projections =
-          List.map Step_contract_projection.of_ir_node proof_backend_nodes
+        let proof_plans =
+          Proof_plan.build_program
+            ~policy:
+              {
+                group_safe_step_contracts =
+                  proof_optimizations.verification.group_step_contracts;
+              }
+            ~source_model:p_model ~partition_inputs
         in
-        Runtime_metrics.record_step_projection
-          ~elapsed_s:(Unix.gettimeofday () -. t_step_projection);
+        Runtime_metrics.record_proof_planning
+          ~elapsed_s:(Unix.gettimeofday () -. t_proof_planning);
         let summaries_info : Flow_info.summaries_info = { warnings = [] }
         in
         let instrumentation_info =
@@ -312,8 +350,7 @@ let build_snapshot_from_supplied_automata
             reference_nodes;
             proof_instrumentation = p_proof_instrumentation;
             instrumentation = p_instrumentation;
-            proof_backend_nodes;
-            step_projections;
+            proof_plans;
           }
         in
         let infos : Runtime_snapshot.flow_infos =

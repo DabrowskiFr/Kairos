@@ -33,12 +33,9 @@ let proof_optimizations_of_args args =
         group_public_non_w_guarantees =
           base.verification.group_public_non_w_guarantees
           && not args.no_proof_grouping;
-      };
-    why3 =
-      {
-        Pipeline.group_product_steps =
-          base.why3.group_product_steps
-          && not args.no_why3_product_step_grouping;
+        group_step_contracts =
+          base.verification.group_step_contracts
+          && not args.no_step_contract_grouping;
       };
   }
 

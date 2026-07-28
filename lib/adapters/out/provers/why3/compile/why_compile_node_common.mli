@@ -30,4 +30,7 @@ type t = {
   common_decls : Why3.Ptree.decl list;
 }
 
-val prepare_ir_node : Core_syntax.history_free Ir.node_ir -> t
+val prepare :
+  semantics:Ir.node_signature ->
+  temporal_layout:Ir.temporal_layout ->
+  t

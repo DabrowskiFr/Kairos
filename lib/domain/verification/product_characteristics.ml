@@ -33,24 +33,12 @@ type t = {
   by_state : (string, entry) Hashtbl.t;
 }
 
-let build_cache_limit = 64
-let build_cache : (string, t) Hashtbl.t = Hashtbl.create 16
-
 let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
 let product_state_key (st : Abs.product_state) =
   Printf.sprintf "%s/a%d/g%d" st.prog_state st.assume_state_index
     st.guarantee_state_index
-
-let formula_raw_key (f : Core_syntax.historical Core_syntax.hexpr) : string =
-  Core_fo_simplifier.key_of_hexpr f
-
-let guard_expr_key = function
-  | None -> "true"
-  | Some guard ->
-      guard |> hexpr_of_expr |> Core_syntax.historical_of_history_free
-      |> formula_raw_key
 
 let rec assigned_vars_of_stmt (stmt : Core_syntax.stmt) : StringSet.t =
   match stmt.stmt with
@@ -76,71 +64,6 @@ and assigned_vars_of_stmts (stmts : Core_syntax.stmt list) : StringSet.t =
     (fun assigned stmt ->
       StringSet.union assigned (assigned_vars_of_stmt stmt))
     StringSet.empty stmts
-
-let transition_key (t : Abs.transition) =
-  let body_key = string_of_int (Hashtbl.hash t.body_stmts) in
-  String.concat "|"
-    [ t.src_state; t.dst_state; guard_expr_key t.guard_expr; body_key ]
-
-let build_cache_key (node : Core_syntax.historical Abs.node_ir) : string =
-  (* The characteristic analysis reads only the node signature, input names,
-     invariants, product identity, program guards, and safe/unsafe product
-     cases. Generated requires/ensures are deliberately absent so Pre and Post
-     can reuse the same characteristics after earlier enrichment passes. *)
-  let input_names =
-    node.semantics.sem_inputs
-    |> List.map (fun (v : vdecl) -> v.vname)
-    |> List.sort_uniq String.compare
-    |> String.concat ";"
-  in
-  let state_invariants =
-    node.source_info.state_invariants
-    |> List.map (fun (inv : Abs.state_invariant) ->
-           String.concat ":" [ inv.state; formula_raw_key inv.formula ])
-    |> List.sort_uniq String.compare
-    |> String.concat ";"
-  in
-  let case_state_key dst guard =
-    product_state_key dst ^ ":" ^ formula_raw_key guard
-  in
-  let summaries =
-    node.summaries
-    |> List.map (fun (pc : Core_syntax.historical Abs.product_step_summary) ->
-           let safe_cases =
-             pc.safe_cases
-             |> List.map (fun (case : Core_syntax.historical Abs.safe_product_case) ->
-                    case_state_key case.product_dst
-                      case.admissible_guard.logic)
-             |> List.sort_uniq String.compare
-             |> String.concat ","
-           in
-           let unsafe_cases =
-             pc.unsafe_cases
-             |> List.map (fun (case : Core_syntax.historical Abs.unsafe_product_case) ->
-                    case_state_key case.product_dst
-                      case.excluded_guard.logic)
-             |> List.sort_uniq String.compare
-             |> String.concat ","
-           in
-           String.concat "#"
-             [
-               product_state_key pc.identity.product_src;
-               transition_key pc.identity.program_step;
-               formula_raw_key pc.identity.assume_guard;
-               safe_cases;
-               unsafe_cases;
-             ])
-    |> List.sort_uniq String.compare
-    |> String.concat "\n"
-  in
-  String.concat "\n"
-    [
-      node.semantics.sem_nname;
-      node.semantics.sem_init_state;
-      input_names;
-      state_invariants;
-      summaries;
-    ]
 
 let is_htrue (f : Core_syntax.historical Core_syntax.hexpr) : bool =
   match (simplify_fo f).hexpr with HLitBool true -> true | _ -> false
@@ -362,7 +285,7 @@ let build_table entries =
     entries;
   { entries; by_state }
 
-let build_uncached ~(node : Core_syntax.historical Abs.node_ir) : t =
+let build ~(node : Core_syntax.historical Abs.node_ir) : t =
   let is_input = is_input_of_node node in
   let initial_product_state = infer_initial_product_state node in
   let characteristic_states = states_needing_characteristic node in
@@ -401,17 +324,6 @@ let build_uncached ~(node : Core_syntax.historical Abs.node_ir) : t =
     |> List.sort_uniq Stdlib.compare
   in
   build_table entries
-
-let build ~(node : Core_syntax.historical Abs.node_ir) : t =
-  let key = build_cache_key node in
-  match Hashtbl.find_opt build_cache key with
-  | Some cached -> cached
-  | None ->
-      let built = build_uncached ~node in
-      if Hashtbl.length build_cache >= build_cache_limit then
-        Hashtbl.clear build_cache;
-      Hashtbl.replace build_cache key built;
-      built
 
 let entry_of_product_state (t : t) (st : Abs.product_state) : entry option =
   Hashtbl.find_opt t.by_state (product_state_key st)
