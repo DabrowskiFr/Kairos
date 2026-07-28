@@ -16,9 +16,9 @@ digraph {
     10 [id=10,shape=rect, label=<<font point-size="34">Concrete engine</font><br /><font point-size="19">[Container: OCaml / kairos-engine-runtime]</font><br /><br /><font point-size="24">Public Kairos_engine.Api,<br />private Engine_flow, canonical<br />Pipeline_types contract,<br />focused runtime services, and<br />Kairos-specific output<br />coordination.</font>>, style=filled, color="#7d3a06", fillcolor="#b45309", fontcolor="#ffffff"]
     19 [id=19,shape=rect, label=<<font point-size="34">Kairos frontend</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Parses the surface language<br />and elaborates it to the core<br />verification model.</font>>, style=filled, color="#5628a5", fillcolor="#7c3aed", fontcolor="#ffffff"]
     21 [id=21,shape=rect, label=<<font point-size="34">Reference<br />verification kernel</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</font>>, style=filled, color="#0f4624", fillcolor="#166534", fontcolor="#ffffff"]
-    26 [id=26,shape=rect, label=<<font point-size="34">Proof-kernel export</font><br /><font point-size="19">[Container: OCaml / JSON]</font><br /><br /><font point-size="24">Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
-    31 [id=31,shape=rect, label=<<font point-size="34">Artifact renderers</font><br /><font point-size="19">[Container: OCaml / DOT / JSON]</font><br /><br /><font point-size="24">Renders graphs, text views,<br />cost reports, and diagnostic<br />artifacts.</font>>, style=filled, color="#850c2a", fillcolor="#be123c", fontcolor="#ffffff"]
-    32 [id=32,shape=rect, label=<<font point-size="34">External tool<br />adapters</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Narrow Automata_exchange and<br />Proof_backend_contract<br />boundaries for Spot, Why3, Z3,<br />and timing services.</font>>, style=filled, color="#4a4f59", fillcolor="#6b7280", fontcolor="#ffffff"]
+    25 [id=25,shape=rect, label=<<font point-size="34">Proof-kernel export</font><br /><font point-size="19">[Container: OCaml / JSON]</font><br /><br /><font point-size="24">Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</font>>, style=filled, color="#043e5d", fillcolor="#075985", fontcolor="#ffffff"]
+    30 [id=30,shape=rect, label=<<font point-size="34">Artifact renderers</font><br /><font point-size="19">[Container: OCaml / DOT / JSON]</font><br /><br /><font point-size="24">Renders graphs, text views,<br />cost reports, and diagnostic<br />artifacts.</font>>, style=filled, color="#850c2a", fillcolor="#be123c", fontcolor="#ffffff"]
+    31 [id=31,shape=rect, label=<<font point-size="34">External tool<br />adapters</font><br /><font point-size="19">[Container: OCaml]</font><br /><br /><font point-size="24">Narrow Automata_exchange and<br />Proof_backend_contract<br />boundaries for Spot, Why3, Z3,<br />and timing services.</font>>, style=filled, color="#4a4f59", fillcolor="#6b7280", fontcolor="#ffffff"]
     8 [id=8,shape=rect, label=<<font point-size="34">CLI</font><br /><font point-size="19">[Container: OCaml / Cmdliner]</font><br /><br /><font point-size="24">Command-line entry point for<br />checking, dumping, and proving<br />Kairos programs.</font>>, style=filled, color="#5628a5", fillcolor="#7c3aed", fontcolor="#ffffff"]
   }
 
@@ -26,14 +26,14 @@ digraph {
   3 [id=3,shape=rect, label=<<font point-size="34">Spot</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External tool used to<br />construct temporal-property<br />automata.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
   6 [id=6,shape=rect, label=<<font point-size="34">Graphviz</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External renderer for graph<br />artifacts.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
 
-  1 -> 8 [id=33, label=<<font point-size="24">1. requests diagnostic<br />dump</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  8 -> 10 [id=36, label=<<font point-size="24">2. invokes public API and<br />canonical contract</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  10 -> 19 [id=38, label=<<font point-size="24">3. parses and elaborates<br />through Engine_flow</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  10 -> 32 [id=45, label=<<font point-size="24">4. produces supplied<br />automata through Spot<br />adapter</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  32 -> 3 [id=56, label=<<font point-size="24">5. builds property<br />automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  10 -> 21 [id=41, label=<<font point-size="24">6. builds reference<br />product</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  10 -> 26 [id=42, label=<<font point-size="24">7. builds proof-kernel<br />diagnostic view</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  10 -> 31 [id=43, label=<<font point-size="24">8. renders text/graph<br />outputs</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  10 -> 6 [id=46, label=<<font point-size="24">9. uses<br />Kairos_engine.Graphviz_render<br />when needed</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  1 -> 8 [id=32, label=<<font point-size="24">1. requests diagnostic<br />dump</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  8 -> 10 [id=35, label=<<font point-size="24">2. invokes public API and<br />canonical contract</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  10 -> 19 [id=37, label=<<font point-size="24">3. parses and elaborates<br />through Engine_flow</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  10 -> 31 [id=44, label=<<font point-size="24">4. produces supplied<br />automata through Spot<br />adapter</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  31 -> 3 [id=55, label=<<font point-size="24">5. builds property<br />automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  10 -> 21 [id=40, label=<<font point-size="24">6. builds reference<br />product</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  10 -> 25 [id=41, label=<<font point-size="24">7. builds proof-kernel<br />diagnostic view</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  10 -> 30 [id=42, label=<<font point-size="24">8. renders text/graph<br />outputs</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  10 -> 6 [id=45, label=<<font point-size="24">9. uses<br />Kairos_engine.Graphviz_render<br />when needed</font>>, style="dashed", color="#444444", fontcolor="#444444"]
 
 }

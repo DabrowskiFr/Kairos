@@ -30,9 +30,8 @@
 | `pre` | Adds source-side facts and initial obligations | Reference |
 | `product_reachability` | Adds reachability preservation obligations, not pruning | Reference extension |
 | `post` | Adds destination/progression obligations | Reference |
-| `temporal_lower` | Typed boundary from historical IR to history-free IR; makes temporal history explicit | Reference normalization |
+| `temporal_lower` | Typed boundary from historical IR to history-free IR; makes temporal history explicit and interns location-free results | Reference normalization |
 | `formula_canonical`, `contract_formula_index` | Structural equivalence construction, physical interning, and occurrence lookup by `oid` | Obligation-preserving representation |
-| `formula_sharing` | Final physical interning | Obligation-preserving optimization |
 | `orchestration` | Names the reference pipeline order | Reference entry point |
 
 ## Runtime Internals

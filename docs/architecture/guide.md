@@ -95,8 +95,7 @@ application/composition intermédiaire.
 | `Pre` | Reference | Ajoute les hypotheses necessaires aux pas produit |
 | `Product_reachability` | Reference extension | Ajoute des obligations d'inatteignabilite/preservation, ne doit pas etre vu comme pruning |
 | `Post` | Reference | Ajoute les obligations de sortie et de progression |
-| `Temporal_lower` | Reference normalization | Frontière typée de l'IR historique vers l'IR sans historique ; rend explicites `pre/pre_k` via le layout temporel |
-| `Formula_sharing` | Obligation-preserving optimization | Ne doit que partager physiquement des formules egales |
+| `Temporal_lower` | Reference normalization | Frontière typée de l'IR historique vers l'IR sans historique ; rend explicites `pre/pre_k` et interne ses résultats sans localisation |
 
 Le backend Why3 ne consomme que l'IR sans historique : il ne possède aucun
 cas de secours pour `HPreK`. L'index contractuel utilise l'égalité structurelle

@@ -90,11 +90,6 @@ digraph KairosCorrectionPath {
     penwidth=2
   ];
 
-  sharing [
-    label="Formula_sharing\nobligation-preserving optimization\nnot semantic",
-    fillcolor="#fef3c7"
-  ];
-
   backend [
     label="Why3 backend\nslicing, grouping, printing, solver calls\nnot the source of truth",
     fillcolor="#fecdd3"
@@ -118,8 +113,7 @@ digraph KairosCorrectionPath {
   obligations -> kernel_export [style=dashed, label="derived exchange view"];
   kernel_export -> rocq [style=dashed, label="optional sync format"];
 
-  temporal -> sharing [style=dashed, label="may share identical formulas"];
-  sharing -> backend [style=dashed];
+  temporal -> backend [style=dashed, label="lowered, interned formulas"];
   backend -> external [style=dashed];
   external -> automata [style=dashed, label="Spot may produce them"];
 }

@@ -65,15 +65,9 @@ type instrumented_ir_pass =
   | Product_reachability_pass
   | Post_pass
   | Temporal_lower_pass
-  | Formula_sharing_pass
 
-(** The proof export is taken before temporal lowering; the backend keeps the
-    fully lowered program. *)
-type instrumented_ir = {
-  proof_nodes : Core_syntax.historical Ir.node_ir list;
-  backend_program : Ir.program_ir;
-}
-
+(** Pass observers for historical enrichment and the typed temporal-lowering
+    boundary. *)
 type pass_runner = {
   run_historical :
     instrumented_ir_pass ->
@@ -87,19 +81,12 @@ type pass_runner = {
     Core_syntax.history_free Ir.node_ir list) ->
     Core_syntax.historical Ir.node_ir list ->
     Core_syntax.history_free Ir.node_ir list;
-  run_history_free :
-    instrumented_ir_pass ->
-    (Core_syntax.history_free Ir.node_ir list ->
-    Core_syntax.history_free Ir.node_ir list) ->
-    Core_syntax.history_free Ir.node_ir list ->
-    Core_syntax.history_free Ir.node_ir list;
 }
 
 let direct_pass_runner =
   {
     run_historical = (fun _ pass nodes -> pass nodes);
     run_lowering = (fun _ pass nodes -> pass nodes);
-    run_history_free = (fun _ pass nodes -> pass nodes);
   }
 
 (** [build_reference_product] helper value. *)
@@ -145,7 +132,7 @@ let build_instrumented_ir
     ?observe_fact_family
     ?(pass_runner = direct_pass_runner)
     (initial_nodes : Core_syntax.historical Ir.node_ir list) :
-    instrumented_ir =
+    Ir.program_ir =
   let product_characteristics =
     initial_nodes
     |> List.map (fun (node : Core_syntax.historical Ir.node_ir) ->
@@ -165,10 +152,5 @@ let build_instrumented_ir
   let backend_nodes =
     pre_nodes
     |> pass_runner.run_lowering Temporal_lower_pass Temporal_lower.run_program
-    |> pass_runner.run_history_free Formula_sharing_pass
-         Formula_sharing.run_program
   in
-  {
-    proof_nodes = pre_nodes;
-    backend_program = ({ nodes = backend_nodes } : Ir.program_ir);
-  }
+  ({ nodes = backend_nodes } : Ir.program_ir)

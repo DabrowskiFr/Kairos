@@ -66,9 +66,9 @@ Execution de l'outil:
 | 8 | `lib/adapters/out/runtime/orchestration/automata/automata_generation.ml` | `run` | Transforme assumptions/guarantees en automates via un builder injecte |
 | 9 | `packages/spot/spot_automaton_builder.ml` | `build` | Paquet autonome appelant Spot sur le contrat neutre |
 | 10 | `lib/domain/verification/orchestration.ml` | `build_reference_product` | Point nomme du produit de reference, apres validation de forme des automates |
-| 11 | `lib/domain/verification/from_model.ml` | `of_model_program` | Produit les summaries depuis programme + automates valides pour le produit |
-| 12 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Conserve l'IR relationnel apres `Post`, puis produit l'IR backend via `Temporal_lower` et `Formula_sharing` |
-| 13 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles/IR et les projections de contrats reutilisees par la preuve |
+| 11 | `lib/domain/verification/from_model.ml` | `analyze_model_program` | Construit directement, pour chaque noeud, le modele, l'analyse produit et l'IR avec ses summaries |
+| 12 | `lib/domain/verification/orchestration.ml` | `build_instrumented_ir` | Enchaine les passes historiques, puis retourne directement l'IR abaisse et interne par `Temporal_lower` |
+| 13 | `lib/adapters/out/runtime/orchestration/core/runtime_snapshot.ml` | `pipeline_snapshot` | Contient les ASTs/modeles, l'IR abaisse et les plans de preuve reutilises par les sorties |
 | 14 | `lib/engine/pipeline_outputs.ml` | `build_outputs` | En mode `--prove`, evite les dumps lourds et lance le proof runner |
 | 15 | `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | `run` | Soumet le WhyML et attribue les resultats neutres |
 | 16 | `lib/adapters/out/provers/why3/*` | `Why_compile`, `Why_pipeline` | Projection de l'IR Kairos vers WhyML |
@@ -102,9 +102,9 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | Automata tool request/response | `Automata_exchange.request/response` | `kairos_runtime_automata` / Spot | Spot adapter / runtime conversion |
 | Runtime model | `Verification_model.program_model` | `Contract_partition` | Automata/product |
 | Automata | `Automaton_types.automata_spec` | `kairos_runtime_automata` + Spot adapter | `From_model`, graph renderers |
-| Product summaries | `Ir.node_ir list` | `From_model.of_model_program` | `Pre/Post/...`, renderers |
-| Relational proof IR | `Ir.node_ir list` | `Orchestration.build_instrumented_ir` apres `Post` | proof export |
-| Lowered backend IR | `Ir.program_ir` | `Orchestration.build_instrumented_ir` apres `Temporal_lower` | fusion backend dans `Pipeline_build` |
+| Product summaries | `Ir.node_ir list` | `From_model.analyze_model_program` | `Pre/Post/...`, renderers |
+| IR historique transitoire | `Ir.node_ir list` | `Orchestration.build_instrumented_ir` apres `Post` | `Temporal_lower` uniquement, valeur non retenue |
+| Lowered backend IR | `Ir.program_ir` | `Orchestration.build_instrumented_ir` apres `Temporal_lower` | `Pipeline_build`, diagnostics et planification de preuve |
 | Plan de preuve | `Proof_plan.t` | `lib/domain/verification`, construit une fois par `Pipeline_build` depuis les contrats de pas | compilateur Why3, attribution des buts |
 | Runtime snapshot | `Runtime_snapshot.pipeline_snapshot` | `Pipeline_build` dans `kairos_runtime_core` | `Engine_flow`, proof runner, diagnostics |
 | Kernel IR | `Proof_kernel_types.node_ir` | `Proof_kernel_pass` | diagnostics, projection Rocq possible apres adequation, cost report |
@@ -177,9 +177,8 @@ Ce chemin est fait pour inspection. Il n'est pas lance par defaut dans
 | `post.ml` | Ajoute les obligations de sortie/progression |
 | `formula_canonical.ml` | Cle structurelle et internement generiques des formules |
 | `contract_formula_index.ml` | Construit les classes par égalité structurelle puis résout les occurrences indexées par `oid` |
-| `temporal_lower.ml` | Frontière typée : abaisse l'IR historique (`pre/pre_k`) vers l'IR sans historique |
+| `temporal_lower.ml` | Frontière typée : abaisse l'IR historique (`pre/pre_k`) et interne les résultats sans localisation |
 | `kernel_clause_projection.ml/mli` | Projection neutre des `KernelClause` Rocq et clauses classifiees |
-| `formula_sharing.ml` | Internement physique final, pas semantique |
 | `orchestration.ml` | Ordre des passes et point `build_reference_product` |
 
 ### Export Proof-Kernel / Rocq Futur

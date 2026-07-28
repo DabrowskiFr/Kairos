@@ -62,6 +62,12 @@ let run_node (node : Core_syntax.historical Abs.node_ir) :
   let temporal_bindings = Ir_formula.temporal_bindings_of_layout temporal_layout in
   let lowered_by_input = Hashtbl.create 512 in
   let lowered_pool = Formula_canonical.create_pool () in
+  let intern_lowered
+      (formula : Core_syntax.history_free Core_syntax.hexpr) =
+    match formula.loc with
+    | Some _ -> formula
+    | None -> Formula_canonical.intern lowered_pool formula
+  in
   let lower_logic
       (input : Core_syntax.historical Core_syntax.hexpr) =
     let compute () =
@@ -78,18 +84,13 @@ let run_node (node : Core_syntax.historical Abs.node_ir) :
                (Pretty.string_of_fo input))
     in
     match input.loc with
-      | Some _ -> compute ()
+      | Some _ -> compute () |> intern_lowered
       | None ->
           let input_key = Formula_canonical.key input in
           match Hashtbl.find_opt lowered_by_input input_key with
           | Some logic -> logic
           | None ->
-              let lowered = compute () in
-              let logic =
-                match lowered.loc with
-                | Some _ -> lowered
-                | None -> Formula_canonical.intern lowered_pool lowered
-              in
+              let logic = compute () |> intern_lowered in
               Hashtbl.add lowered_by_input input_key logic;
               logic
   in

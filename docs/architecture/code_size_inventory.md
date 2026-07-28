@@ -446,14 +446,12 @@ partition, puis le plan par nœud source ; génération Why et attribution des
 buts consomment exactement ce plan, sans reconstruire ni comparer les
 formules.
 
-Les mesures séparées confirment où se trouve désormais le coût. Sur light,
-la passe physique terminale `formula_sharing_s` prend 0,4 ms et la
-planification avec index `proof_planning_s` 14,7 ms en médiane sur cinq
-exécutions ; la
-génération Why prend 25,1 ms. Sur full, ces trois mesures valent
-respectivement 47,1 ms, 758,7 ms et 667,4 ms. Le full reste à 656/656 buts
-prouvés en 35,73 s. Le calcul d'identité et de réutilisation n'est donc plus
-un travail du backend Why et sa dépense est visible comme passe générique.
+La passe physique terminale mesurée auparavant (`0,4 ms` sur light,
+`47,1 ms` sur full) a été supprimée après caractérisation. `Temporal_lower`
+interne désormais directement tout résultat abaissé sans localisation, y
+compris lorsqu'une racine localisée se simplifie vers un résultat non
+localisé. Le parcours et la télémétrie séparés n'apportaient donc plus
+d'information ni de partage supplémentaire.
 
 La validation stratégique effectuée après l'indexation directe par `oid`
 donne les résultats suivants :

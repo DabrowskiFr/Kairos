@@ -123,8 +123,7 @@ The current implementation roughly has the following stages:
   [Proof_kernel_generated_clauses], [Proof_kernel_clause_lowering],
   [Proof_kernel_step_summaries], [Proof_kernel_pass];
 - proof/IR shaping passes:
-  [Pre], [Product_reachability], [Post], [Temporal_lower],
-  [Formula_sharing];
+  [Pre], [Product_reachability], [Post], [Temporal_lower];
 - runtime/backend orchestration:
   [Pipeline_build] and [Runtime_snapshot] in [kairos_runtime_core],
   external automata production in [kairos_runtime_automata], [Proof_runner]
@@ -201,16 +200,14 @@ The current pass classification is:
   product-characteristic preservation facts.
 - [Temporal_lower] is {b backend}. It computes the [temporal_layout] and
   rewrites [pre]/[pre_k] occurrences through explicit temporal bindings for
-  Why3. The runtime snapshot retains the relational output of [Post]
+  Why3. It also physically interns every location-free lowered result at this
+  typed boundary. The runtime snapshot retains the relational output of [Post]
   separately; proof-kernel export consumes that pre-lowering IR, so
   materialized [__pre_k*] identifiers cannot enter the Rocq-alignment view.
 - [Canonical_obligations] is {b reference}. It names the canonical Stage 1
   clause family and Stage 2 step-contract family before proof export, backend
   grouping, Why3 lowering, diagnostics, or dumps. In particular, unsafe Stage
   2 contracts stay one-per-unsafe-case here.
-- [Formula_sharing] is {b obligation-preserving optimization}. It only replaces
-  structurally equal top-level formulas by shared physical representatives.
-  It must not simplify, add, or remove obligations.
 - [Proof_kernel_export] is {b reference_projection}. It builds a versioned
   exchange/diagnostic view from the relational [Post] output, before
   [Temporal_lower]. It can become a synchronization format only after an

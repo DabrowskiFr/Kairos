@@ -31,7 +31,7 @@
 <text xml:space="preserve" text-anchor="start" x="799.65" y="-430.8" font-family="Arial" font-size="24.00" fill="#ffffff">imperative programs.</text>
 </g>
 <!-- 1&#45;&gt;7 -->
-<g id="34" class="edge">
+<g id="33" class="edge">
 <title>1&#45;&gt;7</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M403.75,-593.43C510.56,-573.42 640.43,-549.1 742.23,-530.02"/>
 <polygon fill="#444444" stroke="#444444" points="742.57,-533.52 751.76,-528.24 741.29,-526.64 742.57,-533.52"/>
@@ -49,7 +49,7 @@
 <text xml:space="preserve" text-anchor="start" x="104.17" y="-297.8" font-family="Arial" font-size="24.00" fill="#ffffff">verification kernel.</text>
 </g>
 <!-- 2&#45;&gt;7 -->
-<g id="63" class="edge">
+<g id="62" class="edge">
 <title>2&#45;&gt;7</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M371.73,-382.26C472.8,-394.21 603.37,-412.6 717.6,-438.1 725.71,-439.91 733.98,-441.89 742.3,-444"/>
 <polygon fill="#444444" stroke="#444444" points="741.24,-447.34 751.8,-446.46 743,-440.57 741.24,-447.34"/>
@@ -96,14 +96,14 @@
 <text xml:space="preserve" text-anchor="start" x="1569" y="-79.8" font-family="Arial" font-size="24.00" fill="#ffffff">artifacts.</text>
 </g>
 <!-- 7&#45;&gt;3 -->
-<g id="57" class="edge">
+<g id="56" class="edge">
 <title>7&#45;&gt;3</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1019.68,-589.6C1047.83,-611.69 1079,-634.08 1109.7,-652.1 1209.62,-710.74 1329.1,-761.05 1426.65,-797.6"/>
 <polygon fill="#444444" stroke="#444444" points="1425.22,-800.8 1435.81,-801.02 1427.66,-794.24 1425.22,-800.8"/>
 <text xml:space="preserve" text-anchor="start" x="1120.95" y="-789.01" font-family="Arial" font-size="24.00" fill="#444444">Builds property automata</text>
 </g>
 <!-- 7&#45;&gt;4 -->
-<g id="59" class="edge">
+<g id="58" class="edge">
 <title>7&#45;&gt;4</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1074.16,-525.71C1178.77,-543.81 1316.01,-567.57 1425.9,-586.59"/>
 <polygon fill="#444444" stroke="#444444" points="1425.18,-590.01 1435.63,-588.27 1426.37,-583.12 1425.18,-590.01"/>
@@ -111,14 +111,14 @@
 <text xml:space="preserve" text-anchor="start" x="1227.45" y="-585.21" font-family="Arial" font-size="24.00" fill="#444444">tasks</text>
 </g>
 <!-- 7&#45;&gt;5 -->
-<g id="61" class="edge">
+<g id="60" class="edge">
 <title>7&#45;&gt;5</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1074.16,-470.49C1179.16,-452.32 1317.03,-428.46 1427.13,-409.4"/>
 <polygon fill="#444444" stroke="#444444" points="1427.62,-412.87 1436.88,-407.71 1426.43,-405.97 1427.62,-412.87"/>
 <text xml:space="preserve" text-anchor="start" x="1109.7" y="-467.6" font-family="Arial" font-size="24.00" fill="#444444">Runs selected SMT checks</text>
 </g>
 <!-- 7&#45;&gt;6 -->
-<g id="47" class="edge">
+<g id="46" class="edge">
 <title>7&#45;&gt;6</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1019.68,-406.6C1047.83,-384.51 1079,-362.12 1109.7,-344.1 1210.5,-284.94 1331.22,-234.26 1429.24,-197.63"/>
 <polygon fill="#444444" stroke="#444444" points="1430.29,-200.97 1438.45,-194.21 1427.86,-194.41 1430.29,-200.97"/>

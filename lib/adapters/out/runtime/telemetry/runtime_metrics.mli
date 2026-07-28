@@ -78,7 +78,6 @@ type snapshot = {
   product_reachability_s : float;
   post_s : float;
   temporal_lower_s : float;
-  formula_sharing_s : float;
   instrumentation_info_s : float;
   output_artifact_s : float;
   output_proof_run_s : float;
@@ -158,7 +157,6 @@ val record_post : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent in the Post IR pass. *)
 
 val record_temporal_lower : elapsed_s:float -> unit
-val record_formula_sharing : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent in the temporal-lowering IR pass. *)
 
 val record_instrumentation_info : elapsed_s:float -> unit

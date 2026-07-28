@@ -13,12 +13,12 @@ graph TB
       style 19 fill:#7c3aed,stroke:#5628a5,color:#ffffff
       21["<div style='font-weight: bold'>Reference verification kernel</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Validates supplied automata<br />normal form, then builds<br />product summaries and<br />reference proof obligations<br />from the core model.</div>"]
       style 21 fill:#166534,stroke:#0f4624,color:#ffffff
-      26["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</div>"]
-      style 26 fill:#075985,stroke:#043e5d,color:#ffffff
-      31["<div style='font-weight: bold'>Artifact renderers</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / DOT / JSON]</div><div style='font-size: 80%; margin-top:10px'>Renders graphs, text views,<br />cost reports, and diagnostic<br />artifacts.</div>"]
-      style 31 fill:#be123c,stroke:#850c2a,color:#ffffff
-      32["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Narrow Automata_exchange and<br />Proof_backend_contract<br />boundaries for Spot, Why3,<br />Z3, and timing services.</div>"]
-      style 32 fill:#6b7280,stroke:#4a4f59,color:#ffffff
+      25["<div style='font-weight: bold'>Proof-kernel export</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / JSON]</div><div style='font-size: 80%; margin-top:10px'>Builds exchange projection<br />data used by diagnostics and<br />possible Rocq synchronization<br />after an adequacy decision.</div>"]
+      style 25 fill:#075985,stroke:#043e5d,color:#ffffff
+      30["<div style='font-weight: bold'>Artifact renderers</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / DOT / JSON]</div><div style='font-size: 80%; margin-top:10px'>Renders graphs, text views,<br />cost reports, and diagnostic<br />artifacts.</div>"]
+      style 30 fill:#be123c,stroke:#850c2a,color:#ffffff
+      31["<div style='font-weight: bold'>External tool adapters</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml]</div><div style='font-size: 80%; margin-top:10px'>Narrow Automata_exchange and<br />Proof_backend_contract<br />boundaries for Spot, Why3,<br />Z3, and timing services.</div>"]
+      style 31 fill:#6b7280,stroke:#4a4f59,color:#ffffff
       8["<div style='font-weight: bold'>CLI</div><div style='font-size: 70%; margin-top: 0px'>[Container: OCaml / Cmdliner]</div><div style='font-size: 80%; margin-top:10px'>Command-line entry point for<br />checking, dumping, and<br />proving Kairos programs.</div>"]
       style 8 fill:#7c3aed,stroke:#5628a5,color:#ffffff
     end
@@ -33,11 +33,11 @@ graph TB
     1-. "<div>1. requests diagnostic dump</div><div style='font-size: 70%'></div>" .->8
     8-. "<div>2. invokes public API and<br />canonical contract</div><div style='font-size: 70%'></div>" .->10
     10-. "<div>3. parses and elaborates<br />through Engine_flow</div><div style='font-size: 70%'></div>" .->19
-    10-. "<div>4. produces supplied automata<br />through Spot adapter</div><div style='font-size: 70%'></div>" .->32
-    32-. "<div>5. builds property automata</div><div style='font-size: 70%'></div>" .->3
+    10-. "<div>4. produces supplied automata<br />through Spot adapter</div><div style='font-size: 70%'></div>" .->31
+    31-. "<div>5. builds property automata</div><div style='font-size: 70%'></div>" .->3
     10-. "<div>6. builds reference product</div><div style='font-size: 70%'></div>" .->21
-    10-. "<div>7. builds proof-kernel<br />diagnostic view</div><div style='font-size: 70%'></div>" .->26
-    10-. "<div>8. renders text/graph outputs</div><div style='font-size: 70%'></div>" .->31
+    10-. "<div>7. builds proof-kernel<br />diagnostic view</div><div style='font-size: 70%'></div>" .->25
+    10-. "<div>8. renders text/graph outputs</div><div style='font-size: 70%'></div>" .->30
     10-. "<div>9. uses<br />Kairos_engine.Graphviz_render<br />when needed</div><div style='font-size: 70%'></div>" .->6
 
   end

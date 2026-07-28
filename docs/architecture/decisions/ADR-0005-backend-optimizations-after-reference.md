@@ -32,8 +32,10 @@ The following are backend-side unless explicitly reclassified:
 - If an optimization removes or adds obligations, it is not backend-only and
   must move into the reference manifest with a proof argument.
 
-## Current Challenge
+## Resolved Domain Case
 
-`Formula_sharing` lives in the domain but is classified as
-obligation-preserving. This is acceptable while it is purely physical sharing;
-if it starts simplifying formulas, its classification must change.
+The former `Formula_sharing` domain pass was purely physical, but duplicated
+the canonical pool already owned by `Temporal_lower`. A focused
+characterization found one residual case: a located root simplified to an
+unlocated result. Interning that result now happens directly at the lowering
+boundary, so the extra traversal and its telemetry were removed.

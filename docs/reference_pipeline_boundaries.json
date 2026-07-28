@@ -105,7 +105,6 @@
     "excluded_stage_names": [
       "surface_elaboration",
       "automata_generation",
-      "formula_sharing",
       "runtime_orchestration",
       "why3_backend"
     ]
@@ -287,7 +286,8 @@
       "allowed_effects": [
         "compute temporal_layout",
         "rewrite summary formulas through temporal bindings",
-        "rewrite product-case guards through temporal bindings"
+        "rewrite product-case guards through temporal bindings",
+        "physically intern structurally equal location-free lowered results"
       ],
       "forbidden_effects": [
         "change product topology",
@@ -374,28 +374,6 @@
       "rocq_alignment_units": [
         "product_summary_generation",
         "step_contract_extraction"
-      ]
-    },
-    {
-      "name": "formula_sharing",
-      "classification": "obligation_preserving_optimization",
-      "paths": [
-        "lib/domain/verification/formula_sharing.ml"
-      ],
-      "rocq_scope": "excluded",
-      "rocq_role": "No semantic role. This pass only reuses physically equal formula representatives for structurally equal top-level formulas.",
-      "rocq_alignment_units": [
-        "step_contract_extraction"
-      ],
-      "allowed_effects": [
-        "replace a formula by a structurally equal representative",
-        "preserve formula metadata shape except for physical identity"
-      ],
-      "forbidden_effects": [
-        "simplify formulas logically",
-        "drop formulas",
-        "introduce or remove obligations",
-        "affect the serialized reference-kernel meaning"
       ]
     },
     {

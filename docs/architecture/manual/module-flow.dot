@@ -90,11 +90,6 @@ digraph KairosModuleFlow {
     penwidth=2
   ];
 
-  sharing [
-    label="Formula_sharing\nobligation-preserving optimization",
-    fillcolor="#fef3c7"
-  ];
-
   snapshot_data [
     label="Runtime_snapshot.ast_flow\nverification_model\nruntime_model\nautomata\nsummaries\ninstrumentation",
     fillcolor="#fed7aa"
@@ -139,10 +134,8 @@ digraph KairosModuleFlow {
   automata -> reference;
   reference -> passes;
   passes -> reachability [style=dashed, label="extension"];
-  passes -> sharing [style=dashed, label="optimization"];
   passes -> snapshot_data;
   reachability -> snapshot_data [style=dashed];
-  sharing -> snapshot_data [style=dashed];
   snapshot_data -> proof_export [label="non-prove diagnostics"];
   snapshot_data -> why3 [label="prove / why dumps"];
   why3 -> external;

@@ -23,13 +23,6 @@ module Vm = Verification_model
 
 let ( let* ) = Result.bind
 
-let rec all_results = function
-  | [] -> Ok []
-  | result :: rest ->
-      let* value = result in
-      let* values = all_results rest in
-      Ok (value :: values)
-
 let convert_state_invariants (node_name : ident) (inputs : vdecl list)
     (invs : Vm.state_invariant list) : Ir.state_invariant list =
   let input_names = Fo_current_input.input_names inputs in
@@ -69,11 +62,6 @@ let of_model_node (n : Vm.node_model) : Core_syntax.historical Ir.node_ir =
     init_invariant_goals = [];
   }
 
-let of_model_program_context (p : Vm.program_model) : Core_syntax.historical Ir.node_ir list = List.map of_model_node p
-
-let source_nodes_by_name (source_program : Vm.program_model) : (ident * Vm.node_model) list =
-  List.map (fun (node : Vm.node_model) -> (node.node_name, node)) source_program
-
 let analysis_context_of_source_node (source_node : Vm.node_model) : Vm.node_model =
   {
     source_node with
@@ -95,18 +83,6 @@ let build_node_analysis
           (Printf.sprintf "Missing automata build for IR node %s" node.node_name)
   in
   Ok (Product_build.analyze_node ~build ~node ~program_transitions:node.steps)
-
-let build_analyses
-    ~(automata : (Core_syntax.ident * automata_spec) list)
-    ~(source_nodes : (ident * Vm.node_model) list) :
-    ((ident * Temporal_automata.node_data) list, string) result =
-  let rec collect acc = function
-    | [] -> Ok (List.rev acc)
-    | (node_name, source_node) :: rest ->
-        let* analysis = build_node_analysis ~automata source_node in
-        collect ((node_name, analysis) :: acc) rest
-  in
-  collect [] source_nodes
 
 let product_state_of_pt (st : PT.product_state) : Ir.product_state =
   {
@@ -203,30 +179,6 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                 }
                  : Core_syntax.historical Ir.product_step_summary))
 
-let with_minimal_summaries ~(analyses : (ident * Temporal_automata.node_data) list)
-    ~(source_nodes : (ident * Vm.node_model) list)
-    (nodes : Core_syntax.historical Ir.node_ir list) : (Core_syntax.historical Ir.node_ir list, string) result =
-  let rec collect acc = function
-    | [] -> Ok (List.rev acc)
-    | (node : Core_syntax.historical Ir.node_ir) :: rest ->
-        let node_name = node.semantics.sem_nname in
-        let* analysis =
-          match List.assoc_opt node_name analyses with
-          | Some value -> Ok value
-          | None ->
-              Error (Printf.sprintf "Missing product analysis for normalized node %s" node_name)
-        in
-        let* program_transitions =
-          match List.assoc_opt node_name source_nodes with
-          | None ->
-              Error (Printf.sprintf "Missing source model node for normalized node %s" node_name)
-          | Some source_node -> Ok source_node.steps
-        in
-        let summaries = build_minimal_summaries ~analysis ~program_transitions in
-        collect ({ node with summaries } :: acc) rest
-  in
-  collect [] nodes
-
 type analyzed_node = {
   model : Vm.node_model;
   analysis : Temporal_automata.node_data;
@@ -237,32 +189,16 @@ let analyze_model_program
     ~(automata : (Core_syntax.ident * automata_spec) list)
     (program : Vm.program_model) :
     (analyzed_node list, string) result =
-  let source_nodes = source_nodes_by_name program in
-  let* analyses = build_analyses ~automata ~source_nodes in
-  let* nodes =
-    of_model_program_context program
-    |> with_minimal_summaries ~analyses ~source_nodes
+  let rec collect acc = function
+    | [] -> Ok (List.rev acc)
+    | (model : Vm.node_model) :: rest ->
+        let* analysis = build_node_analysis ~automata model in
+        let ir = of_model_node model in
+        let summaries =
+          build_minimal_summaries ~analysis
+            ~program_transitions:model.steps
+        in
+        let ir = { ir with summaries } in
+        collect ({ model; analysis; ir } :: acc) rest
   in
-  nodes
-  |> List.map (fun (ir : Core_syntax.historical Ir.node_ir) ->
-         let node_name = ir.semantics.sem_nname in
-         let* model =
-           match List.assoc_opt node_name source_nodes with
-           | Some model -> Ok model
-           | None ->
-               Error
-                 (Printf.sprintf
-                    "Missing source model node for analyzed IR node %s"
-                    node_name)
-         in
-         let* analysis =
-           match List.assoc_opt node_name analyses with
-           | Some analysis -> Ok analysis
-           | None ->
-               Error
-                 (Printf.sprintf
-                    "Missing product analysis for analyzed IR node %s"
-                    node_name)
-         in
-         Ok { model; analysis; ir })
-  |> all_results
+  collect [] program

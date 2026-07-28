@@ -31,7 +31,6 @@ type ast_flow = {
   reference_program : Verification_model.program_model;
   automata : (ident * Automaton_types.automata_spec) list;
   reference_nodes : Orchestration.reference_node list;
-  proof_instrumentation : Core_syntax.historical Ir.node_ir list;
   instrumentation : Core_syntax.history_free Ir.node_ir list;
   proof_plans : Proof_plan.t list;
 }

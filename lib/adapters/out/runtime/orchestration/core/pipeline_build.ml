@@ -120,7 +120,6 @@ let ir_pass_name = function
   | Orchestration.Product_reachability_pass -> "product_reachability"
   | Orchestration.Post_pass -> "post"
   | Orchestration.Temporal_lower_pass -> "temporal_lower"
-  | Orchestration.Formula_sharing_pass -> "formula_sharing"
 
 let record_ir_fact_family (family : Ir_fact_family_metrics.snapshot) =
   Runtime_metrics.record_ir_fact_family
@@ -216,7 +215,7 @@ let build_snapshot_from_supplied_automata
             (fun (node : Orchestration.reference_node) -> node.ir)
             reference_nodes
         in
-        let run_canonical_pass pass f nodes =
+        let run_historical_pass pass f nodes =
           let before =
             if collect_ir_metrics then Some (ir_size_metrics nodes) else None
           in
@@ -229,9 +228,7 @@ let build_snapshot_from_supplied_automata
               Runtime_metrics.record_product_reachability ~elapsed_s
           | Orchestration.Post_pass -> Runtime_metrics.record_post ~elapsed_s
           | Orchestration.Temporal_lower_pass ->
-              Runtime_metrics.record_temporal_lower ~elapsed_s
-          | Orchestration.Formula_sharing_pass ->
-              Runtime_metrics.record_formula_sharing ~elapsed_s);
+              Runtime_metrics.record_temporal_lower ~elapsed_s);
           Option.iter
             (fun before ->
               let after_ = ir_size_metrics result in
@@ -258,13 +255,12 @@ let build_snapshot_from_supplied_automata
         in
         let pass_runner : Orchestration.pass_runner =
           {
-            run_historical = run_canonical_pass;
+            run_historical = run_historical_pass;
             run_lowering = run_lowering_pass;
-            run_history_free = run_canonical_pass;
           }
         in
         let t_canonical = Unix.gettimeofday () in
-        let instrumented_ir =
+        let ir_program =
           Orchestration.build_instrumented_ir
             ?observe_fact_family:
               (if collect_ir_metrics then Some record_ir_fact_family else None)
@@ -272,8 +268,6 @@ let build_snapshot_from_supplied_automata
             p_summaries
         in
         Runtime_metrics.record_canonical ~elapsed_s:(Unix.gettimeofday () -. t_canonical);
-        let p_proof_instrumentation = instrumented_ir.proof_nodes in
-        let ir_program = instrumented_ir.backend_program in
         let p_instrumentation = ir_program.nodes in
         let t_proof_planning = Unix.gettimeofday () in
         if
@@ -348,7 +342,6 @@ let build_snapshot_from_supplied_automata
             reference_program = runtime_model;
             automata;
             reference_nodes;
-            proof_instrumentation = p_proof_instrumentation;
             instrumentation = p_instrumentation;
             proof_plans;
           }

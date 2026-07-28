@@ -13,11 +13,11 @@ digraph {
   6 [id=6,shape=rect, label=<<font point-size="34">Graphviz</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">External renderer for graph<br />artifacts.</font>>, style=filled, color="#262d38", fillcolor="#374151", fontcolor="#ffffff"]
   7 [id=7,shape=rect, label=<<font point-size="34">Kairos</font><br /><font point-size="19">[Software System]</font><br /><br /><font point-size="24">Deductive verification<br />pipeline for synchronous<br />imperative programs.</font>>, style=filled, color="#0a524d", fillcolor="#0f766e", fontcolor="#ffffff"]
 
-  1 -> 7 [id=34, label=<<font point-size="24">Runs checks, dumps, and<br />proofs</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  7 -> 6 [id=47, label=<<font point-size="24">Invokes Graphviz on<br />rendered DOT text</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  7 -> 3 [id=57, label=<<font point-size="24">Builds property automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  7 -> 4 [id=59, label=<<font point-size="24">Builds and proves Why3<br />tasks</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  7 -> 5 [id=61, label=<<font point-size="24">Runs selected SMT checks</font>>, style="dashed", color="#444444", fontcolor="#444444"]
-  2 -> 7 [id=63, label=<<font point-size="24">Checks adequacy against<br />the essential reference<br />boundary</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  1 -> 7 [id=33, label=<<font point-size="24">Runs checks, dumps, and<br />proofs</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  7 -> 6 [id=46, label=<<font point-size="24">Invokes Graphviz on<br />rendered DOT text</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  7 -> 3 [id=56, label=<<font point-size="24">Builds property automata</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  7 -> 4 [id=58, label=<<font point-size="24">Builds and proves Why3<br />tasks</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  7 -> 5 [id=60, label=<<font point-size="24">Runs selected SMT checks</font>>, style="dashed", color="#444444", fontcolor="#444444"]
+  2 -> 7 [id=62, label=<<font point-size="24">Checks adequacy against<br />the essential reference<br />boundary</font>>, style="dashed", color="#444444", fontcolor="#444444"]
 
 }

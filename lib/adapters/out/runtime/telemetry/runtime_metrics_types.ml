@@ -78,7 +78,6 @@ type snapshot = {
   product_reachability_s : float;
   post_s : float;
   temporal_lower_s : float;
-  formula_sharing_s : float;
   instrumentation_info_s : float;
   output_artifact_s : float;
   output_proof_run_s : float;

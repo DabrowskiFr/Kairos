@@ -64,7 +64,7 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
     in
     let canonical_known_stages_s =
       counters.pre_s +. counters.product_reachability_s +. counters.post_s
-      +. counters.temporal_lower_s +. counters.formula_sharing_s
+      +. counters.temporal_lower_s
     in
     let canonical_unaccounted_s =
       max 0.0 (counters.canonical_s -. canonical_known_stages_s)
@@ -156,7 +156,6 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
         ("product_reachability_s", fmt_s counters.product_reachability_s);
         ("post_s", fmt_s counters.post_s);
         ("temporal_lower_s", fmt_s counters.temporal_lower_s);
-        ("formula_sharing_s", fmt_s counters.formula_sharing_s);
         ("canonical_known_stages_s", fmt_s canonical_known_stages_s);
         ("canonical_unaccounted_s", fmt_s canonical_unaccounted_s);
         ("instrumentation_info_s", fmt_s counters.instrumentation_info_s);

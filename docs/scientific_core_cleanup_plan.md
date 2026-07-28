@@ -12,6 +12,12 @@
   locally validated.
 - Slice 3, partition-identity correction and backend-independent proof
   planning, is implemented and validated on both medical cases.
+- Slice 4, removal of dead retained historical outputs, is implemented and
+  locally validated.
+- Slice 5.1, direct construction of `From_model.analyzed_node`, is implemented
+  and locally validated.
+- Slice 5.2 and 5.3, physical-sharing characterization and removal of the
+  redundant terminal pass and telemetry, are implemented.
 - No Rocq file or test has been touched.
 
 ## Validation Baseline
@@ -48,7 +54,6 @@ Contract_partition
   -> Product_reachability
   -> Post
   -> Temporal_lower
-  -> Formula_sharing
   -> Step_contract_projection per reference partition
   -> Proof_plan per source node
        - preserve partition provenance and local reachability
@@ -189,41 +194,52 @@ removal requires an explicit decision about the retained alignment witness.
 
 ### P1 — A historical pipeline output is dead
 
-`Orchestration.instrumented_ir.proof_nodes` is copied into
-`Runtime_snapshot.ast_flow.proof_instrumentation`, but that snapshot field has
+`Orchestration.instrumented_ir.proof_nodes` was copied into
+`Runtime_snapshot.ast_flow.proof_instrumentation`, but that snapshot field had
 no consumer.
 
 The historical value is still needed transiently as the input of
-`Temporal_lower`; the retained output field is not.
+`Temporal_lower`; the retained output field was not. Both fields and the
+single-field `instrumented_ir` wrapper have now been removed.
 
-### P2 — `Formula_sharing` appears redundant after `Temporal_lower`
+### P2 — `Formula_sharing` duplicated the lowering boundary
 
-`Temporal_lower` already interns all location-free lowered formulas through a
-per-node `Formula_canonical` pool. Formulas carrying a location are deliberately
-not interned by either pass.
+The focused characterization confirms that `Temporal_lower` already interns
+equal location-free results, including distinct inputs that simplify to the
+same formula. Located atomic formulas remain deliberately distinct.
 
-`Formula_sharing` immediately traverses the same history-free IR again. Its
-measured cost is small:
+It also exposed one residual case: a located compound root can simplify to an
+unlocated child. The old `Temporal_lower` branch did not intern that result,
+whereas `Formula_sharing` did so during its second traversal.
 
-- medical light: about 0.0005 s;
-- medical full: about 0.031 s.
+`Temporal_lower` now interns every lowered result whose resulting location is
+empty, independently of the input location. This preserves distinct located
+results while covering the residual case at the point where the result is
+created. The terminal `Formula_sharing` traversal, its pass-runner branch, and
+its telemetry have therefore been removed.
 
-Remove it only after a focused physical-sharing characterization confirms that
-the output of `Temporal_lower` already satisfies the sharing invariant. This is
-not a priority performance change.
+Focused validation:
+
+- physical-sharing invariant after `Temporal_lower`: OK, including a located
+  compound root simplified to an unlocated result;
+- all nine direct OCaml test executables: OK;
+- medical light: 83/83 valid goals;
+- medical full: 656/656 valid goals;
+- architecture, dependency-layer, quality, Why3 guardrail, reference
+  stability, elaboration, C generation, and isolated package builds: OK.
 
 ### P2 — `From_model` performs avoidable parallel-list joins
 
-`From_model.analyze_model_program` separately builds:
+`From_model.analyze_model_program` previously built:
 
 - source nodes indexed by name;
 - product analyses indexed by name;
 - initial IR nodes;
 - final `analyzed_node` values.
 
-It repeatedly rejoins these lists by name. A direct per-node construction can
-produce `{ model; analysis; ir }` in one traversal and remove failure cases
-caused only by internal list desynchronization.
+It repeatedly rejoined these lists by name. It now produces
+`{ model; analysis; ir }` directly in one traversal, preserving program order
+while removing the internal joins and their artificial failure cases.
 
 ### Retained abstraction — Exploration state and proof IR state
 
@@ -448,19 +464,28 @@ Focused validation:
 
 ### Slice 4 — Remove dead retained outputs
 
-After the preceding scientific boundaries are stable:
+Implemented:
 
 - remove `instrumented_ir.proof_nodes`;
 - remove `Runtime_snapshot.ast_flow.proof_instrumentation`;
-- simplify the associated orchestration types.
+- make `Orchestration.build_instrumented_ir` return `Ir.program_ir` directly.
+
+Focused validation:
+
+- domain, runtime, and CLI targets build;
+- `engine_callback_tests`: OK;
+- `proof_plan_partition_tests`: OK;
+- reference stability: OK.
 
 ### Slice 5 — Simplify construction and identity-only passes
 
 In order:
 
-1. construct `From_model.analyzed_node` directly;
-2. characterize and, if confirmed, remove `Formula_sharing`;
-3. remove the corresponding pass enum, telemetry, and reporting fields.
+1. construct `From_model.analyzed_node` directly — completed;
+2. characterize and remove `Formula_sharing` after moving its sole residual
+   effect into `Temporal_lower` — completed;
+3. remove the corresponding pass enum, telemetry, and reporting fields —
+   completed.
 
 ### Deferred — Stage 1/Rocq-alignment projections
 
@@ -484,10 +509,7 @@ generated WhyML or changing its executed body.
 
 ## Next Action
 
-The next implementation action is **Slice 4 — Remove dead retained outputs**.
-
-Before removing them, confirm once more that
-`instrumented_ir.proof_nodes` and
-`Runtime_snapshot.ast_flow.proof_instrumentation` have no production,
-diagnostic, CLI or LSP consumer. Then remove only those retained values and
-simplify the associated constructors.
+The currently planned non-Rocq cleanup slices and their strategic validation
+are complete. Commit the accumulated Slice 4 and Slice 5 changes when
+requested. The unused Stage 1/Rocq-alignment projections remain deferred and
+require an explicit decision.

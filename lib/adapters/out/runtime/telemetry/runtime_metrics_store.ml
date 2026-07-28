@@ -35,7 +35,6 @@ let pre_s = ref 0.0
 let product_reachability_s = ref 0.0
 let post_s = ref 0.0
 let temporal_lower_s = ref 0.0
-let formula_sharing_s = ref 0.0
 let instrumentation_info_s = ref 0.0
 let output_artifact_s = ref 0.0
 let output_proof_run_s = ref 0.0
@@ -78,7 +77,6 @@ let reset () =
   product_reachability_s := 0.0;
   post_s := 0.0;
   temporal_lower_s := 0.0;
-  formula_sharing_s := 0.0;
   instrumentation_info_s := 0.0;
   output_artifact_s := 0.0;
   output_proof_run_s := 0.0;
@@ -122,7 +120,6 @@ let snapshot () : snapshot =
     product_reachability_s = !product_reachability_s;
     post_s = !post_s;
     temporal_lower_s = !temporal_lower_s;
-    formula_sharing_s = !formula_sharing_s;
     instrumentation_info_s = !instrumentation_info_s;
     output_artifact_s = !output_artifact_s;
     output_proof_run_s = !output_proof_run_s;
@@ -180,8 +177,6 @@ let diff ~before ~(after_ : snapshot) : snapshot =
     post_s = max 0.0 (after_.post_s -. before.post_s);
     temporal_lower_s =
       max 0.0 (after_.temporal_lower_s -. before.temporal_lower_s);
-    formula_sharing_s =
-      max 0.0 (after_.formula_sharing_s -. before.formula_sharing_s);
     instrumentation_info_s =
       max 0.0 (after_.instrumentation_info_s -. before.instrumentation_info_s);
     output_artifact_s =
@@ -276,9 +271,6 @@ let record_post ~elapsed_s = post_s := !post_s +. max 0.0 elapsed_s
 
 let record_temporal_lower ~elapsed_s =
   temporal_lower_s := !temporal_lower_s +. max 0.0 elapsed_s
-
-let record_formula_sharing ~elapsed_s =
-  formula_sharing_s := !formula_sharing_s +. max 0.0 elapsed_s
 
 let record_instrumentation_info ~elapsed_s =
   instrumentation_info_s := !instrumentation_info_s +. max 0.0 elapsed_s

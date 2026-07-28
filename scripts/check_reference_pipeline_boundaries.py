@@ -41,7 +41,6 @@ REQUIRED_STAGE_NAMES = {
     "post_ensures",
     "temporal_lowering",
     "kernel_clause_projection",
-    "formula_sharing",
     "proof_kernel_export",
     "runtime_orchestration",
     "why3_backend",

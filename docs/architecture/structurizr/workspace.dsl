@@ -43,8 +43,7 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
         tags "Reference"
         product = component "Product construction" "Validates automata normal form and builds product states, product steps, and product summaries from program plus automata." "OCaml"
         passes = component "Reference passes" "Runs Pre, Product_reachability, and Post to shape correction/progression obligations." "OCaml"
-        temporal = component "Temporal normalization" "Lowers pre/pre_k through explicit temporal layout." "OCaml"
-        sharing = component "Formula sharing" "Shares structurally equal formulas without changing obligations." "OCaml"
+        temporal = component "Temporal normalization" "Lowers pre/pre_k through explicit temporal layout and interns location-free results." "OCaml"
       }
       proofExport = container "Proof-kernel export" "Builds exchange projection data used by diagnostics and possible Rocq synchronization after an adequacy decision." "OCaml / JSON" {
         tags "Projection"
@@ -99,8 +98,7 @@ workspace "Kairos Architecture" "High-level C4 model for the Kairos implementati
 
     product -> passes "Produces product summaries"
     passes -> temporal "Produces obligation-shaped IR"
-    temporal -> sharing "Produces temporally explicit formulas"
-    sharing -> kernelPass "Provides exchange-ready reference view"
+    temporal -> kernelPass "Provides temporally explicit reference formulas"
     kernelPass -> kernelTypes "Builds schema values"
 
     api -> flow "Delegates to the concrete flow"

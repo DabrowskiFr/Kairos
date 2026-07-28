@@ -52,7 +52,7 @@
 <text xml:space="preserve" text-anchor="start" x="922.9" y="-1268.8" font-family="Arial" font-size="24.00" fill="#444444">flow.</text>
 </g>
 <!-- 11&#45;&gt;12 -->
-<g id="73" class="edge">
+<g id="71" class="edge">
 <title>11&#45;&gt;12</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M416.76,-1348.1C519.19,-1348.1 647.83,-1348.1 752.62,-1348.1"/>
 <polygon fill="#444444" stroke="#444444" points="752.47,-1351.6 762.47,-1348.1 752.47,-1344.6 752.47,-1351.6"/>
@@ -70,7 +70,7 @@
 <text xml:space="preserve" text-anchor="start" x="1536.63" y="-1280.8" font-family="Arial" font-size="24.00" fill="#444444">instrumentation, and metrics.</text>
 </g>
 <!-- 12&#45;&gt;13 -->
-<g id="75" class="edge">
+<g id="73" class="edge">
 <title>12&#45;&gt;13</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1129.75,-1332.83C1141.83,-1332.14 1153.81,-1331.55 1165.45,-1331.1 1289.02,-1326.28 1320.11,-1326.86 1443.7,-1331.1 1451.69,-1331.37 1459.83,-1331.7 1468.04,-1332.06"/>
 <polygon fill="#444444" stroke="#444444" points="1467.62,-1335.55 1477.77,-1332.51 1467.95,-1328.55 1467.62,-1335.55"/>
@@ -87,7 +87,7 @@
 <text xml:space="preserve" text-anchor="start" x="1623.63" y="-881.8" font-family="Arial" font-size="24.00" fill="#444444">construction.</text>
 </g>
 <!-- 12&#45;&gt;15 -->
-<g id="76" class="edge">
+<g id="74" class="edge">
 <title>12&#45;&gt;15</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1129.74,-1250.49C1245.64,-1188.28 1395.2,-1108.01 1510.82,-1045.95"/>
 <polygon fill="#444444" stroke="#444444" points="1512.35,-1049.1 1519.51,-1041.28 1509.04,-1042.93 1512.35,-1049.1"/>
@@ -104,7 +104,7 @@
 <text xml:space="preserve" text-anchor="start" x="1594.75" y="-1534.8" font-family="Arial" font-size="24.00" fill="#ffffff">verification model.</text>
 </g>
 <!-- 12&#45;&gt;19 -->
-<g id="74" class="edge">
+<g id="72" class="edge">
 <title>12&#45;&gt;19</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1129.74,-1410.24C1241.55,-1448.44 1384.69,-1497.35 1498.46,-1536.23"/>
 <polygon fill="#444444" stroke="#444444" points="1497,-1539.43 1507.6,-1539.35 1499.27,-1532.8 1497,-1539.43"/>
@@ -122,7 +122,7 @@
 <text xml:space="preserve" text-anchor="start" x="2412.48" y="-1268.8" font-family="Arial" font-size="24.00" fill="#444444">runtime core.</text>
 </g>
 <!-- 13&#45;&gt;14 -->
-<g id="77" class="edge">
+<g id="75" class="edge">
 <title>13&#45;&gt;14</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1905.23,-1335.32C1917.26,-1334.84 1929.18,-1334.43 1940.8,-1334.1 2077.08,-1330.25 2111.33,-1328.6 2247.55,-1334.1 2261.17,-1334.65 2275.23,-1335.38 2289.38,-1336.23"/>
 <polygon fill="#444444" stroke="#444444" points="2289.03,-1339.72 2299.22,-1336.85 2289.46,-1332.73 2289.03,-1339.72"/>
@@ -142,7 +142,7 @@
 <text xml:space="preserve" text-anchor="start" x="3116.58" y="-1374.8" font-family="Arial" font-size="24.00" fill="#ffffff">from the core model.</text>
 </g>
 <!-- 13&#45;&gt;21 -->
-<g id="83" class="edge">
+<g id="81" class="edge">
 <title>13&#45;&gt;21</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1905.24,-1413.12C2016.71,-1444.37 2156.29,-1478.91 2283.55,-1497.1 2593.08,-1541.35 2674.82,-1532.53 2986.9,-1513.1 3003.06,-1512.09 3019.8,-1510.71 3036.57,-1509.09"/>
 <polygon fill="#444444" stroke="#444444" points="3036.49,-1512.61 3046.09,-1508.14 3035.79,-1505.65 3036.49,-1512.61"/>
@@ -150,16 +150,16 @@
 <text xml:space="preserve" text-anchor="start" x="2353.23" y="-1534.3" font-family="Arial" font-size="24.00" fill="#444444">from validated automata</text>
 </g>
 <!-- 14&#45;&gt;21 -->
-<g id="80" class="edge">
+<g id="78" class="edge">
 <title>14&#45;&gt;21</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M2666.01,-1384.9C2778.42,-1404.58 2922.52,-1429.81 3036.52,-1449.76"/>
 <polygon fill="#444444" stroke="#444444" points="3035.86,-1453.2 3046.32,-1451.48 3037.07,-1446.31 3035.86,-1453.2"/>
 <text xml:space="preserve" text-anchor="start" x="2735.28" y="-1473.3" font-family="Arial" font-size="24.00" fill="#444444">Supplies automata for</text>
 <text xml:space="preserve" text-anchor="start" x="2802.03" y="-1446.3" font-family="Arial" font-size="24.00" fill="#444444">validation</text>
 </g>
-<!-- 32 -->
-<g id="32" class="node">
-<title>32</title>
+<!-- 31 -->
+<g id="31" class="node">
+<title>31</title>
 <polygon fill="#6b7280" stroke="#4a4f59" points="3433,-1279.2 3022.9,-1279.2 3022.9,-1039 3433,-1039 3433,-1279.2"/>
 <text xml:space="preserve" text-anchor="start" x="3133.45" y="-1226.3" font-family="Arial" font-size="34.00" fill="#ffffff">External tool</text>
 <text xml:space="preserve" text-anchor="start" x="3161.95" y="-1192.3" font-family="Arial" font-size="34.00" fill="#ffffff">adapters</text>
@@ -169,9 +169,9 @@
 <text xml:space="preserve" text-anchor="start" x="3060.33" y="-1086.8" font-family="Arial" font-size="24.00" fill="#ffffff">boundaries for Spot, Why3, Z3,</text>
 <text xml:space="preserve" text-anchor="start" x="3121.08" y="-1062.8" font-family="Arial" font-size="24.00" fill="#ffffff">and timing services.</text>
 </g>
-<!-- 14&#45;&gt;32 -->
-<g id="78" class="edge">
-<title>14&#45;&gt;32</title>
+<!-- 14&#45;&gt;31 -->
+<g id="76" class="edge">
+<title>14&#45;&gt;31</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M2666.01,-1305.64C2770.42,-1278.37 2902.17,-1243.95 3011.75,-1215.32"/>
 <polygon fill="#444444" stroke="#444444" points="3012.36,-1218.78 3021.15,-1212.86 3010.59,-1212 3012.36,-1218.78"/>
 <text xml:space="preserve" text-anchor="start" x="2753.65" y="-1295.6" font-family="Arial" font-size="24.00" fill="#444444">Calls Spot adapter</text>
@@ -186,7 +186,7 @@
 <text xml:space="preserve" text-anchor="start" x="2325.85" y="-1038.8" font-family="Arial" font-size="24.00" fill="#444444">callbacks, and goal reporting.</text>
 </g>
 <!-- 15&#45;&gt;16 -->
-<g id="86" class="edge">
+<g id="84" class="edge">
 <title>15&#45;&gt;16</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1885.02,-984.34C2006.58,-1006.68 2163.39,-1035.49 2285.85,-1057.99"/>
 <polygon fill="#444444" stroke="#444444" points="2284.88,-1061.37 2295.35,-1059.74 2286.15,-1054.49 2284.88,-1061.37"/>
@@ -204,7 +204,7 @@
 <text xml:space="preserve" text-anchor="start" x="2386.23" y="-750.8" font-family="Arial" font-size="24.00" fill="#444444">cost&#45;report inputs.</text>
 </g>
 <!-- 15&#45;&gt;17 -->
-<g id="87" class="edge">
+<g id="85" class="edge">
 <title>15&#45;&gt;17</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1884.86,-897.22C1903.68,-893.07 1922.56,-889.26 1940.8,-886.1 2054.37,-866.42 2182.74,-853.92 2285.99,-846.22"/>
 <polygon fill="#444444" stroke="#444444" points="2285.95,-849.73 2295.67,-845.5 2285.44,-842.75 2285.95,-849.73"/>
@@ -223,16 +223,16 @@
 <text xml:space="preserve" text-anchor="start" x="2335.98" y="-462.8" font-family="Arial" font-size="24.00" fill="#444444">already&#45;rendered DOT text.</text>
 </g>
 <!-- 15&#45;&gt;18 -->
-<g id="88" class="edge">
+<g id="86" class="edge">
 <title>15&#45;&gt;18</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M1815.1,-857.71C1854.19,-830.38 1898.37,-801.49 1940.8,-778.1 2046.7,-719.71 2170.39,-665.96 2272.8,-625.02"/>
 <polygon fill="#444444" stroke="#444444" points="2273.87,-628.36 2281.87,-621.41 2271.28,-621.86 2273.87,-628.36"/>
 <text xml:space="preserve" text-anchor="start" x="1961.43" y="-810.35" font-family="Arial" font-size="24.00" fill="#444444">Renders PNG only when</text>
 <text xml:space="preserve" text-anchor="start" x="2040.18" y="-783.35" font-family="Arial" font-size="24.00" fill="#444444">requested</text>
 </g>
-<!-- 26 -->
-<g id="26" class="node">
-<title>26</title>
+<!-- 25 -->
+<g id="25" class="node">
+<title>25</title>
 <polygon fill="#075985" stroke="#043e5d" points="4186.6,-1455.2 3802.75,-1455.2 3802.75,-1249 4186.6,-1249 4186.6,-1455.2"/>
 <text xml:space="preserve" text-anchor="start" x="3850.3" y="-1402.3" font-family="Arial" font-size="34.00" fill="#ffffff">Proof&#45;kernel export</text>
 <text xml:space="preserve" text-anchor="start" x="3880.3" y="-1382.55" font-family="Arial" font-size="19.00" fill="#ffffff">[Container: OCaml / JSON]</text>
@@ -241,32 +241,33 @@
 <text xml:space="preserve" text-anchor="start" x="3831.55" y="-1296.8" font-family="Arial" font-size="24.00" fill="#ffffff">possible Rocq synchronization</text>
 <text xml:space="preserve" text-anchor="start" x="3846.55" y="-1272.8" font-family="Arial" font-size="24.00" fill="#ffffff">after an adequacy decision.</text>
 </g>
-<!-- 17&#45;&gt;26 -->
-<g id="91" class="edge">
-<title>17&#45;&gt;26</title>
+<!-- 17&#45;&gt;25 -->
+<g id="89" class="edge">
+<title>17&#45;&gt;25</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M2669.68,-830.45C2865.83,-831.62 3181.24,-851.04 3433,-949.1 3603.75,-1015.6 3770.49,-1146.37 3877.13,-1240.95"/>
 <polygon fill="#444444" stroke="#444444" points="3874.74,-1243.5 3884.53,-1247.54 3879.39,-1238.28 3874.74,-1243.5"/>
 <text xml:space="preserve" text-anchor="start" x="3127.08" y="-981.35" font-family="Arial" font-size="24.00" fill="#444444">Builds proof&#45;kernel</text>
 <text xml:space="preserve" text-anchor="start" x="3167.58" y="-954.35" font-family="Arial" font-size="24.00" fill="#444444">diagnostics</text>
 </g>
 <!-- 18&#45;&gt;6 -->
-<g id="89" class="edge">
+<g id="87" class="edge">
 <title>18&#45;&gt;6</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M2526.4,-438.68C2564.04,-357.17 2627.52,-250.25 2719.15,-194.1 2814.7,-135.55 2939.53,-120.4 3041.51,-120.09"/>
 <polygon fill="#444444" stroke="#444444" points="3041.36,-123.59 3051.37,-120.11 3041.38,-116.59 3041.36,-123.59"/>
 <text xml:space="preserve" text-anchor="start" x="2719.15" y="-199.35" font-family="Arial" font-size="24.00" fill="#444444">Invokes external process</text>
 </g>
-<!-- 21&#45;&gt;26 -->
-<g id="71" class="edge">
-<title>21&#45;&gt;26</title>
+<!-- 21&#45;&gt;25 -->
+<g id="69" class="edge">
+<title>21&#45;&gt;25</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M3408.33,-1462.19C3513.23,-1448.86 3647.97,-1429.83 3766.75,-1407.1 3774.76,-1405.57 3782.91,-1403.94 3791.12,-1402.23"/>
 <polygon fill="#444444" stroke="#444444" points="3791.82,-1405.66 3800.89,-1400.18 3790.38,-1398.81 3791.82,-1405.66"/>
-<text xml:space="preserve" text-anchor="start" x="3480.63" y="-1485.7" font-family="Arial" font-size="24.00" fill="#444444">Provides exchange&#45;ready</text>
-<text xml:space="preserve" text-anchor="start" x="3539.13" y="-1458.7" font-family="Arial" font-size="24.00" fill="#444444">reference view</text>
+<text xml:space="preserve" text-anchor="start" x="3511.75" y="-1512.7" font-family="Arial" font-size="24.00" fill="#444444">Provides temporally</text>
+<text xml:space="preserve" text-anchor="start" x="3526.38" y="-1485.7" font-family="Arial" font-size="24.00" fill="#444444">explicit reference</text>
+<text xml:space="preserve" text-anchor="start" x="3571.38" y="-1458.7" font-family="Arial" font-size="24.00" fill="#444444">formulas</text>
 </g>
-<!-- 26&#45;&gt;21 -->
-<g id="50" class="edge">
-<title>26&#45;&gt;21</title>
+<!-- 25&#45;&gt;21 -->
+<g id="49" class="edge">
+<title>25&#45;&gt;21</title>
 <path fill="none" stroke="#444444" stroke-dasharray="5,2" d="M3802.51,-1320.91C3701.59,-1311.01 3576.68,-1309.28 3469,-1339.1 3452.03,-1343.8 3435.06,-1350.05 3418.42,-1357.33"/>
 <polygon fill="#444444" stroke="#444444" points="3417.16,-1354.05 3409.49,-1361.36 3420.04,-1360.43 3417.16,-1354.05"/>
 <text xml:space="preserve" text-anchor="start" x="3469" y="-1371.35" font-family="Arial" font-size="24.00" fill="#444444">Uses product and automata</text>
