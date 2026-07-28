@@ -8,6 +8,9 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
+module Step_contract_projection =
+  Kairos_verification_obligations.Step_contract_projection
+
 let product_step_helper_name ~(index : int)
     (step : Step_contract_projection.step_contract) =
   let step_class_suffix = function

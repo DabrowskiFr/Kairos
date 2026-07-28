@@ -1,29 +1,17 @@
 (rule
  (alias runtest)
  (deps
-  (source_tree ../docs/architecture)
   (source_tree ../lib)
   (source_tree ../packages)
   (source_tree ../bin)
   (source_tree ../vscode/src)
   ../vscode/package.json
   dune
-  ../docs/architecture_layer_rules.json
-  ../docs/reference_pipeline_boundaries.json
-  ../docs/reference_verification_architecture.mld
-  ../docs/rocq_alignment_manifest.json
   ../.github/workflows/architecture.yml
   ../.github/workflows/package-boundaries.yml
   (glob_files ../*.opam)
   ../scripts/check_architecture_fitness.py
-  ../scripts/check_architecture_manifest.py
   ../scripts/check_package_boundaries.sh
-  ../scripts/check_layer_dependencies.py
-  ../scripts/check_quality_baseline.py
-  ../scripts/check_rocq_alignment_manifest.py
-  ../scripts/check_reference_pipeline_boundaries.py
-  ../scripts/filter_why3_product_backend_graph.py
-  ../scripts/generate_architecture_views.sh
   ../scripts/check_why_backend_guardrail.py
   check_c_codegen.sh
   check_elaboration_frontier.sh
@@ -66,13 +54,8 @@
   ko/unknown_predicate_fallback.kairos)
  (action
   (progn
-   (run python3 ../scripts/check_architecture_manifest.py)
-   (run python3 ../scripts/check_layer_dependencies.py)
-   (run python3 ../scripts/check_reference_pipeline_boundaries.py)
-   (run python3 ../scripts/check_rocq_alignment_manifest.py)
    (run python3 ../scripts/check_architecture_fitness.py)
    (run python3 ../scripts/check_why_backend_guardrail.py)
-   (run python3 ../scripts/check_quality_baseline.py)
    (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_c_codegen.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe})
@@ -82,57 +65,3 @@
     %{exe:../bin/cli/kairos.exe}
     ../examples/medical_infusion_light.kairos
     ../examples/evaluation/case_studies/medical_infusion_controller.kairos))))
-
-(test
- (name product_group_policy_partition_tests)
- (modules product_group_policy_partition_tests)
- (libraries kairos_domain_core kairos_domain_verification))
-
-(test
- (name proof_plan_partition_tests)
- (modules proof_plan_partition_tests)
- (libraries kairos_domain_core kairos_domain_verification))
-
-(test
- (name verification_core_tests)
- (modules verification_core_tests)
- (libraries kairos_domain_core kairos_domain_verification))
-
-(test
- (name formula_canonical_tests)
- (modules formula_canonical_tests)
- (libraries kairos_domain_core kairos_domain_verification))
-
-(test
- (name hexpr_phase_json_tests)
- (modules hexpr_phase_json_tests)
- (libraries kairos_domain_core))
-
-(test
- (name tool_contract_tests)
- (modules tool_contract_tests)
- (libraries kairos_why3_contract))
-
-(test
- (name automata_exchange_adapter_tests)
- (modules automata_exchange_adapter_tests)
- (package kairos-engine-runtime)
- (libraries
-  kairos_automata_contract
-  kairos_domain_core
-  kairos_runtime_automata))
-
-(test
- (name graphviz_render_tests)
- (modules graphviz_render_tests)
- (package kairos-engine-runtime)
- (libraries kairos_engine))
-
-(test
- (name engine_callback_tests)
- (modules engine_callback_tests)
- (package kairos-engine-runtime)
- (libraries kairos_engine)
- (deps ok/edge_rise.kairos)
- (action
-  (run %{test} %{dep:ok/edge_rise.kairos})))

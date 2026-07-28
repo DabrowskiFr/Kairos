@@ -31,10 +31,11 @@ type node_artifacts = {
   product_graph : Automata_graph_render.graph;
 }
 
-let build_node_artifacts (reference : Orchestration.reference_node) :
+let build_node_artifacts
+    (product_node : Orchestration.product_node) :
     node_artifacts =
-  let node_name = reference.reference_model.node_name in
-  let analysis = reference.analysis in
+  let node_name = product_node.proof_case.model.node_name in
+  let analysis = product_node.analysis in
   let require_graph =
     Automata_graph_render.render_require_automaton ~node_name ~analysis
   in
@@ -48,7 +49,7 @@ let build_node_artifacts (reference : Orchestration.reference_node) :
 
 let build ~(asts : Runtime_snapshot.ast_flow) : t =
   let node_artifacts =
-    List.map build_node_artifacts asts.reference_nodes
+    List.map build_node_artifacts asts.product_nodes
   in
   let guarantee_automaton_text =
     Pipeline_artifact_bundle_text.join_non_empty

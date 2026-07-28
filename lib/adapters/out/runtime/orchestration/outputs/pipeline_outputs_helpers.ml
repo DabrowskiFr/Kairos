@@ -61,10 +61,36 @@ let optimization_meta (proof_optimizations : Pipeline_config.proof_optimizations
       [
         ( "proof_optimizations",
           [
+            ( "contract_partition_strategy",
+              Pipeline_config.string_of_contract_partition_strategy
+                opts.verification.contract_partition_strategy );
             ( "group_public_non_w_guarantees",
-              bool_s opts.verification.group_public_non_w_guarantees );
+              bool_s
+                (Pipeline_config.groups_public_non_w_guarantees
+                   opts.verification.contract_partition_strategy) );
+            ( "formula_interning_strategy",
+              Pipeline_config.string_of_formula_interning_strategy
+                opts.verification.formula_interning_strategy );
+            ( "share_lowered_formulas",
+              bool_s
+                (Pipeline_config.shares_lowered_formulas
+                   opts.verification.formula_interning_strategy) );
             ( "group_step_contracts",
-              bool_s opts.verification.group_step_contracts );
+              bool_s
+                (Pipeline_config.groups_step_contracts
+                   opts.verification.proof_plan_strategy) );
+            ( "deduplicate_obligation_conditions",
+              bool_s
+                (Pipeline_config.deduplicates_obligation_conditions
+                   opts.verification.proof_plan_strategy) );
+            ( "share_contract_formulas",
+              bool_s
+                (Pipeline_config.shares_contract_formulas
+                   opts.verification.proof_plan_strategy) );
+            ( "bundle_individual_postconditions",
+              bool_s
+                (Pipeline_config.bundles_individual_postconditions
+                   opts.verification.proof_plan_strategy) );
           ] );
       ]
 
@@ -105,7 +131,7 @@ let flow_meta ?proof_encoding ?proof_optimizations (infos : Runtime_snapshot.flo
 (** [program_automaton_texts] helper value. *)
 
 let program_automaton_texts (asts : Runtime_snapshot.ast_flow) : string * string =
-  match asts.reference_program with
+  match Proof_case_program.program asts.proof_case_program with
   | [] -> ("", "")
   | node :: _ ->
       let graph =

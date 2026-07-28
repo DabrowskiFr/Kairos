@@ -13,12 +13,15 @@
  * GNU General Public License for more details.
  *---------------------------------------------------------------------------*)
 
-(** WhyML emission for formulas selected by the domain-level index. *)
+(** WhyML emission for formulas selected in the proof IR. *)
 
 open Why3
 open Ptree
 open Why_compile_expr
 open Why_compile_ptree_helpers
+
+module Proof_ir =
+  Kairos_verification_obligations.Verification_proof_ir
 
 type shared_formula = {
   name : string;
@@ -27,8 +30,8 @@ type shared_formula = {
 }
 
 type t = {
-  formula_index : Contract_formula_index.t;
-  entries : (Contract_formula_index.formula_id, shared_formula) Hashtbl.t;
+  plan : Proof_ir.t;
+  entries : (int, shared_formula) Hashtbl.t;
   definitions : (shared_formula * Ptree.decl) list;
 }
 
@@ -46,7 +49,7 @@ let imports_for sharing ~module_name:node_module formulas =
   let used_names =
     List.fold_left
       (fun names (formula : Core_syntax.history_free Ir.summary_formula) ->
-        match Contract_formula_index.find sharing.formula_index formula with
+        match Proof_ir.shared_formula_for sharing.plan formula with
         | None -> names
         | Some definition ->
             let shared = Hashtbl.find sharing.entries definition.id in
@@ -104,21 +107,21 @@ let make_shared_formula ~env ~inputs ~id
   in
   ({ name; uses_record; input_binders }, declaration)
 
-let build ~env ~inputs formula_index =
+let build ~env ~inputs plan =
   let entries = Hashtbl.create 32 in
   let definitions = ref [] in
-  Contract_formula_index.definitions formula_index
-  |> List.iter (fun (definition : Contract_formula_index.definition) ->
+  Proof_ir.shared_formula_definitions plan
+  |> List.iter (fun (definition : Proof_ir.shared_formula) ->
          let shared, declaration =
            make_shared_formula ~env ~inputs ~id:definition.id
              definition.formula
          in
          Hashtbl.add entries definition.id shared;
          definitions := (shared, declaration) :: !definitions);
-  { formula_index; entries; definitions = List.rev !definitions }
+  { plan; entries; definitions = List.rev !definitions }
 
 let compile sharing ~env formula =
-  match Contract_formula_index.find sharing.formula_index formula with
+  match Proof_ir.shared_formula_for sharing.plan formula with
   | None -> compile_hexpr env formula.logic
   | Some definition ->
       let shared = Hashtbl.find sharing.entries definition.id in

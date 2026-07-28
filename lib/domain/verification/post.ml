@@ -47,29 +47,23 @@ let invariants_of_state (n : Core_syntax.historical Abs.node_ir) : ident -> Core
   fun st ->
     (match Hashtbl.find_opt by_state st with
     | None -> []
-    | Some xs -> List.sort_uniq compare xs)
+    | Some xs -> List.rev xs)
 
-let add_unique_formula_with_status ~family (f : Core_syntax.historical Core_syntax.hexpr)
-    (xs : Core_syntax.historical Abs.summary_formula list) : Core_syntax.historical Abs.summary_formula list * bool =
-  if List.exists (fun (x : Core_syntax.historical Abs.summary_formula) -> x.logic = f) xs then (xs, false)
-  else (xs @ [ Ir_formula.make ~family f ], true)
+let append_formula ~family
+    (f : Core_syntax.historical Core_syntax.hexpr)
+    (xs : Core_syntax.historical Abs.summary_formula list) :
+    Core_syntax.historical Abs.summary_formula list =
+  xs @ [ Ir_formula.make ~family f ]
 
 let add_formula_family ~record_family ~family_name formulas acc =
-  let inserted, acc =
+  let acc =
     List.fold_left
-      (fun (inserted, acc) f ->
-        let acc, was_inserted =
-          add_unique_formula_with_status ~family:family_name f acc
-        in
-        let inserted = if was_inserted then f :: inserted else inserted in
-        (inserted, acc))
-      ([], acc) formulas
+      (fun acc formula ->
+        append_formula ~family:family_name formula acc)
+      acc formulas
   in
-  record_family ~family_name ~candidates:formulas ~inserted:(List.rev inserted);
+  record_family ~family_name ~candidates:formulas ~inserted:formulas;
   acc
-
-let formula_mem (f : Core_syntax.historical Core_syntax.hexpr) (xs : Core_syntax.historical Core_syntax.hexpr list) : bool =
-  List.exists (( = ) f) xs
 
 let enrich_product_step_summary ~(record_family : family_name:string ->
     candidates:Core_syntax.historical Core_syntax.hexpr list -> inserted:Core_syntax.historical Core_syntax.hexpr list -> unit)
@@ -89,33 +83,15 @@ let enrich_product_step_summary ~(record_family : family_name:string ->
     |> List.map (fun (case : Core_syntax.historical Abs.safe_product_case) ->
            (case, invs_of_state case.product_dst.prog_state))
   in
-  let common_destination_invariants =
-    match destination_invariants_by_case with
-    | [] -> []
-    | (_, invs) :: rest ->
-        invs
-        |> List.filter (fun inv ->
-               List.for_all
-                 (fun (_, other_invs) -> formula_mem inv other_invs)
-                 rest)
-  in
-  let shifted_common_destination_invariants =
-    common_destination_invariants
-    |> List.map (shift_formula_backward_inputs ~is_input)
-    |> List.map simplify_fo
-  in
   let shifted_guarded_destination_invariants =
     destination_invariants_by_case
     |> List.concat_map (fun ((case : Core_syntax.historical Abs.safe_product_case), invs) ->
            invs
-           |> List.filter (fun inv ->
-                  not (formula_mem inv common_destination_invariants))
            |> List.map (fun inv ->
                   let shifted = shift_formula_backward_inputs ~is_input inv in
                   Core_syntax_builders.mk_himp case.admissible_guard.logic
                     shifted
                   |> simplify_fo))
-    |> List.sort_uniq compare
   in
   let shifted_product_characteristics =
     Product_characteristics.preservation_ensures product_characteristics
@@ -126,9 +102,6 @@ let enrich_product_step_summary ~(record_family : family_name:string ->
     |> add_formula_family ~record_family
          ~family_name:"safe_disjunction_ensures"
          (match safe_disjunction with None -> [] | Some f -> [ f ])
-    |> add_formula_family ~record_family
-         ~family_name:"common_destination_invariant_ensures"
-         shifted_common_destination_invariants
     |> add_formula_family ~record_family
          ~family_name:"guarded_destination_invariant_ensures"
          shifted_guarded_destination_invariants

@@ -28,9 +28,7 @@
 type prepared_program = {
   imports : string list;
   parse_info : Flow_info.parse_info;
-  source_model : Verification_model.program_model;
-  reference_program : Verification_model.program_model;
-  reference_provenance : Contract_partition.provenance list;
+  proof_case_program : Proof_case_program.t;
 }
 
 val prepare_program :

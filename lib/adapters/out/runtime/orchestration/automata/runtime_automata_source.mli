@@ -29,5 +29,5 @@ type produced = {
 }
 
 val produce_with_spot :
-  Verification_model.program_model ->
+  Proof_case_program.t ->
   (produced, Pipeline_error.t) result

@@ -21,8 +21,14 @@
     This pass enriches minimal/pre summaries by materializing:
     - admissible/excluded branch guards,
     - postcondition [D] as safe disjunction,
-    - destination invariants shifted in post-state coordinates and injected
-      into [ensures].
+    - each destination invariant shifted in post-state coordinates and guarded
+      by the corresponding admissible branch before being injected into
+      [ensures].
+
+    The reference pass preserves occurrences and does not factor invariants
+    shared by several destinations. Such factorization is a proof-shape
+    optimization and must be applied explicitly after this boundary if its
+    measured gain justifies it.
 
     [product_characteristics] contains one analysis per input node, in the same
     order. *)

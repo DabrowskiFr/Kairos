@@ -18,9 +18,10 @@
 
 (** Pure preparation of temporal contracts for automata production.
 
-    This module validates the supported temporal fragment, normalizes the
-    formulas and establishes the stable atom mapping. It does not depend on an
-    automata protocol or invoke an external tool. *)
+    This module validates the supported temporal fragment, assembles source
+    formula occurrences, and establishes the stable atom mapping. It does not
+    apply optional temporal rewrites, depend on an automata protocol, or invoke
+    an external tool. *)
 
 type atom_map =
   (Core_syntax.ltl_atom * Core_syntax.ident) list

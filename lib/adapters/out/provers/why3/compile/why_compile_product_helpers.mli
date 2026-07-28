@@ -30,5 +30,5 @@ val kernel_step_helper_units :
   formula_imports:
     (Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list) ->
   bundles:Why_compile_bundles.t ->
-  Proof_plan.obligation list ->
+  Kairos_verification_obligations.Verification_proof_ir.obligation list ->
   helper_unit list

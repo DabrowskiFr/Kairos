@@ -58,4 +58,4 @@ val preservation_ensures :
   Core_syntax.historical Ir.product_step_summary ->
   Core_syntax.historical Core_syntax.hexpr list
 (** Preservation obligations induced by the safe destinations of one product
-    summary. *)
+    summary, in safe-case order and without deduplicating occurrences. *)

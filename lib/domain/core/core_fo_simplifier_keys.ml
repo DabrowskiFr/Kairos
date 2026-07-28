@@ -34,10 +34,24 @@ let is_hfalse h =
   let open Core_syntax in
   match h with { hexpr = HLitBool false; _ } -> true | _ -> false
 
-let key_of_hexpr (h : hexpr) : string =
+let key_of_hexpr_impl ~include_locations (h : hexpr) : string =
   let open Core_syntax in
   let buf = Buffer.create 64 in
-  let rec add h =
+  let add_location = function
+    | None -> Buffer.add_string buf "@n;"
+    | Some (loc : Loc.loc) ->
+        Buffer.add_string buf "@s:";
+        Buffer.add_string buf (string_of_int loc.line);
+        Buffer.add_char buf ':';
+        Buffer.add_string buf (string_of_int loc.col);
+        Buffer.add_char buf ':';
+        Buffer.add_string buf (string_of_int loc.line_end);
+        Buffer.add_char buf ':';
+        Buffer.add_string buf (string_of_int loc.col_end);
+        Buffer.add_char buf ';'
+  in
+  let rec add (h : Core_syntax.historical Core_syntax.hexpr) =
+    if include_locations then add_location h.loc;
     match h.hexpr with
     | HLitInt n ->
         Buffer.add_string buf "i:";
@@ -111,6 +125,9 @@ let key_of_hexpr (h : hexpr) : string =
   in
   add h;
   Buffer.contents buf
+
+let key_of_hexpr h = key_of_hexpr_impl ~include_locations:false h
+let cache_key_of_hexpr h = key_of_hexpr_impl ~include_locations:true h
 
 let const_key_of_hexpr h =
   let open Core_syntax in
@@ -221,11 +238,6 @@ let dedup_hexprs (xs : hexpr list) : hexpr list =
 let length_at_most limit xs =
   let rec loop n = function [] -> true | _ :: rest -> n > 0 && loop (n - 1) rest in
   limit >= 0 && loop limit xs
-
-let string_set_of_keys xs = List.fold_left (fun acc key -> StringSet.add key acc) StringSet.empty xs
-
-let keyed_hexprs (xs : hexpr list) : (string * hexpr) list =
-  List.map (fun h -> (key_of_hexpr h, h)) xs
 
 let bool_literals_have_complement (xs : hexpr list) : bool =
   let seen = Hashtbl.create 16 in

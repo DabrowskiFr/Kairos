@@ -42,6 +42,9 @@ val local_requires_of_product_state :
 
 val preservation_ensures : t -> Core_syntax.historical Ir.product_step_summary -> Core_syntax.historical Core_syntax.hexpr list
 (** Preservation obligations for the safe destinations of one product summary.
-    Only non-trivial obligations are returned. *)
+    Only non-trivial obligations are returned. Their order and occurrences are
+    those of the safe cases; this reference pass performs no deduplication.
+    [run_program] records appended occurrences in the
+    [product_reachability_ensures] family. *)
 
 val run_program : Core_syntax.historical Ir.node_ir list -> Core_syntax.historical Ir.node_ir list

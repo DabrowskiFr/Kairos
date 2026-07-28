@@ -15,8 +15,20 @@ temp_parent="${TMPDIR:-/tmp}"
 work_root="$(mktemp -d "$temp_parent/kairos-package-boundary.XXXXXX")"
 prefix="$work_root/prefix"
 target_build="$work_root/target-build"
+created_install_manifests=()
 
 cleanup() {
+  for manifest in "${created_install_manifests[@]}"; do
+    case "$manifest" in
+      "$repo_root"/*.install)
+        rm -f -- "$manifest"
+        ;;
+      *)
+        echo "refusing to clean unexpected install manifest: $manifest" >&2
+        ;;
+    esac
+  done
+
   case "$work_root" in
     "$temp_parent"/kairos-package-boundary.*)
       rm -rf -- "$work_root"
@@ -64,6 +76,13 @@ case "$boundary" in
     exit 2
     ;;
 esac
+
+for package in "${prerequisite_packages[@]}" "$target_package"; do
+  manifest="$repo_root/$package.install"
+  if [ ! -e "$manifest" ]; then
+    created_install_manifests+=("$manifest")
+  fi
+done
 
 if [ "${#prerequisite_packages[@]}" -gt 0 ]; then
   package_csv="$(

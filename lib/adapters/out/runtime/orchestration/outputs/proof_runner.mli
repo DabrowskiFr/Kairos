@@ -32,13 +32,14 @@ type run_output = {
   proof_traces : Pipeline_proof_types.proof_trace list;
 }
 
-(** Run Why generation + VC/SMT dump + optional proof replay from the canonical
-    backend-independent proof plans.
+(** Run Why generation + VC/SMT dump + optional proof replay from the
+    backend-independent proof IR.
 
     The returned [run_output] contains textual artifacts, spans, goal status,
     and detailed proof traces. *)
 
 val run :
   cfg:Pipeline_config.config ->
-  proof_plans:Proof_plan.t list ->
+  proof_plans:
+    Kairos_verification_obligations.Verification_proof_ir.t list ->
   (run_output, Pipeline_error.t) result

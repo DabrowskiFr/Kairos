@@ -25,6 +25,14 @@ type analyzed_node = {
   ir : Core_syntax.historical Ir.node_ir;
 }
 
+val validate_node_origin :
+  model:Verification_model.node_model ->
+  'phase Ir.node_ir ->
+  (unit, string) result
+(** Checks the model-owned signature, source contract, and executable
+    transition provenance of a node IR. Proof-oriented facts added by later
+    passes are deliberately not reconstructed here. *)
+
 val analyze_model_program :
   automata:(Core_syntax.ident * Automaton_types.automata_spec) list ->
   Verification_model.program_model ->

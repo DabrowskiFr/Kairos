@@ -59,7 +59,7 @@ let build_prepared_node
     assume_automaton;
   }
 
-let run (program : Verification_model.program_model)
+let run (proof_case_program : Proof_case_program.t)
     ~(build_automaton :
        Automata_exchange.request -> Automata_exchange.response) :
     ( (ident * Automaton_types.automata_spec) list
@@ -67,7 +67,8 @@ let run (program : Verification_model.program_model)
       string )
     result =
   let* prepared_nodes =
-    Automata_preparation.prepare_program program
+    Automata_preparation.prepare_program
+      (Proof_case_program.program proof_case_program)
   in
   let rec build_nodes automata_rev state_count edge_count = function
     | [] ->

@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Pipeline entry points for translating proof plans and exporting Why3
+(** Pipeline entry points for translating the proof IR and exporting Why3
     obligations. *)
 
 (** Text payload emitted by the obligations pass. *)
@@ -36,12 +36,14 @@ type whyml_output = {
 
 (** Compile Kairos IR to a neutral WhyML text artifact. *)
 val compile_whyml :
-  proof_plans:Proof_plan.t list ->
+  proof_plans:
+    Kairos_verification_obligations.Verification_proof_ir.t list ->
   unit ->
   whyml_output
 
 (** Compile Kairos IR to WhyML, then submit the neutral WhyML request to the
     independent Why3 adapter. *)
 val obligations_pass :
-  proof_plans:Proof_plan.t list ->
+  proof_plans:
+    Kairos_verification_obligations.Verification_proof_ir.t list ->
   obligations_outputs

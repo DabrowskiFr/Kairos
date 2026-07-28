@@ -11,6 +11,7 @@
   proof_runner)
  (libraries
   kairos_domain_core
+  kairos_verification_obligations
   kairos_why3_contract
   kairos_runtime_core
   kairos_why3

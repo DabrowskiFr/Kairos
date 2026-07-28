@@ -1,15 +1,15 @@
-(** WhyML emission for formulas selected by the domain-level index.
+(** WhyML emission for formulas selected in the proof IR.
 
-    Formula equivalence and reuse analysis are owned by
-    {!Contract_formula_index}; this module only emits declarations, imports,
-    calls, and their WhyML parameters. *)
+    Formula equivalence and reuse decisions are already recorded in
+    {!Kairos_verification_obligations.Verification_proof_ir}; this module only
+    emits declarations, imports, calls, and their WhyML parameters. *)
 
 type t
 
 val build :
   env:Why_compile_expr.env ->
   inputs:Why3.Ptree.binder list ->
-  Contract_formula_index.t ->
+  Kairos_verification_obligations.Verification_proof_ir.t ->
   t
 
 val definition_modules :

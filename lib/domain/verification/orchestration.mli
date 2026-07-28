@@ -27,21 +27,37 @@ open Automaton_types
 
 (** Input of the reference product construction. *)
 type reference_product_input = {
-  reference_program : Verification_model.program_model;
-  reference_automata : (Core_syntax.ident * automata_spec) list;
-  reference_provenance : Contract_partition.provenance list;
+  proof_case_program : Proof_case_program.t;
+  automata : (Core_syntax.ident * automata_spec) list;
 }
 
-(** Output of the reference product construction. *)
-type reference_node = {
-  source_node_name : Core_syntax.ident;
-  reference_model : Verification_model.node_model;
+(** One node produced by the canonical product construction, with the
+    core-owned proof case from which its product analysis and IR originate. *)
+type product_node = private {
+  proof_case : Proof_case_program.proof_case;
   analysis : Temporal_automata.node_data;
   ir : Core_syntax.historical Ir.node_ir;
 }
 
-type reference_product = {
-  reference_nodes : reference_node list;
+type instrumented_product_node = private {
+  proof_case : Proof_case_program.proof_case;
+  ir : Core_syntax.history_free Ir.node_ir;
+}
+(** A lowered IR node whose association with its core proof case has survived
+    every instrumentation pass and been structurally checked after each one. *)
+
+val map_instrumented_product_node :
+  (Core_syntax.history_free Ir.node_ir ->
+  Core_syntax.history_free Ir.node_ir) ->
+  instrumented_product_node ->
+  (instrumented_product_node, string) result
+(** Applies a structure-preserving transformation without releasing ownership
+    of the proof-case/IR association. The result must be structurally equal to
+    the input (physical representation may differ), and its provenance is
+    checked again. *)
+
+type reference_product = private {
+  nodes : product_node list;
 }
 
 (** Instrumentation passes currently run after product summaries exist. *)
@@ -51,19 +67,23 @@ type instrumented_ir_pass =
   | Post_pass
   | Temporal_lower_pass
 
-type pass_runner = {
-  run_historical :
+type pass_observer = {
+  before_historical :
     instrumented_ir_pass ->
-    (Core_syntax.historical Ir.node_ir list ->
-    Core_syntax.historical Ir.node_ir list) ->
     Core_syntax.historical Ir.node_ir list ->
-    Core_syntax.historical Ir.node_ir list;
-  run_lowering :
+    unit;
+  after_historical :
     instrumented_ir_pass ->
-    (Core_syntax.historical Ir.node_ir list ->
-    Core_syntax.history_free Ir.node_ir list) ->
     Core_syntax.historical Ir.node_ir list ->
-    Core_syntax.history_free Ir.node_ir list;
+    unit;
+  before_lowering :
+    instrumented_ir_pass ->
+    Core_syntax.historical Ir.node_ir list ->
+    unit;
+  after_lowering :
+    instrumented_ir_pass ->
+    Core_syntax.history_free Ir.node_ir list ->
+    unit;
 }
 
 (** Build the named reference product from an elaborated program and supplied
@@ -75,6 +95,6 @@ val build_reference_product :
 (** Run the instrumentation-oriented IR passes over product summaries. *)
 val build_instrumented_ir :
   ?observe_fact_family:(Ir_fact_family_metrics.snapshot -> unit) ->
-  ?pass_runner:pass_runner ->
-  Core_syntax.historical Ir.node_ir list ->
-  Ir.program_ir
+  ?pass_observer:pass_observer ->
+  reference_product ->
+  (instrumented_product_node list, string) result

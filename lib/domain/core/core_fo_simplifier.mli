@@ -25,8 +25,8 @@
 val key_of_hexpr : Core_syntax.historical Core_syntax.hexpr -> string
 (** Deterministic structural key for formulas.
 
-    The key is for memoization and deduplication only. It is not a semantic hash and must not be
-    used as a proof object. *)
+    The key supports explicit structural comparison and deduplication. It is not a semantic hash and
+    must not be used as a proof object. *)
 
 val simplify : Core_syntax.historical Core_syntax.hexpr -> Core_syntax.historical Core_syntax.hexpr
 (** Simplify a historical first-order formula while preserving its meaning. *)

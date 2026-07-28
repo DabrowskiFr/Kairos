@@ -16,6 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+module Proof_ir =
+  Kairos_verification_obligations.Verification_proof_ir
+
 type run_output = {
   why_text : string;
   why_spans : (int * (int * int)) list;
@@ -30,7 +33,7 @@ type run_output = {
   proof_traces : Pipeline_proof_types.proof_trace list;
 }
 
-let run ~(cfg : Pipeline_config.config) ~(proof_plans : Proof_plan.t list) :
+let run ~(cfg : Pipeline_config.config) ~(proof_plans : Proof_ir.t list) :
     (run_output, Pipeline_error.t) result =
   try
     let progress = Proof_progress_output.open_csv cfg.proof_progress_path in

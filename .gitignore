@@ -1,12 +1,8 @@
 _build/
 *.install
 .DS_Store
-.claude/
 .vscode/
 AGENTS.md
-docs/PROJECT_STRUCTURE.local.md
-docs/PIPELINE_QUICK_GUIDE.local.md
-docs/WITH_CALLS_SEMANTICS.local.md
 tests/**/*.kobj
 scripts/__pycache__
 output/

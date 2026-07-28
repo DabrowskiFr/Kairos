@@ -17,7 +17,10 @@
  *---------------------------------------------------------------------------*)
 
 
-(** Emit individual or grouped WhyML helpers from one product-step plan. *)
+(** Emit individual or grouped WhyML helpers from one product-step proof IR. *)
+
+module Proof_ir =
+  Kairos_verification_obligations.Verification_proof_ir
 
 module Product_specs = Why_compile_product_specs
 module Step_names = Why_product_step_names
@@ -70,7 +73,7 @@ let grouped_body ~env transition ~post_call =
   mk_expr
     (Elet (ident pre_snapshot_name, true, Expr.RKnone, snapshot_expr, body))
 
-let build_individual (ctx : context) (plan : Proof_plan.individual) :
+let build_individual (ctx : context) (plan : Proof_ir.individual) :
     helper_unit =
   let i = plan.index in
   let sc = plan.member.contract in
@@ -101,7 +104,7 @@ let build_individual (ctx : context) (plan : Proof_plan.individual) :
       @ [ Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ];
   }
 
-let build_grouped (ctx : context) (plan : Proof_plan.grouped) :
+let build_grouped (ctx : context) (plan : Proof_ir.grouped) :
     helper_unit =
   let first_i = plan.index in
   let first_sc = plan.representative.contract in
@@ -140,6 +143,6 @@ let kernel_step_helper_units ~env ~inputs ~formula_sharing ~formula_imports
   in
   plan
   |> List.map (function
-       | Proof_plan.Individual individual ->
+       | Proof_ir.Individual individual ->
            build_individual ctx individual
-       | Proof_plan.Grouped grouped -> build_grouped ctx grouped)
+       | Proof_ir.Grouped grouped -> build_grouped ctx grouped)

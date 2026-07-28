@@ -27,12 +27,12 @@ open Core_syntax
 
 type ast_flow = {
   imports : string list;
-  verification_model : Verification_model.program_model;
-  reference_program : Verification_model.program_model;
+  proof_case_program : Proof_case_program.t;
   automata : (ident * Automaton_types.automata_spec) list;
-  reference_nodes : Orchestration.reference_node list;
+  product_nodes : Orchestration.product_node list;
   instrumentation : Core_syntax.history_free Ir.node_ir list;
-  proof_plans : Proof_plan.t list;
+  proof_plans :
+    Kairos_verification_obligations.Verification_proof_ir.t list;
 }
 
 type flow_infos = {

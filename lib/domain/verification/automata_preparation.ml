@@ -231,33 +231,6 @@ let validate_weak_until_positivity ~(context : string) (formula : ltl) :
   in
   validate ~positive:true formula
 
-let rec simplify_temporal_idempotence (formula : ltl) : ltl =
-  match formula with
-  | LTrue | LFalse | LAtom _ -> formula
-  | LNot inner -> LNot (simplify_temporal_idempotence inner)
-  | LX inner -> LX (simplify_temporal_idempotence inner)
-  | LG inner -> begin
-      match simplify_temporal_idempotence inner with
-      | LG nested -> LG nested
-      | simplified -> LG simplified
-    end
-  | LW (left, right) ->
-      LW
-        ( simplify_temporal_idempotence left,
-          simplify_temporal_idempotence right )
-  | LAnd (left, right) ->
-      LAnd
-        ( simplify_temporal_idempotence left,
-          simplify_temporal_idempotence right )
-  | LOr (left, right) ->
-      LOr
-        ( simplify_temporal_idempotence left,
-          simplify_temporal_idempotence right )
-  | LImp (left, right) ->
-      LImp
-        ( simplify_temporal_idempotence left,
-          simplify_temporal_idempotence right )
-
 let conjunction (formulas : ltl list) : ltl =
   let rec build = function
     | [] -> LTrue
@@ -283,11 +256,7 @@ let prepare_formula ~(node : Verification_model.node_model)
   in
   let* () = validate 1 formulas in
   let* atoms = collect_atoms node ~formulas in
-  Ok
-    {
-      formula = conjunction formulas |> simplify_temporal_idempotence;
-      atoms;
-    }
+  Ok { formula = conjunction formulas; atoms }
 
 let prepare_node (node : Verification_model.node_model) :
     (prepared_node, string) result =

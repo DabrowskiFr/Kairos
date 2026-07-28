@@ -16,4 +16,6 @@
  (libraries
   kairos_domain_core
   kairos_domain_verification
+  kairos_verification_obligations
+  kairos_verification_optimization
   kairos_runtime_telemetry))

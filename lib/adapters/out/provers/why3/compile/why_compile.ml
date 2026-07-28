@@ -16,13 +16,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Mechanical WhyML translation of completed proof plans.
+(** Mechanical WhyML translation of completed proof IRs.
 
     Logical grouping, factorization, and sharing decisions are owned by
-    {!Proof_plan}; this module only orders their Why3 representation and builds
-    the compilation manifest. *)
+    {!Kairos_verification_obligations.Verification_proof_ir}; this module only
+    orders their Why3 representation and builds the compilation manifest. *)
 
 open Why3
+
+module Proof_ir =
+  Kairos_verification_obligations.Verification_proof_ir
+
+module Obligations =
+  Kairos_verification_obligations.Verification_obligations
+
+module Step_contract_projection =
+  Kairos_verification_obligations.Step_contract_projection
+
 module Bundles = Why_compile_bundles
 module Modules = Why_compile_modules
 module Node_common = Why_compile_node_common
@@ -68,7 +78,7 @@ let transition_source (contract : Step_contract_projection.step_contract) =
     contract.program_step.dst_state contract.transition_id
 
 let individual_manifest ~node_name ~generated_symbol
-    (plan : Proof_plan.individual) =
+    (plan : Proof_ir.individual) =
   let contract = plan.member.contract in
   let obligation_kind, obligation_category =
     obligation_class contract.step_class
@@ -95,7 +105,7 @@ let individual_manifest ~node_name ~generated_symbol
   }
 
 let grouped_manifest ~node_name ~generated_symbol
-    (plan : Proof_plan.grouped) =
+    (plan : Proof_ir.grouped) =
   let contract = plan.representative.contract in
   let obligation_kind, obligation_category =
     obligation_class contract.step_class
@@ -109,7 +119,8 @@ let grouped_manifest ~node_name ~generated_symbol
          elaboration_checks=%d;forbidden=%d"
         generated_symbol (List.length plan.members)
         (plan.members
-        |> List.map (fun member -> member.Proof_plan.partition_name)
+        |> List.map (fun member ->
+               member.Obligations.partition_name)
         |> String.concat ",")
         (product_state_source contract.product_src)
         (List.length contract.requires)
@@ -127,15 +138,15 @@ let grouped_manifest ~node_name ~generated_symbol
 let manifest_of_helper ~node_name plan
     (unit : Product_helpers.helper_unit) =
   match plan with
-  | Proof_plan.Individual individual ->
+  | Proof_ir.Individual individual ->
       individual_manifest ~node_name ~generated_symbol:unit.helper_name
         individual
-  | Proof_plan.Grouped grouped ->
+  | Proof_ir.Grouped grouped ->
       grouped_manifest ~node_name ~generated_symbol:unit.helper_name grouped
 
-let compile_node (plan : Proof_plan.t) : node_compilation =
-  let semantics = plan.semantics in
-  let temporal_layout = plan.temporal_layout in
+let compile_node (plan : Proof_ir.t) : node_compilation =
+  let semantics = plan.source.semantics in
+  let temporal_layout = plan.source.temporal_layout in
   let info = Node_common.prepare ~semantics ~temporal_layout in
   let module_name = info.module_name in
   let imports = info.imports in
@@ -146,7 +157,7 @@ let compile_node (plan : Proof_plan.t) : node_compilation =
   let obligations = plan.obligations in
   let formula_sharing =
     Why_compile_formula_sharing.build ~env ~inputs
-      plan.formula_index
+      plan
   in
   let shared_formula_modules =
     Why_compile_formula_sharing.definition_modules formula_sharing
@@ -180,7 +191,7 @@ let compile_node (plan : Proof_plan.t) : node_compilation =
         obligations helper_units;
   }
 
-let compile_program_ast ~(proof_plans : Proof_plan.t list) () =
+let compile_program_ast ~(proof_plans : Proof_ir.t list) () =
   let node_compilations =
     List.map compile_node proof_plans
   in

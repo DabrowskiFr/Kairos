@@ -197,7 +197,7 @@ let cmd =
       value & flag
       & info [ "no-proof-grouping" ] ~docs:docs_proof
           ~doc:
-            "Disable the optimization that groups public non-W guarantees into a single proof node.")
+            "Disable structural grouping of public non-W guarantees inside the weak-until partitioning strategy.")
   in
   let no_step_contract_grouping =
     Arg.(

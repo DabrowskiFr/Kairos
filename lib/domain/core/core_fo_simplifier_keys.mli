@@ -26,6 +26,7 @@ val hfalse : Core_syntax.historical Core_syntax.hexpr
 val is_htrue : Core_syntax.historical Core_syntax.hexpr -> bool
 val is_hfalse : Core_syntax.historical Core_syntax.hexpr -> bool
 val key_of_hexpr : Core_syntax.historical Core_syntax.hexpr -> string
+val cache_key_of_hexpr : Core_syntax.historical Core_syntax.hexpr -> string
 
 type rel_lit = { subject : string; op : Core_syntax.relop; value : string }
 
@@ -52,10 +53,4 @@ val dedup_hexprs :
   Core_syntax.historical Core_syntax.hexpr list -> Core_syntax.historical Core_syntax.hexpr list
 
 val length_at_most : int -> 'a list -> bool
-val string_set_of_keys : string list -> StringSet.t
-
-val keyed_hexprs :
-  Core_syntax.historical Core_syntax.hexpr list ->
-  (string * Core_syntax.historical Core_syntax.hexpr) list
-
 val bool_literals_have_complement : Core_syntax.historical Core_syntax.hexpr list -> bool

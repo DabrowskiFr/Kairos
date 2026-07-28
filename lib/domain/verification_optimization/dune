@@ -1,0 +1,14 @@
+(library
+ (name kairos_verification_optimization)
+ (public_name kairos.verification_optimization)
+ (wrapped true)
+ (modules
+  contract_partition
+  formula_interning
+  proof_plan
+  contract_formula_index)
+ (private_modules contract_formula_index)
+ (libraries
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_verification_obligations))

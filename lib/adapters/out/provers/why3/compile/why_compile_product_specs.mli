@@ -3,7 +3,7 @@
 val compile_conditions :
   Why_compile_formula_sharing.t ->
   Why_compile_expr.env ->
-  Proof_plan.conjunction ->
+  Kairos_verification_obligations.Verification_obligations.conjunction ->
   Why3.Ptree.term list
 
 type individual_contract = {
@@ -26,7 +26,7 @@ val individual_helper_contract :
   formula_imports:(Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list) ->
   helper_name:string ->
   bundles:Why_compile_bundles.t ->
-  Proof_plan.individual ->
+  Kairos_verification_obligations.Verification_proof_ir.individual ->
   individual_contract
 
 val grouped_helper_contract :
@@ -36,5 +36,5 @@ val grouped_helper_contract :
   formula_imports:
     (Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list) ->
   post_pred_name:string ->
-  Proof_plan.grouped ->
+  Kairos_verification_obligations.Verification_proof_ir.grouped ->
   grouped_contract

@@ -32,12 +32,9 @@ let are_complements = K.are_complements
 let flatten_bool = K.flatten_bool
 let dedup_hexprs = K.dedup_hexprs
 let length_at_most = K.length_at_most
-let string_set_of_keys = K.string_set_of_keys
-let keyed_hexprs = K.keyed_hexprs
 let bool_literals_have_complement = K.bool_literals_have_complement
 let simple_absorption_disjunct_limit = 32
 let simple_absorption_term_limit = 8
-let pairwise_resolution_disjunct_limit = 0
 let absorption_disjunct_limit = 32
 let common_dnf_tautology_disjunct_limit = 16
 
@@ -132,41 +129,6 @@ and simplify_disjunct_against_simple (simple : hexpr) (h : hexpr) : hexpr option
       else
         let pruned = List.filter (fun c -> not (are_complements simple c)) conjuncts in
         Some (rebuild_and_syntax pruned)
-
-and resolve_or_pair (a : hexpr) (b : hexpr) : hexpr option =
-  let ca = flatten_bool Core_syntax.And a |> dedup_hexprs |> keyed_hexprs in
-  let cb = flatten_bool Core_syntax.And b |> dedup_hexprs |> keyed_hexprs in
-  let keys_b = string_set_of_keys (List.map fst cb) in
-  let common = ca |> List.filter (fun (key, _h) -> StringSet.mem key keys_b) in
-  let common_keys = string_set_of_keys (List.map fst common) in
-  let diff_a =
-    ca |> List.filter (fun (key, _h) -> not (StringSet.mem key common_keys)) |> List.map snd
-  in
-  let diff_b =
-    cb |> List.filter (fun (key, _h) -> not (StringSet.mem key common_keys)) |> List.map snd
-  in
-  match (diff_a, diff_b) with
-  | [ da ], [ db ] when are_complements da db -> Some (rebuild_and_syntax (List.map snd common))
-  | _ -> None
-
-and resolve_or_once (xs : hexpr list) : hexpr list * bool =
-  match xs with
-  | [] -> ([], false)
-  | x :: rest ->
-      begin match
-        List.find_map (fun y -> Option.map (fun r -> (y, r)) (resolve_or_pair x y)) rest
-      with
-      | Some (y, resolved) ->
-          let rest = List.filter (fun z -> key_of_hexpr z <> key_of_hexpr y) rest in
-          (resolved :: rest, true)
-      | None ->
-          let rest, changed = resolve_or_once rest in
-          (x :: rest, changed)
-      end
-
-and resolve_or_all xs =
-  let xs, changed = resolve_or_once xs in
-  if changed then resolve_or_all (dedup_hexprs xs) else xs
 
 and conjunction_key_set (h : hexpr) : StringSet.t =
   flatten_bool Core_syntax.And h
@@ -284,9 +246,6 @@ let rec rebuild_or_syntax (xs : hexpr list) : hexpr =
             acc |> List.filter_map (simplify_disjunct_against_simple simple) |> dedup_hexprs)
           xs simple_terms
       else xs
-    in
-    let xs =
-      if length_at_most pairwise_resolution_disjunct_limit xs then resolve_or_all xs else xs
     in
     let xs =
       if length_at_most absorption_disjunct_limit xs then remove_absorbed_disjuncts xs else xs

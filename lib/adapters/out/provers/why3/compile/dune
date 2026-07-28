@@ -15,4 +15,8 @@
   why_compile_node_common
   why_compile
   why_compile_step)
- (libraries kairos_domain_core kairos_domain_verification why3))
+ (libraries
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_verification_obligations
+  why3))

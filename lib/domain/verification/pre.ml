@@ -68,7 +68,7 @@ let invariants_of_state (n : Core_syntax.historical Abs.node_ir) : ident -> Core
   fun st ->
     (match Hashtbl.find_opt by_state st with
     | None -> []
-    | Some xs -> List.sort_uniq compare xs)
+    | Some xs -> List.rev xs)
 
 type node_generation = {
   product_characteristics : Product_characteristics.t;
@@ -84,24 +84,9 @@ let compute_generation ~product_characteristics
     invariant_of_state = (fun st -> conj_fo (invariants_of_state node st));
   }
 
-let add_unique_formula_with_status ~family (f : Core_syntax.historical Core_syntax.hexpr)
-    (xs : Core_syntax.historical Abs.summary_formula list) : Core_syntax.historical Abs.summary_formula list * bool =
-  if List.exists (fun (x : Core_syntax.historical Abs.summary_formula) -> x.logic = f) xs then (xs, false)
-  else (xs @ [ Ir_formula.make ~family f ], true)
-
 let add_formula_family ~record_family ~family_name formulas acc =
-  let inserted, acc =
-    List.fold_left
-      (fun (inserted, acc) f ->
-        let acc, was_inserted =
-          add_unique_formula_with_status ~family:family_name f acc
-        in
-        let inserted = if was_inserted then f :: inserted else inserted in
-        (inserted, acc))
-      ([], acc) formulas
-  in
-  record_family ~family_name ~candidates:formulas ~inserted:(List.rev inserted);
-  acc
+  record_family ~family_name ~candidates:formulas ~inserted:formulas;
+  acc @ List.map (Ir_formula.make ~family:family_name) formulas
 
 let run_node ~record_family ~product_characteristics
     (n : Core_syntax.historical Abs.node_ir) :
@@ -125,6 +110,9 @@ let run_node ~record_family ~product_characteristics
         let propagation_requires_formulas =
           List.map (fun (f : Core_syntax.historical Abs.summary_formula) -> f.logic) propagation_requires
         in
+        record_family ~family_name:"propagation_requires"
+          ~candidates:propagation_requires_formulas
+          ~inserted:propagation_requires_formulas;
         let state_invariants =
           invariants_of_state n pc.identity.product_src.prog_state
         in
@@ -132,10 +120,6 @@ let run_node ~record_family ~product_characteristics
           []
           |> add_formula_family ~record_family
                ~family_name:"state_invariant_requires" state_invariants
-          |> add_formula_family ~record_family
-               ~family_name:"propagation_requires" propagation_requires_formulas
-          |> add_formula_family ~record_family
-               ~family_name:"assume_guard_requires" [ pc.identity.assume_guard ]
           |> add_formula_family ~record_family
                ~family_name:"program_guard_requires" [ program_guard ]
           |> add_formula_family ~record_family

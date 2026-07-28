@@ -62,7 +62,7 @@ let build_snapshot ~collect_instrumentation_info ~collect_ir_metrics
       ~verification_model:frontend.verification_model
   in
   let* produced_automata =
-    Runtime_automata_source.produce_with_spot prepared.reference_program
+    Runtime_automata_source.produce_with_spot prepared.proof_case_program
   in
   Pipeline_build.build_snapshot_from_supplied_automata ~proof_encoding
     ~proof_optimizations ~collect_instrumentation_info ~collect_ir_metrics
@@ -115,14 +115,20 @@ let obligations ~(snapshot : snapshot) :
   { Pipeline_artifacts.vc_text = out.vc_text; smt_text = out.smt_text }
 
 let normalized_program_from_snapshot ~(snapshot : snapshot) : string =
+  let proof_case_program =
+    Proof_case_program.program snapshot.asts.proof_case_program
+  in
   Ir_text_program_view_render.render_program
-    ~source_program:(Some snapshot.asts.reference_program)
+    ~source_program:(Some proof_case_program)
     snapshot.asts.instrumentation
 
 let pretty_program_from_snapshot ~(snapshot : snapshot) : string =
+  let proof_case_program =
+    Proof_case_program.program snapshot.asts.proof_case_program
+  in
   let program : Ir.program_ir = { nodes = snapshot.asts.instrumentation } in
   Ir_text_proof_view_render.render_pretty_program
-    ~source_program:(Some snapshot.asts.reference_program)
+    ~source_program:(Some proof_case_program)
     program
 
 let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel

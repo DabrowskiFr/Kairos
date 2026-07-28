@@ -6,6 +6,7 @@
  (libraries
   kairos_domain_core
   kairos_domain_verification
+  kairos_verification_obligations
   kairos_why3_contract
   kairos_why3_compile
   kairos_external_why3

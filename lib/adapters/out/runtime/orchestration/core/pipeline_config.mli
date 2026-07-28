@@ -16,9 +16,75 @@ val string_of_proof_encoding : proof_encoding -> string
 val proof_encoding_of_string : string -> proof_encoding option
 val default_proof_encoding : proof_encoding
 
+type contract_partition_strategy =
+  Kairos_verification_optimization.Contract_partition.strategy =
+  | Monolithic
+  | Weak_until of {
+      public_non_w : public_non_w_strategy;
+    }
+
+and public_non_w_strategy =
+  Kairos_verification_optimization.Contract_partition.public_non_w_strategy =
+  | Separate
+  | Group_by_family
+
+type step_strategy =
+  Kairos_verification_optimization.Proof_plan.step_strategy =
+  | Preserve_individual
+  | Group_safe
+
+type condition_strategy =
+  Kairos_verification_optimization.Proof_plan.condition_strategy =
+  | Preserve_occurrences
+  | Deduplicate
+
+type formula_strategy =
+  Kairos_verification_optimization.Proof_plan.formula_strategy =
+  | Inline_formulas
+  | Share_repeated
+
+type postcondition_strategy =
+  Kairos_verification_optimization.Proof_plan.postcondition_strategy =
+  | Inline_postconditions
+  | Bundle_repeated
+
+type proof_plan_strategy =
+  Kairos_verification_optimization.Proof_plan.strategy =
+  | Direct
+  | Planned of {
+      steps : step_strategy;
+      conditions : condition_strategy;
+      formulas : formula_strategy;
+      postconditions : postcondition_strategy;
+    }
+
+type formula_interning_strategy =
+  Kairos_verification_optimization.Formula_interning.strategy =
+  | Preserve_allocations
+  | Intern_location_free
+
+val string_of_contract_partition_strategy :
+  contract_partition_strategy -> string
+
+val string_of_proof_plan_strategy : proof_plan_strategy -> string
+
+val string_of_formula_interning_strategy :
+  formula_interning_strategy ->
+  string
+
+val groups_public_non_w_guarantees :
+  contract_partition_strategy -> bool
+
+val groups_step_contracts : proof_plan_strategy -> bool
+val deduplicates_obligation_conditions : proof_plan_strategy -> bool
+val shares_contract_formulas : proof_plan_strategy -> bool
+val bundles_individual_postconditions : proof_plan_strategy -> bool
+val shares_lowered_formulas : formula_interning_strategy -> bool
+
 type verification_optimizations = {
-  group_public_non_w_guarantees : bool;
-  group_step_contracts : bool;
+  contract_partition_strategy : contract_partition_strategy;
+  formula_interning_strategy : formula_interning_strategy;
+  proof_plan_strategy : proof_plan_strategy;
 }
 
 type proof_optimizations = {

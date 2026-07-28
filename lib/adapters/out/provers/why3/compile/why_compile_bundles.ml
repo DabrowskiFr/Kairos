@@ -15,6 +15,12 @@ open Ptree
 open Why_compile_expr
 open Why_compile_ptree_helpers
 
+module Obligations =
+  Kairos_verification_obligations.Verification_obligations
+
+module Proof_ir =
+  Kairos_verification_obligations.Verification_proof_ir
+
 type t = {
   entries :
     (int, string * Ptree.term * Why_compile_expr.used_inputs) Hashtbl.t;
@@ -49,11 +55,11 @@ let predicate_decl_and_call ~inputs ~used_inputs ~name terms =
 
 let create ~module_name ~imports ~common_import ~env ~inputs
     ~formula_imports ~compile_conditions
-    (shared_postconditions : Proof_plan.shared_postcondition list) =
+    (shared_postconditions : Proof_ir.shared_postcondition list) =
   let entries = Hashtbl.create (List.length shared_postconditions) in
   let modules =
     List.map
-      (fun (shared : Proof_plan.shared_postcondition) ->
+      (fun (shared : Proof_ir.shared_postcondition) ->
         if Hashtbl.mem entries shared.id then
           invalid_arg
             (Printf.sprintf
@@ -79,7 +85,7 @@ let create ~module_name ~imports ~common_import ~env ~inputs
         ( ident shared_module_name,
           imports @ [ common_import ]
           @ formula_imports
-              (Proof_plan.formulas_of_conditions shared.conditions)
+              (Obligations.formulas_of_conditions shared.conditions)
           @ [ declaration ] ))
       shared_postconditions
   in

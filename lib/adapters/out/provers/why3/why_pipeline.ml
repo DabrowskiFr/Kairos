@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** WhyML, VC, and SMT export from backend-independent proof plans. *)
+(** WhyML, VC, and SMT export from the backend-independent proof IR. *)
 
 module Why3_contract = Kairos_why3_contract.Why3_contract
 

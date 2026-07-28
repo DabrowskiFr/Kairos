@@ -19,10 +19,14 @@
 (** Compute canonical preconditions [H] from minimal grouped summaries.
 
     This pass enriches [requires] with:
-    - propagated guarantee context from predecessor safe branches,
-    - assume/program guards,
+    - program guards,
     - state-stability equalities,
     - source-state invariants.
+
+    Propagated guarantee context is kept in the dedicated
+    [propagation_requires] field. The assumption guard remains the explicit
+    [identity.assume_guard]; neither role is duplicated in [requires].
+    Requirement occurrences and their source-family order are preserved.
 
     Initial states do not carry ordinary state invariants; this is enforced by
     the frontend/model validation boundary, so this pass does not generate

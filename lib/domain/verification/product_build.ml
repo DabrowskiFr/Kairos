@@ -22,7 +22,9 @@ open Core_syntax_builders
 module PT = Product_types
 module Vm = Verification_model
 
-let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
+let simplify_fo
+    (f : Core_syntax.historical Core_syntax.hexpr) :
+    Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
 type automaton_view = {
@@ -34,13 +36,19 @@ type automaton_view = {
 let fo_of_expr (e : expr) : Core_syntax.historical Core_syntax.hexpr =
   hexpr_of_expr e |> Core_syntax.historical_of_history_free
 
-let automaton_guard_fo (g : Automaton_types.guard) : Core_syntax.historical Core_syntax.hexpr =
+let automaton_guard_fo
+    (g : Automaton_types.guard) :
+    Core_syntax.historical Core_syntax.hexpr =
   simplify_fo g
 
-let program_guard_fo (t : Vm.program_step) : Core_syntax.historical Core_syntax.hexpr =
+let program_guard_fo
+    (t : Vm.program_step) :
+    Core_syntax.historical Core_syntax.hexpr =
   (* Program guards are normalized before overlap checks so they are compared at
      the same boolean level as recovered automaton guards. *)
-  match t.guard_expr with None -> mk_hbool true | Some g -> fo_of_expr g |> simplify_fo
+  match t.guard_expr with
+  | None -> mk_hbool true
+  | Some g -> fo_of_expr g |> simplify_fo
 
 let first_false_idx (states : ltl list) : int =
   let rec loop i = function
@@ -113,11 +121,15 @@ let validate_bad_state_absorbing ~role
         automaton.transitions
   | [] | _ :: _ :: _ -> ()
 
-let validate_assumption_guard_targets (automaton : Automaton_types.automaton) =
+let validate_assumption_guard_targets
+    (automaton : Automaton_types.automaton) =
   let targets = Hashtbl.create 32 in
   List.iter
     (fun (src, guard, dst) ->
-      let guard_key = guard |> simplify_fo |> Core_fo_simplifier.key_of_hexpr in
+      let guard_key =
+        guard |> simplify_fo
+        |> Core_fo_simplifier.key_of_hexpr
+      in
       let key = (src, guard_key) in
       match Hashtbl.find_opt targets key with
       | None -> Hashtbl.add targets key dst
@@ -131,7 +143,8 @@ let validate_assumption_guard_targets (automaton : Automaton_types.automaton) =
                src previous dst))
     automaton.transitions
 
-let validate_automata_spec (build : Automaton_types.automata_spec) =
+let validate_automata_spec
+    (build : Automaton_types.automata_spec) =
   validate_non_empty_states ~role:"assumption" build.assume_automaton;
   validate_non_empty_states ~role:"guarantee" build.guarantee_automaton;
   validate_transition_indices ~role:"assumption" build.assume_automaton;
@@ -143,7 +156,9 @@ let validate_automata_spec (build : Automaton_types.automata_spec) =
   validate_bad_state_absorbing ~role:"assumption" build.assume_automaton;
   validate_assumption_guard_targets build.assume_automaton
 
-let make_assume_view (build : Automaton_types.automata_spec) : automaton_view =
+let make_assume_view
+    (build : Automaton_types.automata_spec) :
+    automaton_view =
   let automaton = build.assume_automaton in
   {
     states = automaton.states;
@@ -151,14 +166,18 @@ let make_assume_view (build : Automaton_types.automata_spec) : automaton_view =
     bad_idx = first_false_idx automaton.states;
   }
 
-let make_guarantee_view (build : Automaton_types.automata_spec) : automaton_view =
+let make_guarantee_view
+    (build : Automaton_types.automata_spec) :
+    automaton_view =
   {
     states = build.guarantee_automaton.states;
     transitions = build.guarantee_automaton.transitions;
     bad_idx = first_false_idx build.guarantee_automaton.states;
   }
 
-let node_outgoing (program_transitions : Vm.program_step list) : (ident, Vm.program_step list) Hashtbl.t =
+let node_outgoing
+    (program_transitions : Vm.program_step list) :
+    (ident, Vm.program_step list) Hashtbl.t =
   let tbl = Hashtbl.create 16 in
   List.iter
     (fun (t : Vm.program_step) ->
@@ -190,8 +209,10 @@ let classify_step ~(assume_bad_idx : int) ~(guarantee_bad_idx : int) (dst : PT.p
   else if guarantee_bad_idx >= 0 && dst.guarantee_state = guarantee_bad_idx then PT.Bad_guarantee
   else PT.Safe
 
-let analyze_node ~(build : Automaton_types.automata_spec) ~(node : Vm.node_model)
-    ~(program_transitions : Vm.program_step list) : Temporal_automata.node_data =
+let analyze_node ~(build : Automaton_types.automata_spec)
+    ~(node : Vm.node_model)
+    ~(program_transitions : Vm.program_step list) :
+    Temporal_automata.node_data =
   validate_automata_spec build;
   let assume = make_assume_view build in
   let guarantee = make_guarantee_view build in
@@ -226,7 +247,9 @@ let analyze_node ~(build : Automaton_types.automata_spec) ~(node : Vm.node_model
             List.iter
               (fun (((_guarantee_src, guarantee_guard_raw, guarantee_dst) as guarantee_edge) :
                      Automaton_types.transition) ->
-                let guarantee_guard = automaton_guard_fo guarantee_guard_raw in
+                let guarantee_guard =
+                  automaton_guard_fo guarantee_guard_raw
+                in
                 let dst =
                   {
                     PT.prog_state = prog_transition.dst_state;

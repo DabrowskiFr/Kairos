@@ -30,12 +30,33 @@ let proof_optimizations_of_args args =
   {
     Pipeline.verification =
       {
-        group_public_non_w_guarantees =
-          base.verification.group_public_non_w_guarantees
-          && not args.no_proof_grouping;
-        group_step_contracts =
-          base.verification.group_step_contracts
-          && not args.no_step_contract_grouping;
+        contract_partition_strategy =
+          (match base.verification.contract_partition_strategy with
+          | Pipeline.Monolithic -> Pipeline.Monolithic
+          | Pipeline.Weak_until { public_non_w } ->
+              Pipeline.Weak_until
+                {
+                  public_non_w =
+                    (if args.no_proof_grouping then Pipeline.Separate
+                     else public_non_w);
+                });
+        formula_interning_strategy =
+          base.verification.formula_interning_strategy;
+        proof_plan_strategy =
+          (match base.verification.proof_plan_strategy with
+          | Pipeline.Direct -> Pipeline.Direct
+          | Pipeline.Planned
+              { steps; conditions; formulas; postconditions } ->
+              Pipeline.Planned
+                {
+                  steps =
+                    (if args.no_step_contract_grouping then
+                       Pipeline.Preserve_individual
+                     else steps);
+                  conditions;
+                  formulas;
+                  postconditions;
+                });
       };
   }
 

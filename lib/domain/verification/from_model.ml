@@ -62,6 +62,91 @@ let of_model_node (n : Vm.node_model) : Core_syntax.historical Ir.node_ir =
     init_invariant_goals = [];
   }
 
+let transition_of_program_step
+    (step : Vm.program_step) : Ir.transition =
+  {
+    src_state = step.src_state;
+    dst_state = step.dst_state;
+    guard_expr = step.guard_expr;
+    body_stmts = step.body_stmts;
+  }
+
+let validate_node_origin ~(model : Vm.node_model)
+    (node : 'phase Ir.node_ir) : (unit, string) result =
+  let expected = of_model_node model in
+  if node.semantics <> expected.semantics then
+    Error
+      (Printf.sprintf
+         "IR node '%s' does not have the signature of proof case '%s'"
+         node.semantics.sem_nname model.node_name)
+  else if node.source_info <> expected.source_info then
+    Error
+      (Printf.sprintf
+         "IR node '%s' does not have the source contract of proof case '%s'"
+         node.semantics.sem_nname model.node_name)
+  else
+    let steps = Array.of_list model.steps in
+    let validate_summary
+        (summary : 'phase Ir.product_step_summary) =
+      let step_uid = summary.trace.step_uid in
+      if step_uid < 0 || step_uid >= Array.length steps then
+        Error
+          (Printf.sprintf
+             "IR node '%s' refers to transition index %d outside proof case \
+              '%s'"
+             node.semantics.sem_nname step_uid model.node_name)
+      else
+        let expected_transition =
+          transition_of_program_step steps.(step_uid)
+        in
+        if summary.identity.program_step <> expected_transition then
+          Error
+            (Printf.sprintf
+               "IR node '%s' transition %d does not originate from proof case \
+                '%s'"
+               node.semantics.sem_nname step_uid model.node_name)
+        else if
+          not
+            (String.equal summary.identity.product_src.prog_state
+               expected_transition.src_state)
+        then
+          Error
+            (Printf.sprintf
+               "IR node '%s' transition %d has an inconsistent product source"
+               node.semantics.sem_nname step_uid)
+        else
+          let destinations =
+            List.map
+              (fun (case : 'phase Ir.safe_product_case) ->
+                case.product_dst)
+              summary.safe_cases
+            @ List.map
+                (fun (case : 'phase Ir.unsafe_product_case) ->
+                  case.product_dst)
+                summary.unsafe_cases
+          in
+          if
+            List.for_all
+              (fun (destination : Ir.product_state) ->
+                String.equal destination.prog_state
+                  expected_transition.dst_state)
+              destinations
+          then Ok ()
+          else
+            Error
+              (Printf.sprintf
+                 "IR node '%s' transition %d has an inconsistent product \
+                  destination"
+                 node.semantics.sem_nname step_uid)
+    in
+    let rec validate_summaries = function
+      | [] -> Ok ()
+      | summary :: rest ->
+          let* () = validate_summary summary in
+          validate_summaries rest
+    in
+    validate_summaries node.summaries
+
 let analysis_context_of_source_node (source_node : Vm.node_model) : Vm.node_model =
   {
     source_node with
@@ -82,7 +167,9 @@ let build_node_analysis
         Error
           (Printf.sprintf "Missing automata build for IR node %s" node.node_name)
   in
-  Ok (Product_build.analyze_node ~build ~node ~program_transitions:node.steps)
+  Ok
+    (Product_build.analyze_node ~build ~node
+       ~program_transitions:node.steps)
 
 let product_state_of_pt (st : PT.product_state) : Ir.product_state =
   {
@@ -159,12 +246,8 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                   identity =
                     {
                       program_step =
-                        {
-                          src_state = repr_step.prog_transition.src_state;
-                          dst_state = repr_step.prog_transition.dst_state;
-                          guard_expr = repr_step.prog_transition.guard_expr;
-                          body_stmts = repr_step.prog_transition.body_stmts;
-                        };
+                        transition_of_program_step
+                          repr_step.prog_transition;
                       product_src = product_state_of_pt repr_step.src;
                       assume_guard = repr_step.assume_guard;
                     };

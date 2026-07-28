@@ -16,9 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Final IR phase: lower temporal references ([pre], [pre_k]) to materialized
-    slots using the node temporal layout, and physically intern structurally
-    equal location-free results. *)
+(** Final reference IR phase: lower temporal references ([pre], [pre_k]) to
+    materialized slots using the node temporal layout. This phase preserves
+    formula occurrences and performs no physical sharing. *)
+
+val required_temporal_layout :
+  Core_syntax.historical Ir.node_ir ->
+  Ir.temporal_layout
 
 val run_program :
   Core_syntax.historical Ir.node_ir list ->

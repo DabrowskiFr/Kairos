@@ -181,7 +181,8 @@ let collect_source_ltl_facts table (node : Verification_model.node_model) =
 let collect_all_facts snapshot =
   let table = Hashtbl.create 4096 in
   List.iter (collect_source_ltl_facts table)
-    snapshot.Runtime_snapshot.asts.verification_model;
+    (Proof_case_program.source_program
+       snapshot.Runtime_snapshot.asts.proof_case_program);
   List.iter (collect_summary_facts table)
     snapshot.Runtime_snapshot.asts.instrumentation;
   fact_stats table

@@ -76,14 +76,14 @@ let instrumentation_info_of_node ~(analyses : (ident * Temporal_automata.node_da
 (** [instrumentation_info_of_ir] helper value. *)
 
 let instrumentation_info_of_ir
-    ~(reference_nodes : Orchestration.reference_node list)
+    ~(product_nodes : Orchestration.product_node list)
     (program : Ir.program_ir)
     : (Flow_info.instrumentation_info, string) result =
   let analyses =
     List.map
-      (fun (node : Orchestration.reference_node) ->
-        (node.reference_model.node_name, node.analysis))
-      reference_nodes
+      (fun (node : Orchestration.product_node) ->
+        (node.proof_case.model.node_name, node.analysis))
+      product_nodes
   in
   let node_results =
     program.nodes |> List.map (instrumentation_info_of_node ~analyses)

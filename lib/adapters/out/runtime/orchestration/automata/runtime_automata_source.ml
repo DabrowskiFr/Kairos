@@ -23,7 +23,7 @@ type produced = {
 
 let ( let* ) = Result.bind
 
-let produce_with_spot (program : Verification_model.program_model) :
+let produce_with_spot (proof_case_program : Proof_case_program.t) :
     (produced, Pipeline_error.t) result =
   try
     let build_automaton request =
@@ -34,7 +34,7 @@ let produce_with_spot (program : Verification_model.program_model) :
     in
     let t_automata = Unix.gettimeofday () in
     let* automata, automata_info =
-      Automata_generation.run program
+      Automata_generation.run proof_case_program
         ~build_automaton
       |> Result.map_error (fun message ->
              Pipeline_error.Flow_error message)

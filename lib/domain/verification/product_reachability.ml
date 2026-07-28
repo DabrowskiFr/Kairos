@@ -40,11 +40,6 @@ let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
   && a.assume_state_index = b.assume_state_index
   && a.guarantee_state_index = b.guarantee_state_index
 
-let add_unique_formula (f : Core_syntax.historical Core_syntax.hexpr)
-    (xs : Core_syntax.historical Abs.summary_formula list) : Core_syntax.historical Abs.summary_formula list =
-  if List.exists (fun (x : Core_syntax.historical Abs.summary_formula) -> x.logic = f) xs then xs
-  else xs @ [ Ir_formula.make f ]
-
 let guard_fo_of_transition (t : Abs.transition) : Core_syntax.historical Core_syntax.hexpr =
   match t.guard_expr with
   | None -> mk_hbool true
@@ -181,7 +176,6 @@ let preservation_ensures (t : t) (pc : Core_syntax.historical Abs.product_step_s
          if is_htrue dst_reach then None
          else Some (mk_himp case.admissible_guard.logic dst_reach |> simplify_fo))
   |> List.filter (fun f -> not (is_htrue f))
-  |> List.sort_uniq Stdlib.compare
 
 let run_node (n : Core_syntax.historical Abs.node_ir) : Core_syntax.historical Abs.node_ir =
   let reachability = build ~node:n in
@@ -189,10 +183,11 @@ let run_node (n : Core_syntax.historical Abs.node_ir) : Core_syntax.historical A
     List.map
       (fun (pc : Core_syntax.historical Abs.product_step_summary) ->
         let ensures =
-          List.fold_left
-            (fun acc f -> add_unique_formula f acc)
-            pc.ensures
-            (preservation_ensures reachability pc)
+          pc.ensures
+          @ List.map
+              (Ir_formula.make
+                 ~family:"product_reachability_ensures")
+              (preservation_ensures reachability pc)
         in
         { pc with ensures })
       n.summaries

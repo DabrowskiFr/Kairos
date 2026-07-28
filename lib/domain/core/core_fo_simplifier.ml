@@ -22,9 +22,9 @@ module Keys = Core_fo_simplifier_keys
 
 let simplify_cache_limit = 20000
 
-let simplify_cache : (string, Core_syntax.historical Core_syntax.hexpr) Hashtbl.t =
-  Hashtbl.create 4096
-
+(* Memoization is implementation-only.  A cache per domain avoids races, and
+   the private cache key retains every source location. *)
+let simplify_cache = Domain.DLS.new_key (fun () -> Hashtbl.create 4096)
 let key_of_hexpr = Keys.key_of_hexpr
 
 let rec simplify_uncached (f : Core_syntax.historical Core_syntax.hexpr) :
@@ -75,11 +75,12 @@ and simplify (f : Core_syntax.historical Core_syntax.hexpr) :
   match f.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ | HFunCall _ -> f
   | _ -> (
-      let key = key_of_hexpr f in
-      match Hashtbl.find_opt simplify_cache key with
+      let cache = Domain.DLS.get simplify_cache in
+      let key = Keys.cache_key_of_hexpr f in
+      match Hashtbl.find_opt cache key with
       | Some cached -> cached
       | None ->
           let simplified = simplify_uncached f in
-          if Hashtbl.length simplify_cache >= simplify_cache_limit then Hashtbl.clear simplify_cache;
-          Hashtbl.replace simplify_cache key simplified;
+          if Hashtbl.length cache >= simplify_cache_limit then Hashtbl.clear cache;
+          Hashtbl.replace cache key simplified;
           simplified)

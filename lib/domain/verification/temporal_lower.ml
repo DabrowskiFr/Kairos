@@ -36,9 +36,10 @@ let required_temporal_layout (node : Core_syntax.historical Abs.node_ir) : Abs.t
     let product_formulas =
       node.summaries
       |> List.concat_map (fun (summary : Core_syntax.historical Abs.product_step_summary) ->
-             Ir_formula.values
-               (summary.propagation_requires @ summary.requires @ summary.ensures
-              @ summary.elaboration_checks)
+             summary.identity.assume_guard
+             :: (Ir_formula.values
+                   (summary.propagation_requires @ summary.requires
+                  @ summary.ensures @ summary.elaboration_checks)
              @
              let case_formulas =
                List.concat_map
@@ -48,7 +49,7 @@ let required_temporal_layout (node : Core_syntax.historical Abs.node_ir) : Abs.t
                    (fun (case : Core_syntax.historical Abs.unsafe_product_case) -> [ case.excluded_guard ])
                    summary.unsafe_cases
              in
-             Ir_formula.values case_formulas)
+             Ir_formula.values case_formulas))
     in
     product_formulas @ Ir_formula.values node.init_invariant_goals
   in
@@ -60,39 +61,19 @@ let run_node (node : Core_syntax.historical Abs.node_ir) :
     Core_syntax.history_free Abs.node_ir =
   let temporal_layout = required_temporal_layout node in
   let temporal_bindings = Ir_formula.temporal_bindings_of_layout temporal_layout in
-  let lowered_by_input = Hashtbl.create 512 in
-  let lowered_pool = Formula_canonical.create_pool () in
-  let intern_lowered
-      (formula : Core_syntax.history_free Core_syntax.hexpr) =
-    match formula.loc with
-    | Some _ -> formula
-    | None -> Formula_canonical.intern lowered_pool formula
-  in
   let lower_logic
       (input : Core_syntax.historical Core_syntax.hexpr) =
-    let compute () =
-      match
-        Pre_k_lowering.lower_fo_formula_temporal_bindings
-          ~temporal_bindings input
-      with
-      | Some logic -> simplify_history_free logic
-      | None ->
-          failwith
-            (Printf.sprintf
-               "temporal_lower: unable to lower formula for node %s: %s"
-               node.semantics.sem_nname
-               (Pretty.string_of_fo input))
-    in
-    match input.loc with
-      | Some _ -> compute () |> intern_lowered
-      | None ->
-          let input_key = Formula_canonical.key input in
-          match Hashtbl.find_opt lowered_by_input input_key with
-          | Some logic -> logic
-          | None ->
-              let logic = compute () |> intern_lowered in
-              Hashtbl.add lowered_by_input input_key logic;
-              logic
+    match
+      Pre_k_lowering.lower_fo_formula_temporal_bindings
+        ~temporal_bindings input
+    with
+    | Some logic -> simplify_history_free logic
+    | None ->
+        failwith
+          (Printf.sprintf
+             "temporal_lower: unable to lower formula for node %s: %s"
+             node.semantics.sem_nname
+             (Pretty.string_of_fo input))
   in
   let lower (formula : Core_syntax.historical Abs.summary_formula) :
       Core_syntax.history_free Abs.summary_formula =
@@ -146,6 +127,7 @@ let run_node (node : Core_syntax.historical Abs.node_ir) :
     init_invariant_goals;
   }
 
-let run_program (program : Core_syntax.historical Abs.node_ir list) :
+let run_program
+    (program : Core_syntax.historical Abs.node_ir list) :
     Core_syntax.history_free Abs.node_ir list =
   List.map run_node program

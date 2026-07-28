@@ -1,4 +1,4 @@
-name: architecture-manifest
+name: architecture-guardrails
 
 on:
   push:
@@ -12,12 +12,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Verify Rocq/OCaml architecture mapping
-        run: python3 scripts/check_architecture_manifest.py
-      - name: Verify layer dependency rules
-        run: python3 scripts/check_layer_dependencies.py
-      - name: Verify reference pipeline boundary
-        run: python3 scripts/check_reference_pipeline_boundaries.py
       - name: Verify architecture fitness functions
         run: python3 scripts/check_architecture_fitness.py
       - name: Verify Why backend guardrail

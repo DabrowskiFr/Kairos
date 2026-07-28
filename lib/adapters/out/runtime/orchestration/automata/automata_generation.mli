@@ -22,7 +22,7 @@
     {!Automata_preparation}. *)
 
 val run :
-  Verification_model.program_model ->
+  Proof_case_program.t ->
   build_automaton:
     (Kairos_automata_contract.Automata_exchange.request ->
     Kairos_automata_contract.Automata_exchange.response) ->

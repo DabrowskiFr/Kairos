@@ -20,7 +20,8 @@
 
     This module exposes only the entry point needed by the proof pipeline.
     Node-local WhyML construction details remain private and may not alter the
-    completed {!Proof_plan.t}. *)
+    completed
+    {!Kairos_verification_obligations.Verification_proof_ir.t}. *)
 
 type compiled_obligation = {
   generated_symbol : string;
@@ -38,6 +39,7 @@ type compilation = {
 }
 
 val compile_program_ast :
-  proof_plans:Proof_plan.t list ->
+  proof_plans:
+    Kairos_verification_obligations.Verification_proof_ir.t list ->
   unit ->
   compilation

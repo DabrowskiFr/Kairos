@@ -4,7 +4,6 @@ lib/adapters/out/codegen/c/c_codegen*.ml
 lib/adapters/out/codegen/c/c_codegen*.mli
 lib/domain/core/core_fo_simplifier*.ml
 lib/domain/core/core_fo_simplifier*.mli
-tests/automata_exchange_adapter_tests.ml
 packages/automata-contract/*.ml
 packages/automata-contract/*.mli
 packages/spot/*.ml
@@ -14,7 +13,5 @@ packages/why3-contract/*.mli
 packages/why3/why_execution.ml
 packages/why3/why_execution.mli
 packages/why3/why3_adapter_tests.ml
-packages/graphviz/*.ml
-packages/graphviz/*.mli
 lib/adapters/out/runtime/orchestration/automata/automata_exchange_adapter.ml
 lib/adapters/out/runtime/orchestration/automata/automata_exchange_adapter.mli

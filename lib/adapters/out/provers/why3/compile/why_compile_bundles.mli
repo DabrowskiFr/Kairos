@@ -12,9 +12,9 @@ val create :
     (Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list) ->
   compile_conditions:
     (Why_compile_expr.env ->
-    Proof_plan.conjunction ->
+    Kairos_verification_obligations.Verification_obligations.conjunction ->
     Why3.Ptree.term list) ->
-  Proof_plan.shared_postcondition list ->
+  Kairos_verification_obligations.Verification_proof_ir.shared_postcondition list ->
   t
 
 val predicate_decl_and_call :

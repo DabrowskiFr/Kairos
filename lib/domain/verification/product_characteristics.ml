@@ -79,10 +79,15 @@ let formula_key (f : Core_syntax.historical Core_syntax.hexpr) : string =
 let same_formula (a : Core_syntax.historical Core_syntax.hexpr) (b : Core_syntax.historical Core_syntax.hexpr) : bool =
   String.equal (formula_key a) (formula_key b)
 
-let dedup_formulas (xs : Core_syntax.historical Core_syntax.hexpr list) : Core_syntax.historical Core_syntax.hexpr list =
-  let keyed = List.map (fun f -> (formula_key f, simplify_fo f)) xs in
+let dedup_formulas
+    (xs : Core_syntax.historical Core_syntax.hexpr list) :
+    Core_syntax.historical Core_syntax.hexpr list =
+  let keyed =
+    List.map (fun f -> (formula_key f, simplify_fo f)) xs
+  in
   keyed
-  |> List.sort_uniq (fun (ka, _) (kb, _) -> String.compare ka kb)
+  |> List.sort_uniq (fun (ka, _) (kb, _) ->
+         String.compare ka kb)
   |> List.map snd
 
 let disj_fo (fs : Core_syntax.historical Core_syntax.hexpr list) : Core_syntax.historical Core_syntax.hexpr option =
@@ -348,4 +353,3 @@ let preservation_ensures (t : t) ~(node : Core_syntax.historical Abs.node_ir)
                  (mk_himp case.admissible_guard.logic contribution
                  |> simplify_fo))
   |> List.filter (fun f -> not (is_htrue f))
-  |> List.sort_uniq Stdlib.compare

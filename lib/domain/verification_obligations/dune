@@ -1,0 +1,9 @@
+(library
+ (name kairos_verification_obligations)
+ (public_name kairos.verification_obligations)
+ (wrapped true)
+ (modules
+  step_contract_projection
+  verification_obligations
+  verification_proof_ir)
+ (libraries kairos_domain_core kairos_domain_verification))

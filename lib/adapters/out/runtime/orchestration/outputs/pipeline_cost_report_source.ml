@@ -54,7 +54,10 @@ let source_node_json (node : Verification_model.node_model) =
     ]
 
 let source_json (snapshot : Runtime_snapshot.pipeline_snapshot) =
-  let nodes = snapshot.asts.verification_model in
+  let nodes =
+    Proof_case_program.source_program
+      snapshot.asts.proof_case_program
+  in
   json_assoc
     [
       ("node_count", json_int (List.length nodes));

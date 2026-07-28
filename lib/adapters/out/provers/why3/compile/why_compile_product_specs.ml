@@ -20,6 +20,12 @@ open Ptree
 open Why_compile_expr
 open Why_compile_ptree_helpers
 
+module Obligations =
+  Kairos_verification_obligations.Verification_obligations
+
+module Proof_ir =
+  Kairos_verification_obligations.Verification_proof_ir
+
 let formula_term_with_rec formula_sharing env rec_name formula =
   Why_compile_formula_sharing.compile formula_sharing
     ~env:{ env with rec_name } formula
@@ -29,11 +35,11 @@ let state_guard env rec_name state_name =
   term_eq (term_of_var local_env "st") (mk_term (Tident (qid1 state_name)))
 
 let compile_condition formula_sharing env = function
-  | Proof_plan.State_is state ->
+  | Obligations.State_is state ->
       state_guard env env.rec_name state
-  | Proof_plan.Formula formula ->
+  | Obligations.Formula formula ->
       formula_term_with_rec formula_sharing env env.rec_name formula
-  | Proof_plan.Not_formula formula ->
+  | Obligations.Not_formula formula ->
       mk_term
         (Tnot
            (formula_term_with_rec formula_sharing env env.rec_name
@@ -58,9 +64,9 @@ type grouped_contract = {
 let mk_post term = (loc, [ ({ pat_desc = Pwild; pat_loc = loc }, term) ])
 
 let individual_helper_contract ~env ~inputs ~formula_sharing ~formula_imports
-    ~helper_name ~bundles (individual : Proof_plan.individual) =
+    ~helper_name ~bundles (individual : Proof_ir.individual) =
   let pre_formulas =
-    Proof_plan.formulas_of_conditions individual.preconditions
+    Obligations.formulas_of_conditions individual.preconditions
   in
   let pre_terms, pre_used =
     collect_used_inputs env (fun env ->
@@ -88,7 +94,7 @@ let individual_helper_contract ~env ~inputs ~formula_sharing ~formula_imports
         ( [],
           terms,
           used_inputs,
-          Proof_plan.formulas_of_conditions
+          Obligations.formulas_of_conditions
             individual.postconditions )
   in
   {
@@ -127,12 +133,12 @@ let alternatives_term formula_sharing env alternatives =
   |> term_or_list
 
 let grouped_post_body formula_sharing env
-    (grouped : Proof_plan.grouped) =
+    (grouped : Proof_ir.grouped) =
   let pre_env = { env with rec_name = pre_vars_name } in
   let post_env = { env with rec_name = post_vars_name } in
   let implications =
     grouped.conditional_posts
-    |> List.map (fun (post : Proof_plan.conditional_post) ->
+    |> List.map (fun (post : Proof_ir.conditional_post) ->
            term_implies
              (alternatives_term formula_sharing pre_env
                 post.alternatives)
@@ -147,21 +153,21 @@ let grouped_post_body formula_sharing env
         (conjunction_term formula_sharing pre_env common)
         implications
 
-let grouped_formulas (grouped : Proof_plan.grouped) =
+let grouped_formulas (grouped : Proof_ir.grouped) =
   let conditional_formulas =
     grouped.conditional_posts
-    |> List.concat_map (fun (post : Proof_plan.conditional_post) ->
-           List.concat_map Proof_plan.formulas_of_conditions
+    |> List.concat_map (fun (post : Proof_ir.conditional_post) ->
+           List.concat_map Obligations.formulas_of_conditions
              post.alternatives
-           @ Proof_plan.formulas_of_conditions post.conclusions)
+           @ Obligations.formulas_of_conditions post.conclusions)
   in
-  List.concat_map Proof_plan.formulas_of_conditions
+  List.concat_map Obligations.formulas_of_conditions
     grouped.precondition_alternatives
-  @ Proof_plan.formulas_of_conditions grouped.common_preconditions
+  @ Obligations.formulas_of_conditions grouped.common_preconditions
   @ conditional_formulas
 
 let grouped_helper_contract ~env ~inputs ~formula_sharing
-    ~formula_imports ~post_pred_name (grouped : Proof_plan.grouped) =
+    ~formula_imports ~post_pred_name (grouped : Proof_ir.grouped) =
   let pre_term, pre_inputs =
     collect_used_inputs env (fun env ->
         alternatives_term formula_sharing env

@@ -21,11 +21,8 @@
   product_reachability
   post
   formula_canonical
-  contract_formula_index
-  contract_partition
   automata_preparation
+  proof_case_program
   temporal_lower
-  step_contract_projection
-  proof_plan
   orchestration)
  (libraries kairos_domain_core))

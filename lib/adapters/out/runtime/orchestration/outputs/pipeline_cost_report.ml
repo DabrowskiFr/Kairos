@@ -36,9 +36,38 @@ let flow_meta_json snapshot =
 let proof_optimizations_json (opts : Pipeline_config.proof_optimizations) =
   json_assoc
     [
+      ( "contract_partition_strategy",
+        json_string
+          (Pipeline_config.string_of_contract_partition_strategy
+             opts.verification.contract_partition_strategy) );
       ( "group_public_non_w_guarantees",
-        json_bool opts.verification.group_public_non_w_guarantees );
-      ("group_step_contracts", json_bool opts.verification.group_step_contracts);
+        json_bool
+          (Pipeline_config.groups_public_non_w_guarantees
+             opts.verification.contract_partition_strategy) );
+      ( "formula_interning_strategy",
+        json_string
+          (Pipeline_config.string_of_formula_interning_strategy
+             opts.verification.formula_interning_strategy) );
+      ( "share_lowered_formulas",
+        json_bool
+          (Pipeline_config.shares_lowered_formulas
+             opts.verification.formula_interning_strategy) );
+      ( "group_step_contracts",
+        json_bool
+          (Pipeline_config.groups_step_contracts
+             opts.verification.proof_plan_strategy) );
+      ( "deduplicate_obligation_conditions",
+        json_bool
+          (Pipeline_config.deduplicates_obligation_conditions
+             opts.verification.proof_plan_strategy) );
+      ( "share_contract_formulas",
+        json_bool
+          (Pipeline_config.shares_contract_formulas
+             opts.verification.proof_plan_strategy) );
+      ( "bundle_individual_postconditions",
+        json_bool
+          (Pipeline_config.bundles_individual_postconditions
+             opts.verification.proof_plan_strategy) );
     ]
 
 let proof_encoding_json (encoding : Pipeline_config.proof_encoding) =
