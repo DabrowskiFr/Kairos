@@ -190,7 +190,6 @@ type node_lowering_shape = {
   semantics : Ir.node_signature;
   source_info : Ir.source_info;
   summaries : summary_lowering_shape list;
-  init_invariant_meta : Ir.formula_meta list;
 }
 
 let formula_metadata formulas =
@@ -230,8 +229,6 @@ let node_lowering_shape :
     semantics = node.semantics;
     source_info = node.source_info;
     summaries = List.map summary_lowering_shape node.summaries;
-    init_invariant_meta =
-      formula_metadata node.init_invariant_goals;
   }
 
 let validate_temporal_lower_delta before after =

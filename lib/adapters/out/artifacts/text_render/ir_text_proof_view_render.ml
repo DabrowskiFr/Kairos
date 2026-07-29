@@ -140,8 +140,7 @@ let collect_formula_pool (program : Ir.program_ir) : Core_syntax.history_free Ir
   in
   List.iter
     (fun (n : Core_syntax.history_free Ir.node_ir) ->
-      List.iter add_product_summary n.summaries;
-      add_formulas n.init_invariant_goals)
+      List.iter add_product_summary n.summaries)
     program.nodes;
   Hashtbl.fold (fun _ f acc -> f :: acc) by_oid []
   |> List.sort (fun (a : Core_syntax.history_free Ir.summary_formula) (b : Core_syntax.history_free Ir.summary_formula) ->
@@ -268,8 +267,6 @@ let render_node_pretty ~(source_program : Verification_model.program_model optio
         render_product_summary ~name:(Printf.sprintf "C%d" (i + 1)) ~summary_index:(i + 1)
           ~indent:1 buf summary)
       n.summaries;
-  line buf "";
-  line ~indent:1 buf ("init_invariant_goals=" ^ render_formula_refs n.init_invariant_goals);
   line buf "";
   line buf separator;
   line buf ""

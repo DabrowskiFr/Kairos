@@ -72,7 +72,6 @@ let test_exact_initial_state_is_not_characterized () =
             [ incoming_case ];
           summary ~step_uid:1 ~src:actual_initial [];
         ];
-      init_invariant_goals = [];
     }
   in
   let table_with_other_initial =

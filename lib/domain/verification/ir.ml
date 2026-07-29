@@ -96,7 +96,6 @@ type 'phase node_ir = {
   source_info : source_info;
   temporal_layout : temporal_layout;
   summaries : 'phase product_step_summary list;
-  init_invariant_goals : 'phase summary_formula list;
 }
 
 type program_ir = { nodes : Core_syntax.history_free node_ir list }

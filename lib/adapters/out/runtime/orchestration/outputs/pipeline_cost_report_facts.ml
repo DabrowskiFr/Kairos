@@ -148,10 +148,7 @@ let collect_summary_facts table (node : Core_syntax.history_free Ir.node_ir) =
           add_summary_formula "canonical.product_case.guarantee_guard"
             "step_tick_context" case.guarantee_guard)
         summary.product_cases)
-    node.summaries;
-  List.iter
-    (add_summary_formula "canonical.init_invariant_goal" "current_tick")
-    node.init_invariant_goals
+    node.summaries
 
 let collect_source_ltl_facts table (node : Verification_model.node_model) =
   let origin suffix = origin_for_node node.node_name suffix in

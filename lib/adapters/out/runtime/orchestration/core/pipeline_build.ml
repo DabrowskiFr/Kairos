@@ -70,7 +70,6 @@ let ir_size_metrics :
   let requires_count = ref 0 in
   let ensures_count = ref 0 in
   let elaboration_checks_count = ref 0 in
-  let init_invariant_goal_count = ref 0 in
   let formula_occurrence_count = ref 0 in
   let formulas = ref [] in
   let add_formula f =
@@ -82,9 +81,6 @@ let ir_size_metrics :
   in
   List.iter
     (fun (node : phase Ir.node_ir) ->
-      init_invariant_goal_count :=
-        !init_invariant_goal_count + List.length node.init_invariant_goals;
-      List.iter add_summary_formula node.init_invariant_goals;
       List.iter
         (fun (summary : phase Ir.product_step_summary) ->
           incr summary_count;
@@ -116,7 +112,6 @@ let ir_size_metrics :
     requires_count = !requires_count;
     ensures_count = !ensures_count;
     elaboration_checks_count = !elaboration_checks_count;
-    init_invariant_goal_count = !init_invariant_goal_count;
     formula_occurrence_count = !formula_occurrence_count;
     unique_formula_count = List.length (List.sort_uniq Stdlib.compare !formulas);
   }

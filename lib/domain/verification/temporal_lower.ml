@@ -33,23 +33,20 @@ let simplify_history_free
 
 let required_temporal_layout (node : Core_syntax.historical Abs.node_ir) : Abs.temporal_layout =
   let summary_formulas =
-    let product_formulas =
-      node.summaries
-      |> List.concat_map (fun (summary : Core_syntax.historical Abs.product_step_summary) ->
-             summary.identity.assume_guard
-             :: (Ir_formula.values
-                   (summary.propagation_requires @ summary.requires
-                  @ summary.ensures @ summary.elaboration_checks)
-             @
-             let case_formulas =
-               List.concat_map
-                 (fun (case : Core_syntax.historical Abs.product_case) ->
-                   [ case.guarantee_guard ])
-                 summary.product_cases
-             in
-             Ir_formula.values case_formulas))
-    in
-    product_formulas @ Ir_formula.values node.init_invariant_goals
+    node.summaries
+    |> List.concat_map (fun (summary : Core_syntax.historical Abs.product_step_summary) ->
+           summary.identity.assume_guard
+           :: (Ir_formula.values
+                 (summary.propagation_requires @ summary.requires
+                @ summary.ensures @ summary.elaboration_checks)
+           @
+           let case_formulas =
+             List.concat_map
+               (fun (case : Core_syntax.historical Abs.product_case) ->
+                 [ case.guarantee_guard ])
+               summary.product_cases
+           in
+           Ir_formula.values case_formulas))
   in
   Pre_k_layout.build_pre_k_infos_from_parts ~inputs:node.semantics.sem_inputs
     ~locals:node.semantics.sem_locals ~outputs:node.semantics.sem_outputs
@@ -110,13 +107,11 @@ let run_node (node : Core_syntax.historical Abs.node_ir) :
              product_cases;
            })
   in
-  let init_invariant_goals = List.map lower node.init_invariant_goals in
   {
     Abs.semantics = node.semantics;
     source_info = node.source_info;
     temporal_layout;
     summaries;
-    init_invariant_goals;
   }
 
 let run_program

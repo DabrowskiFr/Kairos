@@ -59,7 +59,6 @@ let of_model_node (n : Vm.node_model) : Core_syntax.historical Ir.node_ir =
       };
     temporal_layout = [];
     summaries = [];
-    init_invariant_goals = [];
   }
 
 let transition_of_program_step
