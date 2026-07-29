@@ -36,7 +36,6 @@ let with_instrumentation_pass args f =
 let with_why_text_dump args f =
   match
     Pipeline_service.why_text_dump ~input_file:args.file
-      ~proof_encoding:args.proof_encoding
       ~proof_optimizations:(proof_optimizations_of_args args)
   with
   | Error e -> `Error (false, map_error e)
@@ -45,7 +44,6 @@ let with_why_text_dump args f =
 let with_obligations_pass args f =
   match
     Pipeline_service.obligations_dump_data ~input_file:args.file
-      ~proof_encoding:args.proof_encoding
       ~proof_optimizations:(proof_optimizations_of_args args)
   with
   | Error e -> `Error (false, map_error e)
@@ -54,7 +52,6 @@ let with_obligations_pass args f =
 let with_normalized_program args f =
   match
     Pipeline_service.normalized_program ~input_file:args.file
-      ~proof_encoding:args.proof_encoding
       ~proof_optimizations:(proof_optimizations_of_args args)
   with
   | Error e -> `Error (false, map_error e)
@@ -63,7 +60,6 @@ let with_normalized_program args f =
 let with_ir_pretty args f =
   match
     Pipeline_service.ir_pretty_dump ~input_file:args.file
-      ~proof_encoding:args.proof_encoding
       ~proof_optimizations:(proof_optimizations_of_args args)
   with
   | Error e -> `Error (false, map_error e)
@@ -72,7 +68,6 @@ let with_ir_pretty args f =
 let with_cost_report args f =
   match
     Pipeline_service.cost_report_dump ~input_file:args.file
-      ~proof_encoding:args.proof_encoding
       ~proof_optimizations:(proof_optimizations_of_args args)
   with
   | Error e -> `Error (false, map_error e)
@@ -230,7 +225,6 @@ let exec_action args = function
           ~proof_progress_path:None
           ~collect_ir_metrics:(Option.is_some args.dump_timings || Option.is_some args.dump_goals)
           ~stop_on_first_nonvalid:args.stop_on_first_nonvalid ~proof_jobs:args.proof_jobs
-          ~proof_encoding:args.proof_encoding
           ~proof_optimizations:(proof_optimizations_of_args args)
       with
       | Error e -> `Error (false, map_error e)

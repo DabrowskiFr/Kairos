@@ -10,7 +10,11 @@
 
 (** Parsed CLI command model. *)
 
-module Pipeline = Kairos_engine.Api.Contract
+type proof_case_strategy =
+  Kairos_engine.Api.Contract.proof_case_decomposition_strategy =
+  | Monolithic
+  | Separate_guarantees
+  | Split_multiple_weak_until
 
 type cli_args = {
   file : string;
@@ -18,10 +22,9 @@ type cli_args = {
   prove : bool;
   timeout_s : int;
   proof_jobs : int;
-  proof_encoding : Pipeline.proof_encoding;
   stop_on_first_nonvalid : bool;
   no_proof_optimizations : bool;
-  no_proof_grouping : bool;
+  proof_case_strategy : proof_case_strategy option;
   no_step_contract_grouping : bool;
   dump_automata : string option;
   dump_automata_short : string option;

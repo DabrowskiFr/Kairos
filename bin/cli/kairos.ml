@@ -28,23 +28,6 @@ let docs_frontend = "FRONTEND"
 
 open Cli_types
 
-module Pipeline = Kairos_engine.Api.Contract
-
-let proof_encoding_parser s =
-  match Pipeline.proof_encoding_of_string s with
-  | Some encoding -> Ok encoding
-  | None ->
-      Error
-        (`Msg
-          (Printf.sprintf
-             "unsupported proof encoding '%s' (available: explicit-product)" s))
-
-let proof_encoding_printer fmt encoding =
-  Format.pp_print_string fmt (Pipeline.string_of_proof_encoding encoding)
-
-let proof_encoding_conv =
-  Cmdliner.Arg.conv (proof_encoding_parser, proof_encoding_printer)
-
 let cmd =
   let file =
     let doc = "Input Kairos file." in
@@ -170,14 +153,6 @@ let cmd =
              --stop-on-first-nonvalid, Kairos uses one job to keep strict \
              first-failure semantics.")
   in
-  let proof_encoding =
-    Arg.(
-      value
-      & opt proof_encoding_conv Pipeline.default_proof_encoding
-      & info [ "proof-encoding" ] ~docs:docs_proof ~docv:"ENCODING"
-          ~doc:
-            "Select the proof-obligation encoding. Currently available: explicit-product.")
-  in
   let stop_on_first_nonvalid =
     Arg.(
       value & flag
@@ -192,12 +167,23 @@ let cmd =
           ~doc:
             "Disable proof-generation optimizations. This selects the reference pipeline shape used for Rocq alignment checks.")
   in
-  let no_proof_grouping =
+  let proof_case_strategy =
+    let strategies =
+      [
+        ("monolithic", Monolithic);
+        ("separate", Separate_guarantees);
+        ("multi-weak-until", Split_multiple_weak_until);
+      ]
+    in
     Arg.(
-      value & flag
-      & info [ "no-proof-grouping" ] ~docs:docs_proof
+      value & opt (some (enum strategies)) None
+      & info [ "proof-case-strategy" ] ~docs:docs_proof
+          ~docv:"STRATEGY"
           ~doc:
-            "Disable structural grouping of public non-W guarantees inside the weak-until partitioning strategy.")
+            "Select proof-case decomposition independently of other proof \
+             optimizations: $(b,monolithic), $(b,separate), or \
+             $(b,multi-weak-until). An explicit value overrides the \
+             decomposition selected by --no-proof-optimizations.")
   in
   let no_step_contract_grouping =
     Arg.(
@@ -212,22 +198,21 @@ let cmd =
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
-    let make_cli_args file check_frontend prove timeout_s proof_jobs proof_encoding
-        stop_on_first_nonvalid no_proof_optimizations no_proof_grouping
-        no_step_contract_grouping
-        dump_automata dump_product dump_automata_short dump_surface dump_elaborated
-        dump_normalized_program dump_ir_pretty dump_cost_report emit_c dump_timings
-        dump_goals dump_failed_smt dump_why dump_why3_vc dump_smt2 =
+    let make_cli_args file check_frontend prove timeout_s proof_jobs
+        stop_on_first_nonvalid no_proof_optimizations proof_case_strategy
+        no_step_contract_grouping dump_automata dump_product dump_automata_short
+        dump_surface dump_elaborated dump_normalized_program dump_ir_pretty
+        dump_cost_report emit_c dump_timings dump_goals dump_failed_smt dump_why
+        dump_why3_vc dump_smt2 =
       {
         file;
         check_frontend;
         prove;
         timeout_s;
         proof_jobs;
-        proof_encoding;
         stop_on_first_nonvalid;
         no_proof_optimizations;
-        no_proof_grouping;
+        proof_case_strategy;
         no_step_contract_grouping;
         dump_automata;
         dump_product;
@@ -248,8 +233,8 @@ let cmd =
     in
     Term.(
       const make_cli_args $ file $ check_frontend $ prove $ timeout_s
-      $ proof_jobs $ proof_encoding $ stop_on_first_nonvalid $ no_proof_optimizations
-      $ no_proof_grouping $ no_step_contract_grouping
+      $ proof_jobs $ stop_on_first_nonvalid $ no_proof_optimizations
+      $ proof_case_strategy $ no_step_contract_grouping
       $ dump_automata $ dump_product $ dump_automata_short $ dump_surface
       $ dump_elaborated $ dump_normalized_program $ dump_ir_pretty
       $ dump_cost_report $ emit_c $ dump_timings $ dump_goals $ dump_failed_smt

@@ -75,7 +75,7 @@ let grouped_body ~env transition ~post_call =
 
 let build_individual (ctx : context) (plan : Proof_ir.individual) :
     helper_unit =
-  let i = plan.index in
+  let i = plan.member.id in
   let sc = plan.member.contract in
   let helper_name =
     ident (Step_names.product_step_helper_name ~index:i sc)
@@ -106,8 +106,9 @@ let build_individual (ctx : context) (plan : Proof_ir.individual) :
 
 let build_grouped (ctx : context) (plan : Proof_ir.grouped) :
     helper_unit =
-  let first_i = plan.index in
-  let first_sc = plan.representative.contract in
+  let first = List.hd plan.members in
+  let first_i = first.id in
+  let first_sc = first.contract in
   let helper_name =
     ident
       (Step_names.product_step_group_helper_name ~index:first_i first_sc)

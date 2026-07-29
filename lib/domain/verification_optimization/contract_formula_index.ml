@@ -26,17 +26,6 @@ type occurrence = {
   seen_oids : (Ir_shared_types.formula_id, unit) Hashtbl.t;
 }
 
-type t = {
-  definitions : definition list;
-  by_oid : (Ir_shared_types.formula_id, definition) Hashtbl.t;
-}
-
-let empty =
-  {
-    definitions = [];
-    by_oid = Hashtbl.create 0;
-  }
-
 let shareable (formula : Core_syntax.history_free Ir.summary_formula) =
   match formula.logic.hexpr with
   | HBin ((And | Or), _, _) | HUn (Not, _) -> true
@@ -90,33 +79,21 @@ let build contracts =
                        occurrence.contract_count + 1
                    end))
     contracts;
-  let by_oid = Hashtbl.create 32 in
   let next_definition_id = ref 0 in
-  let definitions =
-    List.rev !order
-    |> List.filter_map (fun key ->
-           let occurrence = Hashtbl.find occurrences key in
-           if
-             occurrence.contract_count < 2
-             || List.length occurrence.oids_rev < 2
-           then None
-           else
-             let definition =
-               {
-                id = !next_definition_id;
-                formula = occurrence.formula;
-                occurrence_ids = List.rev occurrence.oids_rev;
-               }
-             in
-             incr next_definition_id;
-             List.iter
-               (fun oid -> Hashtbl.replace by_oid oid definition)
-               occurrence.oids_rev;
-             Some definition)
-  in
-  { definitions; by_oid }
-
-let definitions index = index.definitions
-
-let find index (formula : Core_syntax.history_free Ir.summary_formula) =
-  Hashtbl.find_opt index.by_oid formula.meta.oid
+  List.rev !order
+  |> List.filter_map (fun key ->
+         let occurrence = Hashtbl.find occurrences key in
+         if
+           occurrence.contract_count < 2
+           || List.length occurrence.oids_rev < 2
+         then None
+         else
+           let definition =
+             {
+               id = !next_definition_id;
+               formula = occurrence.formula;
+               occurrence_ids = List.rev occurrence.oids_rev;
+             }
+           in
+           incr next_definition_id;
+           Some definition)

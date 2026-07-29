@@ -40,10 +40,10 @@ val record_ir_fact_family : ir_fact_family_snapshot -> unit
 val record_frontend_parse : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent parsing/lowering the frontend input. *)
 
-val record_snapshot_build : elapsed_s:float -> unit
+val record_pipeline_build : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent building the verification snapshot. *)
 
-val record_contract_partition : elapsed_s:float -> unit
+val record_proof_case_decomposition : elapsed_s:float -> unit
 val record_proof_planning : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent partitioning contracts. *)
 
@@ -64,9 +64,6 @@ val record_canonical : elapsed_s:float -> unit
 
 val record_pre : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent in the Pre IR pass. *)
-
-val record_product_reachability : elapsed_s:float -> unit
-(** Add elapsed wall-clock time spent in the product-reachability IR pass. *)
 
 val record_post : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent in the Post IR pass. *)

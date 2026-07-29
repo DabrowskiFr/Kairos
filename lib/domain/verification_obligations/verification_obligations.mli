@@ -27,23 +27,13 @@ val of_instrumented_product_node :
 (** Preserves the opaque proof-case/IR association produced and checked by the
     reference pipeline. This is the production ingress for obligations. *)
 
-val make_partition_input :
-  proof_case:Proof_case_program.proof_case ->
-  node:Core_syntax.history_free Ir.node_ir ->
-  (partition_input, string) result
-(** Constructs a typed association and rejects a lowered node whose name,
-    source contract, signature, or executable transition provenance does not
-    match its proof case. This explicit validation ingress is intended for
-    isolated construction and tests; the runtime uses
-    {!of_instrumented_product_node}. *)
-
 type step_obligation = private {
   id : int;
   partition_name : Core_syntax.ident;
   contract : Step_contract_projection.step_contract;
 }
 (** One individual step contract with a stable node-local identifier and the
-    partition that established its reachability requirements. *)
+    proof-case partition from which it originates. *)
 
 type condition = private
   | State_is of Core_syntax.ident
@@ -100,6 +90,16 @@ val formulas_of_condition :
 val formulas_of_conditions :
   conjunction ->
   Core_syntax.history_free Ir.summary_formula list
+
+val map_formulas :
+  (Core_syntax.history_free Ir.summary_formula ->
+  Core_syntax.history_free Ir.summary_formula) ->
+  t ->
+  (t, string) result
+(** Applies a representation-only transformation to every formula occurrence.
+    The result is rejected unless it remains structurally equal to the input.
+    This admits physical sharing while preventing optimization code from
+    changing a canonical obligation. *)
 
 val build_program :
   proof_cases:Proof_case_program.t ->

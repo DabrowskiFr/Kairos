@@ -19,7 +19,6 @@ let worker_metrics_of_backend (worker : Why_metrics.worker_snapshot) : Contract.
 let execution_metrics_of_backend (metrics : Why_metrics.snapshot) : Contract.execution_metrics =
   {
     setup_s = metrics.why3_setup_s;
-    parse_s = metrics.why3_parse_s;
     typecheck_s = metrics.why3_typecheck_s;
     task_extract_s = metrics.why3_task_extract_s;
     split_vc_s = metrics.why3_split_vc_s;
@@ -94,15 +93,8 @@ let attach_probe ~timeout_s ~ptree (result : Contract.goal_result) =
     in
     { result with probe }
 
-let execute ?(should_cancel = fun () -> false)
-    ?(on_goal_start = fun (_ : Contract.goal_descriptor) -> ())
-    ?(on_goal_done = fun (_ : Contract.goal_result) -> ()) (request : Contract.execution_request) =
-  (match Contract.validate_execution_request request with
-  | Ok () -> ()
-  | Error message -> invalid_arg message);
-  Why_metrics.reset ();
-  let options = request.options in
-  let ptree = Why_task_support.ptree_of_text ~filename:request.filename ~text:request.whyml_text in
+let execute_ptree_core ~should_cancel ~on_goal_start ~on_goal_done
+    ~(options : Contract.execution_options) (ptree : Why3.Ptree.mlw_file) =
   let module_ptrees = Why_task_support.module_ptrees_of_ptree ptree in
   let _config, _main, env, _datadir = Why_task_support.setup_env () in
   let tasks =
@@ -141,3 +133,13 @@ let execute ?(should_cancel = fun () -> false)
   in
   let metrics = Why_metrics.snapshot () |> execution_metrics_of_backend in
   Contract.make_execution_response ~goals ~results ~vc_blocks ~smt_blocks ~metrics
+
+let execute_ptree ?(should_cancel = fun () -> false)
+    ?(on_goal_start = fun (_ : Contract.goal_descriptor) -> ())
+    ?(on_goal_done = fun (_ : Contract.goal_result) -> ()) ~(options : Contract.execution_options)
+    (ptree : Why3.Ptree.mlw_file) =
+  (match Contract.validate_execution_options options with
+  | Ok () -> ()
+  | Error message -> invalid_arg message);
+  Why_metrics.reset ();
+  execute_ptree_core ~should_cancel ~on_goal_start ~on_goal_done ~options ptree

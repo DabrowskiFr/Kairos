@@ -8,7 +8,6 @@
   pipeline_error
   pipeline_proof_types
   pipeline_artifacts
-  runtime_snapshot
   result_utils
   instrumentation_info_helpers
   instrumentation_info_builder

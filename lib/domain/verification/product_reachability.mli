@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Certified product-reachability invariant candidates.
+(** Product-reachability invariant candidates.
 
     This pass synthesizes a finite, conservative [true]/[false] candidate
     [R_p] for each live product state. The candidate is only a candidate:
@@ -27,24 +27,28 @@
 
 type t
 
-val build : node:Core_syntax.historical Ir.node_ir -> t
-val build_history_free : node:Core_syntax.history_free Ir.node_ir -> t
+type strategy =
+  | Trivial
+  | Contradiction_closure
+(** [Trivial] proposes [true] for every state. [Contradiction_closure] computes
+    the conservative Boolean closure currently used by Kairos. *)
+
+val build :
+  strategy:strategy ->
+  node:Core_syntax.historical Ir.node_ir ->
+  t
 
 val formula_of_product_state : t -> Ir.product_state -> 'phase Core_syntax.hexpr
 (** [formula_of_product_state t p] returns the current [R_p] candidate. Unknown
     states default to [true], so the invariant is conservative under missing
     metadata. *)
 
-val local_requires_of_product_state :
+val entry_facts_of_product_state :
   t -> Ir.product_state -> 'phase Core_syntax.hexpr list
-(** Local backend-only hypotheses for helpers whose source is [p]. The list is
+(** Auxiliary entry facts for a step whose source is [p]. The list is
     empty when [R_p] is [true] and contains [false] when [R_p] is [false]. *)
 
 val preservation_ensures : t -> Core_syntax.historical Ir.product_step_summary -> Core_syntax.historical Core_syntax.hexpr list
 (** Preservation obligations for the safe destinations of one product summary.
     Only non-trivial obligations are returned. Their order and occurrences are
-    those of the safe cases; this reference pass performs no deduplication.
-    [run_program] records appended occurrences in the
-    [product_reachability_ensures] family. *)
-
-val run_program : Core_syntax.historical Ir.node_ir list -> Core_syntax.historical Ir.node_ir list
+    those of the safe cases; this reference pass performs no deduplication. *)

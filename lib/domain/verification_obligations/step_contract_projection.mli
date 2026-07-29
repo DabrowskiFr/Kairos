@@ -38,7 +38,6 @@ type step_contract = {
   product_src : Ir.product_state;
   assume_guard : Core_syntax.history_free Ir.summary_formula;
   requires : Core_syntax.history_free Ir.summary_formula list;
-  runtime_requires : Core_syntax.history_free Ir.summary_formula list;
   ensures : Core_syntax.history_free Ir.summary_formula list;
   elaboration_checks : Core_syntax.history_free Ir.summary_formula list;
   forbidden : Core_syntax.history_free Ir.summary_formula list;
@@ -46,8 +45,8 @@ type step_contract = {
 (** Step contract before backend-specific lowering. *)
 
 val preconditions : step_contract -> Core_syntax.history_free Ir.summary_formula list
-(** Preconditions of a step contract, including its assumption guard and
-    requirements induced by product reachability. *)
+(** Preconditions already carried by the enriched IR, followed by the
+    assumption guard. *)
 
 val postconditions : step_contract -> Core_syntax.history_free Ir.summary_formula list
 (** Positive postconditions of a step contract. *)
@@ -60,5 +59,4 @@ val exclusions : step_contract -> Core_syntax.history_free Ir.summary_formula li
 val of_ir_node :
   Core_syntax.history_free Ir.node_ir ->
   step_contract list
-(** Extracts step contracts directly from enriched IR summaries and adds the
-    requirements induced by product reachability. *)
+(** Extracts step contracts directly from enriched IR summaries. *)

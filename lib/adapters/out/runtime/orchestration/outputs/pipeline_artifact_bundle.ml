@@ -47,9 +47,9 @@ let build_node_artifacts
   in
   { require_graph; ensures_graph; product_graph }
 
-let build ~(asts : Runtime_snapshot.ast_flow) : t =
+let build ~(product_nodes : Orchestration.product_node list) : t =
   let node_artifacts =
-    List.map build_node_artifacts asts.product_nodes
+    List.map build_node_artifacts product_nodes
   in
   let guarantee_automaton_text =
     Pipeline_artifact_bundle_text.join_non_empty

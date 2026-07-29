@@ -17,7 +17,8 @@
   kairos_why3
   kairos_why3_compile
   kairos_runtime_telemetry
-  kairos_external_why3))
+  kairos_external_why3
+  why3))
 
 (library
  (name kairos_runtime_diagnostics)

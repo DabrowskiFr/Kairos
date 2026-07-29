@@ -24,7 +24,6 @@ let config_from_compat_params ~input_file params =
         (Lsp_request_decode.get_param_string params "engine")
         ~default:"default";
     wp_only = Lsp_request_decode.get_param_bool params "wpOnly" false;
-    smoke_tests = Lsp_request_decode.get_param_bool params "smokeTests" false;
     timeout_s = Lsp_request_decode.get_param_int params "timeoutS" 5;
     compute_proof_diagnostics =
       Lsp_request_decode.get_param_bool params "computeProofDiagnostics" false;

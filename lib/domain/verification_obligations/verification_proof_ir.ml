@@ -13,7 +13,6 @@ module Obligations = Verification_obligations
 let ( let* ) = Result.bind
 
 type individual = {
-  index : int;
   member : Obligations.step_obligation;
   preconditions : Obligations.conjunction;
   postconditions : Obligations.conjunction;
@@ -26,8 +25,6 @@ type conditional_post = {
 }
 
 type grouped = {
-  index : int;
-  representative : Obligations.step_obligation;
   members : Obligations.step_obligation list;
   precondition_alternatives : Obligations.conjunction list;
   common_preconditions : Obligations.conjunction;
@@ -56,10 +53,9 @@ type t = {
   shared_postconditions : shared_postcondition list;
 }
 
-let make_individual ~index ~member ~preconditions ~postconditions
+let make_individual ~member ~preconditions ~postconditions
     ~shared_postcondition_id =
   {
-    index;
     member;
     preconditions;
     postconditions;
@@ -72,11 +68,9 @@ let with_shared_postcondition_id individual shared_postcondition_id =
 let make_conditional_post ~alternatives ~conclusions =
   { alternatives; conclusions }
 
-let make_grouped ~index ~representative ~members
+let make_grouped ~members
     ~precondition_alternatives ~common_preconditions ~conditional_posts =
   {
-    index;
-    representative;
     members;
     precondition_alternatives;
     common_preconditions;
@@ -90,9 +84,9 @@ let make_shared_formula ~id ~formula ~occurrence_ids =
 let minimal source =
   let obligations =
     source.Obligations.steps
-    |> List.mapi (fun index member ->
+    |> List.map (fun member ->
            Individual
-             (make_individual ~index ~member
+             (make_individual ~member
                 ~preconditions:(Obligations.entry_conditions member)
                 ~postconditions:(Obligations.exit_conditions member)
                 ~shared_postcondition_id:None))
@@ -163,13 +157,7 @@ let validate_members plan obligations =
                  member.id)
 
 let validate_individual (individual : individual) =
-  if individual.index <> individual.member.id then
-    Error
-      (Printf.sprintf
-         "verification proof IR gives canonical obligation %d the unstable \
-          index %d"
-         individual.member.id individual.index)
-  else if
+  if
     not
       (Obligations.equivalent_conjunction individual.preconditions
          (Obligations.entry_conditions individual.member))
@@ -228,17 +216,7 @@ let validate_grouped (grouped : grouped) =
   match grouped.members with
   | [] -> Error "verification proof IR contains an empty obligation group"
   | first :: _ ->
-      if grouped.representative <> first then
-        Error
-          "verification proof IR group representative is not its first \
-           canonical member"
-      else if grouped.index <> first.id then
-        Error
-          (Printf.sprintf
-             "verification proof IR gives obligation group %d the unstable \
-              index %d"
-             first.id grouped.index)
-      else if
+      if
         first.contract.step_class
         <> Step_contract_projection.StepSafe
       then
@@ -494,10 +472,3 @@ let rebuild plan ~obligations ~shared_formulas ~shared_postconditions =
     }
 
 let shared_formula_definitions plan = plan.shared_formulas
-
-let shared_formula_for plan
-    (formula : Core_syntax.history_free Ir.summary_formula) =
-  List.find_opt
-    (fun (shared : shared_formula) ->
-      List.mem formula.meta.oid shared.occurrence_ids)
-    plan.shared_formulas

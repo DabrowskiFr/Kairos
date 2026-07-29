@@ -15,11 +15,10 @@ let () =
       diagnose_nonvalid = false;
     }
   in
-  let execution_request =
-    Contract.make_execution_request
-      ~whyml_text:"module Contract_execution\n  goal emitted : false\nend" ~options ()
-  in
-  let execution = Why_execution.execute execution_request in
+  let lexbuf = Lexing.from_string "module Contract_execution\n  goal emitted : false\nend" in
+  Why3.Loc.set_file "<adapter-test>" lexbuf;
+  let ptree = Why3.Lexer.parse_mlw_file lexbuf in
+  let execution = Why_execution.execute_ptree ~options ptree in
   check "execution response version" (Result.is_ok (Contract.validate_execution_response execution));
   check "neutral goal descriptor produced" (List.length execution.goals = 1);
   check "proof disabled means no results" (execution.results = []);

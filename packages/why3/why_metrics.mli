@@ -17,7 +17,6 @@ type worker_snapshot = {
 
 type snapshot = {
   why3_setup_s : float;
-  why3_parse_s : float;
   why3_typecheck_s : float;
   why3_task_extract_s : float;
   why3_split_vc_s : float;
@@ -40,7 +39,6 @@ val diff : before:snapshot -> after_:snapshot -> snapshot
 val add_snapshot : snapshot -> unit
 val record_why3_worker : worker_snapshot -> unit
 val record_why3_setup : elapsed_s:float -> unit
-val record_why3_parse : elapsed_s:float -> unit
 val record_why3_typecheck : elapsed_s:float -> unit
 val record_why3_task_extract : elapsed_s:float -> unit
 val record_why3_split_vc : elapsed_s:float -> unit

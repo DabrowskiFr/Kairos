@@ -17,7 +17,6 @@ type worker_snapshot = {
 
 type snapshot = {
   why3_setup_s : float;
-  why3_parse_s : float;
   why3_typecheck_s : float;
   why3_task_extract_s : float;
   why3_split_vc_s : float;
@@ -35,7 +34,6 @@ type snapshot = {
 }
 
 let why3_setup_s = ref 0.0
-let why3_parse_s = ref 0.0
 let why3_typecheck_s = ref 0.0
 let why3_task_extract_s = ref 0.0
 let why3_split_vc_s = ref 0.0
@@ -53,7 +51,6 @@ let why3_smt_fingerprints = ref []
 
 let reset () =
   why3_setup_s := 0.0;
-  why3_parse_s := 0.0;
   why3_typecheck_s := 0.0;
   why3_task_extract_s := 0.0;
   why3_split_vc_s := 0.0;
@@ -72,7 +69,6 @@ let reset () =
 let snapshot () =
   {
     why3_setup_s = !why3_setup_s;
-    why3_parse_s = !why3_parse_s;
     why3_typecheck_s = !why3_typecheck_s;
     why3_task_extract_s = !why3_task_extract_s;
     why3_split_vc_s = !why3_split_vc_s;
@@ -96,7 +92,6 @@ let rec drop_prefix count values =
 let diff ~before ~after_ =
   {
     why3_setup_s = max 0.0 (after_.why3_setup_s -. before.why3_setup_s);
-    why3_parse_s = max 0.0 (after_.why3_parse_s -. before.why3_parse_s);
     why3_typecheck_s =
       max 0.0 (after_.why3_typecheck_s -. before.why3_typecheck_s);
     why3_task_extract_s =
@@ -127,7 +122,6 @@ let diff ~before ~after_ =
 
 let add_snapshot metrics =
   why3_setup_s := !why3_setup_s +. metrics.why3_setup_s;
-  why3_parse_s := !why3_parse_s +. metrics.why3_parse_s;
   why3_typecheck_s := !why3_typecheck_s +. metrics.why3_typecheck_s;
   why3_task_extract_s :=
     !why3_task_extract_s +. metrics.why3_task_extract_s;
@@ -153,7 +147,6 @@ let add_float counter elapsed_s =
 
 let record_why3_worker worker = why3_workers := worker :: !why3_workers
 let record_why3_setup ~elapsed_s = add_float why3_setup_s elapsed_s
-let record_why3_parse ~elapsed_s = add_float why3_parse_s elapsed_s
 let record_why3_typecheck ~elapsed_s = add_float why3_typecheck_s elapsed_s
 let record_why3_task_extract ~elapsed_s = add_float why3_task_extract_s elapsed_s
 let record_why3_split_vc ~elapsed_s = add_float why3_split_vc_s elapsed_s

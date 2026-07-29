@@ -178,14 +178,13 @@ let collect_source_ltl_facts table (node : Verification_model.node_model) =
         inv.formula)
     node.state_invariants
 
-let collect_all_facts snapshot =
+let collect_all_facts ~proof_cases ~instrumentation =
   let table = Hashtbl.create 4096 in
   List.iter (collect_source_ltl_facts table)
-    (Proof_case_program.source_program
-       snapshot.Runtime_snapshot.asts.proof_case_program);
-  List.iter (collect_summary_facts table)
-    snapshot.Runtime_snapshot.asts.instrumentation;
+    (Proof_case_program.source_program proof_cases);
+  List.iter (collect_summary_facts table) instrumentation;
   fact_stats table
 
-let formula_population_json snapshot =
-  collect_all_facts snapshot |> formula_population_json_of_facts
+let formula_population_json ~proof_cases ~instrumentation =
+  collect_all_facts ~proof_cases ~instrumentation
+  |> formula_population_json_of_facts

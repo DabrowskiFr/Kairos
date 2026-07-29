@@ -20,4 +20,4 @@
 
 val source_node_json : Verification_model.node_model -> Yojson.Safe.t
 
-val source_json : Runtime_snapshot.pipeline_snapshot -> Yojson.Safe.t
+val source_json : Proof_case_program.t -> Yojson.Safe.t

@@ -16,11 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Neutral execution contract for generated WhyML.
+(** Neutral execution contract for proof options and results.
 
-    The payload contains no Kairos IR and no Why3 value. WhyML is the stable ownership boundary:
-    Kairos generates it, while a proof adapter parses it and produces backend-neutral obligations
-    and results. *)
+    The serializable text request is an explicit import/export contract. The in-process Why3 adapter
+    also accepts its native structured input without routing it through this textual representation.
+*)
 
 type proof_status =
   | Pending
@@ -62,14 +62,6 @@ type execution_options = {
 }
 [@@deriving yojson]
 
-type execution_request = {
-  protocol_version : Tool_protocol.version;
-  filename : string;
-  whyml_text : string;
-  options : execution_options;
-}
-[@@deriving yojson]
-
 type goal_descriptor = { goal_index : int; goal_name : string } [@@deriving yojson]
 
 type goal_result = {
@@ -101,7 +93,6 @@ type worker_metrics = {
 
 type execution_metrics = {
   setup_s : float;
-  parse_s : float;
   typecheck_s : float;
   task_extract_s : float;
   split_vc_s : float;
@@ -130,10 +121,7 @@ type execution_response = {
 }
 [@@deriving yojson]
 
-val make_execution_request :
-  ?filename:string -> whyml_text:string -> options:execution_options -> unit -> execution_request
-
-val validate_execution_request : execution_request -> (unit, string) result
+val validate_execution_options : execution_options -> (unit, string) result
 
 val make_execution_response :
   goals:goal_descriptor list ->

@@ -71,15 +71,15 @@ let invariants_of_state (n : Core_syntax.historical Abs.node_ir) : ident -> Core
     | Some xs -> List.rev xs)
 
 type node_generation = {
-  product_characteristics : Product_characteristics.t;
+  product_invariants : Product_invariant.t list;
   state_stability : Core_syntax.historical Core_syntax.hexpr list;
   invariant_of_state : ident -> Core_syntax.historical Core_syntax.hexpr option;
 }
 
-let compute_generation ~product_characteristics
+let compute_generation ~product_invariants
     ~(node : Core_syntax.historical Abs.node_ir) : node_generation =
   {
-    product_characteristics;
+    product_invariants;
     state_stability = List.map stability_formula (non_input_program_var_names node);
     invariant_of_state = (fun st -> conj_fo (invariants_of_state node st));
   }
@@ -88,11 +88,11 @@ let add_formula_family ~record_family ~family_name formulas acc =
   record_family ~family_name ~candidates:formulas ~inserted:formulas;
   acc @ List.map (Ir_formula.make ~family:family_name) formulas
 
-let run_node ~record_family ~product_characteristics
+let run_node ~record_family ~product_invariants
     (n : Core_syntax.historical Abs.node_ir) :
     Core_syntax.historical Abs.node_ir =
   let pre_generation =
-    compute_generation ~product_characteristics ~node:n
+    compute_generation ~product_invariants ~node:n
   in
   let input_names = Fo_current_input.input_names n.semantics.sem_inputs in
   let summaries =
@@ -100,19 +100,23 @@ let run_node ~record_family ~product_characteristics
       (fun (pc : Core_syntax.historical Abs.product_step_summary) ->
         let program_guard = guard_fo_of_transition_core pc.identity.program_step in
         let propagation_requires =
-          Product_characteristics.entry_facts_of_product_state
-            pre_generation.product_characteristics pc.identity.product_src
-          |> List.map
-               (reject_current_inputs_in_propagation_requires
-                  ~node_name:n.semantics.sem_nname ~input_names)
-          |> List.map (Ir_formula.make ~family:"propagation_requires")
+          Product_invariant.entry_facts
+            pre_generation.product_invariants
+            pc.identity.product_src
+          |> List.fold_left
+               (fun accumulated (family, formulas) ->
+                 let formulas =
+                   List.map
+                     (reject_current_inputs_in_propagation_requires
+                        ~node_name:n.semantics.sem_nname
+                        ~input_names)
+                     formulas
+                 in
+                 add_formula_family ~record_family
+                   ~family_name:(family ^ "_requires")
+                   formulas accumulated)
+               pc.propagation_requires
         in
-        let propagation_requires_formulas =
-          List.map (fun (f : Core_syntax.historical Abs.summary_formula) -> f.logic) propagation_requires
-        in
-        record_family ~family_name:"propagation_requires"
-          ~candidates:propagation_requires_formulas
-          ~inserted:propagation_requires_formulas;
         let state_invariants =
           invariants_of_state n pc.identity.product_src.prog_state
         in
@@ -130,7 +134,7 @@ let run_node ~record_family ~product_characteristics
   in
   { n with summaries }
 
-let run_program ?observe_family ~product_characteristics
+let run_program ?observe_family ~product_invariants
     (p : Core_syntax.historical Abs.node_ir list) :
     Core_syntax.historical Abs.node_ir list =
   let collector =
@@ -147,9 +151,9 @@ let run_program ?observe_family ~product_characteristics
   in
   let result =
     List.map2
-      (fun product_characteristics node ->
-        run_node ~record_family ~product_characteristics node)
-      product_characteristics p
+      (fun product_invariants node ->
+        run_node ~record_family ~product_invariants node)
+      product_invariants p
   in
   (match (collector, observe_family) with
   | Some collector, Some observer -> Ir_fact_family_metrics.emit collector observer

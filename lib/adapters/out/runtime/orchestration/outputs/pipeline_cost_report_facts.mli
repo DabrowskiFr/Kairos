@@ -19,5 +19,6 @@
 (** Formula-population diagnostics for the pipeline cost report. *)
 
 val formula_population_json :
-  Runtime_snapshot.pipeline_snapshot ->
+  proof_cases:Proof_case_program.t ->
+  instrumentation:Core_syntax.history_free Ir.node_ir list ->
   Pipeline_cost_report_common.Json.t

@@ -279,7 +279,6 @@ type config_repr = {
   input_file : string;
   engine : string option;
   wp_only : bool;
-  smoke_tests : bool;
   timeout_s : int;
   compute_proof_diagnostics : bool;
   prove : bool;
@@ -294,7 +293,6 @@ type config = {
   input_file : string;
   engine : string;
   wp_only : bool;
-  smoke_tests : bool;
   timeout_s : int;
   compute_proof_diagnostics : bool;
   prove : bool;
@@ -310,7 +308,6 @@ let yojson_of_config (c : config) =
       input_file = c.input_file;
       engine = Some c.engine;
       wp_only = c.wp_only;
-      smoke_tests = c.smoke_tests;
       timeout_s = c.timeout_s;
       compute_proof_diagnostics = c.compute_proof_diagnostics;
       prove = c.prove;
@@ -342,7 +339,6 @@ let config_of_yojson json =
           input_file = repr.input_file;
           engine = Option.value repr.engine ~default:"v2";
           wp_only = repr.wp_only;
-          smoke_tests = repr.smoke_tests;
           timeout_s = repr.timeout_s;
           compute_proof_diagnostics = repr.compute_proof_diagnostics;
           prove = repr.prove;

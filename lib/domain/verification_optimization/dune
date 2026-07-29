@@ -3,8 +3,7 @@
  (public_name kairos.verification_optimization)
  (wrapped true)
  (modules
-  contract_partition
-  formula_interning
+  proof_case_decomposition
   proof_plan
   contract_formula_index)
  (private_modules contract_formula_index)

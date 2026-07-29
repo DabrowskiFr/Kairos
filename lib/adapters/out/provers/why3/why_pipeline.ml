@@ -28,6 +28,11 @@ type obligations_outputs = {
 
 type compilation_manifest = Why_compile.compiled_obligation list
 
+type compilation = {
+  ast : Why3.Ptree.mlw_file;
+  manifest : compilation_manifest;
+}
+
 type whyml_output = {
   text : string;
   manifest : compilation_manifest;
@@ -40,10 +45,13 @@ let render_program_ast (ast : Why3.Ptree.mlw_file) =
   Format.pp_print_flush formatter ();
   Buffer.contents buffer
 
-let compile_whyml ~proof_plans () =
-  let compilation =
+let compile ~proof_plans () =
+  let compiled =
     Why_compile.compile_program_ast ~proof_plans ()
   in
+  { ast = compiled.ast; manifest = compiled.manifest }
+
+let render compilation =
   {
     text = render_program_ast compilation.ast;
     manifest = compilation.manifest;
@@ -59,7 +67,7 @@ let join_blocks ~sep blocks =
   Buffer.contents buffer
 
 let obligations_pass ~proof_plans : obligations_outputs =
-  let whyml = compile_whyml ~proof_plans () in
+  let compilation = compile ~proof_plans () in
   let execution_options : Why3_contract.execution_options =
     {
       timeout_s = 1;
@@ -72,11 +80,10 @@ let obligations_pass ~proof_plans : obligations_outputs =
       diagnose_nonvalid = false;
     }
   in
-  let request =
-    Why3_contract.make_execution_request ~whyml_text:whyml.text
-      ~options:execution_options ()
+  let response =
+    Why_execution.execute_ptree ~options:execution_options
+      compilation.ast
   in
-  let response = Why_execution.execute request in
   {
     vc_text =
       join_blocks ~sep:"\n(* ---- goal ---- *)\n" response.vc_blocks;

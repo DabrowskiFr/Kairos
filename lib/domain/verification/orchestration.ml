@@ -42,6 +42,7 @@ let rec all_results = function
 type reference_product_input = {
   proof_case_program : Proof_case_program.t;
   automata : (Core_syntax.ident * automata_spec) list;
+  reachability_strategy : Product_reachability.strategy;
 }
 
 (** Type [reference_product]. *)
@@ -49,6 +50,7 @@ type reference_product_input = {
 type product_node = {
   proof_case : Proof_case_program.proof_case;
   analysis : Temporal_automata.node_data;
+  reachability : Product_reachability.t;
   ir : Core_syntax.historical Ir.node_ir;
 }
 
@@ -61,26 +63,10 @@ type reference_product = {
   nodes : product_node list;
 }
 
-let map_instrumented_product_node transform
-    (node : instrumented_product_node) =
-  let ir = transform node.ir in
-  if ir <> node.ir then
-    Error
-      "Instrumented proof-case IR transformation changed the structural IR"
-  else
-    let* () =
-      From_model.validate_node_origin ~model:node.proof_case.model ir
-      |> Result.map_error (fun message ->
-             "Instrumented proof-case IR transformation broke provenance: "
-             ^ message)
-    in
-    Ok { node with ir }
-
 (** Type [instrumented_ir_pass]. *)
 
 type instrumented_ir_pass =
   | Pre_pass
-  | Product_reachability_pass
   | Post_pass
   | Temporal_lower_pass
 
@@ -270,7 +256,8 @@ let validate_temporal_lower_delta before after =
 (** [build_reference_product] helper value. *)
 
 let build_reference_product
-    ({ proof_case_program; automata } : reference_product_input) :
+    ({ proof_case_program; automata; reachability_strategy } :
+      reference_product_input) :
     (reference_product, string) result =
   let* analyzed_nodes =
     From_model.analyze_model_program ~automata
@@ -285,10 +272,15 @@ let build_reference_product
                proof_case_name
            with
            | Some proof_case ->
+               let reachability =
+                 Product_reachability.build
+                   ~strategy:reachability_strategy ~node:node.ir
+               in
                Ok
                  {
                    proof_case;
                    analysis = node.analysis;
+                   reachability;
                    ir = node.ir;
                  }
            | None ->
@@ -339,41 +331,34 @@ let build_instrumented_ir
       |> Result.map (fun _ -> ())
   in
   let* () = validate_pass_nodes "reference_product" initial_nodes in
-  let product_characteristics =
-    initial_nodes
-    |> List.map (fun (node : Core_syntax.historical Ir.node_ir) ->
-           Product_characteristics.build ~node)
+  let product_invariants =
+    List.map2
+      (fun (product_node : product_node)
+           (node : Core_syntax.historical Ir.node_ir) ->
+        [
+          Product_invariant.of_reachability
+            product_node.reachability;
+          Product_invariant.of_characteristics
+            (Product_characteristics.build ~node);
+        ])
+      product_nodes initial_nodes
   in
   pass_observer.before_historical Pre_pass initial_nodes;
   let pre_nodes =
     Pre.run_program ?observe_family:observe_fact_family
-      ~product_characteristics initial_nodes
+      ~product_invariants initial_nodes
   in
   pass_observer.after_historical Pre_pass pre_nodes;
   let* () = validate_pre_delta initial_nodes pre_nodes in
   let* () = validate_pass_nodes "pre" pre_nodes in
-  pass_observer.before_historical Product_reachability_pass
-    pre_nodes;
-  let reachable_nodes =
-    Product_reachability.run_program pre_nodes
-  in
-  pass_observer.after_historical Product_reachability_pass
-    reachable_nodes;
-  let* () =
-    validate_ensures_delta ~pass_name:"Product_reachability"
-      pre_nodes reachable_nodes
-  in
-  let* () =
-    validate_pass_nodes "product_reachability" reachable_nodes
-  in
-  pass_observer.before_historical Post_pass reachable_nodes;
+  pass_observer.before_historical Post_pass pre_nodes;
   let post_nodes =
     Post.run_program ?observe_family:observe_fact_family
-      ~product_characteristics reachable_nodes
+      ~product_invariants pre_nodes
   in
   pass_observer.after_historical Post_pass post_nodes;
   let* () =
-    validate_ensures_delta ~pass_name:"Post" reachable_nodes
+    validate_ensures_delta ~pass_name:"Post" pre_nodes
       post_nodes
   in
   let* () = validate_pass_nodes "post" post_nodes in
@@ -388,5 +373,9 @@ let build_instrumented_ir
   let* () = validate_pass_nodes "temporal_lower" backend_nodes in
   Ok
     (List.map2
-       (fun proof_case ir -> { proof_case; ir })
-       proof_cases backend_nodes)
+       (fun (product_node : product_node) ir ->
+         {
+           proof_case = product_node.proof_case;
+           ir;
+         })
+       product_nodes backend_nodes)

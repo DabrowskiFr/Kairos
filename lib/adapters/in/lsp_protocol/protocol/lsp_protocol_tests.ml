@@ -8,7 +8,6 @@ let base_config_json =
       ("input_file", `String "program.kairos");
       ("engine", `String "default");
       ("wp_only", `Bool false);
-      ("smoke_tests", `Bool false);
       ("timeout_s", `Int 5);
       ("compute_proof_diagnostics", `Bool false);
       ("prove", `Bool true);

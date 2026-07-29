@@ -62,7 +62,7 @@ let grouped_conditional_posts ~conditions entries common_preconditions =
   let groups = Hashtbl.create 16 in
   let order = ref [] in
   List.iter
-    (fun (_index, member) ->
+    (fun member ->
       let conclusions = step_postconditions ~conditions member in
       if conclusions <> [] then begin
         let key = Obligations.conjunction_key conclusions in
@@ -89,31 +89,29 @@ let grouped_conditional_posts ~conditions entries common_preconditions =
            ~conclusions)
 
 let grouped_obligation ~conditions entries =
-  let index, representative = List.hd entries in
   let precondition_alternatives =
     List.map
-      (fun (_index, member) -> step_preconditions ~conditions member)
+      (step_preconditions ~conditions)
       entries
   in
   let common_preconditions =
     Obligations.common_conjunction precondition_alternatives
   in
   Proof_ir.Grouped
-    (Proof_ir.make_grouped ~index ~representative
-       ~members:(List.map snd entries)
+    (Proof_ir.make_grouped ~members:entries
        ~precondition_alternatives ~common_preconditions
        ~conditional_posts:
          (grouped_conditional_posts ~conditions entries
             common_preconditions))
 
-let individual_obligation ~conditions (index, member) =
+let individual_obligation ~conditions member =
   Proof_ir.Individual
-    (Proof_ir.make_individual ~index ~member
+    (Proof_ir.make_individual ~member
        ~preconditions:(step_preconditions ~conditions member)
        ~postconditions:(step_postconditions ~conditions member)
        ~shared_postcondition_id:None)
 
-let group_key (_index, member) =
+let group_key member =
   let contract = member.Obligations.contract in
   (contract.step_class, contract.transition_id, contract.program_step)
 
@@ -133,14 +131,11 @@ let partition_entries entries =
   |> List.map (fun key -> Hashtbl.find groups key |> List.rev)
 
 let plan_obligations ~steps ~conditions members =
-  let indexed =
-    List.mapi (fun index member -> (index, member)) members
-  in
   match steps with
   | Preserve_individual ->
-      List.map (individual_obligation ~conditions) indexed
+      List.map (individual_obligation ~conditions) members
   | Group_safe ->
-      indexed
+      members
       |> partition_entries
       |> List.concat_map (fun entries ->
              let groupable =
@@ -148,7 +143,7 @@ let plan_obligations ~steps ~conditions members =
                &&
                match entries with
                | [] -> false
-               | (_index, (member : Obligations.step_obligation)) :: _ ->
+               | (member : Obligations.step_obligation) :: _ ->
                    member.contract.step_class
                    = Step_contract_projection.StepSafe
              in
@@ -222,7 +217,6 @@ let shared_formulas ~strategy (source : Obligations.t) =
       source.steps
       |> List.map Obligations.formula_occurrences
       |> Contract_formula_index.build
-      |> Contract_formula_index.definitions
       |> List.map
            (fun
              (definition : Contract_formula_index.definition)

@@ -18,19 +18,16 @@
 
 (** Optional decomposition of core-owned verification cases.
 
-    [Monolithic] is the literal identity. [Weak_until] is an
-    equivalence-preserving endomorphism that builds smaller automata from
-    groups of source guarantee occurrences. *)
-
-type public_non_w_strategy =
-  | Separate
-  | Group_by_family
+    [Monolithic] is the literal identity. [Separate_guarantees] creates one case
+    per source guarantee occurrence. [Split_multiple_weak_until] creates
+    independent proof cases only when at least two source guarantee occurrences
+    contain weak-until. Each such occurrence gets one case; all remaining
+    guarantees share one case. *)
 
 type strategy =
   | Monolithic
-  | Weak_until of {
-      public_non_w : public_non_w_strategy;
-    }
+  | Separate_guarantees
+  | Split_multiple_weak_until
 
 val apply :
   strategy:strategy ->

@@ -25,7 +25,8 @@ let is_prove_only_run (cfg : Pipeline_config.config) : bool =
   && not cfg.compute_proof_diagnostics
   && Option.is_none cfg.proof_progress_path
 
-let minimal_outputs_of_proof ~(snapshot : Runtime_snapshot.pipeline_snapshot)
+let minimal_outputs_of_proof ~(cfg : Pipeline_config.config)
+    ~(infos : Flow_info.pipeline_info)
     (proof : Proof_runner.run_output) : Pipeline_artifacts.outputs =
   {
     Pipeline_artifacts.why_text = proof.why_text;
@@ -43,8 +44,7 @@ let minimal_outputs_of_proof ~(snapshot : Runtime_snapshot.pipeline_snapshot)
     product_dot = "";
     flow_meta =
       Pipeline_outputs_helpers.flow_meta
-        ~proof_encoding:snapshot.proof_encoding
-        ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
+        ~proof_optimizations:cfg.proof_optimizations infos;
     goals = proof.goals;
     proof_traces = proof.proof_traces;
     vc_locs = proof.vc_locs;
@@ -73,34 +73,42 @@ let minimal_outputs_of_proof ~(snapshot : Runtime_snapshot.pipeline_snapshot)
   }
 
 let build_outputs ~(cfg : Pipeline_config.config)
-    ~(snapshot : Runtime_snapshot.pipeline_snapshot) :
+    ~(proof_cases : Proof_case_program.t)
+    ~(product_nodes : Orchestration.product_node list)
+    ~(proof_plans :
+       Kairos_verification_obligations.Verification_proof_ir.t list)
+    ~(infos : Flow_info.pipeline_info) :
   (Pipeline_artifacts.outputs, Pipeline_error.t) result =
-  let asts = snapshot.asts in
   if is_prove_only_run cfg then (
     let t_proof = Unix.gettimeofday () in
-    match Proof_runner.run ~cfg ~proof_plans:asts.proof_plans with
+    match Proof_runner.run ~cfg ~proof_plans with
     | Error _ as err -> err
     | Ok proof ->
         Runtime_metrics.record_output_proof_run
           ~elapsed_s:(Unix.gettimeofday () -. t_proof);
         let t_map = Unix.gettimeofday () in
-        let out = minimal_outputs_of_proof ~snapshot proof in
+        let out = minimal_outputs_of_proof ~cfg ~infos proof in
         Runtime_metrics.record_output_map
           ~elapsed_s:(Unix.gettimeofday () -. t_map);
         Ok out)
   else
     let t_artifacts = Unix.gettimeofday () in
-    let artifacts = Pipeline_artifact_bundle.build ~asts in
+    let artifacts =
+      Pipeline_artifact_bundle.build ~product_nodes
+    in
     Runtime_metrics.record_output_artifact
       ~elapsed_s:(Unix.gettimeofday () -. t_artifacts);
     let t_proof = Unix.gettimeofday () in
-    match Proof_runner.run ~cfg ~proof_plans:asts.proof_plans with
+    match Proof_runner.run ~cfg ~proof_plans with
     | Error _ as err -> err
     | Ok proof ->
         Runtime_metrics.record_output_proof_run
           ~elapsed_s:(Unix.gettimeofday () -. t_proof);
         let t_map = Unix.gettimeofday () in
-        let out = Output_mapper.map_outputs ~cfg ~snapshot ~artifacts ~proof in
+        let out =
+          Output_mapper.map_outputs ~cfg ~proof_cases ~infos
+            ~artifacts ~proof
+        in
         Runtime_metrics.record_output_map
           ~elapsed_s:(Unix.gettimeofday () -. t_map);
         Ok out

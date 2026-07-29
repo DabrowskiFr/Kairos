@@ -18,7 +18,6 @@
 module Obligations = Verification_obligations
 
 type individual = private {
-  index : int;
   member : Obligations.step_obligation;
   preconditions : Obligations.conjunction;
   postconditions : Obligations.conjunction;
@@ -31,8 +30,6 @@ type conditional_post = private {
 }
 
 type grouped = private {
-  index : int;
-  representative : Obligations.step_obligation;
   members : Obligations.step_obligation list;
   precondition_alternatives : Obligations.conjunction list;
   common_preconditions : Obligations.conjunction;
@@ -65,7 +62,6 @@ val minimal : Obligations.t -> t
 val minimal_program : Obligations.t list -> t list
 
 val make_individual :
-  index:int ->
   member:Obligations.step_obligation ->
   preconditions:Obligations.conjunction ->
   postconditions:Obligations.conjunction ->
@@ -83,8 +79,6 @@ val make_conditional_post :
   conditional_post
 
 val make_grouped :
-  index:int ->
-  representative:Obligations.step_obligation ->
   members:Obligations.step_obligation list ->
   precondition_alternatives:Obligations.conjunction list ->
   common_preconditions:Obligations.conjunction ->
@@ -118,8 +112,3 @@ val rebuild :
 
 val obligation_members : obligation -> Obligations.step_obligation list
 val shared_formula_definitions : t -> shared_formula list
-
-val shared_formula_for :
-  t ->
-  Core_syntax.history_free Ir.summary_formula ->
-  shared_formula option

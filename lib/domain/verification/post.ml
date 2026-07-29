@@ -68,7 +68,7 @@ let add_formula_family ~record_family ~family_name formulas acc =
 let enrich_product_step_summary ~(record_family : family_name:string ->
     candidates:Core_syntax.historical Core_syntax.hexpr list -> inserted:Core_syntax.historical Core_syntax.hexpr list -> unit)
     ~(node : Core_syntax.historical Abs.node_ir)
-    ~(product_characteristics : Product_characteristics.t)
+    ~(product_invariants : Product_invariant.t list)
     (pc : Core_syntax.historical Abs.product_step_summary) :
     Core_syntax.historical Abs.product_step_summary =
   let is_input = is_input_of_node node in
@@ -93,10 +93,6 @@ let enrich_product_step_summary ~(record_family : family_name:string ->
                     shifted
                   |> simplify_fo))
   in
-  let shifted_product_characteristics =
-    Product_characteristics.preservation_ensures product_characteristics
-      ~node pc
-  in
   let ensures =
     (pc.ensures
     |> add_formula_family ~record_family
@@ -104,33 +100,39 @@ let enrich_product_step_summary ~(record_family : family_name:string ->
          (match safe_disjunction with None -> [] | Some f -> [ f ])
     |> add_formula_family ~record_family
          ~family_name:"guarded_destination_invariant_ensures"
-         shifted_guarded_destination_invariants
-    |> add_formula_family ~record_family
-         ~family_name:"product_characteristics_ensures"
-         shifted_product_characteristics)
+         shifted_guarded_destination_invariants)
+    |> fun accumulated ->
+    Product_invariant.preservation_facts product_invariants ~node pc
+    |> List.fold_left
+         (fun accumulated (family, formulas) ->
+           add_formula_family ~record_family
+             ~family_name:(family ^ "_ensures")
+             formulas accumulated)
+         accumulated
   in
   { pc with ensures }
 
 type node_generation = { summaries : Core_syntax.historical Abs.product_step_summary list }
 
-let compute_generation ~record_family ~product_characteristics
+let compute_generation ~record_family ~product_invariants
     ~(node : Core_syntax.historical Abs.node_ir) : node_generation =
   {
     summaries =
       List.map
-        (enrich_product_step_summary ~record_family ~node ~product_characteristics)
+        (enrich_product_step_summary ~record_family ~node
+           ~product_invariants)
         node.summaries;
   }
 
-let run_node ~record_family ~product_characteristics
+let run_node ~record_family ~product_invariants
     (n : Core_syntax.historical Abs.node_ir) :
     Core_syntax.historical Abs.node_ir =
   let post_generation =
-    compute_generation ~record_family ~product_characteristics ~node:n
+    compute_generation ~record_family ~product_invariants ~node:n
   in
   { n with summaries = post_generation.summaries }
 
-let run_program ?observe_family ~product_characteristics
+let run_program ?observe_family ~product_invariants
     (p : Core_syntax.historical Abs.node_ir list) :
     Core_syntax.historical Abs.node_ir list =
   let collector =
@@ -147,9 +149,9 @@ let run_program ?observe_family ~product_characteristics
   in
   let result =
     List.map2
-      (fun product_characteristics node ->
-        run_node ~record_family ~product_characteristics node)
-      product_characteristics p
+      (fun product_invariants node ->
+        run_node ~record_family ~product_invariants node)
+      product_invariants p
   in
   (match (collector, observe_family) with
   | Some collector, Some observer -> Ir_fact_family_metrics.emit collector observer

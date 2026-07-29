@@ -56,14 +56,6 @@ type execution_options = {
 }
 [@@deriving yojson]
 
-type execution_request = {
-  protocol_version : Tool_protocol.version;
-  filename : string;
-  whyml_text : string;
-  options : execution_options;
-}
-[@@deriving yojson]
-
 type goal_descriptor = { goal_index : int; goal_name : string } [@@deriving yojson]
 
 type goal_result = {
@@ -95,7 +87,6 @@ type worker_metrics = {
 
 type execution_metrics = {
   setup_s : float;
-  parse_s : float;
   typecheck_s : float;
   task_extract_s : float;
   split_vc_s : float;
@@ -124,22 +115,10 @@ type execution_response = {
 }
 [@@deriving yojson]
 
-let make_execution_request ?(filename = "<kairos-generated>") ~whyml_text ~options () =
-  { protocol_version = Tool_protocol.current_version; filename; whyml_text; options }
-
-let validate_execution_request (request : execution_request) =
-  match Tool_protocol.validate ~component:"proof execution request" request.protocol_version with
-  | Error _ as error -> error
-  | Ok () ->
-      if String.trim request.filename = "" then
-        Error "proof execution request has an empty filename"
-      else if String.trim request.whyml_text = "" then
-        Error "proof execution request has an empty WhyML payload"
-      else if request.options.timeout_s <= 0 then
-        Error "proof execution request has a non-positive timeout"
-      else if request.options.jobs <= 0 then
-        Error "proof execution request has a non-positive worker count"
-      else Ok ()
+let validate_execution_options (options : execution_options) =
+  if options.timeout_s <= 0 then Error "proof execution has a non-positive timeout"
+  else if options.jobs <= 0 then Error "proof execution has a non-positive worker count"
+  else Ok ()
 
 let make_execution_response ~goals ~results ~vc_blocks ~smt_blocks ~metrics =
   {
@@ -177,7 +156,6 @@ let valid_execution_metrics (metrics : execution_metrics) =
   List.for_all nonnegative_float
     [
       metrics.setup_s;
-      metrics.parse_s;
       metrics.typecheck_s;
       metrics.task_extract_s;
       metrics.split_vc_s;

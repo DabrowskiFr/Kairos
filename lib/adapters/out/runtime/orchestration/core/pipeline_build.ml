@@ -16,17 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Verification_obligations =
-  Kairos_verification_obligations.Verification_obligations
+module Canonical_verification =
+  Kairos_verification_obligations.Canonical_verification
 
 module Verification_proof_ir =
   Kairos_verification_obligations.Verification_proof_ir
 
-module Contract_partition =
-  Kairos_verification_optimization.Contract_partition
-
-module Formula_interning =
-  Kairos_verification_optimization.Formula_interning
+module Proof_case_decomposition =
+  Kairos_verification_optimization.Proof_case_decomposition
 
 module Proof_plan =
   Kairos_verification_optimization.Proof_plan
@@ -132,7 +129,6 @@ let ir_size_metrics :
 
 let ir_pass_name = function
   | Orchestration.Pre_pass -> "pre"
-  | Orchestration.Product_reachability_pass -> "product_reachability"
   | Orchestration.Post_pass -> "post"
   | Orchestration.Temporal_lower_pass -> "temporal_lower"
 
@@ -148,14 +144,19 @@ let record_ir_fact_family (family : Ir_fact_family_metrics.snapshot) =
     }
 
 type prepared_program = {
-  imports : string list;
   parse_info : Flow_info.parse_info;
   proof_case_program : Proof_case_program.t;
 }
 
+type build_result = {
+  verification : Canonical_verification.t;
+  proof_plans : Verification_proof_ir.t list;
+  infos : Flow_info.pipeline_info;
+}
+
 let prepare_program
     ~(proof_optimizations : Pipeline_config.proof_optimizations)
-    ~(imports : string list) ~(parse_info : Flow_info.parse_info)
+    ~(parse_info : Flow_info.parse_info)
     ~(verification_model : Verification_model.program_model) :
     (prepared_program, Pipeline_error.t) result =
   try
@@ -163,168 +164,137 @@ let prepare_program
     match reject_calls p_model with
     | Error _ as err -> err
     | Ok () ->
-    let t_partition = Unix.gettimeofday () in
-    let partition_result =
+    let t_decomposition = Unix.gettimeofday () in
+    let decomposition_result =
       p_model
       |> Proof_case_program.minimal
-      |> Contract_partition.apply
+      |> Proof_case_decomposition.apply
         ~strategy:
-          proof_optimizations.verification.contract_partition_strategy
+          proof_optimizations.verification
+            .proof_case_decomposition_strategy
     in
-    Runtime_metrics.record_contract_partition
-      ~elapsed_s:(Unix.gettimeofday () -. t_partition);
+    Runtime_metrics.record_proof_case_decomposition
+      ~elapsed_s:(Unix.gettimeofday () -. t_decomposition);
     let* proof_case_program =
-      partition_result
+      decomposition_result
       |> Result.map_error (fun msg -> Pipeline_error.Flow_error msg)
     in
     Ok
       {
-        imports;
         parse_info;
         proof_case_program;
       }
   with exn -> Error (Pipeline_error.Flow_error (Printexc.to_string exn))
 
-let build_snapshot_from_supplied_automata
+let build_from_supplied_automata
     ~(collect_instrumentation_info : bool)
     ~(collect_ir_metrics : bool)
-    ~(proof_encoding : Pipeline_config.proof_encoding)
     ~(proof_optimizations : Pipeline_config.proof_optimizations)
     ~(prepared : prepared_program)
     ~(automata :
        (Core_syntax.ident * Automaton_types.automata_spec) list)
     ~(automata_info : Flow_info.automata_info) :
-    (Runtime_snapshot.pipeline_snapshot, Pipeline_error.t)
-    result =
+    (build_result, Pipeline_error.t) result =
   try
-    let imports = prepared.imports in
     let parse_info = prepared.parse_info in
     let proof_case_program = prepared.proof_case_program in
-    let t_product = Unix.gettimeofday () in
-    let reference_input : Orchestration.reference_product_input =
+    let stage_started_at = ref (Unix.gettimeofday ()) in
+    let proof_planning_started_at = ref 0.0 in
+    let pass_started_at = ref 0.0 in
+    let pass_before = ref None in
+    let begin_pass nodes =
+      pass_before :=
+        (if collect_ir_metrics then
+           Some (ir_size_metrics nodes)
+         else None);
+      pass_started_at := Unix.gettimeofday ()
+    in
+    let finish_pass pass after =
+      let elapsed_s =
+        Unix.gettimeofday () -. !pass_started_at
+      in
+      (match pass with
+      | Orchestration.Pre_pass -> Runtime_metrics.record_pre ~elapsed_s
+      | Orchestration.Post_pass -> Runtime_metrics.record_post ~elapsed_s
+      | Orchestration.Temporal_lower_pass ->
+          Runtime_metrics.record_temporal_lower ~elapsed_s);
+      (match (!pass_before, after) with
+      | Some before, Some after_ ->
+          Runtime_metrics.record_ir_pass
+            {
+              pass_name = ir_pass_name pass;
+              before;
+              after_;
+            }
+      | None, None -> ()
+      | Some _, None | None, Some _ ->
+          invalid_arg
+            "Pipeline_build: inconsistent IR metrics observation");
+      pass_before := None
+    in
+    let finish_historical pass nodes =
+      finish_pass pass
+        (if collect_ir_metrics then
+           Some (ir_size_metrics nodes)
+         else None)
+    in
+    let finish_lowering pass nodes =
+      finish_pass pass
+        (if collect_ir_metrics then
+           Some (ir_size_metrics nodes)
+         else None)
+    in
+    let pass_observer : Orchestration.pass_observer =
       {
-        proof_case_program;
-        automata;
+        before_historical = (fun _ nodes -> begin_pass nodes);
+        after_historical = finish_historical;
+        before_lowering = (fun _ nodes -> begin_pass nodes);
+        after_lowering = finish_lowering;
       }
     in
-    let reference_product =
-      match Orchestration.build_reference_product reference_input with
-      | Error msg -> Error (Pipeline_error.Flow_error msg)
-      | Ok reference_product ->
-          Runtime_metrics.record_product ~elapsed_s:(Unix.gettimeofday () -. t_product);
-          Ok reference_product
+    let observe_stage = function
+      | Canonical_verification.Reference_product_built ->
+          let now = Unix.gettimeofday () in
+          Runtime_metrics.record_product
+            ~elapsed_s:(now -. !stage_started_at);
+          stage_started_at := now
+      | Canonical_verification.Instrumented_ir_built ->
+          let now = Unix.gettimeofday () in
+          Runtime_metrics.record_canonical
+            ~elapsed_s:(now -. !stage_started_at);
+          proof_planning_started_at := now
     in
-    match reference_product with
-    | Error _ as err -> err
-    | Ok reference_product -> (
-        let product_nodes = reference_product.nodes in
-        let pass_started_at = ref 0.0 in
-        let pass_before = ref None in
-        let begin_pass nodes =
-          pass_before :=
-            (if collect_ir_metrics then
-               Some (ir_size_metrics nodes)
-             else None);
-          pass_started_at := Unix.gettimeofday ()
-        in
-        let finish_pass pass after =
-          let elapsed_s =
-            Unix.gettimeofday () -. !pass_started_at
-          in
-          (match pass with
-          | Orchestration.Pre_pass -> Runtime_metrics.record_pre ~elapsed_s
-          | Orchestration.Product_reachability_pass ->
-              Runtime_metrics.record_product_reachability ~elapsed_s
-          | Orchestration.Post_pass -> Runtime_metrics.record_post ~elapsed_s
-          | Orchestration.Temporal_lower_pass ->
-              Runtime_metrics.record_temporal_lower ~elapsed_s);
-          (match (!pass_before, after) with
-          | Some before, Some after_ ->
-              Runtime_metrics.record_ir_pass
-                {
-                  pass_name = ir_pass_name pass;
-                  before;
-                  after_;
-                }
-          | None, None -> ()
-          | Some _, None | None, Some _ ->
-              invalid_arg
-                "Pipeline_build: inconsistent IR metrics observation");
-          pass_before := None
-        in
-        let finish_historical pass nodes =
-          finish_pass pass
-            (if collect_ir_metrics then
-               Some (ir_size_metrics nodes)
-             else None)
-        in
-        let finish_lowering pass nodes =
-          finish_pass pass
-            (if collect_ir_metrics then
-               Some (ir_size_metrics nodes)
-             else None)
-        in
-        let pass_observer : Orchestration.pass_observer =
-          {
-            before_historical = (fun _ nodes -> begin_pass nodes);
-            after_historical = finish_historical;
-            before_lowering = (fun _ nodes -> begin_pass nodes);
-            after_lowering = finish_lowering;
-          }
-        in
-        let t_canonical = Unix.gettimeofday () in
-        let* instrumented_product_nodes =
-          Orchestration.build_instrumented_ir
-            ?observe_fact_family:
-              (if collect_ir_metrics then Some record_ir_fact_family else None)
-            ~pass_observer
-            reference_product
-          |> Result.map_error (fun message ->
-                 Pipeline_error.Flow_error message)
-        in
-        let* instrumented_product_nodes =
-          instrumented_product_nodes
-          |> List.map
-               (fun
-                 (node :
-                   Orchestration.instrumented_product_node)
-               ->
-                 Orchestration.map_instrumented_product_node
-                   (fun ir ->
-                     Formula_interning.apply_node
-                       ~strategy:
-                         proof_optimizations.verification
-                           .formula_interning_strategy
-                       ir)
-                   node)
-          |> Result_utils.all
-          |> Result.map_error (fun message ->
-                 Pipeline_error.Flow_error message)
-        in
-        Runtime_metrics.record_canonical ~elapsed_s:(Unix.gettimeofday () -. t_canonical);
-        let p_instrumentation =
-          List.map
-            (fun
-              (node : Orchestration.instrumented_product_node)
-            ->
-              node.ir)
-            instrumented_product_nodes
-        in
-        let ir_program : Ir.program_ir =
-          { nodes = p_instrumentation }
-        in
-        let t_proof_planning = Unix.gettimeofday () in
-        let partition_inputs =
-          List.map
-            Verification_obligations.of_instrumented_product_node
-            instrumented_product_nodes
-        in
-        let* individual_obligations =
-          Verification_obligations.build_program
-            ~proof_cases:proof_case_program ~partition_inputs
-          |> Result.map_error (fun message ->
-                 Pipeline_error.Flow_error message)
-        in
+    let* canonical =
+      Canonical_verification.build
+        ?observe_fact_family:
+          (if collect_ir_metrics then
+             Some record_ir_fact_family
+           else None)
+        ~pass_observer ~observe_stage
+        ~reachability_strategy:
+          proof_optimizations.verification.reachability_strategy
+        ~proof_cases:proof_case_program ~automata
+        ()
+      |> Result.map_error (fun message ->
+             Pipeline_error.Flow_error message)
+    in
+    let reference_product = canonical.reference_product in
+    let product_nodes = reference_product.nodes in
+    let instrumented_product_nodes =
+      canonical.instrumented_nodes
+    in
+    let p_instrumentation =
+      List.map
+        (fun
+          (node : Orchestration.instrumented_product_node)
+        ->
+          node.ir)
+        instrumented_product_nodes
+    in
+    let ir_program : Ir.program_ir =
+      { nodes = p_instrumentation }
+    in
+    let individual_obligations = canonical.obligations in
         let minimal_proof_plans =
           Verification_proof_ir.minimal_program
             individual_obligations
@@ -338,7 +308,9 @@ let build_snapshot_from_supplied_automata
                  Pipeline_error.Flow_error msg)
         in
         Runtime_metrics.record_proof_planning
-          ~elapsed_s:(Unix.gettimeofday () -. t_proof_planning);
+          ~elapsed_s:
+            (Unix.gettimeofday ()
+            -. !proof_planning_started_at);
         let summaries_info : Flow_info.summaries_info = { warnings = [] }
         in
         let instrumentation_info =
@@ -356,17 +328,7 @@ let build_snapshot_from_supplied_automata
         match instrumentation_info with
         | Error msg -> Error (Pipeline_error.Flow_error msg)
         | Ok instrumentation_info ->
-        let asts : Runtime_snapshot.ast_flow =
-          {
-            imports;
-            proof_case_program;
-            automata;
-            product_nodes;
-            instrumentation = p_instrumentation;
-            proof_plans;
-          }
-        in
-        let infos : Runtime_snapshot.flow_infos =
+        let infos : Flow_info.pipeline_info =
           {
             parse = Some parse_info;
             automata_generation = Some automata_info;
@@ -374,8 +336,5 @@ let build_snapshot_from_supplied_automata
             instrumentation = instrumentation_info;
           }
         in
-        let snapshot : Runtime_snapshot.pipeline_snapshot =
-          { asts; infos; proof_encoding; proof_optimizations }
-        in
-        Ok snapshot)
+        Ok { verification = canonical; proof_plans; infos }
   with exn -> Error (Pipeline_error.Flow_error (Printexc.to_string exn))

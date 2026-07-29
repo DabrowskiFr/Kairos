@@ -44,7 +44,10 @@ let ( let* ) = Result.bind
 
 let of_instrumented_product_node
     (node : Orchestration.instrumented_product_node) =
-  { proof_case = node.proof_case; node = node.ir }
+  {
+    proof_case = node.proof_case;
+    node = node.ir;
+  }
 
 let condition_key = function
   | State_is state -> KState_is state
@@ -97,27 +100,6 @@ let remove_conjunction conditions removed =
     (fun condition -> not (condition_mem condition removed))
     conditions
 
-let make_partition_input
-    ~(proof_case : Proof_case_program.proof_case)
-    ~(node : history_free Ir.node_ir) =
-  if
-    not
-      (String.equal proof_case.model.node_name
-         node.semantics.sem_nname)
-  then
-    Error
-      (Printf.sprintf
-         "Verification_obligations: proof case '%s' cannot own lowered node \
-          '%s'"
-         proof_case.model.node_name node.semantics.sem_nname)
-  else
-    let* () =
-      From_model.validate_node_origin ~model:proof_case.model node
-      |> Result.map_error (fun message ->
-             "Verification_obligations: " ^ message)
-    in
-    Ok { proof_case; node }
-
 let entry_conditions step =
   State_is step.contract.program_step.src_state
   :: List.map
@@ -143,6 +125,35 @@ let formulas_of_condition = function
 
 let formulas_of_conditions conditions =
   List.concat_map formulas_of_condition conditions
+
+let map_formulas transform (obligation : t) =
+  let map_contract
+      (contract : Step_contract_projection.step_contract) =
+    {
+      contract with
+      assume_guard = transform contract.assume_guard;
+      requires = List.map transform contract.requires;
+      ensures = List.map transform contract.ensures;
+      elaboration_checks =
+        List.map transform contract.elaboration_checks;
+      forbidden = List.map transform contract.forbidden;
+    }
+  in
+  let mapped =
+    {
+      obligation with
+      steps =
+        List.map
+          (fun step ->
+            { step with contract = map_contract step.contract })
+          obligation.steps;
+    }
+  in
+  if mapped = obligation then Ok mapped
+  else
+    Error
+      "Verification_obligations: formula transformation changed a canonical \
+       obligation"
 
 let signature_of_model_node
     (node : Verification_model.node_model) : Ir.node_signature =

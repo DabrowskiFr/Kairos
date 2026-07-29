@@ -293,7 +293,6 @@ type config = {
   input_file : string;
   engine : string;
   wp_only : bool;
-  smoke_tests : bool;
   timeout_s : int;
   compute_proof_diagnostics : bool;
   prove : bool;

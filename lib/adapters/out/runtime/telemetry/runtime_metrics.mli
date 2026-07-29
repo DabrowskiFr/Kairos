@@ -64,8 +64,8 @@ type ir_fact_family_snapshot = {
 
 type snapshot = {
   frontend_parse_s : float;
-  snapshot_build_s : float;
-  contract_partition_s : float;
+  pipeline_build_s : float;
+  proof_case_decomposition_s : float;
   proof_planning_s : float;
   automata_generation_s : float;
   spot_s : float;
@@ -75,7 +75,6 @@ type snapshot = {
   product_s : float;
   canonical_s : float;
   pre_s : float;
-  product_reachability_s : float;
   post_s : float;
   temporal_lower_s : float;
   instrumentation_info_s : float;
@@ -85,7 +84,6 @@ type snapshot = {
   why_gen_s : float;
   vc_smt_s : float;
   why3_setup_s : float;
-  why3_parse_s : float;
   why3_typecheck_s : float;
   why3_task_extract_s : float;
   why3_split_vc_s : float;
@@ -125,10 +123,10 @@ val record_ir_fact_family : ir_fact_family_snapshot -> unit
 val record_frontend_parse : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent parsing/lowering the frontend input. *)
 
-val record_snapshot_build : elapsed_s:float -> unit
+val record_pipeline_build : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent building the verification snapshot. *)
 
-val record_contract_partition : elapsed_s:float -> unit
+val record_proof_case_decomposition : elapsed_s:float -> unit
 val record_proof_planning : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent partitioning contracts. *)
 
@@ -149,9 +147,6 @@ val record_canonical : elapsed_s:float -> unit
 
 val record_pre : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent in the Pre IR pass. *)
-
-val record_product_reachability : elapsed_s:float -> unit
-(** Add elapsed wall-clock time spent in the product-reachability IR pass. *)
 
 val record_post : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent in the Post IR pass. *)

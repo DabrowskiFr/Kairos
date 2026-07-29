@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** External automata production for runtime snapshots.
+(** External automata production for the runtime verification pipeline.
 
     This module is outside [kairos_runtime_core] on purpose. The reference
     pipeline consumes supplied automata; this adapter decides how those

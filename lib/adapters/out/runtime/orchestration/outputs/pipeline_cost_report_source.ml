@@ -53,10 +53,9 @@ let source_node_json (node : Verification_model.node_model) =
         json_int (max_int (List.map ltl_max_pre_depth ltl_formulas)) );
     ]
 
-let source_json (snapshot : Runtime_snapshot.pipeline_snapshot) =
+let source_json proof_cases =
   let nodes =
-    Proof_case_program.source_program
-      snapshot.asts.proof_case_program
+    Proof_case_program.source_program proof_cases
   in
   json_assoc
     [

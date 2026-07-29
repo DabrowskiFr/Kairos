@@ -113,10 +113,10 @@ let write_timing_dump out (flow_meta : (string * (string * string) list) list) =
   in
   let graph_lines = section_lines "graph_metrics" in
   let canonical_lines = section_lines "canonical_metrics" in
-  let encoding_lines = section_lines "proof_encoding" in
   let optimization_lines = section_lines "proof_optimizations" in
   let out_lines =
-    timing_lines @ graph_lines @ canonical_lines @ encoding_lines @ optimization_lines
+    timing_lines @ graph_lines @ canonical_lines
+    @ optimization_lines
   in
   write_target out (String.concat "\n" out_lines ^ "\n")
 

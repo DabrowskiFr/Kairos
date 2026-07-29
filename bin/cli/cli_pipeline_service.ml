@@ -30,18 +30,11 @@ let proof_optimizations_of_args args =
   {
     Pipeline.verification =
       {
-        contract_partition_strategy =
-          (match base.verification.contract_partition_strategy with
-          | Pipeline.Monolithic -> Pipeline.Monolithic
-          | Pipeline.Weak_until { public_non_w } ->
-              Pipeline.Weak_until
-                {
-                  public_non_w =
-                    (if args.no_proof_grouping then Pipeline.Separate
-                     else public_non_w);
-                });
-        formula_interning_strategy =
-          base.verification.formula_interning_strategy;
+        proof_case_decomposition_strategy =
+          Option.value args.proof_case_strategy
+            ~default:base.verification.proof_case_decomposition_strategy;
+        reachability_strategy =
+          base.verification.reachability_strategy;
         proof_plan_strategy =
           (match base.verification.proof_plan_strategy with
           | Pipeline.Direct -> Pipeline.Direct
@@ -113,18 +106,18 @@ let proof_optimizations_of_args args =
             product_dot = out.product_dot;
           }
 
-  let why_text_dump ~input_file ~proof_encoding ~proof_optimizations =
-    match why_pass ~proof_encoding ~proof_optimizations ~input_file with
+  let why_text_dump ~input_file ~proof_optimizations =
+    match why_pass ~proof_optimizations ~input_file with
     | Error _ as e -> e
     | Ok out -> Ok out.why_text
 
-  let obligations_dump_data ~input_file ~proof_encoding ~proof_optimizations =
-    match obligations_pass ~proof_encoding ~proof_optimizations ~input_file with
+  let obligations_dump_data ~input_file ~proof_optimizations =
+    match obligations_pass ~proof_optimizations ~input_file with
     | Error _ as e -> e
     | Ok out -> Ok { vc_text = out.vc_text; smt_text = out.smt_text }
 
-  let cost_report_dump ~input_file ~proof_encoding ~proof_optimizations =
-    match cost_report ~proof_encoding ~proof_optimizations ~input_file with
+  let cost_report_dump ~input_file ~proof_optimizations =
+    match cost_report ~proof_optimizations ~input_file with
     | Error _ as e -> e
     | Ok out -> Ok out.cost_report_json
 
@@ -149,14 +142,15 @@ let proof_optimizations_of_args args =
 
   let run_dump_data ~input_file ~timeout_s ~prove ~generate_why_text
       ~generate_vc_text ~generate_smt_text ~dump_failed_smt ~proof_progress_path
-      ~collect_ir_metrics ~stop_on_first_nonvalid ~proof_jobs ~proof_encoding
+      ~collect_ir_metrics ~stop_on_first_nonvalid ~proof_jobs
       ~proof_optimizations =
     let cfg =
-      Engine.make_config ~input_file ~wp_only:false ~smoke_tests:false
+      Engine.make_config ~input_file ~wp_only:false
         ~timeout_s ~compute_proof_diagnostics:false ~prove ~proof_jobs
         ~dump_failed_smt ~collect_ir_metrics ?proof_progress_path
-        ~stop_on_first_nonvalid ~proof_encoding ~proof_optimizations
-        ~generate_vc_text ~generate_smt_text ~generate_dot_png:false ()
+        ~stop_on_first_nonvalid ~proof_optimizations
+        ~generate_why_text ~generate_vc_text ~generate_smt_text
+        ~generate_dot_png:false ()
     in
     match run cfg with
     | Error _ as e -> e

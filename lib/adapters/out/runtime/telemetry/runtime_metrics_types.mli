@@ -64,8 +64,8 @@ type ir_fact_family_snapshot = {
 
 type snapshot = {
   frontend_parse_s : float;
-  snapshot_build_s : float;
-  contract_partition_s : float;
+  pipeline_build_s : float;
+  proof_case_decomposition_s : float;
   proof_planning_s : float;
   automata_generation_s : float;
   spot_s : float;
@@ -75,7 +75,6 @@ type snapshot = {
   product_s : float;
   canonical_s : float;
   pre_s : float;
-  product_reachability_s : float;
   post_s : float;
   temporal_lower_s : float;
   instrumentation_info_s : float;
@@ -85,7 +84,6 @@ type snapshot = {
   why_gen_s : float;
   vc_smt_s : float;
   why3_setup_s : float;
-  why3_parse_s : float;
   why3_typecheck_s : float;
   why3_task_extract_s : float;
   why3_split_vc_s : float;

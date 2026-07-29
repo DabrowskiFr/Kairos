@@ -18,8 +18,8 @@
 
 (** Maps concrete runtime data into the engine's output contract. *)
 
-let program_automaton_texts (asts : Runtime_snapshot.ast_flow) : string * string =
-  Pipeline_outputs_helpers.program_automaton_texts asts
+let program_automaton_texts proof_cases : string * string =
+  Pipeline_outputs_helpers.program_automaton_texts proof_cases
 
 let build_labels_text ~(program_automaton_text : string)
     ~(artifacts : Pipeline_artifact_bundle.t) : string =
@@ -79,10 +79,13 @@ let graph_pngs ~(generate_main_png : bool) ~(program_dot : string)
     product_png_error )
 
 let map_outputs ~(cfg : Pipeline_config.config)
-    ~(snapshot : Runtime_snapshot.pipeline_snapshot)
+    ~(proof_cases : Proof_case_program.t)
+    ~(infos : Flow_info.pipeline_info)
     ~(artifacts : Pipeline_artifact_bundle.t) ~(proof : Proof_runner.run_output)
     : Pipeline_artifacts.outputs =
-  let program_dot, program_automaton_text = program_automaton_texts snapshot.asts in
+  let program_dot, program_automaton_text =
+    program_automaton_texts proof_cases
+  in
   let labels_text =
     build_labels_text ~program_automaton_text ~artifacts
   in
@@ -110,8 +113,7 @@ let map_outputs ~(cfg : Pipeline_config.config)
     product_dot = artifacts.product_dot;
     flow_meta =
       Pipeline_outputs_helpers.flow_meta
-        ~proof_encoding:snapshot.proof_encoding
-        ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
+        ~proof_optimizations:cfg.proof_optimizations infos;
     goals = proof.goals;
     proof_traces = proof.proof_traces;
     vc_locs = proof.vc_locs;
@@ -140,10 +142,14 @@ let map_outputs ~(cfg : Pipeline_config.config)
   }
 
 let map_automata_outputs ~(generate_png : bool)
-    ~(snapshot : Runtime_snapshot.pipeline_snapshot)
+    ~(proof_optimizations : Pipeline_config.proof_optimizations)
+    ~(proof_cases : Proof_case_program.t)
+    ~(infos : Flow_info.pipeline_info)
     ~(artifacts : Pipeline_artifact_bundle.t) :
     Pipeline_artifacts.automata_outputs =
-  let program_dot, program_automaton_text = program_automaton_texts snapshot.asts in
+  let program_dot, program_automaton_text =
+    program_automaton_texts proof_cases
+  in
   let labels_text =
     build_labels_text ~program_automaton_text ~artifacts
   in
@@ -178,6 +184,5 @@ let map_automata_outputs ~(generate_png : bool)
     product_png_error;
     flow_meta =
       Pipeline_outputs_helpers.flow_meta
-        ~proof_encoding:snapshot.proof_encoding
-        ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
+        ~proof_optimizations infos;
   }

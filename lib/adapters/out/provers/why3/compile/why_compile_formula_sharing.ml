@@ -30,8 +30,8 @@ type shared_formula = {
 }
 
 type t = {
-  plan : Proof_ir.t;
-  entries : (int, shared_formula) Hashtbl.t;
+  by_occurrence :
+    (Ir_shared_types.formula_id, shared_formula) Hashtbl.t;
   definitions : (shared_formula * Ptree.decl) list;
 }
 
@@ -49,10 +49,12 @@ let imports_for sharing ~module_name:node_module formulas =
   let used_names =
     List.fold_left
       (fun names (formula : Core_syntax.history_free Ir.summary_formula) ->
-        match Proof_ir.shared_formula_for sharing.plan formula with
+        match
+          Hashtbl.find_opt sharing.by_occurrence
+            formula.meta.oid
+        with
         | None -> names
-        | Some definition ->
-            let shared = Hashtbl.find sharing.entries definition.id in
+        | Some shared ->
             StringSet.add shared.name names)
       StringSet.empty formulas
   in
@@ -108,7 +110,7 @@ let make_shared_formula ~env ~inputs ~id
   ({ name; uses_record; input_binders }, declaration)
 
 let build ~env ~inputs plan =
-  let entries = Hashtbl.create 32 in
+  let by_occurrence = Hashtbl.create 128 in
   let definitions = ref [] in
   Proof_ir.shared_formula_definitions plan
   |> List.iter (fun (definition : Proof_ir.shared_formula) ->
@@ -116,15 +118,23 @@ let build ~env ~inputs plan =
            make_shared_formula ~env ~inputs ~id:definition.id
              definition.formula
          in
-         Hashtbl.add entries definition.id shared;
+         List.iter
+           (fun oid ->
+             Hashtbl.add by_occurrence oid shared)
+           definition.occurrence_ids;
          definitions := (shared, declaration) :: !definitions);
-  { plan; entries; definitions = List.rev !definitions }
+  {
+    by_occurrence;
+    definitions = List.rev !definitions;
+  }
 
-let compile sharing ~env formula =
-  match Proof_ir.shared_formula_for sharing.plan formula with
+let compile sharing ~env
+    (formula : Core_syntax.history_free Ir.summary_formula) =
+  match
+    Hashtbl.find_opt sharing.by_occurrence formula.meta.oid
+  with
   | None -> compile_hexpr env formula.logic
-  | Some definition ->
-      let shared = Hashtbl.find sharing.entries definition.id in
+  | Some shared ->
       let record_args =
         if shared.uses_record then begin
           note_input env env.rec_name;

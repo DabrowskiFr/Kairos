@@ -8,27 +8,11 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
-type proof_encoding = Explicit_product
-
-let string_of_proof_encoding = function Explicit_product -> "explicit-product"
-
-let proof_encoding_of_string = function
-  | "explicit-product" -> Some Explicit_product
-  | _ -> None
-
-let default_proof_encoding = Explicit_product
-
-type contract_partition_strategy =
-  Kairos_verification_optimization.Contract_partition.strategy =
+type proof_case_decomposition_strategy =
+  Kairos_verification_optimization.Proof_case_decomposition.strategy =
   | Monolithic
-  | Weak_until of {
-      public_non_w : public_non_w_strategy;
-    }
-
-and public_non_w_strategy =
-  Kairos_verification_optimization.Contract_partition.public_non_w_strategy =
-  | Separate
-  | Group_by_family
+  | Separate_guarantees
+  | Split_multiple_weak_until
 
 type step_strategy =
   Kairos_verification_optimization.Proof_plan.step_strategy =
@@ -60,27 +44,23 @@ type proof_plan_strategy =
       postconditions : postcondition_strategy;
     }
 
-type formula_interning_strategy =
-  Kairos_verification_optimization.Formula_interning.strategy =
-  | Preserve_allocations
-  | Intern_location_free
+type reachability_strategy =
+  Product_reachability.strategy =
+  | Trivial
+  | Contradiction_closure
 
-let string_of_contract_partition_strategy = function
+let string_of_proof_case_decomposition_strategy = function
   | Monolithic -> "monolithic"
-  | Weak_until _ -> "weak-until"
+  | Separate_guarantees -> "separate"
+  | Split_multiple_weak_until -> "multi-weak-until"
 
 let string_of_proof_plan_strategy = function
   | Direct -> "direct"
   | Planned _ -> "planned"
 
-let string_of_formula_interning_strategy = function
-  | Preserve_allocations -> "preserve-allocations"
-  | Intern_location_free -> "intern-location-free"
-
-let groups_public_non_w_guarantees = function
-  | Monolithic -> false
-  | Weak_until { public_non_w = Separate } -> false
-  | Weak_until { public_non_w = Group_by_family } -> true
+let string_of_reachability_strategy = function
+  | Trivial -> "trivial"
+  | Contradiction_closure -> "contradiction-closure"
 
 let groups_step_contracts = function
   | Direct -> false
@@ -102,13 +82,9 @@ let bundles_individual_postconditions = function
   | Planned { postconditions = Inline_postconditions; _ } -> false
   | Planned { postconditions = Bundle_repeated; _ } -> true
 
-let shares_lowered_formulas = function
-  | Preserve_allocations -> false
-  | Intern_location_free -> true
-
 type verification_optimizations = {
-  contract_partition_strategy : contract_partition_strategy;
-  formula_interning_strategy : formula_interning_strategy;
+  proof_case_decomposition_strategy : proof_case_decomposition_strategy;
+  reachability_strategy : reachability_strategy;
   proof_plan_strategy : proof_plan_strategy;
 }
 
@@ -120,8 +96,8 @@ let reference_proof_optimizations =
   {
     verification =
       {
-        contract_partition_strategy = Monolithic;
-        formula_interning_strategy = Preserve_allocations;
+        proof_case_decomposition_strategy = Monolithic;
+        reachability_strategy = Trivial;
         proof_plan_strategy = Direct;
       };
   }
@@ -130,9 +106,8 @@ let default_proof_optimizations =
   {
     verification =
       {
-        contract_partition_strategy =
-          Weak_until { public_non_w = Group_by_family };
-        formula_interning_strategy = Intern_location_free;
+        proof_case_decomposition_strategy = Monolithic;
+        reachability_strategy = Contradiction_closure;
         proof_plan_strategy =
           Planned
             {
@@ -147,7 +122,6 @@ let default_proof_optimizations =
 type config = {
   input_file : string;
   wp_only : bool;
-  smoke_tests : bool;
   timeout_s : int;
   compute_proof_diagnostics : bool;
   prove : bool;
@@ -160,6 +134,5 @@ type config = {
   collect_ir_metrics : bool;
   proof_progress_path : string option;
   stop_on_first_nonvalid : bool;
-  proof_encoding : proof_encoding;
   proof_optimizations : proof_optimizations;
 }

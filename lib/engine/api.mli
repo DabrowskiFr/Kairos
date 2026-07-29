@@ -37,7 +37,6 @@ type generated_file = {
 val make_config :
   input_file:string ->
   wp_only:bool ->
-  smoke_tests:bool ->
   timeout_s:int ->
   compute_proof_diagnostics:bool ->
   prove:bool ->
@@ -46,8 +45,8 @@ val make_config :
   ?collect_ir_metrics:bool ->
   ?proof_progress_path:string ->
   ?stop_on_first_nonvalid:bool ->
-  ?proof_encoding:Contract.proof_encoding ->
   ?proof_optimizations:Contract.proof_optimizations ->
+  generate_why_text:bool ->
   generate_vc_text:bool ->
   generate_smt_text:bool ->
   generate_dot_png:bool ->
@@ -65,7 +64,6 @@ val instrumentation_pass :
 val why_pass : input_file:string -> (Contract.why_outputs, error) result
 
 val why_pass_with_options :
-  proof_encoding:Contract.proof_encoding ->
   proof_optimizations:Contract.proof_optimizations ->
   input_file:string ->
   (Contract.why_outputs, error) result
@@ -75,13 +73,11 @@ val obligations_pass :
   (Contract.obligations_outputs, error) result
 
 val obligations_pass_with_options :
-  proof_encoding:Contract.proof_encoding ->
   proof_optimizations:Contract.proof_optimizations ->
   input_file:string ->
   (Contract.obligations_outputs, error) result
 
 val cost_report :
-  proof_encoding:Contract.proof_encoding ->
   proof_optimizations:Contract.proof_optimizations ->
   input_file:string ->
   (Contract.cost_report_outputs, error) result
@@ -90,13 +86,11 @@ val normalized_program : input_file:string -> (string, error) result
 val ir_pretty_dump : input_file:string -> (string, error) result
 
 val normalized_program_with_options :
-  proof_encoding:Contract.proof_encoding ->
   proof_optimizations:Contract.proof_optimizations ->
   input_file:string ->
   (string, error) result
 
 val ir_pretty_dump_with_options :
-  proof_encoding:Contract.proof_encoding ->
   proof_optimizations:Contract.proof_optimizations ->
   input_file:string ->
   (string, error) result

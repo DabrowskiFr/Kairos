@@ -50,91 +50,119 @@ let () =
     ~progress:(fun message -> Log.flow_info (Some "prove") message [])
     ~warning:(fun message -> Log.warning ~stage:"prove" message)
 
-type snapshot = Runtime_snapshot.pipeline_snapshot
-
-let build_snapshot ~collect_instrumentation_info ~collect_ir_metrics
-    ~proof_encoding ~proof_optimizations
+let build_pipeline ~collect_instrumentation_info ~collect_ir_metrics
+    ~proof_optimizations
     ~(frontend : Kairos_frontend.input) =
   let* prepared =
     Pipeline_build.prepare_program ~proof_optimizations
-      ~imports:frontend.imports
       ~parse_info:(flow_parse_info frontend.parse_info)
       ~verification_model:frontend.verification_model
   in
   let* produced_automata =
     Runtime_automata_source.produce_with_spot prepared.proof_case_program
   in
-  Pipeline_build.build_snapshot_from_supplied_automata ~proof_encoding
+  Pipeline_build.build_from_supplied_automata
     ~proof_optimizations ~collect_instrumentation_info ~collect_ir_metrics
     ~prepared ~automata:produced_automata.automata
     ~automata_info:produced_automata.automata_info
 
-let build_outputs = Pipeline_outputs.build_outputs
+let proof_cases (pipeline : Pipeline_build.build_result) =
+  pipeline.verification.proof_cases
 
-let instrumentation_from_snapshot ~generate_png ~(snapshot : snapshot) =
+let product_nodes (pipeline : Pipeline_build.build_result) =
+  pipeline.verification.reference_product.nodes
+
+let instrumentation (pipeline : Pipeline_build.build_result) =
+  List.map
+    (fun
+      (node : Orchestration.instrumented_product_node)
+    ->
+      node.ir)
+    pipeline.verification.instrumented_nodes
+
+let build_outputs ~cfg (pipeline : Pipeline_build.build_result) =
+  Pipeline_outputs.build_outputs ~cfg
+    ~proof_cases:(proof_cases pipeline)
+    ~product_nodes:(product_nodes pipeline)
+    ~proof_plans:pipeline.proof_plans ~infos:pipeline.infos
+
+let instrumentation_from_pipeline ~generate_png ~proof_optimizations
+    (pipeline : Pipeline_build.build_result) =
   let artifacts =
-    Pipeline_artifact_bundle.build ~asts:snapshot.asts
+    Pipeline_artifact_bundle.build
+      ~product_nodes:(product_nodes pipeline)
   in
   Ok
-    (Output_mapper.map_automata_outputs ~generate_png ~snapshot
+    (Output_mapper.map_automata_outputs ~generate_png
+       ~proof_optimizations
+       ~proof_cases:(proof_cases pipeline) ~infos:pipeline.infos
        ~artifacts)
 
-let proof_plans (snapshot : snapshot) = snapshot.asts.proof_plans
-
-let render_why_text ~(snapshot : snapshot) : string =
-  Why_pipeline.compile_whyml ~proof_plans:(proof_plans snapshot) ()
+let render_why_text ~proof_plans : string =
+  Why_pipeline.compile ~proof_plans ()
+  |> Why_pipeline.render
   |> fun output -> output.Why_pipeline.text
 
-let why_text ~(snapshot : snapshot) : Pipeline_artifacts.why_outputs =
+let why_text ~proof_optimizations ~infos
+    ~proof_plans : Pipeline_artifacts.why_outputs =
   {
-    Pipeline_artifacts.why_text = render_why_text ~snapshot;
+    Pipeline_artifacts.why_text = render_why_text ~proof_plans;
     flow_meta =
       Pipeline_outputs.flow_meta
-        ~proof_encoding:snapshot.proof_encoding
-        ~proof_optimizations:snapshot.proof_optimizations snapshot.infos;
+        ~proof_optimizations infos;
   }
 
-let cost_report_from_snapshot ~input_file ~(snapshot : snapshot) :
+let cost_report_from_pipeline ~input_file ~proof_optimizations
+    (pipeline : Pipeline_build.build_result) :
     (Pipeline_artifacts.cost_report_outputs, Pipeline_error.t) result =
   let t_why = Unix.gettimeofday () in
-  let why_text = render_why_text ~snapshot in
+  let why_text =
+    render_why_text ~proof_plans:pipeline.proof_plans
+  in
   let why_text_s = Unix.gettimeofday () -. t_why in
   Ok
     {
       Pipeline_artifacts.cost_report_json =
-        Pipeline_cost_report.render_json ~input_file ~why_text_s ~snapshot
-          ~why_text;
+        Pipeline_cost_report.render_json ~input_file ~why_text_s
+          ~proof_optimizations
+          ~infos:pipeline.infos
+          ~proof_cases:(proof_cases pipeline)
+          ~instrumentation:(instrumentation pipeline) ~why_text;
     }
 
-let obligations ~(snapshot : snapshot) :
+let obligations ~proof_plans :
     Pipeline_artifacts.obligations_outputs =
   let out =
-    Why_pipeline.obligations_pass ~proof_plans:(proof_plans snapshot)
+    Why_pipeline.obligations_pass ~proof_plans
   in
   Runtime_metrics.record_why3_execution out.metrics;
   { Pipeline_artifacts.vc_text = out.vc_text; smt_text = out.smt_text }
 
-let normalized_program_from_snapshot ~(snapshot : snapshot) : string =
-  let proof_case_program =
-    Proof_case_program.program snapshot.asts.proof_case_program
+let normalized_program_from_pipeline
+    (pipeline : Pipeline_build.build_result) : string =
+  let source_program =
+    Proof_case_program.program (proof_cases pipeline)
   in
   Ir_text_program_view_render.render_program
-    ~source_program:(Some proof_case_program)
-    snapshot.asts.instrumentation
+    ~source_program:(Some source_program)
+    (instrumentation pipeline)
 
-let pretty_program_from_snapshot ~(snapshot : snapshot) : string =
-  let proof_case_program =
-    Proof_case_program.program snapshot.asts.proof_case_program
+let pretty_program_from_pipeline
+    (pipeline : Pipeline_build.build_result) : string =
+  let source_program =
+    Proof_case_program.program (proof_cases pipeline)
   in
-  let program : Ir.program_ir = { nodes = snapshot.asts.instrumentation } in
+  let program : Ir.program_ir =
+    { nodes = instrumentation pipeline }
+  in
   Ir_text_proof_view_render.render_pretty_program
-    ~source_program:(Some proof_case_program)
+    ~source_program:(Some source_program)
     program
 
 let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
-    ~(snapshot : snapshot) ~(vc_ids_ordered : int list) ~on_goal_done :
+    ~proof_plans ~(vc_ids_ordered : int list) ~on_goal_done :
     Pipeline_proof_types.goal_result list =
-  let whyml_text = render_why_text ~snapshot in
+  let compilation = Why_pipeline.compile ~proof_plans () in
   let module Contract = Kairos_why3_contract.Why3_contract in
   let options : Contract.execution_options =
     {
@@ -148,10 +176,10 @@ let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
       diagnose_nonvalid = false;
     }
   in
-  let request = Contract.make_execution_request ~whyml_text ~options () in
   let finished = ref [] in
   let response =
-    Why_execution.execute ~should_cancel ~on_goal_start:(fun _ -> ())
+    Why_execution.execute_ptree ~should_cancel
+      ~on_goal_start:(fun _ -> ())
       ~on_goal_done:(fun result ->
         let idx = result.Contract.goal_index in
         let status = Contract.string_of_proof_status result.status in
@@ -170,7 +198,7 @@ let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
         in
         finished := item :: !finished;
         on_goal_done item)
-      request
+      ~options compilation.ast
   in
   Runtime_metrics.record_why3_execution response.metrics;
   List.sort
@@ -184,53 +212,59 @@ let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
 
 let instrumentation_pass ~generate_png ~input_file =
   let* frontend = parse_input ~input_file in
-  let* snapshot =
-    build_snapshot
-      ~proof_encoding:Pipeline_config.default_proof_encoding
-      ~proof_optimizations:Pipeline_config.default_proof_optimizations ~frontend
+  let proof_optimizations =
+    Pipeline_config.default_proof_optimizations
+  in
+  let* pipeline =
+    build_pipeline
+      ~proof_optimizations ~frontend
       ~collect_instrumentation_info:true ~collect_ir_metrics:false
   in
-  instrumentation_from_snapshot ~generate_png ~snapshot
+  instrumentation_from_pipeline ~generate_png ~proof_optimizations
+    pipeline
 
-let why_pass ~proof_encoding ~proof_optimizations ~input_file =
+let why_pass ~proof_optimizations ~input_file =
   let* frontend = parse_input ~input_file in
-  let* snapshot =
-    build_snapshot ~proof_encoding ~proof_optimizations
+  let* pipeline =
+    build_pipeline ~proof_optimizations
       ~frontend ~collect_instrumentation_info:true ~collect_ir_metrics:false
   in
-  Ok (why_text ~snapshot)
+  Ok
+    (why_text ~proof_optimizations
+       ~infos:pipeline.infos ~proof_plans:pipeline.proof_plans)
 
-let obligations_pass ~proof_encoding ~proof_optimizations ~input_file =
+let obligations_pass ~proof_optimizations ~input_file =
   let* frontend = parse_input ~input_file in
-  let* snapshot =
-    build_snapshot ~proof_encoding ~proof_optimizations
+  let* pipeline =
+    build_pipeline ~proof_optimizations
       ~frontend ~collect_instrumentation_info:true ~collect_ir_metrics:false
   in
-  Ok (obligations ~snapshot)
+  Ok (obligations ~proof_plans:pipeline.proof_plans)
 
-let cost_report ~proof_encoding ~proof_optimizations ~input_file =
+let cost_report ~proof_optimizations ~input_file =
   let* frontend = parse_input ~input_file in
-  let* snapshot =
-    build_snapshot ~proof_encoding ~proof_optimizations
+  let* pipeline =
+    build_pipeline ~proof_optimizations
       ~frontend ~collect_instrumentation_info:true ~collect_ir_metrics:false
   in
-  cost_report_from_snapshot ~input_file ~snapshot
+  cost_report_from_pipeline ~input_file ~proof_optimizations
+    pipeline
 
-let normalized_program ~proof_encoding ~proof_optimizations ~input_file =
+let normalized_program ~proof_optimizations ~input_file =
   let* frontend = parse_input ~input_file in
-  let* snapshot =
-    build_snapshot ~proof_encoding ~proof_optimizations
+  let* pipeline =
+    build_pipeline ~proof_optimizations
       ~frontend ~collect_instrumentation_info:true ~collect_ir_metrics:false
   in
-  Ok (normalized_program_from_snapshot ~snapshot)
+  Ok (normalized_program_from_pipeline pipeline)
 
-let ir_pretty_dump ~proof_encoding ~proof_optimizations ~input_file =
+let ir_pretty_dump ~proof_optimizations ~input_file =
   let* frontend = parse_input ~input_file in
-  let* snapshot =
-    build_snapshot ~proof_encoding ~proof_optimizations
+  let* pipeline =
+    build_pipeline ~proof_optimizations
       ~frontend ~collect_instrumentation_info:true ~collect_ir_metrics:false
   in
-  Ok (pretty_program_from_snapshot ~snapshot)
+  Ok (pretty_program_from_pipeline pipeline)
 
 let run (cfg : Pipeline_config.config) =
   let t0 = Unix.gettimeofday () in
@@ -239,19 +273,18 @@ let run (cfg : Pipeline_config.config) =
   let* frontend = parse_input ~input_file:cfg.input_file in
   Runtime_metrics.record_frontend_parse
     ~elapsed_s:(Unix.gettimeofday () -. t_parse);
-  let t_snapshot = Unix.gettimeofday () in
-  let* snapshot =
-    build_snapshot
-      ~proof_encoding:cfg.proof_encoding
+  let t_pipeline = Unix.gettimeofday () in
+  let* pipeline =
+    build_pipeline
       ~proof_optimizations:cfg.proof_optimizations ~frontend
       ~collect_instrumentation_info:
         ((not (is_minimal_prove_run cfg)) || cfg.collect_ir_metrics)
       ~collect_ir_metrics:cfg.collect_ir_metrics
   in
-  Runtime_metrics.record_snapshot_build
-    ~elapsed_s:(Unix.gettimeofday () -. t_snapshot);
+  Runtime_metrics.record_pipeline_build
+    ~elapsed_s:(Unix.gettimeofday () -. t_pipeline);
   let t_build_done = Unix.gettimeofday () in
-  match build_outputs ~cfg ~snapshot with
+  match build_outputs ~cfg pipeline with
   | Error _ as e -> e
   | Ok out ->
       Ok
@@ -283,9 +316,9 @@ let run (cfg : Pipeline_config.config) =
         else Ok out
 
   let run_minimal_prove_with_callbacks ~should_cancel
-      (cfg : Pipeline_config.config) snapshot ~on_outputs_ready ~on_goals_ready
+      (cfg : Pipeline_config.config) pipeline ~on_outputs_ready ~on_goals_ready
       ~on_goal_done =
-    match build_outputs ~cfg ~snapshot with
+    match build_outputs ~cfg pipeline with
     | Error _ as e -> e
     | Ok (out : Pipeline_artifacts.outputs) ->
         emit_goal_callbacks ~on_outputs_ready ~on_goals_ready ~on_goal_done out;
@@ -293,12 +326,12 @@ let run (cfg : Pipeline_config.config) =
         else Ok out
 
   let run_progressive_prove_with_callbacks ~should_cancel
-      (cfg : Pipeline_config.config) snapshot ~on_outputs_ready ~on_goals_ready
+      (cfg : Pipeline_config.config) pipeline ~on_outputs_ready ~on_goals_ready
       ~on_goal_done =
     let pending_cfg =
       { cfg with prove = false; compute_proof_diagnostics = false }
     in
-    match build_outputs ~cfg:pending_cfg ~snapshot with
+    match build_outputs ~cfg:pending_cfg pipeline with
     | Error _ as e -> e
     | Ok (pending_out : Pipeline_artifacts.outputs) ->
         emit_goal_callbacks ~on_outputs_ready ~on_goals_ready ~on_goal_done
@@ -308,7 +341,8 @@ let run (cfg : Pipeline_config.config) =
           let goal_results =
             prove_with_events
               ~timeout_s:cfg.timeout_s
-              ~should_cancel ~dump_failed_smt:cfg.dump_failed_smt ~snapshot
+              ~should_cancel ~dump_failed_smt:cfg.dump_failed_smt
+              ~proof_plans:pipeline.proof_plans
               ~vc_ids_ordered:pending_out.vc_ids_ordered
               ~on_goal_done:(fun (idx, goal, status, time_s, dump, vcid) ->
                 on_goal_done idx goal status time_s dump vcid)
@@ -327,17 +361,16 @@ let run (cfg : Pipeline_config.config) =
         ~on_goals_ready ~on_goal_done
     else
       let* frontend = parse_input ~input_file:cfg.input_file in
-      let* snapshot =
-        build_snapshot
-          ~proof_encoding:cfg.proof_encoding
+      let* pipeline =
+        build_pipeline
           ~proof_optimizations:cfg.proof_optimizations ~frontend
           ~collect_instrumentation_info:
             ((not (is_minimal_prove_run cfg)) || cfg.collect_ir_metrics)
           ~collect_ir_metrics:cfg.collect_ir_metrics
       in
       if is_minimal_prove_run cfg then
-        run_minimal_prove_with_callbacks ~should_cancel cfg snapshot
+        run_minimal_prove_with_callbacks ~should_cancel cfg pipeline
           ~on_outputs_ready ~on_goals_ready ~on_goal_done
       else
-        run_progressive_prove_with_callbacks ~should_cancel cfg snapshot
+        run_progressive_prove_with_callbacks ~should_cancel cfg pipeline
           ~on_outputs_ready ~on_goals_ready ~on_goal_done

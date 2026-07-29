@@ -26,6 +26,10 @@ type t = {
   known_states : (Abs.product_state, unit) Hashtbl.t;
 }
 
+type strategy =
+  | Trivial
+  | Contradiction_closure
+
 let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
@@ -136,35 +140,22 @@ let build_with_edge_may_fire ~edge_may_fire (node : 'phase Abs.node_ir) : t =
   done;
   { reachable; known_states }
 
-let build ~(node : Core_syntax.historical Abs.node_ir) : t =
-  build_with_edge_may_fire ~edge_may_fire node
-
-let edge_may_fire_history_free
-    (pc : Core_syntax.history_free Abs.product_step_summary)
-    (case : Core_syntax.history_free Abs.safe_product_case) : bool =
-  let program_guard =
-    match pc.identity.program_step.guard_expr with
-    | None -> mk_hbool true
-    | Some guard -> hexpr_of_expr guard
-  in
-  let guard =
-    mk_hand program_guard
-      (mk_hand pc.identity.assume_guard case.admissible_guard.logic)
-    |> Core_syntax.historical_of_history_free
-    |> simplify_fo
-  in
-  not (conjunction_obviously_false guard)
-
-let build_history_free
-    ~(node : Core_syntax.history_free Abs.node_ir) : t =
-  build_with_edge_may_fire ~edge_may_fire:edge_may_fire_history_free node
+let build ~(strategy : strategy)
+    ~(node : Core_syntax.historical Abs.node_ir) : t =
+  match strategy with
+  | Contradiction_closure ->
+      build_with_edge_may_fire ~edge_may_fire node
+  | Trivial ->
+      let known_states = collect_known_states node in
+      let reachable = Hashtbl.copy known_states in
+      { reachable; known_states }
 
 let formula_of_product_state (t : t) (st : Abs.product_state) :
     'phase Core_syntax.hexpr =
   if not (Hashtbl.mem t.known_states st) then mk_hbool true
   else mk_hbool (Hashtbl.mem t.reachable st)
 
-let local_requires_of_product_state (t : t) (st : Abs.product_state) :
+let entry_facts_of_product_state (t : t) (st : Abs.product_state) :
     'phase Core_syntax.hexpr list =
   if not (Hashtbl.mem t.known_states st) || Hashtbl.mem t.reachable st then []
   else [ mk_hbool false ]
@@ -176,22 +167,3 @@ let preservation_ensures (t : t) (pc : Core_syntax.historical Abs.product_step_s
          if is_htrue dst_reach then None
          else Some (mk_himp case.admissible_guard.logic dst_reach |> simplify_fo))
   |> List.filter (fun f -> not (is_htrue f))
-
-let run_node (n : Core_syntax.historical Abs.node_ir) : Core_syntax.historical Abs.node_ir =
-  let reachability = build ~node:n in
-  let summaries =
-    List.map
-      (fun (pc : Core_syntax.historical Abs.product_step_summary) ->
-        let ensures =
-          pc.ensures
-          @ List.map
-              (Ir_formula.make
-                 ~family:"product_reachability_ensures")
-              (preservation_ensures reachability pc)
-        in
-        { pc with ensures })
-      n.summaries
-  in
-  { n with summaries }
-
-let run_program (p : Core_syntax.historical Abs.node_ir list) : Core_syntax.historical Abs.node_ir list = List.map run_node p

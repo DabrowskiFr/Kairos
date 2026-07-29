@@ -8,7 +8,7 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
-(** Backend-independent canonical keys and physical interning for formulas. *)
+(** Backend-independent canonical keys for formulas. *)
 
 type key =
   | KInt of int
@@ -41,16 +41,3 @@ let key ?(normalize = Fun.id) formula = exact_key (normalize formula)
 
 let negated_key ?(normalize = Fun.id) formula =
   KUn (Core_syntax.Not, exact_key (normalize formula))
-
-type 'phase pool = (key, 'phase Core_syntax.hexpr) Hashtbl.t
-
-let create_pool ?(size = 512) () = Hashtbl.create size
-
-let intern ?(normalize = Fun.id) pool formula =
-  let formula = normalize formula in
-  let formula_key = exact_key formula in
-  match Hashtbl.find_opt pool formula_key with
-  | Some representative -> representative
-  | None ->
-      Hashtbl.add pool formula_key formula;
-      formula

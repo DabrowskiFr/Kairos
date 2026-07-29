@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Snapshot builder for the application pipeline.
+(** Verification-pipeline builder for the application layer.
 
     This module consumes a frontend payload (already parsed/lowered) and
     prepares the internal program consumed by the reference kernel. Automata
@@ -26,24 +26,31 @@
 *)
 
 type prepared_program = {
-  imports : string list;
   parse_info : Flow_info.parse_info;
   proof_case_program : Proof_case_program.t;
 }
 
+type build_result = {
+  verification :
+    Kairos_verification_obligations.Canonical_verification.t;
+  proof_plans :
+    Kairos_verification_obligations.Verification_proof_ir.t list;
+  infos : Flow_info.pipeline_info;
+}
+(** Locally assembled pipeline result. Its three components must be projected
+    explicitly before being passed to proof, artifact, or metadata consumers. *)
+
 val prepare_program :
   proof_optimizations:Pipeline_config.proof_optimizations ->
-  imports:string list ->
   parse_info:Flow_info.parse_info ->
   verification_model:Verification_model.program_model ->
   (prepared_program, Pipeline_error.t) result
 
-val build_snapshot_from_supplied_automata :
+val build_from_supplied_automata :
   collect_instrumentation_info:bool ->
   collect_ir_metrics:bool ->
-  proof_encoding:Pipeline_config.proof_encoding ->
   proof_optimizations:Pipeline_config.proof_optimizations ->
   prepared:prepared_program ->
   automata:(Core_syntax.ident * Automaton_types.automata_spec) list ->
   automata_info:Flow_info.automata_info ->
-  (Runtime_snapshot.pipeline_snapshot, Pipeline_error.t) result
+  (build_result, Pipeline_error.t) result

@@ -76,6 +76,14 @@ type instrumentation_info = {
   canonical_case_bad_guarantee_count : int;
 }
 
+type pipeline_info = {
+  parse : parse_info option;
+  automata_generation : automata_info option;
+  summaries : summaries_info option;
+  instrumentation : instrumentation_info option;
+}
+(** Technical metadata retained for CLI/LSP output projection. *)
+
 (** Default empty parsing metadata. *)
 val empty_parse_info : parse_info
 

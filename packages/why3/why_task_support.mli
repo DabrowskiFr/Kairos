@@ -30,12 +30,6 @@
       Why3 data directory, when available. *)
 val setup_env : unit -> Why3.Whyconf.config * Why3.Whyconf.main * Why3.Env.env * string option
 
-(** Parse generated WhyML text with Why3's parser.
-
-    This path matches the semantics of textual WhyML dumps and avoids subtle
-    differences between hand-built parse trees and parser-produced trees. *)
-val ptree_of_text : filename:string -> text:string -> Why3.Ptree.mlw_file
-
 (** Split a generated WhyML file into one-file-per-module chunks.
 
     Kairos-generated modules are self-contained; processing them one at a time
@@ -54,10 +48,6 @@ val tasks_of_ptree :
 val tasks_of_ptrees :
   env:Why3.Env.env -> ptrees:Why3.Ptree.mlw_file list -> Why3.Task.task list
 
-(** Extract top-level tasks from generated WhyML text. *)
-val tasks_of_text :
-  env:Why3.Env.env -> filename:string -> text:string -> Why3.Task.task list
-
 (** Normalize parse-tree obligations into split Why3 tasks.
 
     @param env
@@ -72,10 +62,6 @@ val normalize_tasks_of_ptree :
 (** Normalize obligations from several module chunks. *)
 val normalize_tasks_of_ptrees :
   env:Why3.Env.env -> ptrees:Why3.Ptree.mlw_file list -> Why3.Task.task list
-
-(** Normalize obligations from generated WhyML text. *)
-val normalize_tasks_of_text :
-  env:Why3.Env.env -> filename:string -> text:string -> Why3.Task.task list
 
 (** Select the Z3 prover configuration from Why3 config with fallback logic.
 

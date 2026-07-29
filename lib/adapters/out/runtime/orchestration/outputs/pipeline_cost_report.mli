@@ -21,6 +21,9 @@
 val render_json :
   input_file:string ->
   why_text_s:float ->
-  snapshot:Runtime_snapshot.pipeline_snapshot ->
+  proof_optimizations:Pipeline_config.proof_optimizations ->
+  infos:Flow_info.pipeline_info ->
+  proof_cases:Proof_case_program.t ->
+  instrumentation:Core_syntax.history_free Ir.node_ir list ->
   why_text:string ->
   string

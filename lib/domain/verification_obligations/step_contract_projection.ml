@@ -29,14 +29,13 @@ type step_contract = {
   product_src : Ir.product_state;
   assume_guard : Core_syntax.history_free Ir.summary_formula;
   requires : Core_syntax.history_free Ir.summary_formula list;
-  runtime_requires : Core_syntax.history_free Ir.summary_formula list;
   ensures : Core_syntax.history_free Ir.summary_formula list;
   elaboration_checks : Core_syntax.history_free Ir.summary_formula list;
   forbidden : Core_syntax.history_free Ir.summary_formula list;
 }
 
 let preconditions (contract : step_contract) =
-  contract.requires @ [ contract.assume_guard ] @ contract.runtime_requires
+  contract.requires @ [ contract.assume_guard ]
 
 let postconditions (contract : step_contract) =
   contract.ensures @ contract.elaboration_checks
@@ -59,7 +58,7 @@ let transition_id_of_summary
   Printf.sprintf "tr_%d" summary.trace.step_uid
 
 let safe_contract ~(assume_guard : Core_syntax.history_free Ir.summary_formula)
-    ~requires ~runtime_requires
+    ~requires
     (summary : Core_syntax.history_free Ir.product_step_summary) =
   match summary.safe_cases with
   | [] -> None
@@ -72,7 +71,6 @@ let safe_contract ~(assume_guard : Core_syntax.history_free Ir.summary_formula)
           product_src = summary.identity.product_src;
           assume_guard;
           requires;
-          runtime_requires;
           ensures = summary.ensures;
           elaboration_checks = summary.elaboration_checks;
           forbidden = [];
@@ -80,7 +78,6 @@ let safe_contract ~(assume_guard : Core_syntax.history_free Ir.summary_formula)
 
 let bad_guarantee_contract
     ~(assume_guard : Core_syntax.history_free Ir.summary_formula) ~requires
-    ~runtime_requires
     (summary : Core_syntax.history_free Ir.product_step_summary) =
   match summary.unsafe_cases with
   | [] -> None
@@ -102,35 +99,27 @@ let bad_guarantee_contract
           product_src = summary.identity.product_src;
           assume_guard;
           requires;
-          runtime_requires;
           ensures = [];
           elaboration_checks = [];
           forbidden;
         }
 
 let contracts_of_summary
-    ~runtime_requires
     (summary : Core_syntax.history_free Ir.product_step_summary) :
     step_contract list =
   let assume_guard = Ir_formula.make summary.identity.assume_guard in
   let requires = common_requires summary in
   [
-    safe_contract ~assume_guard ~requires ~runtime_requires summary;
-    bad_guarantee_contract ~assume_guard ~requires ~runtime_requires summary;
+    safe_contract ~assume_guard ~requires summary;
+    bad_guarantee_contract ~assume_guard ~requires summary;
   ]
   |> List.filter_map Fun.id
 
 let of_ir_node (node : Core_syntax.history_free Ir.node_ir) :
     step_contract list =
-  let reachability = Product_reachability.build_history_free ~node in
   node.summaries
   |> List.concat_map
        (fun
          (summary : Core_syntax.history_free Ir.product_step_summary)
        ->
-         let runtime_requires =
-           Product_reachability.local_requires_of_product_state reachability
-             summary.identity.product_src
-           |> List.map Ir_formula.make
-         in
-         contracts_of_summary ~runtime_requires summary)
+         contracts_of_summary summary)

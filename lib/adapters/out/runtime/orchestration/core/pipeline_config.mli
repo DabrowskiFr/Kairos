@@ -10,23 +10,11 @@
 
 (** Proof-generation policy and runtime execution configuration. *)
 
-type proof_encoding = Explicit_product
-
-val string_of_proof_encoding : proof_encoding -> string
-val proof_encoding_of_string : string -> proof_encoding option
-val default_proof_encoding : proof_encoding
-
-type contract_partition_strategy =
-  Kairos_verification_optimization.Contract_partition.strategy =
+type proof_case_decomposition_strategy =
+  Kairos_verification_optimization.Proof_case_decomposition.strategy =
   | Monolithic
-  | Weak_until of {
-      public_non_w : public_non_w_strategy;
-    }
-
-and public_non_w_strategy =
-  Kairos_verification_optimization.Contract_partition.public_non_w_strategy =
-  | Separate
-  | Group_by_family
+  | Separate_guarantees
+  | Split_multiple_weak_until
 
 type step_strategy =
   Kairos_verification_optimization.Proof_plan.step_strategy =
@@ -58,32 +46,26 @@ type proof_plan_strategy =
       postconditions : postcondition_strategy;
     }
 
-type formula_interning_strategy =
-  Kairos_verification_optimization.Formula_interning.strategy =
-  | Preserve_allocations
-  | Intern_location_free
+type reachability_strategy =
+  Product_reachability.strategy =
+  | Trivial
+  | Contradiction_closure
 
-val string_of_contract_partition_strategy :
-  contract_partition_strategy -> string
+val string_of_proof_case_decomposition_strategy :
+  proof_case_decomposition_strategy -> string
 
 val string_of_proof_plan_strategy : proof_plan_strategy -> string
 
-val string_of_formula_interning_strategy :
-  formula_interning_strategy ->
-  string
-
-val groups_public_non_w_guarantees :
-  contract_partition_strategy -> bool
+val string_of_reachability_strategy : reachability_strategy -> string
 
 val groups_step_contracts : proof_plan_strategy -> bool
 val deduplicates_obligation_conditions : proof_plan_strategy -> bool
 val shares_contract_formulas : proof_plan_strategy -> bool
 val bundles_individual_postconditions : proof_plan_strategy -> bool
-val shares_lowered_formulas : formula_interning_strategy -> bool
 
 type verification_optimizations = {
-  contract_partition_strategy : contract_partition_strategy;
-  formula_interning_strategy : formula_interning_strategy;
+  proof_case_decomposition_strategy : proof_case_decomposition_strategy;
+  reachability_strategy : reachability_strategy;
   proof_plan_strategy : proof_plan_strategy;
 }
 
@@ -97,7 +79,6 @@ val default_proof_optimizations : proof_optimizations
 type config = {
   input_file : string;
   wp_only : bool;
-  smoke_tests : bool;
   timeout_s : int;
   compute_proof_diagnostics : bool;
   prove : bool;
@@ -110,6 +91,5 @@ type config = {
   collect_ir_metrics : bool;
   proof_progress_path : string option;
   stop_on_first_nonvalid : bool;
-  proof_encoding : proof_encoding;
   proof_optimizations : proof_optimizations;
 }

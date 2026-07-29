@@ -15,10 +15,11 @@
   fo_contradiction
   fo_current_input
   product_characteristics
+  product_reachability
+  product_invariant
   ir_fact_family_metrics
   from_model
   pre
-  product_reachability
   post
   formula_canonical
   automata_preparation

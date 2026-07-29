@@ -87,13 +87,11 @@ let individual_manifest ~node_name ~generated_symbol
     generated_symbol;
     source =
       Printf.sprintf
-        "helper=%s;partition=%s;product_src=%s;requires=%d;\
-         local_requires=%d;ensures=%d;\
+        "helper=%s;partition=%s;product_src=%s;requires=%d;ensures=%d;\
          elaboration_checks=%d;forbidden=%d"
         generated_symbol plan.member.partition_name
         (product_state_source contract.product_src)
         (List.length contract.requires)
-        (List.length contract.runtime_requires)
         (List.length contract.ensures)
         (List.length contract.elaboration_checks)
         (List.length (Step_contract_projection.exclusions contract));
@@ -106,7 +104,9 @@ let individual_manifest ~node_name ~generated_symbol
 
 let grouped_manifest ~node_name ~generated_symbol
     (plan : Proof_ir.grouped) =
-  let contract = plan.representative.contract in
+  let contract =
+    (List.hd plan.members).Obligations.contract
+  in
   let obligation_kind, obligation_category =
     obligation_class contract.step_class
   in
@@ -114,8 +114,7 @@ let grouped_manifest ~node_name ~generated_symbol
     generated_symbol;
     source =
       Printf.sprintf
-        "helper=%s;group_size=%d;partitions=%s;product_src=%s;requires=%d;\
-         local_requires=%d;ensures=%d;\
+        "helper=%s;group_size=%d;partitions=%s;product_src=%s;requires=%d;ensures=%d;\
          elaboration_checks=%d;forbidden=%d"
         generated_symbol (List.length plan.members)
         (plan.members
@@ -124,7 +123,6 @@ let grouped_manifest ~node_name ~generated_symbol
         |> String.concat ",")
         (product_state_source contract.product_src)
         (List.length contract.requires)
-        (List.length contract.runtime_requires)
         (List.length contract.ensures)
         (List.length contract.elaboration_checks)
         (List.length (Step_contract_projection.exclusions contract));

@@ -30,11 +30,11 @@
     optimization and must be applied explicitly after this boundary if its
     measured gain justifies it.
 
-    [product_characteristics] contains one analysis per input node, in the same
-    order. *)
+    [product_invariants] contains the selected auxiliary invariant analyses for
+    each input node, in the same order. *)
 
 val run_program :
   ?observe_family:Ir_fact_family_metrics.observer ->
-  product_characteristics:Product_characteristics.t list ->
+  product_invariants:Product_invariant.t list list ->
   Core_syntax.historical Ir.node_ir list ->
   Core_syntax.historical Ir.node_ir list

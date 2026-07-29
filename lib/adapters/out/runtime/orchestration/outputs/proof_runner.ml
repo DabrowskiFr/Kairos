@@ -38,9 +38,12 @@ let run ~(cfg : Pipeline_config.config) ~(proof_plans : Proof_ir.t list) :
   try
     let progress = Proof_progress_output.open_csv cfg.proof_progress_path in
     let t_why_gen = Unix.gettimeofday () in
-    let whyml = Why_pipeline.compile_whyml ~proof_plans () in
-    let backend_why_text = whyml.text in
-    let output_why_text = if cfg.generate_why_text then whyml.text else "" in
+    let compilation = Why_pipeline.compile ~proof_plans () in
+    let output_why_text =
+      if cfg.generate_why_text then
+        (Why_pipeline.render compilation).text
+      else ""
+    in
     Runtime_metrics.record_why_gen ~elapsed_s:(Unix.gettimeofday () -. t_why_gen);
     let t_vc_smt = Unix.gettimeofday () in
     if cfg.prove && Option.is_none progress && not cfg.wp_only && not cfg.generate_vc_text
@@ -48,7 +51,7 @@ let run ~(cfg : Pipeline_config.config) ~(proof_plans : Proof_ir.t list) :
     then
       let execution =
         Proof_goal_results.execute ~progress:None ~cfg
-          ~whyml_text:backend_why_text ~split_vc:true ~emit_vc_text:false
+          ~ptree:compilation.ast ~split_vc:true ~emit_vc_text:false
           ~emit_smt_text:false ~diagnose_nonvalid:false
       in
       let goal_results =
@@ -59,7 +62,8 @@ let run ~(cfg : Pipeline_config.config) ~(proof_plans : Proof_ir.t list) :
       in
       let proof_traces =
         if Proof_traces.needed cfg then
-          Proof_traces.build_fast ~manifest:whyml.manifest goal_results
+          Proof_traces.build_fast
+            ~manifest:compilation.manifest goal_results
         else []
       in
       let goals =
@@ -84,7 +88,8 @@ let run ~(cfg : Pipeline_config.config) ~(proof_plans : Proof_ir.t list) :
         }
     else
       let execution =
-        Proof_goal_results.execute ~progress ~cfg ~whyml_text:backend_why_text
+        Proof_goal_results.execute ~progress ~cfg
+          ~ptree:compilation.ast
           ~split_vc:true ~emit_vc_text:cfg.generate_vc_text
           ~emit_smt_text:cfg.generate_smt_text
           ~diagnose_nonvalid:cfg.compute_proof_diagnostics
@@ -112,7 +117,7 @@ let run ~(cfg : Pipeline_config.config) ~(proof_plans : Proof_ir.t list) :
       Runtime_metrics.record_vc_smt ~elapsed_s:(Unix.gettimeofday () -. t_vc_smt);
       let proof_traces =
         Proof_traces.build_from_execution ~goals:execution.goals
-          ~manifest:whyml.manifest ~goal_results ~vc_ids_ordered
+          ~manifest:compilation.manifest ~goal_results ~vc_ids_ordered
           ~vc_spans_ordered ~smt_spans_ordered
       in
       let goals = Proof_traces.goals_of_proof_traces proof_traces in

@@ -29,6 +29,7 @@ open Automaton_types
 type reference_product_input = {
   proof_case_program : Proof_case_program.t;
   automata : (Core_syntax.ident * automata_spec) list;
+  reachability_strategy : Product_reachability.strategy;
 }
 
 (** One node produced by the canonical product construction, with the
@@ -36,6 +37,7 @@ type reference_product_input = {
 type product_node = private {
   proof_case : Proof_case_program.proof_case;
   analysis : Temporal_automata.node_data;
+  reachability : Product_reachability.t;
   ir : Core_syntax.historical Ir.node_ir;
 }
 
@@ -46,16 +48,6 @@ type instrumented_product_node = private {
 (** A lowered IR node whose association with its core proof case has survived
     every instrumentation pass and been structurally checked after each one. *)
 
-val map_instrumented_product_node :
-  (Core_syntax.history_free Ir.node_ir ->
-  Core_syntax.history_free Ir.node_ir) ->
-  instrumented_product_node ->
-  (instrumented_product_node, string) result
-(** Applies a structure-preserving transformation without releasing ownership
-    of the proof-case/IR association. The result must be structurally equal to
-    the input (physical representation may differ), and its provenance is
-    checked again. *)
-
 type reference_product = private {
   nodes : product_node list;
 }
@@ -63,7 +55,6 @@ type reference_product = private {
 (** Instrumentation passes currently run after product summaries exist. *)
 type instrumented_ir_pass =
   | Pre_pass
-  | Product_reachability_pass
   | Post_pass
   | Temporal_lower_pass
 

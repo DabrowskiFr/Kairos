@@ -29,20 +29,27 @@ type obligations_outputs = {
 
 type compilation_manifest = Why_compile.compiled_obligation list
 
+type compilation = {
+  ast : Why3.Ptree.mlw_file;
+  manifest : compilation_manifest;
+}
+
 type whyml_output = {
   text : string;
   manifest : compilation_manifest;
 }
 
-(** Compile Kairos IR to a neutral WhyML text artifact. *)
-val compile_whyml :
+(** Compile Kairos proof IR directly to the structured Why3 input. *)
+val compile :
   proof_plans:
     Kairos_verification_obligations.Verification_proof_ir.t list ->
   unit ->
-  whyml_output
+  compilation
 
-(** Compile Kairos IR to WhyML, then submit the neutral WhyML request to the
-    independent Why3 adapter. *)
+val render : compilation -> whyml_output
+(** Render a compiled AST only when a textual WhyML artifact is requested. *)
+
+(** Compile Kairos IR and submit its AST directly to the Why3 adapter. *)
 val obligations_pass :
   proof_plans:
     Kairos_verification_obligations.Verification_proof_ir.t list ->

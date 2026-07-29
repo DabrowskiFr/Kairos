@@ -36,7 +36,7 @@ val pending : index:int -> goal_name:string -> vcid:string option -> t
 val execute :
   progress:progress option ->
   cfg:Pipeline_config.config ->
-  whyml_text:string ->
+  ptree:Why3.Ptree.mlw_file ->
   split_vc:bool ->
   emit_vc_text:bool ->
   emit_smt_text:bool ->

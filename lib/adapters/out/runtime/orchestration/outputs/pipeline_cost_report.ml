@@ -20,11 +20,9 @@
 
 open Pipeline_cost_report_common
 
-let flow_meta_json snapshot =
+let flow_meta_json ~proof_optimizations infos =
   Pipeline_outputs_helpers.flow_meta
-    ~proof_encoding:snapshot.Runtime_snapshot.proof_encoding
-    ~proof_optimizations:snapshot.Runtime_snapshot.proof_optimizations
-    snapshot.Runtime_snapshot.infos
+    ~proof_optimizations infos
   |> json_list (fun (section, fields) ->
          json_assoc
            [
@@ -36,22 +34,14 @@ let flow_meta_json snapshot =
 let proof_optimizations_json (opts : Pipeline_config.proof_optimizations) =
   json_assoc
     [
-      ( "contract_partition_strategy",
+      ( "proof_case_decomposition_strategy",
         json_string
-          (Pipeline_config.string_of_contract_partition_strategy
-             opts.verification.contract_partition_strategy) );
-      ( "group_public_non_w_guarantees",
-        json_bool
-          (Pipeline_config.groups_public_non_w_guarantees
-             opts.verification.contract_partition_strategy) );
-      ( "formula_interning_strategy",
+          (Pipeline_config.string_of_proof_case_decomposition_strategy
+             opts.verification.proof_case_decomposition_strategy) );
+      ( "reachability_strategy",
         json_string
-          (Pipeline_config.string_of_formula_interning_strategy
-             opts.verification.formula_interning_strategy) );
-      ( "share_lowered_formulas",
-        json_bool
-          (Pipeline_config.shares_lowered_formulas
-             opts.verification.formula_interning_strategy) );
+          (Pipeline_config.string_of_reachability_strategy
+             opts.verification.reachability_strategy) );
       ( "group_step_contracts",
         json_bool
           (Pipeline_config.groups_step_contracts
@@ -70,27 +60,25 @@ let proof_optimizations_json (opts : Pipeline_config.proof_optimizations) =
              opts.verification.proof_plan_strategy) );
     ]
 
-let proof_encoding_json (encoding : Pipeline_config.proof_encoding) =
-  json_string (Pipeline_config.string_of_proof_encoding encoding)
-
-let render_json ~input_file ~why_text_s
-    ~(snapshot : Runtime_snapshot.pipeline_snapshot) ~why_text =
+let render_json ~input_file ~why_text_s ~proof_optimizations
+    ~infos ~proof_cases ~instrumentation ~why_text =
   let root =
     json_assoc
       [
         ("format", json_string "kairos-cost-report-v1");
         ("input_file", json_string input_file);
-        ("proof_encoding", proof_encoding_json snapshot.proof_encoding);
         ( "timings",
           json_assoc
             [
               ("why_text_generation_s", json_float why_text_s);
             ] );
-        ("proof_optimizations", proof_optimizations_json snapshot.proof_optimizations);
-        ("flow_meta", flow_meta_json snapshot);
-        ("source", Pipeline_cost_report_source.source_json snapshot);
+        ("proof_optimizations", proof_optimizations_json proof_optimizations);
+        ( "flow_meta",
+          flow_meta_json ~proof_optimizations infos );
+        ("source", Pipeline_cost_report_source.source_json proof_cases);
         ( "formula_population",
-          Pipeline_cost_report_facts.formula_population_json snapshot );
+          Pipeline_cost_report_facts.formula_population_json
+            ~proof_cases ~instrumentation );
         ("why3", Pipeline_cost_report_why3.why3_json why_text ~why_text_s);
         ( "notes",
           json_list json_string

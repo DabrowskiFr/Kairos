@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Intermediate artifact bundle derived from a pipeline snapshot.
+(** Intermediate artifact bundle derived from analyzed product nodes.
 
     This payload is consumed by output mappers and diagnostic reports.
 *)
@@ -30,7 +30,7 @@ type t = {
   product_dot : string;
 }
 
-(** Build automata and product graph artifacts for [asts]. *)
+(** Build automata and product graph artifacts for [product_nodes]. *)
 
 val build :
-  asts:Runtime_snapshot.ast_flow -> t
+  product_nodes:Orchestration.product_node list -> t

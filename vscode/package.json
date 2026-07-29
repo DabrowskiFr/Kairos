@@ -328,11 +328,6 @@
           "default": false,
           "description": "Generate weakest-precondition obligations only."
         },
-        "kairos.run.smokeTests": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable smoke obligations during prove runs."
-        },
         "kairos.run.prefixFields": {
           "type": "boolean",
           "default": false,

@@ -18,9 +18,9 @@
 
 let pipeline_config_of_protocol (cfg : Lsp_protocol.config) =
   Kairos_engine.Api.make_config ~input_file:cfg.input_file
-    ~wp_only:cfg.wp_only ~smoke_tests:cfg.smoke_tests
-    ~timeout_s:cfg.timeout_s
+    ~wp_only:cfg.wp_only ~timeout_s:cfg.timeout_s
     ~compute_proof_diagnostics:cfg.compute_proof_diagnostics ~prove:cfg.prove
-    ?proof_jobs:cfg.proof_jobs ~generate_vc_text:cfg.generate_vc_text
+    ?proof_jobs:cfg.proof_jobs ~generate_why_text:false
+    ~generate_vc_text:cfg.generate_vc_text
     ~generate_smt_text:cfg.generate_smt_text
     ~generate_dot_png:cfg.generate_dot_png ()

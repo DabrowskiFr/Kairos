@@ -69,7 +69,7 @@ let of_contract_result ~vc_ids_ordered (result : Contract.goal_result) =
     result_probe = result.probe;
   }
 
-let execute ~progress ~(cfg : Pipeline_config.config) ~whyml_text ~split_vc
+let execute ~progress ~(cfg : Pipeline_config.config) ~ptree ~split_vc
     ~emit_vc_text ~emit_smt_text ~diagnose_nonvalid =
   let proof_jobs = if cfg.stop_on_first_nonvalid then 1 else cfg.proof_jobs in
   let options : Contract.execution_options =
@@ -84,7 +84,6 @@ let execute ~progress ~(cfg : Pipeline_config.config) ~whyml_text ~split_vc
       diagnose_nonvalid;
     }
   in
-  let request = Contract.make_execution_request ~whyml_text ~options () in
   let stop_requested = ref false in
   let should_cancel () = cfg.stop_on_first_nonvalid && !stop_requested in
   let on_goal_done (result : Contract.goal_result) =
@@ -103,7 +102,8 @@ let execute ~progress ~(cfg : Pipeline_config.config) ~whyml_text ~split_vc
     then stop_requested := true
   in
   let response =
-    Why_execution.execute ~should_cancel ~on_goal_done request
+    Why_execution.execute_ptree ~should_cancel ~on_goal_done
+      ~options ptree
   in
   Runtime_metrics.record_why3_execution response.metrics;
   response

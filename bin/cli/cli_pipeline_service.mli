@@ -53,30 +53,25 @@ val automata_dump_data :
 
 val why_text_dump :
   input_file:string ->
-  proof_encoding:Kairos_engine.Api.Contract.proof_encoding ->
   proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
   (string, Kairos_engine.Api.error) result
 
 val obligations_dump_data :
   input_file:string ->
-  proof_encoding:Kairos_engine.Api.Contract.proof_encoding ->
   proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
   (obligations_dump_data, Kairos_engine.Api.error) result
 
 val cost_report_dump :
   input_file:string ->
-  proof_encoding:Kairos_engine.Api.Contract.proof_encoding ->
   proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
   (string, Kairos_engine.Api.error) result
 
 val normalized_program :
-  proof_encoding:Kairos_engine.Api.Contract.proof_encoding ->
   proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
   input_file:string ->
   (string, Kairos_engine.Api.error) result
 
 val ir_pretty_dump :
-  proof_encoding:Kairos_engine.Api.Contract.proof_encoding ->
   proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
   input_file:string ->
   (string, Kairos_engine.Api.error) result
@@ -109,6 +104,5 @@ val run_dump_data :
   collect_ir_metrics:bool ->
   stop_on_first_nonvalid:bool ->
   proof_jobs:int ->
-  proof_encoding:Kairos_engine.Api.Contract.proof_encoding ->
   proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
   (run_dump_data, Kairos_engine.Api.error) result

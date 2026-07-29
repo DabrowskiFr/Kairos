@@ -217,7 +217,6 @@ export interface KairosRunConfig {
   inputFile: string;
   engine: string;
   wpOnly: boolean;
-  smokeTests: boolean;
   timeoutS: number;
   maxProofGoals?: number;
   computeProofDiagnostics: boolean;

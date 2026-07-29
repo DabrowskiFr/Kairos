@@ -58,30 +58,29 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
       max 0.0 (why3_backend_aggregate_s -. counters.why3_solver_s)
     in
     let why3_task_pipeline_s =
-      counters.why3_setup_s +. counters.why3_parse_s
-      +. counters.why3_typecheck_s +. counters.why3_task_extract_s
+      counters.why3_setup_s +. counters.why3_typecheck_s +. counters.why3_task_extract_s
       +. counters.why3_split_vc_s
     in
     let canonical_known_stages_s =
-      counters.pre_s +. counters.product_reachability_s +. counters.post_s
-      +. counters.temporal_lower_s
+      counters.pre_s +. counters.post_s +. counters.temporal_lower_s
     in
     let canonical_unaccounted_s =
       max 0.0 (counters.canonical_s -. canonical_known_stages_s)
     in
-    let snapshot_known_stages_s =
-      counters.contract_partition_s +. counters.automata_generation_s
+    let pipeline_known_stages_s =
+      counters.proof_case_decomposition_s
+      +. counters.automata_generation_s
       +. counters.product_s +. counters.canonical_s
       +. counters.proof_planning_s
       +. counters.instrumentation_info_s
     in
-    let snapshot_unaccounted_s =
-      max 0.0 (counters.snapshot_build_s -. snapshot_known_stages_s)
+    let pipeline_unaccounted_s =
+      max 0.0 (counters.pipeline_build_s -. pipeline_known_stages_s)
     in
     let build_ast_unaccounted_s =
       max 0.0
         ((t_build_done -. t0)
-        -. counters.frontend_parse_s -. snapshot_known_stages_s)
+        -. counters.frontend_parse_s -. pipeline_known_stages_s)
     in
     let worker_count = List.length counters.why3_workers in
     let worker_wall_sum_s =
@@ -141,8 +140,9 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
         ("total_wall_s", fmt_s (t_end -. t0));
         ("build_ast_s", fmt_s (t_build_done -. t0));
         ("frontend_parse_s", fmt_s counters.frontend_parse_s);
-        ("snapshot_build_s", fmt_s counters.snapshot_build_s);
-        ("contract_partition_s", fmt_s counters.contract_partition_s);
+        ("pipeline_build_s", fmt_s counters.pipeline_build_s);
+        ( "proof_case_decomposition_s",
+          fmt_s counters.proof_case_decomposition_s );
         ("proof_planning_s", fmt_s counters.proof_planning_s);
         ("automata_generation_s", fmt_s counters.automata_generation_s);
         ("build_outputs_s", fmt_s (t_end -. t_build_done));
@@ -153,14 +153,13 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
         ("product_s", fmt_s counters.product_s);
         ("canonical_s", fmt_s counters.canonical_s);
         ("pre_s", fmt_s counters.pre_s);
-        ("product_reachability_s", fmt_s counters.product_reachability_s);
         ("post_s", fmt_s counters.post_s);
         ("temporal_lower_s", fmt_s counters.temporal_lower_s);
         ("canonical_known_stages_s", fmt_s canonical_known_stages_s);
         ("canonical_unaccounted_s", fmt_s canonical_unaccounted_s);
         ("instrumentation_info_s", fmt_s counters.instrumentation_info_s);
-        ("snapshot_known_stages_s", fmt_s snapshot_known_stages_s);
-        ("snapshot_unaccounted_s", fmt_s snapshot_unaccounted_s);
+        ("pipeline_known_stages_s", fmt_s pipeline_known_stages_s);
+        ("pipeline_unaccounted_s", fmt_s pipeline_unaccounted_s);
         ("build_ast_unaccounted_s", fmt_s build_ast_unaccounted_s);
         ("output_artifact_s", fmt_s counters.output_artifact_s);
         ("output_proof_run_s", fmt_s counters.output_proof_run_s);
@@ -175,7 +174,6 @@ let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
         ("why3_worker_parallel_efficiency", fmt_s worker_parallel_efficiency);
         ("why3_parent_orchestration_s", fmt_s why3_parent_orchestration_s);
         ("why3_setup_s", fmt_s counters.why3_setup_s);
-        ("why3_parse_s", fmt_s counters.why3_parse_s);
         ("why3_typecheck_s", fmt_s counters.why3_typecheck_s);
         ("why3_task_extract_s", fmt_s counters.why3_task_extract_s);
         ("why3_split_vc_s", fmt_s counters.why3_split_vc_s);
