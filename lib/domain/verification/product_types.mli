@@ -31,49 +31,62 @@ type product_state = {
   guarantee_state_index : int;
 }
 
-(** One explicit step of the explored product.
-
-    It records the exact local combination used during exploration:
-    - one source and destination product state;
-    - one program transition and its normalized first-order guard;
-    - the exact assumption post-image guard;
-    - the exact guarantee post-image guard;
-    A product step exists only when both partial monitors can advance. *)
-type product_step = {
-  src : product_state;
-  dst : product_state;
-  prog_transition : Verification_model.program_step;
-  prog_guard : Core_syntax.historical Core_syntax.hexpr;
-  assume_guard : Core_syntax.historical Core_syntax.hexpr;
-  guarantee_guard : Core_syntax.historical Core_syntax.hexpr;
+(** One outgoing monitor successor. Its source state is supplied by the
+    containing {!product_prefix}; only the varying destination and guard are
+    stored. *)
+type monitor_successor = {
+  destination_state_index : int;
+  guard : Core_syntax.historical Core_syntax.hexpr;
 }
 
 (** One enabled program–assumption prefix from a reachable product source.
 
-    The guarantee post of this prefix is the list of {!product_step} values
-    sharing these fields. An empty list represents total guarantee blocking;
-    conditional blocking is represented by incomplete coverage of the step
+    The program transition determines the program source and destination. The
+    assumption successor determines the assumption destination, while both
+    monitor source states are stored once by the prefix. Guarantee successors
+    contain only their varying destination and guard.
+
+    An empty [guarantee_successors] list represents total guarantee blocking;
+    conditional blocking is represented by incomplete coverage of their
     guards. *)
 type product_prefix = {
-  src : product_state;
-  (** Raw assumption-monitor destination fixed by this prefix. *)
-  assume_destination_state_index : int;
   prog_transition : Verification_model.program_step;
-  prog_guard : Core_syntax.historical Core_syntax.hexpr;
-  assume_guard : Core_syntax.historical Core_syntax.hexpr;
+  assume_source_state_index : int;
+  assume_successor : monitor_successor;
+  guarantee_source_state_index : int;
+  guarantee_successors : monitor_successor list;
 }
 
 (** Reachable fragment of the explicit product for one program node. *)
 type exploration = {
   (** Initial product state [(P_init, A0, G0)]. *)
   initial_state : product_state;
-  (** Reachable product states discovered from {!initial_state}. *)
-  states : product_state list;
-  (** Explicit product steps between reachable states. *)
-  steps : product_step list;
-  (** Program–assumption prefixes, independently of guarantee progress. *)
+  (** Program–assumption prefixes together with their guarantee successors. *)
   prefixes : product_prefix list;
 }
+
+(** [prefix_source prefix] derives the product source from the program
+    transition and the two monitor source states stored by [prefix]. *)
+val prefix_source : product_prefix -> product_state
+
+(** [successor_destination prefix successor] derives the complete product
+    destination associated with one guarantee successor of [prefix]. *)
+val successor_destination :
+  product_prefix -> monitor_successor -> product_state
+
+(** [program_guard prefix] derives the normalized first-order program guard
+    from the unique program transition stored by [prefix]. *)
+val program_guard :
+  product_prefix ->
+  Core_syntax.historical Core_syntax.hexpr
+
+(** [states exploration] derives the normalized reachable-state list from the
+    initial state, prefix sources and guarantee-successor destinations. *)
+val states : exploration -> product_state list
+
+(** [step_count exploration] counts the product triples represented by all
+    guarantee successors. *)
+val step_count : exploration -> int
 
 (** [compare_state] service entrypoint. *)
 

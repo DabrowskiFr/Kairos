@@ -202,23 +202,6 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
     ~(program_transitions : Vm.program_step list) :
     Core_syntax.historical Ir.product_step_summary list =
   let transition_indices = transition_indices program_transitions in
-  let steps_by_prefix = Hashtbl.create 32 in
-  analysis.exploration.steps
-  |> List.iter (fun (step : PT.product_step) ->
-         match Hashtbl.find_opt transition_indices step.prog_transition with
-         | None -> ()
-         | Some step_uid ->
-             let key =
-               ( step_uid,
-                 step.src,
-                 step.dst.assume_state_index,
-                 step.assume_guard )
-             in
-             let previous =
-               Hashtbl.find_opt steps_by_prefix key
-               |> Option.value ~default:[]
-             in
-             Hashtbl.replace steps_by_prefix key (step :: previous));
   analysis.exploration.prefixes
   |> List.filter_map (fun (prefix : PT.product_prefix) ->
          match
@@ -226,20 +209,21 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
          with
          | None -> None
          | Some step_uid ->
-             let key =
-               ( step_uid,
-                 prefix.src,
-                 prefix.assume_destination_state_index,
-                 prefix.assume_guard )
-             in
              let product_cases =
-               Hashtbl.find_opt steps_by_prefix key
-               |> Option.value ~default:[] |> List.rev
-               |> List.map (fun (step : PT.product_step) ->
+               prefix.guarantee_successors
+               |> List.map
+                    (fun
+                      (guarantee_successor :
+                        PT.monitor_successor)
+                    ->
                       ({
-                         product_dst = product_state_of_pt step.dst;
+                         product_dst =
+                           PT.successor_destination prefix
+                             guarantee_successor
+                           |> product_state_of_pt;
                          guarantee_guard =
-                           Ir_formula.make step.guarantee_guard;
+                           Ir_formula.make
+                             guarantee_successor.guard;
                        } : Core_syntax.historical Ir.product_case))
              in
              Some
@@ -250,10 +234,14 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                       program_step =
                         transition_of_program_step
                           prefix.prog_transition;
-                      product_src = product_state_of_pt prefix.src;
+                      product_src =
+                        PT.prefix_source prefix
+                        |> product_state_of_pt;
                       assume_destination_state_index =
-                        prefix.assume_destination_state_index;
-                      assume_guard = prefix.assume_guard;
+                        prefix.assume_successor
+                          .destination_state_index;
+                      assume_guard =
+                        prefix.assume_successor.guard;
                     };
                   propagation_requires = [];
                   requires = [];

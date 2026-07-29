@@ -35,27 +35,42 @@ let detailed_state (_analysis : Temporal_automata.node_data)
 let render_product_lines ~(node_name : ident)
     (analysis : Temporal_automata.node_data) =
   let states =
-    analysis.exploration.states
+    PT.states analysis.exploration
     |> List.map (fun st ->
            Printf.sprintf "[%s] state %s" node_name
              (detailed_state analysis st))
   in
   let steps =
-    analysis.exploration.steps
-    |> List.map (fun (step : PT.product_step) ->
-           Printf.sprintf
-             "[%s] %s -- P:%s / A[%s]:%s / G[%s]:%s --> %s"
-             node_name (detailed_state analysis step.src)
-             (string_of_fo step.prog_guard)
-             (Printf.sprintf "%d->%d"
-                step.src.assume_state_index
-                step.dst.assume_state_index)
-             (string_of_fo step.assume_guard)
-             (Printf.sprintf "%d->%d"
-                step.src.guarantee_state_index
-                step.dst.guarantee_state_index)
-             (string_of_fo step.guarantee_guard)
-             (detailed_state analysis step.dst))
+    analysis.exploration.prefixes
+    |> List.concat_map (fun (prefix : PT.product_prefix) ->
+           let src = PT.prefix_source prefix in
+           prefix.guarantee_successors
+           |> List.map
+                (fun
+                  (guarantee_successor :
+                    PT.monitor_successor)
+                ->
+                  let dst =
+                    PT.successor_destination prefix
+                      guarantee_successor
+                  in
+                  Printf.sprintf
+                    "[%s] %s -- P:%s / A[%s]:%s / G[%s]:%s --> %s"
+                    node_name
+                    (detailed_state analysis src)
+                    (string_of_fo
+                       (PT.program_guard prefix))
+                    (Printf.sprintf "%d->%d"
+                       src.assume_state_index
+                       dst.assume_state_index)
+                    (string_of_fo
+                       prefix.assume_successor.guard)
+                    (Printf.sprintf "%d->%d"
+                       src.guarantee_state_index
+                       dst.guarantee_state_index)
+                    (string_of_fo
+                       guarantee_successor.guard)
+                    (detailed_state analysis dst)))
   in
   states @ steps
 
@@ -98,32 +113,45 @@ type product_edge_visual = {
 let merge_product_steps_for_dot
     (analysis : Temporal_automata.node_data) : merged_product_edge list =
   let tbl = Hashtbl.create 64 in
-  let key_of_step (step : PT.product_step) =
-    ( step.src,
-      step.dst,
-      step.assume_guard,
-      step.guarantee_guard )
-  in
   List.iter
-    (fun (step : PT.product_step) ->
-      let key = key_of_step step in
-      match Hashtbl.find_opt tbl key with
-      | None ->
-          Hashtbl.add tbl key
-            {
-              src = step.src;
-              dst = step.dst;
-              prog_guard = step.prog_guard;
-              assume_guard = step.assume_guard;
-              guarantee_guard = step.guarantee_guard;
-            }
-      | Some merged ->
-          Hashtbl.replace tbl key
-            {
-              merged with
-              prog_guard = mk_hor merged.prog_guard step.prog_guard;
-            })
-    analysis.exploration.steps;
+    (fun (prefix : PT.product_prefix) ->
+      let src = PT.prefix_source prefix in
+      let prog_guard = PT.program_guard prefix in
+      List.iter
+        (fun
+          (guarantee_successor : PT.monitor_successor)
+        ->
+          let dst =
+            PT.successor_destination prefix
+              guarantee_successor
+          in
+          let key =
+            ( src,
+              dst,
+              prefix.assume_successor.guard,
+              guarantee_successor.guard )
+          in
+          match Hashtbl.find_opt tbl key with
+          | None ->
+              Hashtbl.add tbl key
+                {
+                  src;
+                  dst;
+                  prog_guard;
+                  assume_guard =
+                    prefix.assume_successor.guard;
+                  guarantee_guard =
+                    guarantee_successor.guard;
+                }
+          | Some merged ->
+              Hashtbl.replace tbl key
+                {
+                  merged with
+                  prog_guard =
+                    mk_hor merged.prog_guard prog_guard;
+                })
+        prefix.guarantee_successors)
+    analysis.exploration.prefixes;
   Hashtbl.fold (fun _ step acc -> step :: acc) tbl []
   |> List.sort (fun a b ->
          compare
@@ -138,7 +166,8 @@ let product_edge_visual : product_edge_visual =
   { color = product_edge_color; style = "solid" }
 
 let prepare_product_graph (analysis : Temporal_automata.node_data) =
-  let state_indices = product_state_index_map analysis.exploration.states in
+  let states = PT.states analysis.exploration in
+  let state_indices = product_state_index_map states in
   let nodes =
     List.map
       (fun st ->
@@ -155,7 +184,7 @@ let prepare_product_graph (analysis : Temporal_automata.node_data) =
           node_border = border;
           node_fontcolor = None;
         })
-      analysis.exploration.states
+      states
   in
   let detail_tbl = Hashtbl.create 64 in
   let detail_rev = ref [] in
@@ -199,7 +228,7 @@ let prepare_product_graph (analysis : Temporal_automata.node_data) =
                }))
   in
   let anchor =
-    match List.rev analysis.exploration.states with
+    match List.rev states with
     | last :: _ -> Some (node_id_of_state last)
     | [] -> None
   in

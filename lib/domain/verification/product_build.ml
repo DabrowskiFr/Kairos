@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 open Core_syntax
-open Core_syntax_builders
 
 module PT = Product_types
 module Vm = Verification_model
@@ -28,12 +27,7 @@ let simplify_fo
 
 type validated_monitor = {
   monitor : Automaton_types.deterministic_partial_monitor;
-  outgoing : indexed_successor list array;
-}
-
-and indexed_successor = {
-  destination_state_index : int;
-  guard : Automaton_types.guard;
+  outgoing : PT.monitor_successor list array;
 }
 
 type validated_automata_spec = {
@@ -41,22 +35,10 @@ type validated_automata_spec = {
   guarantee : validated_monitor;
 }
 
-let fo_of_expr (e : expr) : Core_syntax.historical Core_syntax.hexpr =
-  hexpr_of_expr e |> Core_syntax.historical_of_history_free
-
 let automaton_guard_fo
     (g : Automaton_types.guard) :
     Core_syntax.historical Core_syntax.hexpr =
   simplify_fo g
-
-let program_guard_fo
-    (t : Vm.program_step) :
-    Core_syntax.historical Core_syntax.hexpr =
-  (* Program guards are normalized before overlap checks so they are compared at
-     the same boolean level as recovered automaton guards. *)
-  match t.guard_expr with
-  | None -> mk_hbool true
-  | Some g -> fo_of_expr g |> simplify_fo
 
 let validate_historical_guards ~role
     (monitor : Automaton_types.deterministic_partial_monitor) =
@@ -124,7 +106,7 @@ let index_outgoing
     (fun (source, guard, target) ->
       outgoing.(source) <-
         {
-          destination_state_index = target;
+          PT.destination_state_index = target;
           guard = automaton_guard_fo guard;
         }
         :: outgoing.(source))
@@ -175,13 +157,10 @@ let analyze_node ~(build : validated_automata_spec)
   in
   let seen = Hashtbl.create 64 in
   let q = Queue.create () in
-  let states_rev = ref [] in
-  let steps_rev = ref [] in
   let prefixes_rev = ref [] in
   let push_state st =
     if not (Hashtbl.mem seen st) then (
       Hashtbl.add seen st ();
-      states_rev := st :: !states_rev;
       Queue.add st q)
   in
   push_state initial_state;
@@ -193,53 +172,34 @@ let analyze_node ~(build : validated_automata_spec)
     in
     List.iter
       (fun (prog_transition : Vm.program_step) ->
-        let prog_guard = program_guard_fo prog_transition in
         List.iter
           (fun
-            (assume_successor : indexed_successor)
+            (assume_successor : PT.monitor_successor)
           ->
-            let assume_guard = assume_successor.guard in
-            prefixes_rev :=
-              {
-                PT.src;
-                assume_destination_state_index =
-                  assume_successor.destination_state_index;
-                prog_transition;
-                prog_guard;
-                assume_guard;
-              }
-              :: !prefixes_rev;
             let guarantee_successors =
               successors_at guarantee
                 src.guarantee_state_index
             in
+            let prefix =
+              {
+                PT.prog_transition;
+                assume_source_state_index =
+                  src.assume_state_index;
+                assume_successor;
+                guarantee_source_state_index =
+                  src.guarantee_state_index;
+                guarantee_successors;
+              }
+            in
             List.iter
               (fun
-                (guarantee_successor : indexed_successor)
+                (guarantee_successor : PT.monitor_successor)
               ->
-                let guarantee_guard = guarantee_successor.guard in
-                let dst =
-                  {
-                    PT.prog_state = prog_transition.dst_state;
-                    assume_state_index =
-                      assume_successor.destination_state_index;
-                    guarantee_state_index =
-                      guarantee_successor.destination_state_index;
-                  }
-                in
-                let step =
-                  {
-                    PT.src;
-                    dst;
-                    prog_transition;
-                    prog_guard;
-                    assume_guard;
-                    guarantee_guard;
-                  }
-                in
-                steps_rev := step :: !steps_rev;
-                push_state dst)
-              guarantee_successors)
+                push_state
+                  (PT.successor_destination prefix
+                     guarantee_successor))
+              guarantee_successors;
+            prefixes_rev := prefix :: !prefixes_rev)
           assume_successors)
       prog_edges
   done;
@@ -247,8 +207,6 @@ let analyze_node ~(build : validated_automata_spec)
     exploration =
       {
         PT.initial_state;
-        states = List.sort_uniq PT.compare_state (List.rev !states_rev);
-        steps = List.rev !steps_rev;
         prefixes = List.rev !prefixes_rev;
       };
     guarantee_monitor = build.guarantee.monitor;

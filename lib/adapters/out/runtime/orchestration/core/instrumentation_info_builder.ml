@@ -47,8 +47,12 @@ let instrumentation_info_of_node ~(analyses : (ident * Temporal_automata.node_da
   let ensures_automata_edge_count =
     List.length analysis.guarantee_monitor.transitions
   in
-  let product_edge_count = List.length analysis.exploration.steps in
-  let product_state_count = List.length analysis.exploration.states in
+  let product_edge_count =
+    Product_types.step_count analysis.exploration
+  in
+  let product_state_count =
+    List.length (Product_types.states analysis.exploration)
+  in
   let canonical_summary_count = List.length node.summaries in
   let canonical_product_case_count =
     Info_helpers.product_case_count node.summaries

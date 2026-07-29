@@ -24,10 +24,10 @@
     The builder explores reachable triples [(P, A, G)] directly over producer
     states. It neither determinizes monitors nor enumerates valuations.
 
-    Every enabled program–assumption edge is recorded as a
-    {!Product_types.product_prefix}. Its guarantee cases are the outgoing
-    guarantee edges. Their guard disjunction expresses progress; it need not
-    cover every valuation. An absent matching edge denotes blocking. *)
+    Every enabled program–assumption edge is recorded once as a
+    {!Product_types.product_prefix}. Its guarantee successors are stored
+    directly by that prefix. Their guard disjunction expresses progress; it
+    need not cover every valuation. An empty successor list denotes blocking. *)
 
 (** Structurally valid producer monitors whose historical guards have passed
     the domain-owned availability validation. *)
@@ -43,9 +43,8 @@ val validate_automata_spec :
     [node] using an already validated monitor pair.
 
     The result contains:
-    - the reachable product states;
-    - the explicit product steps between them;
-    - explicit program–assumption prefixes;
+    - the initial product state;
+    - program–assumption prefixes with their guarantee successors;
     - the raw producer monitors required by renderers. *)
 val analyze_node :
   build:validated_automata_spec ->

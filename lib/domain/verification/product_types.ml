@@ -16,35 +16,55 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 open Core_syntax
+open Core_syntax_builders
 type product_state = {
   prog_state : ident;
   assume_state_index : int;
   guarantee_state_index : int;
 }
 
-type product_step = {
-  src : product_state;
-  dst : product_state;
-  prog_transition : Verification_model.program_step;
-  prog_guard : Core_syntax.historical Core_syntax.hexpr;
-  assume_guard : Core_syntax.historical Core_syntax.hexpr;
-  guarantee_guard : Core_syntax.historical Core_syntax.hexpr;
+type monitor_successor = {
+  destination_state_index : int;
+  guard : Core_syntax.historical Core_syntax.hexpr;
 }
 
 type product_prefix = {
-  src : product_state;
-  assume_destination_state_index : int;
   prog_transition : Verification_model.program_step;
-  prog_guard : Core_syntax.historical Core_syntax.hexpr;
-  assume_guard : Core_syntax.historical Core_syntax.hexpr;
+  assume_source_state_index : int;
+  assume_successor : monitor_successor;
+  guarantee_source_state_index : int;
+  guarantee_successors : monitor_successor list;
 }
 
 type exploration = {
   initial_state : product_state;
-  states : product_state list;
-  steps : product_step list;
   prefixes : product_prefix list;
 }
+
+let prefix_source prefix =
+  {
+    prog_state = prefix.prog_transition.src_state;
+    assume_state_index = prefix.assume_source_state_index;
+    guarantee_state_index =
+      prefix.guarantee_source_state_index;
+  }
+
+let successor_destination prefix guarantee_successor =
+  {
+    prog_state = prefix.prog_transition.dst_state;
+    assume_state_index =
+      prefix.assume_successor.destination_state_index;
+    guarantee_state_index =
+      guarantee_successor.destination_state_index;
+  }
+
+let program_guard prefix =
+  match prefix.prog_transition.guard_expr with
+  | None -> mk_hbool true
+  | Some guard ->
+      hexpr_of_expr guard
+      |> Core_syntax.historical_of_history_free
+      |> Core_fo_simplifier.simplify
 
 let compare_state a b =
   match String.compare a.prog_state b.prog_state with
@@ -58,3 +78,25 @@ let compare_state a b =
       | c -> c
     end
   | c -> c
+
+let states exploration =
+  exploration.prefixes
+  |> List.fold_left
+       (fun accumulated prefix ->
+         let accumulated =
+           prefix_source prefix :: accumulated
+         in
+         List.fold_left
+           (fun accumulated guarantee_successor ->
+             successor_destination prefix
+               guarantee_successor
+             :: accumulated)
+           accumulated prefix.guarantee_successors)
+       [ exploration.initial_state ]
+  |> List.sort_uniq compare_state
+
+let step_count exploration =
+  List.fold_left
+    (fun count prefix ->
+      count + List.length prefix.guarantee_successors)
+    0 exploration.prefixes
