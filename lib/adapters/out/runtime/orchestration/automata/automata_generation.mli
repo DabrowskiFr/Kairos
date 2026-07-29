@@ -18,8 +18,9 @@
 
 (** Protocol adaptation and external construction of prepared automata.
 
-    Formula validation, normalization and atom preparation belong to
-    {!Automata_preparation}. *)
+    Formula validation and atom preparation belong to
+    {!Automata_preparation}. Deterministic partial monitors cross this boundary
+    unchanged and the reference product uses their raw states directly. *)
 
 val run :
   Proof_case_program.t ->

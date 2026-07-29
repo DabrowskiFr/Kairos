@@ -95,31 +95,6 @@ let disj_fo (fs : Core_syntax.historical Core_syntax.hexpr list) : Core_syntax.h
   | [] -> None
   | f :: rest -> Some (List.fold_left mk_hor f rest |> simplify_fo)
 
-let infer_initial_product_state (node : Core_syntax.historical Abs.node_ir) : Abs.product_state =
-  let candidates =
-    node.summaries
-    |> List.map (fun (pc : Core_syntax.historical Abs.product_step_summary) -> pc.identity.product_src)
-    |> List.filter (fun (st : Abs.product_state) ->
-           String.equal st.prog_state node.semantics.sem_init_state)
-    |> List.sort_uniq Stdlib.compare
-  in
-  match
-    List.find_opt
-      (fun (st : Abs.product_state) ->
-        st.assume_state_index = 0 && st.guarantee_state_index = 0)
-      candidates
-  with
-  | Some st -> st
-  | None -> (
-      match candidates with
-      | st :: _ -> st
-      | [] ->
-          {
-            Abs.prog_state = node.semantics.sem_init_state;
-            assume_state_index = 0;
-            guarantee_state_index = 0;
-          })
-
 let input_names (n : Core_syntax.historical Abs.node_ir) : ident list =
   List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
 
@@ -224,7 +199,8 @@ let guard_fo_of_transition (t : Abs.transition) : Core_syntax.historical Core_sy
 
 let incoming_post_formula ~(node : Core_syntax.historical Abs.node_ir)
     (summary : Core_syntax.historical Abs.product_step_summary)
-    (case : Core_syntax.historical Abs.safe_product_case) : Core_syntax.historical Core_syntax.hexpr =
+    (case : Core_syntax.historical Abs.product_case) :
+    Core_syntax.historical Core_syntax.hexpr =
   let is_input = is_input_of_node node in
   let program_guard = guard_fo_of_transition summary.identity.program_step in
   let source_annotation =
@@ -240,7 +216,7 @@ let incoming_post_formula ~(node : Core_syntax.historical Abs.node_ir)
           (shift_formula_entry_to_post ~is_input source_annotation)
           (shift_formula_entry_to_post ~is_input program_guard))
         summary.identity.assume_guard)
-      case.admissible_guard.logic)
+      case.guarantee_guard.logic)
     body_effect
   |> simplify_fo
 
@@ -251,8 +227,6 @@ type incoming_entry = {
 
 let states_needing_characteristic (node : Core_syntax.historical Abs.node_ir) : Abs.product_state list =
   node.summaries
-  |> List.filter (fun (summary : Core_syntax.historical Abs.product_step_summary) ->
-         summary.unsafe_cases <> [])
   |> List.map (fun (summary : Core_syntax.historical Abs.product_step_summary) ->
          summary.identity.product_src)
   |> List.sort_uniq Stdlib.compare
@@ -290,15 +264,15 @@ let build_table entries =
     entries;
   { entries; by_state }
 
-let build ~(node : Core_syntax.historical Abs.node_ir) : t =
+let build ~(initial_state : Abs.product_state)
+    ~(node : Core_syntax.historical Abs.node_ir) : t =
   let is_input = is_input_of_node node in
-  let initial_product_state = infer_initial_product_state node in
   let characteristic_states = states_needing_characteristic node in
   let incoming =
     List.fold_left
       (fun acc (pc : Core_syntax.historical Abs.product_step_summary) ->
         List.fold_left
-          (fun acc (case : Core_syntax.historical Abs.safe_product_case) ->
+          (fun acc (case : Core_syntax.historical Abs.product_case) ->
             let program_post_formula =
               incoming_post_formula ~node pc case
             in
@@ -307,7 +281,7 @@ let build ~(node : Core_syntax.historical Abs.node_ir) : t =
               |> simplify_fo
             in
             add_incoming case.product_dst ~program_entry_formula acc)
-          acc pc.safe_cases)
+          acc pc.product_cases)
       [] node.summaries
   in
   let entries =
@@ -315,7 +289,7 @@ let build ~(node : Core_syntax.historical Abs.node_ir) : t =
     |> List.filter_map (fun entry ->
          let dst = entry.dst in
            if
-             same_product_state dst initial_product_state
+             same_product_state dst initial_state
              || not (needs_characteristic ~states:characteristic_states dst)
            then None
            else
@@ -341,15 +315,15 @@ let entry_facts_of_product_state (t : t) (st : Abs.product_state) :
 
 let preservation_ensures (t : t) ~(node : Core_syntax.historical Abs.node_ir)
     (pc : Core_syntax.historical Abs.product_step_summary) : Core_syntax.historical Core_syntax.hexpr list =
-  pc.safe_cases
-  |> List.filter_map (fun (case : Core_syntax.historical Abs.safe_product_case) ->
+  pc.product_cases
+  |> List.filter_map (fun (case : Core_syntax.historical Abs.product_case) ->
          match entry_of_product_state t case.product_dst with
          | None -> None
          | Some _ ->
              let contribution = incoming_post_formula ~node pc case in
-             if same_formula case.admissible_guard.logic contribution then None
+             if same_formula case.guarantee_guard.logic contribution then None
              else
                Some
-                 (mk_himp case.admissible_guard.logic contribution
+                 (mk_himp case.guarantee_guard.logic contribution
                  |> simplify_fo))
   |> List.filter (fun f -> not (is_htrue f))

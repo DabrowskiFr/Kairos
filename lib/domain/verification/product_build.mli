@@ -18,26 +18,37 @@
 
 (** Explicit construction of the product between:
     - the normalized program control graph of one node;
-    - the assumption automaton;
-    - the guarantee automaton.
+    - the deterministic partial assumption monitor;
+    - the deterministic partial guarantee monitor.
 
-    The builder explores reachable triples [(P, A, G)] from the initial state
-    and records one {!Product_types.product_step} for every local combination of
-    program transition, assumption edge, and guarantee edge. *)
+    The builder explores reachable triples [(P, A, G)] directly over producer
+    states. It neither determinizes monitors nor enumerates valuations.
+
+    Every enabled program–assumption edge is recorded as a
+    {!Product_types.product_prefix}. Its guarantee cases are the outgoing
+    guarantee edges. Their guard disjunction expresses progress; it need not
+    cover every valuation. An absent matching edge denotes blocking. *)
+
+(** Structurally valid producer monitors whose historical guards have passed
+    the domain-owned availability validation. *)
+type validated_automata_spec
+
+(** [validate_automata_spec build] validates historical guard availability. A
+    guard leaving a state whose minimum structural age is [n] may read history
+    only through depth [n]. *)
+val validate_automata_spec :
+  Automaton_types.automata_spec -> validated_automata_spec
 
 (** [analyze_node ~build ~node] explores the explicit product associated with
-    [node] using the automata already built in [build].  It first validates
-    the automata normal form used by the canonical summaries: non-empty
-    automata, well-formed transition indices, at most one bad state per
-    automaton, non-bad initial states, an absorbing assumption bad state, and
-    deterministic assumption targets for each source/guard pair.
+    [node] using an already validated monitor pair.
 
     The result contains:
     - the reachable product states;
     - the explicit product steps between them;
-    - the bad-state indices and rendering metadata required downstream. *)
+    - explicit program–assumption prefixes;
+    - the raw producer monitors required by renderers. *)
 val analyze_node :
-  build:Automaton_types.automata_spec ->
+  build:validated_automata_spec ->
   node:Verification_model.node_model ->
   program_transitions:Verification_model.program_step list ->
   Temporal_automata.node_data

@@ -33,7 +33,10 @@ type parse_info = {
 
 (** Metadata produced by the automata generation pass. *)
 type automata_info = {
+  (** States in the standard partial guarantee monitors returned by the
+      producer. *)
   residual_state_count : int;
+  (** Edges in those producer monitors. *)
   residual_edge_count : int;
   warnings : string list;
 }
@@ -48,32 +51,22 @@ type summaries_info = { warnings : string list }
 type instrumentation_info = {
   (** Non-fatal warnings emitted while building proof artifacts. *)
   warnings : string list;
-  (** Number of states in the require automata (sum over processed nodes). *)
+  (** Number of producer states in the partial assumption monitors. *)
   require_automata_state_count : int;
-  (** Number of edges in the require automata (sum over processed nodes). *)
+  (** Number of producer edges in the partial assumption monitors. *)
   require_automata_edge_count : int;
-  (** Number of states in the ensures automata (sum over processed nodes). *)
+  (** Number of producer states in the partial guarantee monitors. *)
   ensures_automata_state_count : int;
-  (** Number of edges in the ensures automata (sum over processed nodes). *)
+  (** Number of producer edges in the partial guarantee monitors. *)
   ensures_automata_edge_count : int;
-  (** Number of edges in the full explicit product (sum over processed nodes). *)
-  product_edge_count_full : int;
-  (** Number of edges in the live product subgraph:
-      excludes steps whose source is in [G_bad] or whose destination is in [A_bad]. *)
-  product_edge_count_live : int;
-  (** Number of product states in the full explicit product (sum over processed nodes). *)
-  product_state_count_full : int;
-  (** Number of product states in the classical live subgraph
-      (states that are neither [A_bad] nor [G_bad]). *)
-  product_state_count_live : int;
+  (** Number of explicit product edges (sum over processed nodes). *)
+  product_edge_count : int;
+  (** Number of reachable product states (sum over processed nodes). *)
+  product_state_count : int;
   (** Number of canonical summaries (sum over processed nodes). *)
   canonical_summary_count : int;
-  (** Number of safe canonical cases (sum over processed nodes). *)
-  canonical_case_safe_count : int;
-  (** Number of bad-assumption canonical cases (sum over processed nodes). *)
-  canonical_case_bad_assumption_count : int;
-  (** Number of bad-guarantee canonical cases (sum over processed nodes). *)
-  canonical_case_bad_guarantee_count : int;
+  (** Number of canonical product cases (sum over processed nodes). *)
+  canonical_product_case_count : int;
 }
 
 type pipeline_info = {

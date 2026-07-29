@@ -18,58 +18,53 @@
 
 module Automata_exchange = Kairos_automata_contract.Automata_exchange
 
-let normalize_spot_automaton ~(atom_names : string list) (hoa : Automaton_spot.hoa_automaton) :
-    Automata_exchange.automaton =
-  let rejecting =
+let normalize_spot_monitor ~(atom_names : string list) (hoa : Automaton_spot.hoa_automaton) :
+    Automata_exchange.partial_monitor =
+  if hoa.acceptance <> Automaton_spot.Acceptance_all then
+    failwith
+      "Spot returned an acceptance condition for a safety monitor; expected a partial \
+       all-accepting monitor";
+  let state_ids =
     hoa.states
-    |> List.filter (fun (state : Automaton_spot.hoa_state) -> not state.accepting)
     |> List.map (fun (state : Automaton_spot.hoa_state) -> state.id)
     |> List.sort_uniq compare
   in
-  let has_bad = rejecting <> [] in
-  let accepting_ids =
-    hoa.states
-    |> List.filter (fun (state : Automaton_spot.hoa_state) -> state.accepting)
-    |> List.map (fun (state : Automaton_spot.hoa_state) -> state.id)
-    |> List.sort_uniq compare
-  in
-  let ordered_accepting =
-    if List.mem hoa.start accepting_ids then
-      hoa.start :: List.filter (( <> ) hoa.start) accepting_ids
-    else accepting_ids
-  in
-  let states =
-    if has_bad && List.mem hoa.start rejecting then [ Automata_exchange.Rejecting ]
-    else
-      let accepting = List.map (fun _ -> Automata_exchange.Accepting) ordered_accepting in
-      if has_bad then accepting @ [ Automata_exchange.Rejecting ] else accepting
-  in
-  let bad_index = if has_bad then List.length states - 1 else -1 in
+  if not (List.mem hoa.start state_ids) then
+    failwith "Spot returned a start state that is absent from the HOA body";
+  let ordered_states = hoa.start :: List.filter (( <> ) hoa.start) state_ids in
   let state_indices = Hashtbl.create (List.length hoa.states * 2) in
-  List.iteri (fun index id -> Hashtbl.replace state_indices id index) ordered_accepting;
-  List.iter
-    (fun id -> if has_bad && List.mem id rejecting then Hashtbl.replace state_indices id bad_index)
-    rejecting;
+  List.iteri (fun index id -> Hashtbl.replace state_indices id index) ordered_states;
   let transitions = ref [] in
   let add source guard target =
     transitions := { Automata_exchange.source; guard; target } :: !transitions
   in
   List.iter
     (fun (state : Automaton_spot.hoa_state) ->
-      if not (has_bad && List.mem state.id rejecting) then
-        let source = Hashtbl.find state_indices state.id in
-        List.iter
-          (fun (label, old_target) ->
-            let target = Hashtbl.find state_indices old_target in
-            let raw_guard =
-              Automaton_spot.raw_guard_of_label ~atom_names ~hoa_ap_names:hoa.ap_names label
-            in
-            if raw_guard <> [] then
-              add source (Spot_boolean_valuation.terms_to_guard raw_guard) target)
-          state.transitions)
+      let source = Hashtbl.find state_indices state.id in
+      List.iter
+        (fun (label, old_target) ->
+          let target =
+            match Hashtbl.find_opt state_indices old_target with
+            | Some target -> target
+            | None ->
+                failwith
+                  (Printf.sprintf "Spot returned a transition to undeclared state %d" old_target)
+          in
+          let raw_guard =
+            Automaton_spot.raw_guard_of_label ~atom_names
+              ~hoa_ap_names:hoa.ap_names label
+          in
+          if raw_guard <> [] then
+            add source
+              (Spot_boolean_valuation.terms_to_guard raw_guard)
+              target)
+        state.transitions)
     hoa.states;
-  if has_bad then add bad_index Automata_exchange.Guard_true bad_index;
-  { Automata_exchange.initial_state = 0; states; transitions = List.rev !transitions }
+  {
+    Automata_exchange.initial_state = 0;
+    state_count = List.length ordered_states;
+    transitions = List.rev !transitions;
+  }
 
 let build ?(record_elapsed = ignore) (request : Automata_exchange.request) :
     Automata_exchange.response =
@@ -83,5 +78,5 @@ let build ?(record_elapsed = ignore) (request : Automata_exchange.request) :
     failwith
       (Printf.sprintf "Spot returned %d atomic propositions; expected %d" hoa.ap_count
          (List.length request.atoms));
-  normalize_spot_automaton ~atom_names:request.atoms hoa
+  normalize_spot_monitor ~atom_names:request.atoms hoa
   |> Automata_exchange.make_response ~atoms:request.atoms

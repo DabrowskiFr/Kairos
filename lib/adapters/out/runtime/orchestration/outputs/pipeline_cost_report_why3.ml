@@ -42,14 +42,8 @@ type module_profile = {
   byte_count : int;
 }
 
-let helper_class name =
-  if contains_substring name "_bad_guarantee_group_" then
-    ("bad-guarantee", true)
-  else if contains_substring name "_safe_group_" then ("safe", true)
-  else if contains_substring name "_bad_guarantee_" then
-    ("bad-guarantee", false)
-  else if contains_substring name "_safe_" then ("safe", false)
-  else ("unknown", false)
+let helper_is_grouped name =
+  contains_substring name "_group_"
 
 let module_name_of_header line =
   let trimmed = String.trim line in
@@ -93,11 +87,10 @@ let helper_profiles text =
   |> List.filter (fun profile -> contains_substring profile.name "__step_")
 
 let helper_profile_json helpers =
-  let class_count expected_class expected_grouped =
+  let grouped_count expected_grouped =
     count_if
       (fun helper ->
-        let cls, grouped = helper_class helper.name in
-        cls = expected_class && grouped = expected_grouped)
+        helper_is_grouped helper.name = expected_grouped)
       helpers
   in
   let top_helpers =
@@ -109,12 +102,10 @@ let helper_profile_json helpers =
     |> top_values 20
   in
   let helper_json helper =
-    let cls, grouped = helper_class helper.name in
     json_assoc
       [
         ("name", json_string helper.name);
-        ("class", json_string cls);
-        ("grouped", json_bool grouped);
+        ("grouped", json_bool (helper_is_grouped helper.name));
         ("line_count", json_int helper.line_count);
         ("byte_count", json_int helper.byte_count);
       ]
@@ -122,13 +113,8 @@ let helper_profile_json helpers =
   json_assoc
     [
       ("helper_module_count", json_int (List.length helpers));
-      ("safe_group_helper_count", json_int (class_count "safe" true));
-      ("safe_individual_helper_count", json_int (class_count "safe" false));
-      ( "bad_guarantee_group_helper_count",
-        json_int (class_count "bad-guarantee" true) );
-      ( "bad_guarantee_individual_helper_count",
-        json_int (class_count "bad-guarantee" false) );
-      ("unknown_helper_count", json_int (class_count "unknown" false));
+      ("group_helper_count", json_int (grouped_count true));
+      ("individual_helper_count", json_int (grouped_count false));
       ("top_helpers_by_bytes", json_list helper_json top_helpers);
     ]
 

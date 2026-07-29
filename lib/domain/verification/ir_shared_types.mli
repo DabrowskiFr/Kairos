@@ -29,5 +29,5 @@ type formula_id = int
 (** Index of a transition inside a node transition table. *)
 type transition_index = int
 
-(** Index of an automaton state in generated assume/guarantee automata. *)
+(** Raw state index of a deterministic partial monitor. *)
 type automaton_state_index = int

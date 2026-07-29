@@ -24,10 +24,14 @@ module Abs = Ir
 let simplify_fo (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
-let disj_fo (fs : Core_syntax.historical Core_syntax.hexpr list) : Core_syntax.historical Core_syntax.hexpr option =
+let disj_fo
+    (fs : Core_syntax.historical Core_syntax.hexpr list) :
+    Core_syntax.historical Core_syntax.hexpr =
   match fs with
-  | [] -> None
-  | f :: rest -> Some (List.fold_left Core_syntax_builders.mk_hor f rest |> simplify_fo)
+  | [] -> Core_syntax_builders.mk_hbool false
+  | f :: rest ->
+      List.fold_left Core_syntax_builders.mk_hor f rest
+      |> simplify_fo
 
 let input_names (n : Core_syntax.historical Abs.node_ir) : ident list =
   List.map (fun (v : vdecl) -> v.vname) n.semantics.sem_inputs
@@ -73,31 +77,32 @@ let enrich_product_step_summary ~(record_family : family_name:string ->
     Core_syntax.historical Abs.product_step_summary =
   let is_input = is_input_of_node node in
   let invs_of_state = invariants_of_state node in
-  let safe_disjunction =
-    pc.safe_cases
-    |> List.map (fun (case : Core_syntax.historical Abs.safe_product_case) -> case.admissible_guard.logic)
+  let guarantee_progress =
+    pc.product_cases
+    |> List.map (fun (case : Core_syntax.historical Abs.product_case) ->
+           case.guarantee_guard.logic)
     |> disj_fo
   in
   let destination_invariants_by_case =
-    pc.safe_cases
-    |> List.map (fun (case : Core_syntax.historical Abs.safe_product_case) ->
+    pc.product_cases
+    |> List.map (fun (case : Core_syntax.historical Abs.product_case) ->
            (case, invs_of_state case.product_dst.prog_state))
   in
   let shifted_guarded_destination_invariants =
     destination_invariants_by_case
-    |> List.concat_map (fun ((case : Core_syntax.historical Abs.safe_product_case), invs) ->
+    |> List.concat_map (fun ((case : Core_syntax.historical Abs.product_case), invs) ->
            invs
            |> List.map (fun inv ->
                   let shifted = shift_formula_backward_inputs ~is_input inv in
-                  Core_syntax_builders.mk_himp case.admissible_guard.logic
+                  Core_syntax_builders.mk_himp case.guarantee_guard.logic
                     shifted
                   |> simplify_fo))
   in
   let ensures =
     (pc.ensures
     |> add_formula_family ~record_family
-         ~family_name:"safe_disjunction_ensures"
-         (match safe_disjunction with None -> [] | Some f -> [ f ])
+         ~family_name:"guarantee_progress_ensures"
+         [ guarantee_progress ]
     |> add_formula_family ~record_family
          ~family_name:"guarded_destination_invariant_ensures"
          shifted_guarded_destination_invariants)

@@ -18,7 +18,7 @@
 
 (** Generated facts carried by selected product states.
 
-    User state invariants and these characteristics are distinct. For each safe
+    User state invariants and these characteristics are distinct. For each
     incoming product case, the post-state contribution is the conjunction of:
     the source control-state annotation and executable guard transported from
     tick entry to the post-state frame, the selected assumption-automaton
@@ -28,8 +28,8 @@
     the next tick-entry frame with {!Fo_time.shift_formula_forward_inputs}.
 
     Characteristics are generated only for product states from which a
-    guarantee-bad case is structurally possible. Their preservation is emitted
-    as an ordinary postcondition on every safe incoming case. Consequently, an
+    product prefix. Their preservation is emitted as an ordinary postcondition
+    on every incoming product case. Consequently, an
     imprecise body summary can reject a valid program but cannot justify an
     invalid one: the backend must prove the propagated contribution after
     executing the actual transition body.
@@ -42,10 +42,14 @@
 
 type t
 
-val build : node:Core_syntax.historical Ir.node_ir -> t
-(** Compute the characteristic table for one node. This function has no global
-    cache; callers that need the table across several passes must share the
-    returned value explicitly. *)
+val build :
+  initial_state:Ir.product_state ->
+  node:Core_syntax.historical Ir.node_ir ->
+  t
+(** Compute the characteristic table for one node, excluding the exact initial
+    product state because its entry facts have no incoming step establishing
+    them at the first tick. This function has no global cache; callers that need
+    the table across several passes must share the returned value explicitly. *)
 
 val entry_facts_of_product_state :
   t -> Ir.product_state -> Core_syntax.historical Core_syntax.hexpr list
@@ -57,5 +61,5 @@ val preservation_ensures :
   node:Core_syntax.historical Ir.node_ir ->
   Core_syntax.historical Ir.product_step_summary ->
   Core_syntax.historical Core_syntax.hexpr list
-(** Preservation obligations induced by the safe destinations of one product
-    summary, in safe-case order and without deduplicating occurrences. *)
+(** Preservation obligations induced by the destinations of one product
+    summary, in product-case order and without deduplicating occurrences. *)

@@ -24,8 +24,7 @@ val rewrite_history_vars : string -> string
 val pretty_product_formula : Core_syntax.historical Core_syntax.hexpr -> string
 val pretty_plain_dot_formula : Core_syntax.historical Core_syntax.hexpr -> string
 val subscript_digits : int -> string
-val pretty_aut_state : prefix:string -> idx:int -> bad_idx:int -> string
+val pretty_aut_state : prefix:string -> idx:int -> string
 val tau_alias : int -> string
 val phi_alias : int -> string
 val wrap_formula_lines : ?max_width:int -> string -> string list
-val compact_display_string : string -> string

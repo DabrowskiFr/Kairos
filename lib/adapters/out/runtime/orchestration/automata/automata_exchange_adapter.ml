@@ -60,23 +60,23 @@ let rec hexpr_of_guard ~atom_map = function
   | Guard_or (left, right) ->
       mk_hexpr (HBin (Or, hexpr_of_guard ~atom_map left, hexpr_of_guard ~atom_map right))
 
-let automaton_of_response ~atom_map (response : Automata_exchange.response) :
-    Automaton_types.automaton =
+let monitor_of_response ~atom_map (response : Automata_exchange.response) :
+    Automaton_types.deterministic_partial_monitor =
   (match Automata_exchange.validate_response response with
   | Ok () -> ()
   | Error message -> invalid_arg message);
   let expected_atoms = List.map snd atom_map in
   if response.atoms <> expected_atoms then
     invalid_arg "automata response atom domain differs from its request";
-  let states =
-    List.map
-      (function Automata_exchange.Accepting -> LTrue | Rejecting -> LFalse)
-      response.automaton.states
-  in
+  let monitor = response.monitor in
   let transitions =
     List.map
       (fun (edge : Automata_exchange.edge) ->
         (edge.source, hexpr_of_guard ~atom_map edge.guard, edge.target))
-      response.automaton.transitions
+      monitor.transitions
   in
-  { Automaton_types.states; transitions }
+  {
+    Automaton_types.initial_state = monitor.initial_state;
+    state_count = monitor.state_count;
+    transitions;
+  }

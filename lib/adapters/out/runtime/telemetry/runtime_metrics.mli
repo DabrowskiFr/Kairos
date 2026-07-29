@@ -36,8 +36,7 @@ type why3_worker_snapshot = {
 type ir_size_metrics = {
   node_count : int;
   summary_count : int;
-  safe_case_count : int;
-  unsafe_case_count : int;
+  product_case_count : int;
   propagation_requires_count : int;
   requires_count : int;
   ensures_count : int;

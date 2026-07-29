@@ -25,76 +25,66 @@ open Automata_graph_format
 module PT = Product_types
 
 let string_of_state (s : PT.product_state) : string =
-  Printf.sprintf "(%s, A%d, G%d)" s.prog_state s.assume_state
-    s.guarantee_state
+  Printf.sprintf "(%s, A%d, G%d)" s.prog_state
+    s.assume_state_index s.guarantee_state_index
 
-let string_of_step_class = function
-  | PT.Safe -> "safe"
-  | PT.Bad_assumption -> "bad_A"
-  | PT.Bad_guarantee -> "bad_G"
-
-let string_of_edge ((src, _guard, dst) : PT.automaton_edge) : string =
-  Printf.sprintf "%d->%d" src dst
+let detailed_state (_analysis : Temporal_automata.node_data)
+    (state : PT.product_state) =
+  string_of_state state
 
 let render_product_lines ~(node_name : ident)
     (analysis : Temporal_automata.node_data) =
   let states =
     analysis.exploration.states
     |> List.map (fun st ->
-           Printf.sprintf "[%s] state %s" node_name (string_of_state st))
+           Printf.sprintf "[%s] state %s" node_name
+             (detailed_state analysis st))
   in
   let steps =
     analysis.exploration.steps
     |> List.map (fun (step : PT.product_step) ->
            Printf.sprintf
-             "[%s] %s -- P:%s / A[%s]:%s / G[%s]:%s --> %s [%s]"
-             node_name (string_of_state step.src) (string_of_fo step.prog_guard)
-             (string_of_edge step.assume_edge) (string_of_fo step.assume_guard)
-             (string_of_edge step.guarantee_edge)
+             "[%s] %s -- P:%s / A[%s]:%s / G[%s]:%s --> %s"
+             node_name (detailed_state analysis step.src)
+             (string_of_fo step.prog_guard)
+             (Printf.sprintf "%d->%d"
+                step.src.assume_state_index
+                step.dst.assume_state_index)
+             (string_of_fo step.assume_guard)
+             (Printf.sprintf "%d->%d"
+                step.src.guarantee_state_index
+                step.dst.guarantee_state_index)
              (string_of_fo step.guarantee_guard)
-             (string_of_state step.dst)
-             (string_of_step_class step.step_class))
+             (detailed_state analysis step.dst))
   in
   states @ steps
 
 let node_id_of_state (s : PT.product_state) : string =
-  Printf.sprintf "n_%s_a%d_g%d" s.prog_state s.assume_state s.guarantee_state
+  Printf.sprintf "n_%s_a%d_g%d" s.prog_state
+    s.assume_state_index s.guarantee_state_index
 
 let product_state_index_map (states : PT.product_state list) =
   let tbl = Hashtbl.create 32 in
   List.iteri (fun i st -> Hashtbl.replace tbl st i) states;
   tbl
 
-let pretty_product_state (s : PT.product_state)
-    ~(analysis : Temporal_automata.node_data) : string =
-  Printf.sprintf "(%s, %s, %s)" s.prog_state
-    (pretty_aut_state ~prefix:"A" ~idx:s.assume_state
-       ~bad_idx:analysis.assume_bad_idx)
-    (pretty_aut_state ~prefix:"G" ~idx:s.guarantee_state
-       ~bad_idx:analysis.guarantee_bad_idx)
+let pretty_product_state (_analysis : Temporal_automata.node_data)
+    (state : PT.product_state) : string =
+  Printf.sprintf "(%s, A%s, G%s)" state.prog_state
+    (subscript_digits state.assume_state_index)
+    (subscript_digits state.guarantee_state_index)
 
-let clr_live_to_live = "#222222"
-let clr_to_gbad = "#c0392b"
-let clr_to_abad = "#c78a2c"
-let clr_from_bad = "#b8b8b8"
+let product_edge_color = "#222222"
 
 let product_node_fill (s : PT.product_state)
     ~(analysis : Temporal_automata.node_data) =
   if PT.compare_state s analysis.exploration.initial_state = 0 then
     ("#d9e8ff", "#3f6fb5")
-  else if
-    analysis.guarantee_bad_idx >= 0
-    && s.guarantee_state = analysis.guarantee_bad_idx
-  then ("#f6d7d7", "#a53030")
-  else if
-    analysis.assume_bad_idx >= 0 && s.assume_state = analysis.assume_bad_idx
-  then ("#f9ead7", "#b26a1f")
   else ("white", "#6b7280")
 
 type merged_product_edge = {
   src : PT.product_state;
   dst : PT.product_state;
-  step_class : PT.step_class;
   prog_guard : Core_syntax.historical Core_syntax.hexpr;
   assume_guard : Core_syntax.historical Core_syntax.hexpr;
   guarantee_guard : Core_syntax.historical Core_syntax.hexpr;
@@ -103,7 +93,6 @@ type merged_product_edge = {
 type product_edge_visual = {
   color : string;
   style : string;
-  category : string;
 }
 
 let merge_product_steps_for_dot
@@ -112,9 +101,6 @@ let merge_product_steps_for_dot
   let key_of_step (step : PT.product_step) =
     ( step.src,
       step.dst,
-      step.step_class,
-      step.assume_edge,
-      step.guarantee_edge,
       step.assume_guard,
       step.guarantee_guard )
   in
@@ -127,7 +113,6 @@ let merge_product_steps_for_dot
             {
               src = step.src;
               dst = step.dst;
-              step_class = step.step_class;
               prog_guard = step.prog_guard;
               assume_guard = step.assume_guard;
               guarantee_guard = step.guarantee_guard;
@@ -144,41 +129,16 @@ let merge_product_steps_for_dot
          compare
            ( string_of_state a.src,
              string_of_state a.dst,
-             string_of_step_class a.step_class,
              pretty_product_formula a.prog_guard )
            ( string_of_state b.src,
              string_of_state b.dst,
-             string_of_step_class b.step_class,
              pretty_product_formula b.prog_guard ))
 
-let product_edge_visual ~(analysis : Temporal_automata.node_data)
-    (step : merged_product_edge) : product_edge_visual =
-  let src_live =
-    step.src.assume_state <> analysis.assume_bad_idx
-    && step.src.guarantee_state <> analysis.guarantee_bad_idx
-  in
-  let dst_assume_bad =
-    analysis.assume_bad_idx >= 0
-    && step.dst.assume_state = analysis.assume_bad_idx
-  in
-  let dst_guarantee_bad =
-    analysis.guarantee_bad_idx >= 0
-    && step.dst.guarantee_state = analysis.guarantee_bad_idx
-  in
-  if not src_live then
-    { color = clr_from_bad; style = "dashed"; category = "from bad state" }
-  else if dst_assume_bad then
-    { color = clr_to_abad; style = "dashed"; category = "to A_bad" }
-  else if dst_guarantee_bad then
-    { color = clr_to_gbad; style = "solid"; category = "to G_bad" }
-  else { color = clr_live_to_live; style = "solid"; category = "live to live" }
+let product_edge_visual : product_edge_visual =
+  { color = product_edge_color; style = "solid" }
 
 let prepare_product_graph (analysis : Temporal_automata.node_data) =
   let state_indices = product_state_index_map analysis.exploration.states in
-  let is_live (st : PT.product_state) =
-    st.assume_state <> analysis.assume_bad_idx
-    && st.guarantee_state <> analysis.guarantee_bad_idx
-  in
   let nodes =
     List.map
       (fun st ->
@@ -186,7 +146,7 @@ let prepare_product_graph (analysis : Temporal_automata.node_data) =
         let idx = Hashtbl.find state_indices st in
         let label =
           Printf.sprintf "P%s\n%s" (subscript_digits idx)
-            (pretty_product_state st ~analysis)
+            (pretty_product_state analysis st)
         in
         {
           node_id = node_id_of_state st;
@@ -214,19 +174,13 @@ let prepare_product_graph (analysis : Temporal_automata.node_data) =
   let edges =
     merge_product_steps_for_dot analysis
     |> List.filter_map (fun (step : merged_product_edge) ->
-           let visual = product_edge_visual ~analysis step in
+           let visual = product_edge_visual in
            let label =
-             if
-               is_live step.src
-               && (analysis.assume_bad_idx < 0
-                  || step.dst.assume_state <> analysis.assume_bad_idx)
-             then
-               alias_of_detail
-                 (Printf.sprintf "P: %s\nA: %s\nG: %s"
-                    (pretty_plain_dot_formula step.prog_guard)
-                    (pretty_plain_dot_formula step.assume_guard)
-                    (pretty_plain_dot_formula step.guarantee_guard))
-             else ""
+             alias_of_detail
+               (Printf.sprintf "P: %s\nA: %s\nG: %s"
+                  (pretty_plain_dot_formula step.prog_guard)
+                  (pretty_plain_dot_formula step.assume_guard)
+                  (pretty_plain_dot_formula step.guarantee_guard))
            in
            let key =
              Printf.sprintf "%s|%s|%s|%s|%s" (node_id_of_state step.src)
@@ -271,20 +225,8 @@ let emit_product_dot (analysis : Temporal_automata.node_data) =
     let b = Buffer.create 256 in
     Buffer.add_string b
       (Printf.sprintf
-         "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"%s\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">live to live</FONT></TD></TR>\n"
-         clr_live_to_live);
-    Buffer.add_string b
-      (Printf.sprintf
-         "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"%s\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to G_bad</FONT></TD></TR>\n"
-         clr_to_gbad);
-    Buffer.add_string b
-      (Printf.sprintf
-         "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"%s\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">to A_bad</FONT></TD></TR>\n"
-         clr_to_abad);
-    Buffer.add_string b
-      (Printf.sprintf
-         "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"%s\">┄┄</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">from bad state</FONT></TD></TR>\n"
-         clr_from_bad);
+         "        <TR><TD ALIGN=\"LEFT\"><FONT COLOR=\"%s\">━━</FONT></TD><TD ALIGN=\"LEFT\"><FONT POINT-SIZE=\"10\">product step</FONT></TD></TR>\n"
+         product_edge_color);
     Buffer.contents b
   in
   Option.iter

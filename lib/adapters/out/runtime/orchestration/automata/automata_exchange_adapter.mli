@@ -23,7 +23,10 @@ type atom_map = (Core_syntax.ltl_atom * Core_syntax.ident) list
 val request_of_core :
   atom_map:atom_map -> Core_syntax.ltl -> Kairos_automata_contract.Automata_exchange.request
 
-val automaton_of_response :
+val monitor_of_response :
   atom_map:atom_map ->
   Kairos_automata_contract.Automata_exchange.response ->
-  Automaton_types.automaton
+  Automaton_types.deterministic_partial_monitor
+(** Convert a response whose producer guarantees the deterministic-monitor
+    contract. This adapter validates the wire format, not propositional
+    determinism. *)

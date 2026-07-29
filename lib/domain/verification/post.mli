@@ -16,13 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Compute canonical postconditions [D] and branch payloads.
+(** Compute canonical postconditions [D] and product-case payloads.
 
     This pass enriches minimal/pre summaries by materializing:
-    - admissible/excluded branch guards,
-    - postcondition [D] as safe disjunction,
+    - postcondition [D] as the disjunction of guarantee-successor guards
+      (explicitly [false] when the post is empty),
     - each destination invariant shifted in post-state coordinates and guarded
-      by the corresponding admissible branch before being injected into
+      by the corresponding product case before being injected into
       [ensures].
 
     The reference pass preserves occurrences and does not factor invariants

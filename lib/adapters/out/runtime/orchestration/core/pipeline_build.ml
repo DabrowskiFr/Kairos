@@ -65,8 +65,7 @@ let ir_size_metrics :
     Runtime_metrics.ir_size_metrics =
  fun nodes ->
   let summary_count = ref 0 in
-  let safe_case_count = ref 0 in
-  let unsafe_case_count = ref 0 in
+  let product_case_count = ref 0 in
   let propagation_requires_count = ref 0 in
   let requires_count = ref 0 in
   let ensures_count = ref 0 in
@@ -97,27 +96,22 @@ let ir_size_metrics :
           elaboration_checks_count :=
             !elaboration_checks_count
             + List.length summary.elaboration_checks;
-          safe_case_count := !safe_case_count + List.length summary.safe_cases;
-          unsafe_case_count := !unsafe_case_count + List.length summary.unsafe_cases;
+          product_case_count :=
+            !product_case_count + List.length summary.product_cases;
           List.iter add_summary_formula summary.propagation_requires;
           List.iter add_summary_formula summary.requires;
           List.iter add_summary_formula summary.ensures;
           List.iter add_summary_formula summary.elaboration_checks;
           List.iter
-            (fun (case : phase Ir.safe_product_case) ->
-              add_summary_formula case.admissible_guard)
-            summary.safe_cases;
-          List.iter
-            (fun (case : phase Ir.unsafe_product_case) ->
-              add_summary_formula case.excluded_guard)
-            summary.unsafe_cases)
+            (fun (case : phase Ir.product_case) ->
+              add_summary_formula case.guarantee_guard)
+            summary.product_cases)
         node.summaries)
     nodes;
   {
     node_count = List.length nodes;
     summary_count = !summary_count;
-    safe_case_count = !safe_case_count;
-    unsafe_case_count = !unsafe_case_count;
+    product_case_count = !product_case_count;
     propagation_requires_count = !propagation_requires_count;
     requires_count = !requires_count;
     ensures_count = !ensures_count;

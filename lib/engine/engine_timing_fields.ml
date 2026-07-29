@@ -59,8 +59,7 @@ let ir_size_count (name : string) (size : Runtime_metrics.ir_size_metrics) :
   match name with
   | "node_count" -> size.node_count
   | "summary_count" -> size.summary_count
-  | "safe_case_count" -> size.safe_case_count
-  | "unsafe_case_count" -> size.unsafe_case_count
+  | "product_case_count" -> size.product_case_count
   | "propagation_requires_count" -> size.propagation_requires_count
   | "requires_count" -> size.requires_count
   | "ensures_count" -> size.ensures_count
@@ -77,8 +76,7 @@ let ir_pass_size_fields (pass : Runtime_metrics.ir_pass_snapshot) =
   [
     "node_count";
     "summary_count";
-    "safe_case_count";
-    "unsafe_case_count";
+    "product_case_count";
     "propagation_requires_count";
     "requires_count";
     "ensures_count";

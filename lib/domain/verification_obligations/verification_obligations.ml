@@ -24,7 +24,6 @@ type step_obligation = {
 type condition =
   | State_is of ident
   | Formula of history_free Ir.summary_formula
-  | Not_formula of history_free Ir.summary_formula
 
 type conjunction = condition list
 
@@ -53,8 +52,6 @@ let condition_key = function
   | State_is state -> KState_is state
   | Formula formula ->
       KFormula (Formula_canonical.key formula.logic)
-  | Not_formula formula ->
-      KFormula (Formula_canonical.negated_key formula.logic)
 
 let conjunction_key conditions =
   List.map condition_key conditions
@@ -108,20 +105,16 @@ let entry_conditions step =
 
 let exit_conditions step =
   List.map
-    (fun formula -> Not_formula formula)
-    (Step_contract_projection.exclusions step.contract)
-  @ List.map
-      (fun formula -> Formula formula)
-      (Step_contract_projection.postconditions step.contract)
+    (fun formula -> Formula formula)
+    (Step_contract_projection.postconditions step.contract)
 
 let formula_occurrences step =
   Step_contract_projection.preconditions step.contract
   @ Step_contract_projection.postconditions step.contract
-  @ Step_contract_projection.exclusions step.contract
 
 let formulas_of_condition = function
   | State_is _ -> []
-  | Formula formula | Not_formula formula -> [ formula ]
+  | Formula formula -> [ formula ]
 
 let formulas_of_conditions conditions =
   List.concat_map formulas_of_condition conditions
@@ -136,7 +129,6 @@ let map_formulas transform (obligation : t) =
       ensures = List.map transform contract.ensures;
       elaboration_checks =
         List.map transform contract.elaboration_checks;
-      forbidden = List.map transform contract.forbidden;
     }
   in
   let mapped =
@@ -244,20 +236,13 @@ let build_node (source_node : Verification_model.node_model) partitions =
                   }))
     |> List.mapi (fun id step -> { step with id })
   in
-  if steps = [] then
-    Error
-      (Printf.sprintf
-         "Verification_obligations: no proof obligation produced for source \
-          node %s"
-         source_node.node_name)
-  else
-    let* temporal_layout = merge_temporal_layouts partitions in
-    Ok
-      {
-        semantics = signature_of_model_node source_node;
-        temporal_layout;
-        steps;
-      }
+  let* temporal_layout = merge_temporal_layouts partitions in
+  Ok
+    {
+      semantics = signature_of_model_node source_node;
+      temporal_layout;
+      steps;
+    }
 
 let build_program
     ~(proof_cases : Proof_case_program.t)

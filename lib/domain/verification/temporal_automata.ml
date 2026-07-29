@@ -18,10 +18,6 @@
 open Core_syntax
 type node_data = {
   exploration : Product_types.exploration;
-  assume_bad_idx : int;
-  guarantee_bad_idx : int;
-  guarantee_state_labels : string list;
-  assume_state_labels : string list;
-  guarantee_grouped_edges : Automaton_types.transition list;
-  assume_grouped_edges : Automaton_types.transition list;
+  guarantee_monitor : Automaton_types.deterministic_partial_monitor;
+  assume_monitor : Automaton_types.deterministic_partial_monitor;
 }

@@ -64,15 +64,6 @@ let product_state_source (state : Ir.product_state) =
   Printf.sprintf "(P=%s,A=%d,G=%d)" state.prog_state
     state.assume_state_index state.guarantee_state_index
 
-let obligation_class
-    (step_class : Step_contract_projection.step_class) =
-  match step_class with
-  | Step_contract_projection.StepSafe ->
-      ("product-step-safe", Some "guarantee-progress")
-  | Step_contract_projection.StepBadGuarantee ->
-      ( "product-step-bad-guarantee",
-        Some "guarantee-violation-exclusion" )
-
 let transition_source (contract : Step_contract_projection.step_contract) =
   Printf.sprintf "%s -> %s (%s)" contract.program_step.src_state
     contract.program_step.dst_state contract.transition_id
@@ -80,26 +71,23 @@ let transition_source (contract : Step_contract_projection.step_contract) =
 let individual_manifest ~node_name ~generated_symbol
     (plan : Proof_ir.individual) =
   let contract = plan.member.contract in
-  let obligation_kind, obligation_category =
-    obligation_class contract.step_class
-  in
   {
     generated_symbol;
     source =
       Printf.sprintf
         "helper=%s;partition=%s;product_src=%s;requires=%d;ensures=%d;\
-         elaboration_checks=%d;forbidden=%d"
+         elaboration_checks=%d"
         generated_symbol plan.member.partition_name
         (product_state_source contract.product_src)
         (List.length contract.requires)
         (List.length contract.ensures)
-        (List.length contract.elaboration_checks)
-        (List.length (Step_contract_projection.exclusions contract));
+        (List.length contract.elaboration_checks);
     node_name;
     transition = transition_source contract;
-    obligation_kind;
+    obligation_kind = "product-step";
     obligation_family = "product-step";
-    obligation_category;
+    obligation_category =
+      Some "guarantee-progress-and-preservation";
   }
 
 let grouped_manifest ~node_name ~generated_symbol
@@ -107,15 +95,12 @@ let grouped_manifest ~node_name ~generated_symbol
   let contract =
     (List.hd plan.members).Obligations.contract
   in
-  let obligation_kind, obligation_category =
-    obligation_class contract.step_class
-  in
   {
     generated_symbol;
     source =
       Printf.sprintf
         "helper=%s;group_size=%d;partitions=%s;product_src=%s;requires=%d;ensures=%d;\
-         elaboration_checks=%d;forbidden=%d"
+         elaboration_checks=%d"
         generated_symbol (List.length plan.members)
         (plan.members
         |> List.map (fun member ->
@@ -124,13 +109,13 @@ let grouped_manifest ~node_name ~generated_symbol
         (product_state_source contract.product_src)
         (List.length contract.requires)
         (List.length contract.ensures)
-        (List.length contract.elaboration_checks)
-        (List.length (Step_contract_projection.exclusions contract));
+        (List.length contract.elaboration_checks);
     node_name;
     transition = transition_source contract;
-    obligation_kind;
+    obligation_kind = "product-step";
     obligation_family = "product-step-group";
-    obligation_category;
+    obligation_category =
+      Some "guarantee-progress-and-preservation";
   }
 
 let manifest_of_helper ~node_name plan

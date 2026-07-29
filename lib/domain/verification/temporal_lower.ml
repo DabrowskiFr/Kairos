@@ -43,11 +43,9 @@ let required_temporal_layout (node : Core_syntax.historical Abs.node_ir) : Abs.t
              @
              let case_formulas =
                List.concat_map
-                 (fun (case : Core_syntax.historical Abs.safe_product_case) -> [ case.admissible_guard ])
-                 summary.safe_cases
-               @ List.concat_map
-                   (fun (case : Core_syntax.historical Abs.unsafe_product_case) -> [ case.excluded_guard ])
-                   summary.unsafe_cases
+                 (fun (case : Core_syntax.historical Abs.product_case) ->
+                   [ case.guarantee_guard ])
+                 summary.product_cases
              in
              Ir_formula.values case_formulas))
     in
@@ -86,20 +84,12 @@ let run_node (node : Core_syntax.historical Abs.node_ir) :
            let requires = List.map lower summary.requires in
            let ensures = List.map lower summary.ensures in
            let elaboration_checks = List.map lower summary.elaboration_checks in
-           let safe_cases =
-             summary.safe_cases
-             |> List.map (fun (c : Core_syntax.historical Abs.safe_product_case) ->
+           let product_cases =
+             summary.product_cases
+             |> List.map (fun (c : Core_syntax.historical Abs.product_case) ->
                     {
                       Abs.product_dst = c.product_dst;
-                      admissible_guard = lower c.admissible_guard;
-                    })
-           in
-           let unsafe_cases =
-             summary.unsafe_cases
-             |> List.map (fun (c : Core_syntax.historical Abs.unsafe_product_case) ->
-                    {
-                      Abs.product_dst = c.product_dst;
-                      excluded_guard = lower c.excluded_guard;
+                      guarantee_guard = lower c.guarantee_guard;
                     })
            in
            {
@@ -108,14 +98,16 @@ let run_node (node : Core_syntax.historical Abs.node_ir) :
                {
                  Abs.program_step = summary.identity.program_step;
                  product_src = summary.identity.product_src;
+                 assume_destination_state_index =
+                   summary.identity
+                     .assume_destination_state_index;
                  assume_guard = lower_logic summary.identity.assume_guard;
                };
              propagation_requires;
              requires;
              ensures;
              elaboration_checks;
-             safe_cases;
-             unsafe_cases;
+             product_cases;
            })
   in
   let init_invariant_goals = List.map lower node.init_invariant_goals in

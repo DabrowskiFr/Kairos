@@ -192,8 +192,8 @@ let cmd =
           [ "no-step-contract-grouping" ]
           ~docs:docs_proof
           ~doc:
-            "Disable grouping of safe step contracts by executable transition. \
-             Bad-guarantee exclusion obligations are kept individual.")
+            "Disable grouping of product-step obligations by executable \
+             transition. Obligations remain individual.")
   in
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into

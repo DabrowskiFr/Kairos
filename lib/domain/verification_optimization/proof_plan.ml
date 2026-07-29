@@ -14,12 +14,9 @@ module Obligations =
 module Proof_ir =
   Kairos_verification_obligations.Verification_proof_ir
 
-module Step_contract_projection =
-  Kairos_verification_obligations.Step_contract_projection
-
 type step_strategy =
   | Preserve_individual
-  | Group_safe
+  | Group_steps
 
 type condition_strategy =
   | Preserve_occurrences
@@ -113,7 +110,7 @@ let individual_obligation ~conditions member =
 
 let group_key member =
   let contract = member.Obligations.contract in
-  (contract.step_class, contract.transition_id, contract.program_step)
+  (contract.transition_id, contract.program_step)
 
 let partition_entries entries =
   let groups = Hashtbl.create 128 in
@@ -134,20 +131,11 @@ let plan_obligations ~steps ~conditions members =
   match steps with
   | Preserve_individual ->
       List.map (individual_obligation ~conditions) members
-  | Group_safe ->
+  | Group_steps ->
       members
       |> partition_entries
       |> List.concat_map (fun entries ->
-             let groupable =
-               List.length entries > 1
-               &&
-               match entries with
-               | [] -> false
-               | (member : Obligations.step_obligation) :: _ ->
-                   member.contract.step_class
-                   = Step_contract_projection.StepSafe
-             in
-             if groupable then
+             if List.length entries > 1 then
                [ grouped_obligation ~conditions entries ]
              else
                List.map

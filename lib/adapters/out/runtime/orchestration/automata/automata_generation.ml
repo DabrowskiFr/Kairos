@@ -27,16 +27,21 @@ let build_prepared_formula
     ~(build_automaton :
        Automata_exchange.request -> Automata_exchange.response)
     (prepared : Automata_preparation.prepared_formula) :
-    Automaton_types.automaton =
-  Automata_exchange_adapter.request_of_core ~atom_map:prepared.atoms
-    prepared.formula
-  |> build_automaton
-  |> Automata_exchange_adapter.automaton_of_response
-       ~atom_map:prepared.atoms
+    (Automaton_types.deterministic_partial_monitor, string) result =
+  let monitor =
+    Automata_exchange_adapter.request_of_core
+      ~atom_map:prepared.atoms prepared.formula
+    |> build_automaton
+    |> Automata_exchange_adapter.monitor_of_response
+         ~atom_map:prepared.atoms
+  in
+  Ok monitor
 
-let trivial_assumption_automaton : Automaton_types.automaton =
+let trivial_assumption_monitor :
+    Automaton_types.deterministic_partial_monitor =
   {
-    states = [ LTrue ];
+    initial_state = 0;
+    state_count = 1;
     transitions = [ (0, mk_hbool true, 0) ];
   }
 
@@ -44,20 +49,21 @@ let build_prepared_node
     ~(build_automaton :
        Automata_exchange.request -> Automata_exchange.response)
     (prepared : Automata_preparation.prepared_node) :
-    Automaton_types.automata_spec =
-  let guarantee_automaton =
+    (Automaton_types.automata_spec, string) result =
+  let* guarantee_monitor =
     build_prepared_formula ~build_automaton prepared.guarantee
   in
-  let assume_automaton =
+  let* assume_monitor =
     match prepared.assumption with
-    | None -> trivial_assumption_automaton
+    | None -> Ok trivial_assumption_monitor
     | Some assumption ->
         build_prepared_formula ~build_automaton assumption
   in
-  {
-    Automaton_types.guarantee_automaton;
-    assume_automaton;
-  }
+  Ok
+    {
+      Automaton_types.guarantee_monitor;
+      assume_monitor;
+    }
 
 let run (proof_case_program : Proof_case_program.t)
     ~(build_automaton :
@@ -80,13 +86,13 @@ let run (proof_case_program : Proof_case_program.t)
               warnings = [];
             } )
     | (prepared : Automata_preparation.prepared_node) :: rest ->
-        let automata =
+        let* automata =
           build_prepared_node ~build_automaton prepared
         in
-        let guarantee = automata.guarantee_automaton in
+        let guarantee = automata.guarantee_monitor in
         build_nodes
           ((prepared.node_name, automata) :: automata_rev)
-          (state_count + List.length guarantee.states)
+          (state_count + guarantee.state_count)
           (edge_count + List.length guarantee.transitions)
           rest
   in

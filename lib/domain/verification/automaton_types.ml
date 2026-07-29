@@ -16,35 +16,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
- (** Semantic automata data shared by the middle-end.
+(** Typed monitor boundary used by the reference product construction. *)
 
-    This module describes:
-    {ul
-    {- semantic transition guards;}
-    {- normalized automata;}
-    {- per-node automata generation results.}} *)
-
-(** Boolean guard carried by an automaton transition.
-
-    Guards are stored as first-order formulas over history expressions. *)
 type guard = Core_syntax.historical Core_syntax.hexpr
-
-(** Transition represented as [(src_index, guard, dst_index)]. *)
 type transition = int * guard * int
 
-(** Safety automaton. *)
-type automaton = {
-  states : Core_syntax.ltl list;
+type deterministic_partial_monitor = {
+  initial_state : int;
+  state_count : int;
   transitions : transition list;
 }
 
-(** Per-node automata generation result.
-
-    A node carries:
-    {ul
-    {- one guarantee automaton;}
-    {- one assumption automaton .}} *)
 type automata_spec = {
-  guarantee_automaton : automaton;
-  assume_automaton : automaton;
+  guarantee_monitor : deterministic_partial_monitor;
+  assume_monitor : deterministic_partial_monitor;
 }

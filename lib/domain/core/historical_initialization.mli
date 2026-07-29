@@ -44,3 +44,12 @@ val min_ticks_by_state :
 
 val min_ticks_for_state :
   (Core_syntax.ident * int option) list -> Core_syntax.ident -> int option
+
+(** [min_ticks_by_indexed_graph ~state_count ~initial_state ~edges] computes
+    the minimum number of edges required to reach each indexed state.
+    Indices are assumed to have been validated by the caller. *)
+val min_ticks_by_indexed_graph :
+  state_count:int ->
+  initial_state:int ->
+  edges:(int * int) list ->
+  int option array

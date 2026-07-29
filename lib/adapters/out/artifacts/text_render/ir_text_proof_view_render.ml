@@ -134,13 +134,9 @@ let collect_formula_pool (program : Ir.program_ir) : Core_syntax.history_free Ir
     add_formulas summary.ensures;
     add_formulas summary.elaboration_checks;
     List.iter
-      (fun (c : Core_syntax.history_free Ir.safe_product_case) ->
-        add_formula c.admissible_guard)
-      summary.safe_cases;
-    List.iter
-      (fun (c : Core_syntax.history_free Ir.unsafe_product_case) ->
-        add_formula c.excluded_guard)
-      summary.unsafe_cases
+      (fun (c : Core_syntax.history_free Ir.product_case) ->
+        add_formula c.guarantee_guard)
+      summary.product_cases
   in
   List.iter
     (fun (n : Core_syntax.history_free Ir.node_ir) ->
@@ -174,18 +170,20 @@ let render_transition_full (buf : Buffer.t) (idx : int) (t : Ir.transition) =
 
 let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
     (summary : Core_syntax.history_free Ir.product_step_summary) =
-  let safe_product_dsts =
-    summary.safe_cases
-    |> List.map (fun (c : Core_syntax.history_free Ir.safe_product_case) -> c.product_dst)
+  let product_dsts =
+    summary.product_cases
+    |> List.map (fun (c : Core_syntax.history_free Ir.product_case) ->
+           c.product_dst)
     |> List.sort_uniq Stdlib.compare
   in
-  let admissible_guards =
-    summary.safe_cases
-    |> List.map (fun (c : Core_syntax.history_free Ir.safe_product_case) -> c.admissible_guard)
+  let guarantee_guards =
+    summary.product_cases
+    |> List.map (fun (c : Core_syntax.history_free Ir.product_case) ->
+           c.guarantee_guard)
   in
   let source_id = Printf.sprintf "S%d" summary_index in
-  let safe_destination_id =
-    if safe_product_dsts = [] then None
+  let destination_id =
+    if product_dsts = [] then None
     else Some (Printf.sprintf "D%d" summary_index)
   in
   line ~indent buf
@@ -195,6 +193,10 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
   line ~indent:(indent + 2) buf ("source_id=" ^ source_id);
   line ~indent:(indent + 2) buf ("source=" ^ render_product_state summary.identity.product_src);
   line ~indent:(indent + 2) buf
+    (Printf.sprintf "assume_destination=A%d"
+       summary.identity
+         .assume_destination_state_index);
+  line ~indent:(indent + 2) buf
     ("assume_guard=" ^ Pretty.string_of_fo summary.identity.assume_guard);
   line ~indent:(indent + 1) buf "summary:";
   line ~indent:(indent + 2) buf ("propagation_requires=" ^ render_formula_refs summary.propagation_requires);
@@ -202,47 +204,30 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
   line ~indent:(indent + 2) buf ("ensures =" ^ render_formula_refs summary.ensures);
   line ~indent:(indent + 2) buf
     ("elaboration_checks=" ^ render_formula_refs summary.elaboration_checks);
-  line ~indent:(indent + 1) buf "safe_aggregate:";
+  line ~indent:(indent + 1) buf "product_post:";
   line ~indent:(indent + 2) buf
     ("destination_id="
     ^
-    match safe_destination_id with
+    match destination_id with
     | None -> "None"
     | Some id -> id);
-  line ~indent:(indent + 2) buf ("destinations=" ^ render_product_state_list safe_product_dsts);
-  line ~indent:(indent + 2) buf ("admissible_guards=" ^ render_formula_refs admissible_guards);
-  line ~indent:(indent + 1) buf "safe_cases:";
-  if summary.safe_cases = [] then line ~indent:(indent + 2) buf "[]"
+  line ~indent:(indent + 2) buf
+    ("destinations=" ^ render_product_state_list product_dsts);
+  line ~indent:(indent + 2) buf
+    ("guarantee_guards=" ^ render_formula_refs guarantee_guards);
+  line ~indent:(indent + 1) buf "product_cases:";
+  if summary.product_cases = [] then line ~indent:(indent + 2) buf "[]"
   else
     List.iteri
-      (fun idx (c : Core_syntax.history_free Ir.safe_product_case) ->
+      (fun idx (c : Core_syntax.history_free Ir.product_case) ->
         let product_dst_id = Printf.sprintf "K%d_%d" summary_index (idx + 1) in
         line ~indent:(indent + 2) buf (Printf.sprintf "case[%d]:" idx);
-        line ~indent:(indent + 3) buf "step_class=Safe";
         line ~indent:(indent + 3) buf ("product_dst_id=" ^ product_dst_id);
         line ~indent:(indent + 3) buf ("product_dst=" ^ render_product_state c.product_dst);
         line ~indent:(indent + 3) buf
-          ("admissible_guard=" ^ Pretty.string_of_fo c.admissible_guard.logic);
-        line ~indent:(indent + 3) buf "excluded_guard=[]")
-      summary.safe_cases;
-  line ~indent:(indent + 1) buf "unsafe_cases:";
-  if summary.unsafe_cases = [] then line ~indent:(indent + 2) buf "[]"
-  else
-    List.iteri
-      (fun idx (c : Core_syntax.history_free Ir.unsafe_product_case) ->
-        let product_dst_id =
-          Printf.sprintf "K%d_%d" summary_index (List.length summary.safe_cases + idx + 1)
-        in
-        line ~indent:(indent + 2) buf (Printf.sprintf "case[%d]:" idx);
-        line ~indent:(indent + 3) buf "step_class=Bad_guarantee";
-        line ~indent:(indent + 3) buf ("product_dst_id=" ^ product_dst_id);
-        line ~indent:(indent + 3) buf ("product_dst=" ^ render_product_state c.product_dst);
-        line ~indent:(indent + 3) buf
-          ("excluded_guard=" ^ Pretty.string_of_fo c.excluded_guard.logic);
-        line ~indent:(indent + 3) buf "admissible_guard=[]";
-        line ~indent:(indent + 3) buf "ensures=[]";
-        line ~indent:(indent + 3) buf ("excluded=" ^ render_formula_refs [ c.excluded_guard ]))
-      summary.unsafe_cases
+          ("guarantee_guard="
+          ^ Pretty.string_of_fo c.guarantee_guard.logic))
+      summary.product_cases
 
 let render_node_pretty ~(source_program : Verification_model.program_model option)
     (buf : Buffer.t)

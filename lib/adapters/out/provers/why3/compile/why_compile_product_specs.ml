@@ -39,11 +39,6 @@ let compile_condition formula_sharing env = function
       state_guard env env.rec_name state
   | Obligations.Formula formula ->
       formula_term_with_rec formula_sharing env env.rec_name formula
-  | Obligations.Not_formula formula ->
-      mk_term
-        (Tnot
-           (formula_term_with_rec formula_sharing env env.rec_name
-              formula))
 
 let compile_conditions formula_sharing env conditions =
   List.map (compile_condition formula_sharing env) conditions

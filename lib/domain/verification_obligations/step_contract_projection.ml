@@ -16,22 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Core_syntax
-
-type step_class =
-  | StepSafe
-  | StepBadGuarantee
-
 type step_contract = {
   transition_id : string;
   program_step : Ir.transition;
-  step_class : step_class;
   product_src : Ir.product_state;
   assume_guard : Core_syntax.history_free Ir.summary_formula;
   requires : Core_syntax.history_free Ir.summary_formula list;
   ensures : Core_syntax.history_free Ir.summary_formula list;
   elaboration_checks : Core_syntax.history_free Ir.summary_formula list;
-  forbidden : Core_syntax.history_free Ir.summary_formula list;
 }
 
 let preconditions (contract : step_contract) =
@@ -39,15 +31,6 @@ let preconditions (contract : step_contract) =
 
 let postconditions (contract : step_contract) =
   contract.ensures @ contract.elaboration_checks
-
-let exclusions (contract : step_contract) = contract.forbidden
-
-let rec split_top_level_or
-    (f : Core_syntax.history_free Core_syntax.hexpr) :
-    Core_syntax.history_free Core_syntax.hexpr list =
-  match f.hexpr with
-  | HBin (Or, a, b) -> split_top_level_or a @ split_top_level_or b
-  | _ -> [ f ]
 
 let common_requires
     (summary : Core_syntax.history_free Ir.product_step_summary) =
@@ -57,69 +40,19 @@ let transition_id_of_summary
     (summary : Core_syntax.history_free Ir.product_step_summary) =
   Printf.sprintf "tr_%d" summary.trace.step_uid
 
-let safe_contract ~(assume_guard : Core_syntax.history_free Ir.summary_formula)
-    ~requires
+let contract_of_summary
     (summary : Core_syntax.history_free Ir.product_step_summary) =
-  match summary.safe_cases with
-  | [] -> None
-  | _ ->
-      Some
-        {
-          transition_id = transition_id_of_summary summary;
-          program_step = summary.identity.program_step;
-          step_class = StepSafe;
-          product_src = summary.identity.product_src;
-          assume_guard;
-          requires;
-          ensures = summary.ensures;
-          elaboration_checks = summary.elaboration_checks;
-          forbidden = [];
-        }
-
-let bad_guarantee_contract
-    ~(assume_guard : Core_syntax.history_free Ir.summary_formula) ~requires
-    (summary : Core_syntax.history_free Ir.product_step_summary) =
-  match summary.unsafe_cases with
-  | [] -> None
-  | _ ->
-      let forbidden =
-        summary.unsafe_cases
-        |> List.concat_map
-             (fun
-               (case : Core_syntax.history_free Ir.unsafe_product_case)
-             ->
-               case.excluded_guard.logic |> split_top_level_or
-               |> List.map Ir_formula.make)
-      in
-      Some
-        {
-          transition_id = transition_id_of_summary summary;
-          program_step = summary.identity.program_step;
-          step_class = StepBadGuarantee;
-          product_src = summary.identity.product_src;
-          assume_guard;
-          requires;
-          ensures = [];
-          elaboration_checks = [];
-          forbidden;
-        }
-
-let contracts_of_summary
-    (summary : Core_syntax.history_free Ir.product_step_summary) :
-    step_contract list =
-  let assume_guard = Ir_formula.make summary.identity.assume_guard in
-  let requires = common_requires summary in
-  [
-    safe_contract ~assume_guard ~requires summary;
-    bad_guarantee_contract ~assume_guard ~requires summary;
-  ]
-  |> List.filter_map Fun.id
+  {
+    transition_id = transition_id_of_summary summary;
+    program_step = summary.identity.program_step;
+    product_src = summary.identity.product_src;
+    assume_guard = Ir_formula.make summary.identity.assume_guard;
+    requires = common_requires summary;
+    ensures = summary.ensures;
+    elaboration_checks = summary.elaboration_checks;
+  }
 
 let of_ir_node (node : Core_syntax.history_free Ir.node_ir) :
     step_contract list =
   node.summaries
-  |> List.concat_map
-       (fun
-         (summary : Core_syntax.history_free Ir.product_step_summary)
-       ->
-         contracts_of_summary summary)
+  |> List.map contract_of_summary

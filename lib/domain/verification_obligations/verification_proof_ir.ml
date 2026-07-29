@@ -182,8 +182,7 @@ let validate_individual (individual : individual) =
 let same_group_execution
     (left : Obligations.step_obligation)
     (right : Obligations.step_obligation) =
-  left.contract.step_class = right.contract.step_class
-  && String.equal left.contract.transition_id
+  String.equal left.contract.transition_id
        right.contract.transition_id
   && left.contract.program_step = right.contract.program_step
 
@@ -216,15 +215,7 @@ let validate_grouped (grouped : grouped) =
   match grouped.members with
   | [] -> Error "verification proof IR contains an empty obligation group"
   | first :: _ ->
-      if
-        first.contract.step_class
-        <> Step_contract_projection.StepSafe
-      then
-        Error
-          "verification proof IR groups obligations that do not describe safe \
-           product steps"
-      else if
-        not
+      if not
           (List.for_all
              (same_group_execution first)
              grouped.members)

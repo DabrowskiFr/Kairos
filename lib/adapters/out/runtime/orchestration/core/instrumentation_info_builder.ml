@@ -35,26 +35,23 @@ module Info_helpers = Instrumentation_info_helpers
 let instrumentation_info_of_node ~(analyses : (ident * Temporal_automata.node_data) list)
     (node : Core_syntax.history_free Ir.node_ir) : (Flow_info.instrumentation_info, string) result =
   let* analysis = Info_helpers.analysis_of_node ~analyses node in
-  let require_automata_state_count = List.length analysis.assume_state_labels in
-  let require_automata_edge_count = List.length analysis.assume_grouped_edges in
-  let ensures_automata_state_count = List.length analysis.guarantee_state_labels in
-  let ensures_automata_edge_count = List.length analysis.guarantee_grouped_edges in
-  let product_edge_count_full = List.length analysis.exploration.steps in
-  let product_edge_count_live =
-    analysis.exploration.steps
-    |> List.filter (Info_helpers.product_step_is_live_requested ~analysis)
-    |> List.length
+  let require_automata_state_count =
+    analysis.assume_monitor.state_count
   in
-  let product_state_count_full = List.length analysis.exploration.states in
-  let product_state_count_live =
-    analysis.exploration.states
-    |> List.filter (Info_helpers.product_state_is_live ~analysis)
-    |> List.length
+  let require_automata_edge_count =
+    List.length analysis.assume_monitor.transitions
   in
+  let ensures_automata_state_count =
+    analysis.guarantee_monitor.state_count
+  in
+  let ensures_automata_edge_count =
+    List.length analysis.guarantee_monitor.transitions
+  in
+  let product_edge_count = List.length analysis.exploration.steps in
+  let product_state_count = List.length analysis.exploration.states in
   let canonical_summary_count = List.length node.summaries in
-  let canonical_case_safe_count, canonical_case_bad_assumption_count,
-      canonical_case_bad_guarantee_count =
-    Info_helpers.accumulate_case_counts node.summaries
+  let canonical_product_case_count =
+    Info_helpers.product_case_count node.summaries
   in
   Ok
     {
@@ -63,14 +60,10 @@ let instrumentation_info_of_node ~(analyses : (ident * Temporal_automata.node_da
       require_automata_edge_count;
       ensures_automata_state_count;
       ensures_automata_edge_count;
-      product_edge_count_full;
-      product_edge_count_live;
-      product_state_count_full;
-      product_state_count_live;
+      product_edge_count;
+      product_state_count;
       canonical_summary_count;
-      canonical_case_safe_count;
-      canonical_case_bad_assumption_count;
-      canonical_case_bad_guarantee_count;
+      canonical_product_case_count;
     }
 
 (** [instrumentation_info_of_ir] helper value. *)

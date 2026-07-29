@@ -17,7 +17,7 @@ type proof_case_decomposition_strategy =
 type step_strategy =
   Kairos_verification_optimization.Proof_plan.step_strategy =
   | Preserve_individual
-  | Group_safe
+  | Group_steps
 
 type condition_strategy =
   Kairos_verification_optimization.Proof_plan.condition_strategy =
@@ -65,7 +65,7 @@ let string_of_reachability_strategy = function
 let groups_step_contracts = function
   | Direct -> false
   | Planned { steps = Preserve_individual; _ } -> false
-  | Planned { steps = Group_safe; _ } -> true
+  | Planned { steps = Group_steps; _ } -> true
 
 let deduplicates_obligation_conditions = function
   | Direct -> false
@@ -106,12 +106,12 @@ let default_proof_optimizations =
   {
     verification =
       {
-        proof_case_decomposition_strategy = Monolithic;
+        proof_case_decomposition_strategy = Separate_guarantees;
         reachability_strategy = Contradiction_closure;
         proof_plan_strategy =
           Planned
             {
-              steps = Group_safe;
+              steps = Group_steps;
               conditions = Deduplicate;
               formulas = Share_repeated;
               postconditions = Bundle_repeated;

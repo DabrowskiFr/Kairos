@@ -126,7 +126,7 @@ let ensure_safety ~record_elapsed (formula : string) : unit =
 
 let call_spot ~record_elapsed (formula : string) : string =
   let t0 = Unix.gettimeofday () in
-  let cmd = "ltl2tgba -M -D -C -H -f " ^ Filename.quote formula in
+  let cmd = "ltl2tgba -M -D -H -f " ^ Filename.quote formula in
   let result = run_command cmd in
   record_elapsed (Unix.gettimeofday () -. t0);
   if command_ok result then result.stdout

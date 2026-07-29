@@ -16,15 +16,10 @@ let test_request_round_trip () =
 
 let test_response_round_trip_and_validation () =
   let guard = Automata_exchange.Guard_atom "ready" in
-  let automaton : Automata_exchange.automaton =
-    {
-      initial_state = 0;
-      states = [ Accepting; Rejecting ];
-      transitions =
-        [ { source = 0; guard; target = 1 }; { source = 1; guard = Guard_true; target = 1 } ];
-    }
+  let monitor : Automata_exchange.partial_monitor =
+    { initial_state = 0; state_count = 1; transitions = [ { source = 0; guard; target = 0 } ] }
   in
-  let response = Automata_exchange.make_response ~atoms:[ "ready" ] automaton in
+  let response = Automata_exchange.make_response ~atoms:[ "ready" ] monitor in
   require_ok "valid response" (Automata_exchange.validate_response response);
   let decoded =
     Automata_exchange.response_to_yojson response
@@ -35,7 +30,7 @@ let test_response_round_trip_and_validation () =
   let invalid_edge =
     {
       response with
-      automaton = { response.automaton with transitions = [ { source = 0; guard; target = 2 } ] };
+      monitor = { response.monitor with transitions = [ { source = 0; guard; target = 2 } ] };
     }
   in
   check "out-of-range edge rejected"
@@ -43,9 +38,9 @@ let test_response_round_trip_and_validation () =
   let undeclared_atom =
     {
       response with
-      automaton =
+      monitor =
         {
-          response.automaton with
+          response.monitor with
           transitions = [ { source = 0; guard = Guard_atom "undeclared"; target = 0 } ];
         };
     }

@@ -16,11 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Semantic automata supplied to the reference product construction.
-
-    Automata are treated as explicit inputs to the proof-relevant pipeline. The
-    construction of those automata, for example by Spot, is outside this module
-    and outside the core correction claim. *)
+(** Typed monitor boundary used by the reference product construction. *)
 
 (** Boolean guard carried by an automaton transition. *)
 type guard = Core_syntax.historical Core_syntax.hexpr
@@ -28,14 +24,20 @@ type guard = Core_syntax.historical Core_syntax.hexpr
 (** Transition represented as [(src_index, guard, dst_index)]. *)
 type transition = int * guard * int
 
-(** Safety automaton consumed by product exploration. *)
-type automaton = {
-  states : Core_syntax.ltl list;
+(** Deterministic partial monitor supplied by the producer.
+
+    For any source state, guards leading to distinct successors are mutually
+    exclusive. They need not be complete: a valuation satisfying no outgoing
+    guard blocks the monitor. This is a producer invariant; the verification
+    core deliberately performs no determinization or propositional search. *)
+type deterministic_partial_monitor = {
+  initial_state : int;
+  state_count : int;
   transitions : transition list;
 }
 
-(** Per-node assumption/guarantee automata pair. *)
+(** Per-node assumption/guarantee monitor pair. *)
 type automata_spec = {
-  guarantee_automaton : automaton;
-  assume_automaton : automaton;
+  guarantee_monitor : deterministic_partial_monitor;
+  assume_monitor : deterministic_partial_monitor;
 }

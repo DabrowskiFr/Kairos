@@ -144,15 +144,10 @@ let collect_summary_facts table (node : Core_syntax.history_free Ir.node_ir) =
         (add_summary_formula "elaboration.checks" "current_tick")
         summary.elaboration_checks;
       List.iter
-        (fun (case : Core_syntax.history_free Ir.safe_product_case) ->
-          add_summary_formula "canonical.safe_case.admissible_guard"
-            "step_tick_context" case.admissible_guard)
-        summary.safe_cases;
-      List.iter
-        (fun (case : Core_syntax.history_free Ir.unsafe_product_case) ->
-          add_summary_formula "canonical.unsafe_case.excluded_guard"
-            "step_tick_context" case.excluded_guard)
-        summary.unsafe_cases)
+        (fun (case : Core_syntax.history_free Ir.product_case) ->
+          add_summary_formula "canonical.product_case.guarantee_guard"
+            "step_tick_context" case.guarantee_guard)
+        summary.product_cases)
     node.summaries;
   List.iter
     (add_summary_formula "canonical.init_invariant_goal" "current_tick")

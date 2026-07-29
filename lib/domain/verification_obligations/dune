@@ -6,5 +6,13 @@
  step_contract_projection
   canonical_verification
   verification_obligations
-  verification_proof_ir)
+ verification_proof_ir)
  (libraries kairos_domain_core kairos_domain_verification))
+
+(test
+ (name partial_monitor_obligations_tests)
+ (modules partial_monitor_obligations_tests)
+ (libraries
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_verification_obligations))

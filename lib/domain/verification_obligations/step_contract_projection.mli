@@ -22,25 +22,14 @@
     {!Ir.product_step_summary} and proof backends. It is independent from Why3
     terms, helper grouping, worker scheduling, dumps, and solver results. *)
 
-open Core_syntax
-
-type step_class =
-  | StepSafe
-  | StepBadGuarantee
-(** Class of active implementation obligation. Bad-assumption product steps
-    induce no implementation obligation because the assume-guarantee premise
-    is false on those steps. *)
-
 type step_contract = {
   transition_id : string;
   program_step : Ir.transition;
-  step_class : step_class;
   product_src : Ir.product_state;
   assume_guard : Core_syntax.history_free Ir.summary_formula;
   requires : Core_syntax.history_free Ir.summary_formula list;
   ensures : Core_syntax.history_free Ir.summary_formula list;
   elaboration_checks : Core_syntax.history_free Ir.summary_formula list;
-  forbidden : Core_syntax.history_free Ir.summary_formula list;
 }
 (** Step contract before backend-specific lowering. *)
 
@@ -50,11 +39,6 @@ val preconditions : step_contract -> Core_syntax.history_free Ir.summary_formula
 
 val postconditions : step_contract -> Core_syntax.history_free Ir.summary_formula list
 (** Positive postconditions of a step contract. *)
-
-val exclusions : step_contract -> Core_syntax.history_free Ir.summary_formula list
-(** Formulas excluded by a bad-guarantee step. Top-level disjunctions are split
-    once during contract construction; backends discharge each resulting
-    clause by requiring its negation. *)
 
 val of_ir_node :
   Core_syntax.history_free Ir.node_ir ->

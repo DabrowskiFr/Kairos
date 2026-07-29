@@ -27,3 +27,8 @@
   temporal_lower
   orchestration)
  (libraries kairos_domain_core))
+
+(test
+ (name product_characteristics_tests)
+ (modules product_characteristics_tests)
+ (libraries kairos_domain_verification))

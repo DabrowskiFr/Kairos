@@ -45,14 +45,9 @@ type transition = {
   body_stmts : stmt list;
 }
 
-type 'phase safe_product_case = {
+type 'phase product_case = {
   product_dst : product_state;
-  admissible_guard : 'phase summary_formula;
-}
-
-type 'phase unsafe_product_case = {
-  product_dst : product_state;
-  excluded_guard : 'phase summary_formula;
+  guarantee_guard : 'phase summary_formula;
 }
 
 type product_step_summary_trace = { step_uid : transition_index }
@@ -60,6 +55,7 @@ type product_step_summary_trace = { step_uid : transition_index }
 type 'phase product_step_summary_identity = {
   program_step : transition;
   product_src : product_state;
+  assume_destination_state_index : automaton_state_index;
   assume_guard : 'phase Core_syntax.hexpr;
 }
 
@@ -70,8 +66,7 @@ type 'phase product_step_summary = {
   requires : 'phase summary_formula list;
   ensures : 'phase summary_formula list;
   elaboration_checks : 'phase summary_formula list;
-  safe_cases : 'phase safe_product_case list;
-  unsafe_cases : 'phase unsafe_product_case list;
+  product_cases : 'phase product_case list;
 }
 
 type node_signature = {

@@ -19,7 +19,7 @@
 (** Text view of the proof-oriented IR.
 
     The output keeps proof-relevant structures explicit (formula pool,
-    summaries, safe/unsafe residual cases). *)
+    summaries and their exact product cases). *)
 
 (** Render a full IR program in proof view. *)
 val render_pretty_program :

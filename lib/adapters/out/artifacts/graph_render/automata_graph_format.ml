@@ -151,9 +151,8 @@ let subscript_digits (n : int) : string =
   string_of_int n |> String.to_seq |> List.of_seq |> List.map map
   |> String.concat ""
 
-let pretty_aut_state ~prefix ~idx ~bad_idx =
-  if bad_idx >= 0 && idx = bad_idx then Printf.sprintf "%s_bad" prefix
-  else prefix ^ subscript_digits idx
+let pretty_aut_state ~prefix ~idx =
+  prefix ^ subscript_digits idx
 
 let tau_alias (i : int) : string = "τ" ^ subscript_digits i
 let phi_alias (i : int) : string = "φ" ^ subscript_digits i
@@ -197,6 +196,3 @@ let wrap_formula_lines ?(max_width = 72) (s : string) : string list =
     else
       let by_and = split_all_on " ∧ " s in
       if List.length by_and > 1 then join_wrapped " ∧ " by_and else [ s ]
-
-let compact_display_string (s : string) : string =
-  s |> strip_braces |> rewrite_history_vars

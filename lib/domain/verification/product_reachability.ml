@@ -39,11 +39,6 @@ let is_hfalse (f : Core_syntax.historical Core_syntax.hexpr) : bool =
 let is_htrue (f : Core_syntax.historical Core_syntax.hexpr) : bool =
   match (simplify_fo f).hexpr with HLitBool true -> true | _ -> false
 
-let same_product_state (a : Abs.product_state) (b : Abs.product_state) : bool =
-  String.equal a.prog_state b.prog_state
-  && a.assume_state_index = b.assume_state_index
-  && a.guarantee_state_index = b.guarantee_state_index
-
 let guard_fo_of_transition (t : Abs.transition) : Core_syntax.historical Core_syntax.hexpr =
   match t.guard_expr with
   | None -> mk_hbool true
@@ -51,51 +46,15 @@ let guard_fo_of_transition (t : Abs.transition) : Core_syntax.historical Core_sy
       hexpr_of_expr guard |> Core_syntax.historical_of_history_free
       |> simplify_fo
 
-let infer_initial_product_state (node : 'phase Abs.node_ir) : Abs.product_state =
-  let candidates =
-    node.summaries
-    |> List.map (fun (pc : 'phase Abs.product_step_summary) ->
-           pc.identity.product_src)
-    |> List.filter (fun (st : Abs.product_state) ->
-           String.equal st.prog_state node.semantics.sem_init_state)
-    |> List.sort_uniq Stdlib.compare
-  in
-  match
-    List.find_opt
-      (fun (st : Abs.product_state) -> st.assume_state_index = 0 && st.guarantee_state_index = 0)
-      candidates
-  with
-  | Some st -> st
-  | None -> (
-      match candidates with
-      | st :: _ -> st
-      | [] ->
-          {
-            Abs.prog_state = node.semantics.sem_init_state;
-            assume_state_index = 0;
-            guarantee_state_index = 0;
-          })
-
-let flatten_bool op (f : Core_syntax.historical Core_syntax.hexpr) : Core_syntax.historical Core_syntax.hexpr list =
-  let rec loop acc h =
-    match h.hexpr with
-    | HBin (op', a, b) when op = op' -> loop (loop acc b) a
-    | _ -> h :: acc
-  in
-  List.rev (loop [] f)
-
-let contradictory_context (context : Core_syntax.historical Core_syntax.hexpr list) (candidate : Core_syntax.historical Core_syntax.hexpr) :
-    bool =
-  Fo_contradiction.contradictory_context context candidate
-
 let conjunction_obviously_false (f : Core_syntax.historical Core_syntax.hexpr) : bool =
   Fo_contradiction.conjunction_obviously_false f
 
-let edge_may_fire (pc : Core_syntax.historical Abs.product_step_summary) (case : Core_syntax.historical Abs.safe_product_case) : bool =
+let edge_may_fire (pc : Core_syntax.historical Abs.product_step_summary)
+    (case : Core_syntax.historical Abs.product_case) : bool =
   let guard =
     mk_hand
       (guard_fo_of_transition pc.identity.program_step)
-      (mk_hand pc.identity.assume_guard case.admissible_guard.logic)
+      (mk_hand pc.identity.assume_guard case.guarantee_guard.logic)
     |> simplify_fo
   in
   not (conjunction_obviously_false guard)
@@ -108,16 +67,16 @@ let collect_known_states (node : 'phase Abs.node_ir) :
     (fun (pc : 'phase Abs.product_step_summary) ->
       add pc.identity.product_src;
       List.iter
-        (fun (case : 'phase Abs.safe_product_case) -> add case.product_dst)
-        pc.safe_cases;
-      List.iter
-        (fun (case : 'phase Abs.unsafe_product_case) -> add case.product_dst)
-        pc.unsafe_cases)
+        (fun (case : 'phase Abs.product_case) -> add case.product_dst)
+        pc.product_cases)
     node.summaries;
   tbl
 
-let build_with_edge_may_fire ~edge_may_fire (node : 'phase Abs.node_ir) : t =
+let build_with_edge_may_fire ~edge_may_fire
+    ~(initial_state : Abs.product_state)
+    (node : 'phase Abs.node_ir) : t =
   let known_states = collect_known_states node in
+  Hashtbl.replace known_states initial_state ();
   let reachable = Hashtbl.create 32 in
   let mark st =
     if Hashtbl.mem reachable st then false
@@ -125,7 +84,7 @@ let build_with_edge_may_fire ~edge_may_fire (node : 'phase Abs.node_ir) : t =
       Hashtbl.replace reachable st ();
       true)
   in
-  ignore (mark (infer_initial_product_state node));
+  ignore (mark initial_state);
   let changed = ref true in
   while !changed do
     changed := false;
@@ -133,20 +92,22 @@ let build_with_edge_may_fire ~edge_may_fire (node : 'phase Abs.node_ir) : t =
       (fun (pc : 'phase Abs.product_step_summary) ->
         if Hashtbl.mem reachable pc.identity.product_src then
           List.iter
-            (fun (case : 'phase Abs.safe_product_case) ->
+            (fun (case : 'phase Abs.product_case) ->
               if edge_may_fire pc case && mark case.product_dst then changed := true)
-            pc.safe_cases)
+            pc.product_cases)
       node.summaries
   done;
   { reachable; known_states }
 
 let build ~(strategy : strategy)
+    ~(initial_state : Abs.product_state)
     ~(node : Core_syntax.historical Abs.node_ir) : t =
   match strategy with
   | Contradiction_closure ->
-      build_with_edge_may_fire ~edge_may_fire node
+      build_with_edge_may_fire ~edge_may_fire ~initial_state node
   | Trivial ->
       let known_states = collect_known_states node in
+      Hashtbl.replace known_states initial_state ();
       let reachable = Hashtbl.copy known_states in
       { reachable; known_states }
 
@@ -161,9 +122,9 @@ let entry_facts_of_product_state (t : t) (st : Abs.product_state) :
   else [ mk_hbool false ]
 
 let preservation_ensures (t : t) (pc : Core_syntax.historical Abs.product_step_summary) : Core_syntax.historical Core_syntax.hexpr list =
-  pc.safe_cases
-  |> List.filter_map (fun (case : Core_syntax.historical Abs.safe_product_case) ->
+  pc.product_cases
+  |> List.filter_map (fun (case : Core_syntax.historical Abs.product_case) ->
          let dst_reach = formula_of_product_state t case.product_dst in
          if is_htrue dst_reach then None
-         else Some (mk_himp case.admissible_guard.logic dst_reach |> simplify_fo))
+         else Some (mk_himp case.guarantee_guard.logic dst_reach |> simplify_fo))
   |> List.filter (fun f -> not (is_htrue f))

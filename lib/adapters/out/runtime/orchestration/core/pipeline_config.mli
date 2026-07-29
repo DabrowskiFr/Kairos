@@ -19,7 +19,7 @@ type proof_case_decomposition_strategy =
 type step_strategy =
   Kairos_verification_optimization.Proof_plan.step_strategy =
   | Preserve_individual
-  | Group_safe
+  | Group_steps
 
 type condition_strategy =
   Kairos_verification_optimization.Proof_plan.condition_strategy =

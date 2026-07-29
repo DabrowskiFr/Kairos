@@ -46,6 +46,33 @@ let rec required_depth_ltl = function
 let min_ticks_for_state min_ticks state =
   List.assoc_opt state min_ticks |> Option.join
 
+let min_ticks_by_indexed_graph ~state_count ~initial_state ~edges =
+  let distances = Array.make state_count None in
+  let outgoing = Hashtbl.create 16 in
+  List.iter
+    (fun (src, dst) ->
+      let previous =
+        Hashtbl.find_opt outgoing src |> Option.value ~default:[]
+      in
+      Hashtbl.replace outgoing src (dst :: previous))
+    edges;
+  let queue = Queue.create () in
+  distances.(initial_state) <- Some 0;
+  Queue.add initial_state queue;
+  while not (Queue.is_empty queue) do
+    let src = Queue.take queue in
+    let src_age = Option.get distances.(src) in
+    Hashtbl.find_opt outgoing src |> Option.value ~default:[]
+    |> List.iter (fun dst ->
+           let candidate = src_age + 1 in
+           match distances.(dst) with
+           | Some previous when previous <= candidate -> ()
+           | _ ->
+               distances.(dst) <- Some candidate;
+               Queue.add dst queue)
+  done;
+  distances
+
 let min_ticks_by_state (node : Verification_model.node_model) :
     (ident * int option) list =
   let distances : (ident, int) Hashtbl.t = Hashtbl.create 16 in

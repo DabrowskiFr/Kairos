@@ -41,20 +41,17 @@ type guard =
 [@@deriving yojson]
 
 type request = { protocol_version : int; atoms : atom list; formula : ltl } [@@deriving yojson]
-type state_kind = Accepting | Rejecting [@@deriving yojson]
 type edge = { source : int; guard : guard; target : int } [@@deriving yojson]
 
-type automaton = { initial_state : int; states : state_kind list; transitions : edge list }
+type partial_monitor = { initial_state : int; state_count : int; transitions : edge list }
 [@@deriving yojson]
 
-type response = { protocol_version : int; atoms : atom list; automaton : automaton }
+type response = { protocol_version : int; atoms : atom list; monitor : partial_monitor }
 [@@deriving yojson]
 
-let current_protocol_version = 1
+let current_protocol_version = 2
 let make_request ~atoms formula = { protocol_version = current_protocol_version; atoms; formula }
-
-let make_response ~atoms automaton =
-  { protocol_version = current_protocol_version; atoms; automaton }
+let make_response ~atoms monitor = { protocol_version = current_protocol_version; atoms; monitor }
 
 let rec atoms_of_ltl = function
   | True | False -> []
@@ -96,22 +93,23 @@ let validate_response (response : response) =
   | Error _ as error -> error
   | Ok () -> (
       let referenced =
-        List.concat_map (fun edge -> atoms_of_guard edge.guard) response.automaton.transitions
+        List.concat_map (fun edge -> atoms_of_guard edge.guard) response.monitor.transitions
         |> List.sort_uniq String.compare
       in
       match validate_atoms "automata response" response.atoms referenced with
       | Error _ as error -> error
       | Ok () -> (
-          let state_count = List.length response.automaton.states in
+          let monitor = response.monitor in
+          let state_count = monitor.state_count in
           let valid_index index = index >= 0 && index < state_count in
-          if state_count = 0 then Error "automata response contains no state"
-          else if response.automaton.initial_state <> 0 then
-            Error "automata response is not canonical: initial state must have index 0"
+          if state_count <= 0 then Error "automata response contains no state"
+          else if not (valid_index monitor.initial_state) then
+            Error "automata response contains an out-of-range initial state"
           else
             match
               List.find_opt
                 (fun edge -> not (valid_index edge.source && valid_index edge.target))
-                response.automaton.transitions
+                monitor.transitions
             with
             | None -> Ok ()
             | Some edge ->

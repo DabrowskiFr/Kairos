@@ -94,19 +94,14 @@ let flow_meta ?proof_optimizations
         ("require_automata_edges", string_of_int i.require_automata_edge_count);
         ("ensures_automata_states", string_of_int i.ensures_automata_state_count);
         ("ensures_automata_edges", string_of_int i.ensures_automata_edge_count);
-        ("product_edges_full", string_of_int i.product_edge_count_full);
-        ("product_edges_live", string_of_int i.product_edge_count_live);
-        ("product_states_full", string_of_int i.product_state_count_full);
-        ("product_states_live", string_of_int i.product_state_count_live);
+        ("product_edges", string_of_int i.product_edge_count);
+        ("product_states", string_of_int i.product_state_count);
       ] );
     ( "canonical_metrics",
       [
         ("canonical_summaries", string_of_int i.canonical_summary_count);
-        ("canonical_cases_safe", string_of_int i.canonical_case_safe_count);
-        ( "canonical_cases_bad_assumption",
-          string_of_int i.canonical_case_bad_assumption_count );
-        ( "canonical_cases_bad_guarantee",
-          string_of_int i.canonical_case_bad_guarantee_count );
+        ( "canonical_product_cases",
+          string_of_int i.canonical_product_case_count );
       ] );
   ]
   @ optimization_meta proof_optimizations

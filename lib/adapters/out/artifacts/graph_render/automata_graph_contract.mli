@@ -22,6 +22,7 @@ type automaton_kind = Assume | Guarantee
 
 val emit_automaton_dot :
   kind:automaton_kind ->
+  initial_state:int ->
   labels:string list ->
   grouped:Automaton_types.transition list ->
   string

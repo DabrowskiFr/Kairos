@@ -21,7 +21,7 @@
     This pass synthesizes a finite, conservative [true]/[false] candidate
     [R_p] for each live product state. The candidate is only a candidate:
     whenever [R_dst] is [false], the pass also injects preservation
-    obligations proving that every safe incoming edge to [dst] is impossible.
+    obligations proving that every incoming product edge to [dst] is impossible.
 
     The module never removes product edges. *)
 
@@ -35,6 +35,7 @@ type strategy =
 
 val build :
   strategy:strategy ->
+  initial_state:Ir.product_state ->
   node:Core_syntax.historical Ir.node_ir ->
   t
 
@@ -49,6 +50,6 @@ val entry_facts_of_product_state :
     empty when [R_p] is [true] and contains [false] when [R_p] is [false]. *)
 
 val preservation_ensures : t -> Core_syntax.historical Ir.product_step_summary -> Core_syntax.historical Core_syntax.hexpr list
-(** Preservation obligations for the safe destinations of one product summary.
+(** Preservation obligations for the destinations of one product summary.
     Only non-trivial obligations are returned. Their order and occurrences are
-    those of the safe cases; this reference pass performs no deduplication. *)
+    those of the product cases; this reference pass performs no deduplication. *)

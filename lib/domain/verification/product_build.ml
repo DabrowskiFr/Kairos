@@ -16,7 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 open Core_syntax
-open Pretty
 open Core_syntax_builders
 
 module PT = Product_types
@@ -27,10 +26,19 @@ let simplify_fo
     Core_syntax.historical Core_syntax.hexpr =
   Core_fo_simplifier.simplify f
 
-type automaton_view = {
-  states : ltl list;
-  transitions : Automaton_types.transition list;
-  bad_idx : int;
+type validated_monitor = {
+  monitor : Automaton_types.deterministic_partial_monitor;
+  outgoing : indexed_successor list array;
+}
+
+and indexed_successor = {
+  destination_state_index : int;
+  guard : Automaton_types.guard;
+}
+
+type validated_automata_spec = {
+  assume : validated_monitor;
+  guarantee : validated_monitor;
 }
 
 let fo_of_expr (e : expr) : Core_syntax.historical Core_syntax.hexpr =
@@ -50,130 +58,95 @@ let program_guard_fo
   | None -> mk_hbool true
   | Some g -> fo_of_expr g |> simplify_fo
 
-let first_false_idx (states : ltl list) : int =
-  let rec loop i = function
-    | [] -> -1
-    | LFalse :: _ -> i
-    | _ :: tl -> loop (i + 1) tl
+let validate_historical_guards ~role
+    (monitor : Automaton_types.deterministic_partial_monitor) =
+  let min_ticks =
+    Historical_initialization.min_ticks_by_indexed_graph
+      ~state_count:monitor.state_count
+      ~initial_state:monitor.initial_state
+      ~edges:
+        (List.map
+           (fun ((src, _guard, dst) : Automaton_types.transition) ->
+             (src, dst))
+           monitor.transitions)
   in
-  loop 0 states
-
-let bad_indices (states : ltl list) : int list =
-  states
-  |> List.mapi (fun i st -> (i, st))
-  |> List.filter_map (function i, LFalse -> Some i | _ -> None)
-
-let validate_transition_index ~role ~kind ~state_count idx =
-  if idx < 0 || idx >= state_count then
-    failwith
-      (Printf.sprintf
-         "%s automaton has an out-of-range transition %s index %d (state count: %d)"
-         role kind idx state_count)
-
-let validate_non_empty_states ~role (automaton : Automaton_types.automaton) =
-  if automaton.states = [] then
-    failwith
-      (Printf.sprintf
-         "%s automaton has no states; product exploration requires initial \
-          automaton state 0"
-         role)
-
-let validate_transition_indices ~role (automaton : Automaton_types.automaton) =
-  let state_count = List.length automaton.states in
   List.iter
-    (fun (src, _guard, dst) ->
-      validate_transition_index ~role ~kind:"source" ~state_count src;
-      validate_transition_index ~role ~kind:"destination" ~state_count dst)
-    automaton.transitions
-
-let validate_single_bad_state ~role (automaton : Automaton_types.automaton) =
-  match bad_indices automaton.states with
-  | [] | [ _ ] -> ()
-  | _ ->
-      failwith
-        (Printf.sprintf
-           "%s automaton has multiple bad states; expected at most one LFalse \
-            state"
-           role)
-
-let validate_initial_state_non_bad ~role
-    (automaton : Automaton_types.automaton) =
-  if List.mem 0 (bad_indices automaton.states) then
-    raise
-      (Failure
-         (Printf.sprintf
-            "%s automaton has a bad initial state; the corresponding contract \
-             formula has no satisfying trace"
-            role))
-
-let validate_bad_state_absorbing ~role
-    (automaton : Automaton_types.automaton) =
-  match bad_indices automaton.states with
-  | [ bad_idx ] ->
-      List.iter
-        (fun (src, _guard, dst) ->
-          if src = bad_idx && dst <> bad_idx then
+    (fun ((src, guard, dst) : Automaton_types.transition) ->
+      match min_ticks.(src) with
+      | None ->
+          (* An edge whose source is structurally unreachable is never
+             considered by the partial-monitor semantics. *)
+          ()
+      | Some available_depth ->
+          let required_depth =
+            Historical_initialization.required_depth_hexpr guard
+          in
+          if required_depth > available_depth then
             failwith
               (Printf.sprintf
-                 "%s automaton bad state %d must be absorbing, but has a \
-                  transition to %d"
-                 role bad_idx dst))
-        automaton.transitions
-  | [] | _ :: _ :: _ -> ()
+                 "%s monitor transition %d -> %d reads history at depth %d, \
+                  but its source state is reachable after only %d tick(s)"
+                 role src dst required_depth available_depth))
+    monitor.transitions
 
-let validate_assumption_guard_targets
-    (automaton : Automaton_types.automaton) =
-  let targets = Hashtbl.create 32 in
+let validate_monitor_structure ~role
+    (monitor : Automaton_types.deterministic_partial_monitor) =
+  let valid_index index =
+    index >= 0 && index < monitor.state_count
+  in
+  if monitor.state_count <= 0 then
+    invalid_arg
+      (Printf.sprintf "%s monitor contains no state" role)
+  else if not (valid_index monitor.initial_state) then
+    invalid_arg
+      (Printf.sprintf
+         "%s monitor initial state %d is outside [0,%d)" role
+         monitor.initial_state monitor.state_count)
+  else
+    match
+      List.find_opt
+        (fun (source, _guard, target) ->
+          not (valid_index source && valid_index target))
+        monitor.transitions
+    with
+    | None -> ()
+    | Some (source, _guard, target) ->
+        invalid_arg
+          (Printf.sprintf
+             "%s monitor transition %d -> %d references a state outside \
+              [0,%d)"
+             role source target monitor.state_count)
+
+let index_outgoing
+    (monitor : Automaton_types.deterministic_partial_monitor) =
+  let outgoing = Array.make monitor.state_count [] in
   List.iter
-    (fun (src, guard, dst) ->
-      let guard_key =
-        guard |> simplify_fo
-        |> Core_fo_simplifier.key_of_hexpr
-      in
-      let key = (src, guard_key) in
-      match Hashtbl.find_opt targets key with
-      | None -> Hashtbl.add targets key dst
-      | Some previous when previous = dst -> ()
-      | Some previous ->
-          failwith
-            (Printf.sprintf
-               "assumption automaton has same-guard transitions from state %d \
-                to both %d and %d; product summaries identify assumption edges \
-                by source and guard"
-               src previous dst))
-    automaton.transitions
+    (fun (source, guard, target) ->
+      outgoing.(source) <-
+        {
+          destination_state_index = target;
+          guard = automaton_guard_fo guard;
+        }
+        :: outgoing.(source))
+    monitor.transitions;
+  Array.map List.rev outgoing
+
+let validate_monitor ~role monitor =
+  validate_monitor_structure ~role monitor;
+  validate_historical_guards ~role monitor;
+  { monitor; outgoing = index_outgoing monitor }
 
 let validate_automata_spec
-    (build : Automaton_types.automata_spec) =
-  validate_non_empty_states ~role:"assumption" build.assume_automaton;
-  validate_non_empty_states ~role:"guarantee" build.guarantee_automaton;
-  validate_transition_indices ~role:"assumption" build.assume_automaton;
-  validate_transition_indices ~role:"guarantee" build.guarantee_automaton;
-  validate_single_bad_state ~role:"assumption" build.assume_automaton;
-  validate_single_bad_state ~role:"guarantee" build.guarantee_automaton;
-  validate_initial_state_non_bad ~role:"assumption" build.assume_automaton;
-  validate_initial_state_non_bad ~role:"guarantee" build.guarantee_automaton;
-  validate_bad_state_absorbing ~role:"assumption" build.assume_automaton;
-  validate_assumption_guard_targets build.assume_automaton
-
-let make_assume_view
-    (build : Automaton_types.automata_spec) :
-    automaton_view =
-  let automaton = build.assume_automaton in
+    (build : Automaton_types.automata_spec) : validated_automata_spec =
   {
-    states = automaton.states;
-    transitions = automaton.transitions;
-    bad_idx = first_false_idx automaton.states;
+    assume =
+      validate_monitor ~role:"assumption" build.assume_monitor;
+    guarantee =
+      validate_monitor ~role:"guarantee" build.guarantee_monitor;
   }
 
-let make_guarantee_view
-    (build : Automaton_types.automata_spec) :
-    automaton_view =
-  {
-    states = build.guarantee_automaton.states;
-    transitions = build.guarantee_automaton.transitions;
-    bad_idx = first_false_idx build.guarantee_automaton.states;
-  }
+let successors_at monitor source_state_index =
+  monitor.outgoing.(source_state_index)
 
 let node_outgoing
     (program_transitions : Vm.program_step list) :
@@ -186,46 +159,25 @@ let node_outgoing
     program_transitions;
   tbl
 
-let automaton_outgoing (view : automaton_view) : (int * Automaton_types.transition list) list =
-  let tbl = Hashtbl.create 16 in
-  List.iter
-    (fun (((src, _guard, _dst) as edge) : Automaton_types.transition) ->
-      let prev = Hashtbl.find_opt tbl src |> Option.value ~default:[] in
-      Hashtbl.replace tbl src (edge :: prev))
-    view.transitions;
-  Hashtbl.fold (fun src edges acc -> (src, edges) :: acc) tbl []
-
-let edges_from_outgoing outgoing idx =
-  List.assoc_opt idx outgoing |> Option.value ~default:[]
-
-let state_label i states =
-  match List.nth_opt states i with
-  | Some s -> string_of_ltl s
-  | None -> Printf.sprintf "<state %d?>" i
-
-let classify_step ~(assume_bad_idx : int) ~(guarantee_bad_idx : int) (dst : PT.product_state) :
-    PT.step_class =
-  if assume_bad_idx >= 0 && dst.assume_state = assume_bad_idx then PT.Bad_assumption
-  else if guarantee_bad_idx >= 0 && dst.guarantee_state = guarantee_bad_idx then PT.Bad_guarantee
-  else PT.Safe
-
-let analyze_node ~(build : Automaton_types.automata_spec)
+let analyze_node ~(build : validated_automata_spec)
     ~(node : Vm.node_model)
     ~(program_transitions : Vm.program_step list) :
     Temporal_automata.node_data =
-  validate_automata_spec build;
-  let assume = make_assume_view build in
-  let guarantee = make_guarantee_view build in
+  let assume = build.assume in
+  let guarantee = build.guarantee in
   let prog_outgoing = node_outgoing program_transitions in
-  let assume_outgoing = automaton_outgoing assume in
-  let guarantee_outgoing = automaton_outgoing guarantee in
   let initial_state =
-    { PT.prog_state = node.init_state; assume_state = 0; guarantee_state = 0 }
+    {
+      PT.prog_state = node.init_state;
+      assume_state_index = assume.monitor.initial_state;
+      guarantee_state_index = guarantee.monitor.initial_state;
+    }
   in
   let seen = Hashtbl.create 64 in
   let q = Queue.create () in
   let states_rev = ref [] in
   let steps_rev = ref [] in
+  let prefixes_rev = ref [] in
   let push_state st =
     if not (Hashtbl.mem seen st) then (
       Hashtbl.add seen st ();
@@ -236,29 +188,44 @@ let analyze_node ~(build : Automaton_types.automata_spec)
   while not (Queue.is_empty q) do
     let src = Queue.take q in
     let prog_edges = Hashtbl.find_opt prog_outgoing src.prog_state |> Option.value ~default:[] in
-    let assume_edges = edges_from_outgoing assume_outgoing src.assume_state in
-    let guarantee_edges = edges_from_outgoing guarantee_outgoing src.guarantee_state in
+    let assume_successors =
+      successors_at assume src.assume_state_index
+    in
     List.iter
       (fun (prog_transition : Vm.program_step) ->
         let prog_guard = program_guard_fo prog_transition in
         List.iter
-          (fun (((_assume_src, assume_guard_raw, assume_dst) as assume_edge) : Automaton_types.transition) ->
-            let assume_guard = automaton_guard_fo assume_guard_raw in
+          (fun
+            (assume_successor : indexed_successor)
+          ->
+            let assume_guard = assume_successor.guard in
+            prefixes_rev :=
+              {
+                PT.src;
+                assume_destination_state_index =
+                  assume_successor.destination_state_index;
+                prog_transition;
+                prog_guard;
+                assume_guard;
+              }
+              :: !prefixes_rev;
+            let guarantee_successors =
+              successors_at guarantee
+                src.guarantee_state_index
+            in
             List.iter
-              (fun (((_guarantee_src, guarantee_guard_raw, guarantee_dst) as guarantee_edge) :
-                     Automaton_types.transition) ->
-                let guarantee_guard =
-                  automaton_guard_fo guarantee_guard_raw
-                in
+              (fun
+                (guarantee_successor : indexed_successor)
+              ->
+                let guarantee_guard = guarantee_successor.guard in
                 let dst =
                   {
                     PT.prog_state = prog_transition.dst_state;
-                    assume_state = assume_dst;
-                    guarantee_state = guarantee_dst;
+                    assume_state_index =
+                      assume_successor.destination_state_index;
+                    guarantee_state_index =
+                      guarantee_successor.destination_state_index;
                   }
-                in
-                let step_class =
-                  classify_step ~assume_bad_idx:assume.bad_idx ~guarantee_bad_idx:guarantee.bad_idx dst
                 in
                 let step =
                   {
@@ -266,17 +233,14 @@ let analyze_node ~(build : Automaton_types.automata_spec)
                     dst;
                     prog_transition;
                     prog_guard;
-                    assume_edge;
                     assume_guard;
-                    guarantee_edge;
                     guarantee_guard;
-                    step_class;
                   }
                 in
                 steps_rev := step :: !steps_rev;
                 push_state dst)
-              guarantee_edges)
-          assume_edges)
+              guarantee_successors)
+          assume_successors)
       prog_edges
   done;
   {
@@ -285,11 +249,8 @@ let analyze_node ~(build : Automaton_types.automata_spec)
         PT.initial_state;
         states = List.sort_uniq PT.compare_state (List.rev !states_rev);
         steps = List.rev !steps_rev;
+        prefixes = List.rev !prefixes_rev;
       };
-    assume_bad_idx = assume.bad_idx;
-    guarantee_bad_idx = guarantee.bad_idx;
-    guarantee_state_labels = List.mapi (fun i _ -> state_label i guarantee.states) guarantee.states;
-    assume_state_labels = List.mapi (fun i _ -> state_label i assume.states) assume.states;
-    guarantee_grouped_edges = guarantee.transitions;
-    assume_grouped_edges = assume.transitions;
+    guarantee_monitor = build.guarantee.monitor;
+    assume_monitor = build.assume.monitor;
   }

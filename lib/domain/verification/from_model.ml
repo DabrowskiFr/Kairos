@@ -117,27 +117,40 @@ let validate_node_origin ~(model : Vm.node_model)
         else
           let destinations =
             List.map
-              (fun (case : 'phase Ir.safe_product_case) ->
+              (fun (case : 'phase Ir.product_case) ->
                 case.product_dst)
-              summary.safe_cases
-            @ List.map
-                (fun (case : 'phase Ir.unsafe_product_case) ->
-                  case.product_dst)
-                summary.unsafe_cases
+              summary.product_cases
           in
           if
-            List.for_all
-              (fun (destination : Ir.product_state) ->
-                String.equal destination.prog_state
-                  expected_transition.dst_state)
-              destinations
-          then Ok ()
-          else
+            not
+              (List.for_all
+                 (fun (destination : Ir.product_state) ->
+                   String.equal destination.prog_state
+                     expected_transition.dst_state)
+                 destinations)
+          then
             Error
               (Printf.sprintf
                  "IR node '%s' transition %d has an inconsistent product \
                   destination"
                  node.semantics.sem_nname step_uid)
+          else if
+            not
+              (List.for_all
+                 (fun (destination : Ir.product_state) ->
+                   destination.assume_state_index
+                   =
+                   summary.identity
+                     .assume_destination_state_index)
+                 destinations)
+          then
+            Error
+              (Printf.sprintf
+                 "IR node '%s' transition %d mixes distinct assumption \
+                  successors in one summary"
+                 node.semantics.sem_nname step_uid)
+          else
+            Ok ()
     in
     let rec validate_summaries = function
       | [] -> Ok ()
@@ -167,6 +180,7 @@ let build_node_analysis
         Error
           (Printf.sprintf "Missing automata build for IR node %s" node.node_name)
   in
+  let build = Product_build.validate_automata_spec build in
   Ok
     (Product_build.analyze_node ~build ~node
        ~program_transitions:node.steps)
@@ -174,16 +188,9 @@ let build_node_analysis
 let product_state_of_pt (st : PT.product_state) : Ir.product_state =
   {
     prog_state = st.prog_state;
-    assume_state_index = st.assume_state;
-    guarantee_state_index = st.guarantee_state;
+    assume_state_index = st.assume_state_index;
+    guarantee_state_index = st.guarantee_state_index;
   }
-
-let is_live_product_state ~(analysis : Temporal_automata.node_data) (st : PT.product_state) : bool =
-  st.assume_state <> analysis.assume_bad_idx && st.guarantee_state <> analysis.guarantee_bad_idx
-
-let is_relevant_product_step ~(analysis : Temporal_automata.node_data) (step : PT.product_step) : bool =
-  is_live_product_state ~analysis step.src
-  && (analysis.assume_bad_idx < 0 || step.dst.assume_state <> analysis.assume_bad_idx)
 
 let transition_indices (program_transitions : Vm.program_step list) :
     (Vm.program_step, int) Hashtbl.t =
@@ -195,50 +202,45 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
     ~(program_transitions : Vm.program_step list) :
     Core_syntax.historical Ir.product_step_summary list =
   let transition_indices = transition_indices program_transitions in
-  let groups = Hashtbl.create 32 in
-  let order = ref [] in
+  let steps_by_prefix = Hashtbl.create 32 in
   analysis.exploration.steps
   |> List.iter (fun (step : PT.product_step) ->
          match Hashtbl.find_opt transition_indices step.prog_transition with
          | None -> ()
          | Some step_uid ->
-             if is_relevant_product_step ~analysis step then (
-               let key = (step_uid, step.src, step.assume_edge) in
-               if not (Hashtbl.mem groups key) then order := key :: !order;
-               let previous =
-                 Hashtbl.find_opt groups key |> Option.value ~default:[]
-               in
-               Hashtbl.replace groups key ((step, step_uid) :: previous)));
-  List.rev !order
-  |> List.filter_map (fun key ->
-         match Hashtbl.find_opt groups key with
-         | None -> None
-         | Some grouped ->
-             let grouped = List.rev grouped in
-             let ((repr_step : PT.product_step), step_uid) = List.hd grouped in
-             let safe_cases =
-               grouped
-               |> List.filter_map (fun ((step : PT.product_step), _) ->
-                      match step.step_class with
-                      | PT.Safe ->
-                          Some
-                            ({
-                               product_dst = product_state_of_pt step.dst;
-                               admissible_guard = Ir_formula.make step.guarantee_guard;
-                             } : Core_syntax.historical Ir.safe_product_case)
-                      | PT.Bad_assumption | PT.Bad_guarantee -> None)
+             let key =
+               ( step_uid,
+                 step.src,
+                 step.dst.assume_state_index,
+                 step.assume_guard )
              in
-             let unsafe_cases =
-               grouped
-               |> List.filter_map (fun ((step : PT.product_step), _) ->
-                      match step.step_class with
-                      | PT.Bad_guarantee ->
-                          Some
-                            ({
-                               product_dst = product_state_of_pt step.dst;
-                               excluded_guard = Ir_formula.make step.guarantee_guard;
-                             } : Core_syntax.historical Ir.unsafe_product_case)
-                      | PT.Safe | PT.Bad_assumption -> None)
+             let previous =
+               Hashtbl.find_opt steps_by_prefix key
+               |> Option.value ~default:[]
+             in
+             Hashtbl.replace steps_by_prefix key (step :: previous));
+  analysis.exploration.prefixes
+  |> List.filter_map (fun (prefix : PT.product_prefix) ->
+         match
+           Hashtbl.find_opt transition_indices prefix.prog_transition
+         with
+         | None -> None
+         | Some step_uid ->
+             let key =
+               ( step_uid,
+                 prefix.src,
+                 prefix.assume_destination_state_index,
+                 prefix.assume_guard )
+             in
+             let product_cases =
+               Hashtbl.find_opt steps_by_prefix key
+               |> Option.value ~default:[] |> List.rev
+               |> List.map (fun (step : PT.product_step) ->
+                      ({
+                         product_dst = product_state_of_pt step.dst;
+                         guarantee_guard =
+                           Ir_formula.make step.guarantee_guard;
+                       } : Core_syntax.historical Ir.product_case))
              in
              Some
                ({
@@ -247,18 +249,19 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                     {
                       program_step =
                         transition_of_program_step
-                          repr_step.prog_transition;
-                      product_src = product_state_of_pt repr_step.src;
-                      assume_guard = repr_step.assume_guard;
+                          prefix.prog_transition;
+                      product_src = product_state_of_pt prefix.src;
+                      assume_destination_state_index =
+                        prefix.assume_destination_state_index;
+                      assume_guard = prefix.assume_guard;
                     };
                   propagation_requires = [];
                   requires = [];
                   ensures = [];
                   elaboration_checks =
                     List.map Ir_formula.make
-                      repr_step.prog_transition.elaboration_checks;
-                  safe_cases;
-                  unsafe_cases;
+                      prefix.prog_transition.elaboration_checks;
+                  product_cases;
                 }
                  : Core_syntax.historical Ir.product_step_summary))
 

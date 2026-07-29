@@ -177,12 +177,13 @@ type summary_lowering_shape = {
   trace : Ir.product_step_summary_trace;
   program_step : Ir.transition;
   product_src : Ir.product_state;
+  assume_destination_state_index :
+    Ir_shared_types.automaton_state_index;
   propagation_meta : Ir.formula_meta list;
   requires_meta : Ir.formula_meta list;
   ensures_meta : Ir.formula_meta list;
   elaboration_checks_meta : Ir.formula_meta list;
-  safe_cases : (Ir.product_state * Ir.formula_meta) list;
-  unsafe_cases : (Ir.product_state * Ir.formula_meta) list;
+  product_cases : (Ir.product_state * Ir.formula_meta) list;
 }
 
 type node_lowering_shape = {
@@ -206,22 +207,20 @@ let summary_lowering_shape :
     trace = summary.trace;
     program_step = summary.identity.program_step;
     product_src = summary.identity.product_src;
+    assume_destination_state_index =
+      summary.identity
+        .assume_destination_state_index;
     propagation_meta =
       formula_metadata summary.propagation_requires;
     requires_meta = formula_metadata summary.requires;
     ensures_meta = formula_metadata summary.ensures;
     elaboration_checks_meta =
       formula_metadata summary.elaboration_checks;
-    safe_cases =
+    product_cases =
       List.map
-        (fun (case : phase Ir.safe_product_case) ->
-          (case.product_dst, case.admissible_guard.meta))
-        summary.safe_cases;
-    unsafe_cases =
-      List.map
-        (fun (case : phase Ir.unsafe_product_case) ->
-          (case.product_dst, case.excluded_guard.meta))
-        summary.unsafe_cases;
+        (fun (case : phase Ir.product_case) ->
+          (case.product_dst, case.guarantee_guard.meta))
+        summary.product_cases;
   }
 
 let node_lowering_shape :
@@ -272,9 +271,20 @@ let build_reference_product
                proof_case_name
            with
            | Some proof_case ->
+               let initial = node.analysis.exploration.initial_state in
+               let initial_state : Ir.product_state =
+                 {
+                   prog_state = initial.prog_state;
+                   assume_state_index =
+                     initial.assume_state_index;
+                   guarantee_state_index =
+                     initial.guarantee_state_index;
+                 }
+               in
                let reachability =
                  Product_reachability.build
-                   ~strategy:reachability_strategy ~node:node.ir
+                   ~strategy:reachability_strategy ~initial_state
+                   ~node:node.ir
                in
                Ok
                  {
@@ -339,7 +349,19 @@ let build_instrumented_ir
           Product_invariant.of_reachability
             product_node.reachability;
           Product_invariant.of_characteristics
-            (Product_characteristics.build ~node);
+            (let initial =
+               product_node.analysis.exploration.initial_state
+             in
+             let initial_state : Ir.product_state =
+               {
+                 prog_state = initial.prog_state;
+                 assume_state_index =
+                   initial.assume_state_index;
+                 guarantee_state_index =
+                   initial.guarantee_state_index;
+               }
+             in
+             Product_characteristics.build ~initial_state ~node);
         ])
       product_nodes initial_nodes
   in

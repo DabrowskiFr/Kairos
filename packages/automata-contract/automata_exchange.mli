@@ -16,10 +16,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Versioned, tool-neutral contract for safety-automata producers.
+(** Versioned, tool-neutral contract for safety-monitor producers.
 
     Atomic propositions are opaque names. Neither requests nor responses contain source-language,
-    verification-kernel, or backend-specific values. *)
+    verification-kernel, or backend-specific values.
+
+    A response contains a deterministic partial transition system: guards
+    leading from one source to distinct targets must be mutually exclusive,
+    but they need not cover every valuation. Safety acceptance is deliberately
+    separate from the transition structure: a trace is accepted while the
+    monitor can follow every finite prefix. No rejecting state or completion
+    transition is part of this format. Determinism is a producer invariant,
+    not recomputed by consumers. *)
 
 type atom = string [@@deriving yojson]
 
@@ -46,18 +54,17 @@ type guard =
 [@@deriving yojson]
 
 type request = { protocol_version : int; atoms : atom list; formula : ltl } [@@deriving yojson]
-type state_kind = Accepting | Rejecting [@@deriving yojson]
 type edge = { source : int; guard : guard; target : int } [@@deriving yojson]
 
-type automaton = { initial_state : int; states : state_kind list; transitions : edge list }
+type partial_monitor = { initial_state : int; state_count : int; transitions : edge list }
 [@@deriving yojson]
 
-type response = { protocol_version : int; atoms : atom list; automaton : automaton }
+type response = { protocol_version : int; atoms : atom list; monitor : partial_monitor }
 [@@deriving yojson]
 
 val current_protocol_version : int
 val make_request : atoms:atom list -> ltl -> request
-val make_response : atoms:atom list -> automaton -> response
+val make_response : atoms:atom list -> partial_monitor -> response
 val validate_request : request -> (unit, string) result
 val validate_response : response -> (unit, string) result
 val atoms_of_ltl : ltl -> atom list

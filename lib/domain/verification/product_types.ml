@@ -18,40 +18,43 @@
 open Core_syntax
 type product_state = {
   prog_state : ident;
-  assume_state : int;
-  guarantee_state : int;
+  assume_state_index : int;
+  guarantee_state_index : int;
 }
-
-type step_class =
-  | Safe
-  | Bad_assumption
-  | Bad_guarantee
-
-type automaton_edge = Automaton_types.transition
 
 type product_step = {
   src : product_state;
   dst : product_state;
   prog_transition : Verification_model.program_step;
   prog_guard : Core_syntax.historical Core_syntax.hexpr;
-  assume_edge : automaton_edge;
   assume_guard : Core_syntax.historical Core_syntax.hexpr;
-  guarantee_edge : automaton_edge;
   guarantee_guard : Core_syntax.historical Core_syntax.hexpr;
-  step_class : step_class;
+}
+
+type product_prefix = {
+  src : product_state;
+  assume_destination_state_index : int;
+  prog_transition : Verification_model.program_step;
+  prog_guard : Core_syntax.historical Core_syntax.hexpr;
+  assume_guard : Core_syntax.historical Core_syntax.hexpr;
 }
 
 type exploration = {
   initial_state : product_state;
   states : product_state list;
   steps : product_step list;
+  prefixes : product_prefix list;
 }
 
 let compare_state a b =
   match String.compare a.prog_state b.prog_state with
   | 0 -> begin
-      match Int.compare a.assume_state b.assume_state with
-      | 0 -> Int.compare a.guarantee_state b.guarantee_state
+      match
+        Int.compare a.assume_state_index b.assume_state_index
+      with
+      | 0 ->
+          Int.compare a.guarantee_state_index
+            b.guarantee_state_index
       | c -> c
     end
   | c -> c

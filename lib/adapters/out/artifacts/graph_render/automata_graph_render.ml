@@ -30,31 +30,40 @@ let qualify_lines ~node_name text =
   |> List.map (fun line -> Printf.sprintf "[%s] %s" node_name line)
   |> String.concat "\n"
 
+let monitor_labels
+    (monitor : Automaton_types.deterministic_partial_monitor) =
+  List.init monitor.state_count string_of_int
+
 let render_ensures_automaton ~(node_name : ident)
     ~(analysis : Temporal_automata.node_data) : graph =
+  let monitor = analysis.guarantee_monitor in
+  let labels = monitor_labels monitor in
   let dot =
     Automata_graph_contract.emit_automaton_dot
       ~kind:Automata_graph_contract.Guarantee
-      ~labels:analysis.guarantee_state_labels
-      ~grouped:analysis.guarantee_grouped_edges
+      ~initial_state:monitor.initial_state ~labels
+      ~grouped:monitor.transitions
   in
   let labels =
-    Automata_graph_contract.render_automaton_text ~prefix:"G"
-      analysis.guarantee_state_labels analysis.guarantee_grouped_edges
+    Automata_graph_contract.render_automaton_text ~prefix:"qG"
+      labels monitor.transitions
     |> qualify_lines ~node_name
   in
   { dot; labels }
 
 let render_require_automaton ~(node_name : ident)
     ~(analysis : Temporal_automata.node_data) : graph =
+  let monitor = analysis.assume_monitor in
+  let labels = monitor_labels monitor in
   let dot =
     Automata_graph_contract.emit_automaton_dot
       ~kind:Automata_graph_contract.Assume
-      ~labels:analysis.assume_state_labels ~grouped:analysis.assume_grouped_edges
+      ~initial_state:monitor.initial_state ~labels
+      ~grouped:monitor.transitions
   in
   let labels =
-    Automata_graph_contract.render_automaton_text ~prefix:"A"
-      analysis.assume_state_labels analysis.assume_grouped_edges
+    Automata_graph_contract.render_automaton_text ~prefix:"qA"
+      labels monitor.transitions
     |> qualify_lines ~node_name
   in
   { dot; labels }

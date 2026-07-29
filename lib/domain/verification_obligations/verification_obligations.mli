@@ -38,7 +38,6 @@ type step_obligation = private {
 type condition = private
   | State_is of Core_syntax.ident
   | Formula of Core_syntax.history_free Ir.summary_formula
-  | Not_formula of Core_syntax.history_free Ir.summary_formula
 (** Atomic condition of an individual obligation. *)
 
 type conjunction = condition list
@@ -76,7 +75,7 @@ val entry_conditions : step_obligation -> conjunction
     order. *)
 
 val exit_conditions : step_obligation -> conjunction
-(** Negated exclusions followed by positive postconditions. *)
+(** Positive postconditions. *)
 
 val formula_occurrences :
   step_obligation ->
@@ -109,5 +108,7 @@ val build_program :
     then assembles them by source node without regrouping or reordering them.
 
     The supplied inputs must cover every case of [proof_cases] exactly once.
-    Foreign or duplicate provenance, incompatible temporal layouts, and empty
-    obligation families are rejected at this mandatory boundary. *)
+    Foreign or duplicate provenance and incompatible temporal layouts are
+    rejected at this mandatory boundary. An empty obligation family is valid:
+    it represents a proof case for which the assumption monitor has no
+    non-empty post-image. *)

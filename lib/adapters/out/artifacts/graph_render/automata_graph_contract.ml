@@ -21,9 +21,8 @@ open Automata_graph_format
 
 type automaton_kind = Assume | Guarantee
 
-let html_state_label ~state_prefix ~idx ~is_bad =
-  if is_bad then Printf.sprintf "<I>%s</I><SUB>bad</SUB>" state_prefix
-  else Printf.sprintf "<I>%s</I><SUB>%d</SUB>" state_prefix idx
+let html_state_label ~state_prefix ~idx =
+  Printf.sprintf "<I>%s</I><SUB>%d</SUB>" state_prefix idx
 
 let grouped_guard_rows grouped =
   let tbl = Hashtbl.create 16 in
@@ -60,19 +59,18 @@ let render_automaton_text ~prefix labels grouped =
     if guard_lines = [] then []
     else [ ""; prefix ^ " transition guards:" ] @ guard_lines)
 
-let prepare_automaton_graph ~kind ~labels ~grouped =
+let prepare_automaton_graph ~kind ~initial_state ~labels
+    ~grouped =
   let prefix, state_prefix, graph_name, node_fill, node_border, title_color,
       edge_color =
     match kind with
     | Assume ->
-        ("a", "A", "AssumeAutomaton", "#e8f3ea", "#2f6b3b", "#2f6b3b",
+        ("a", "qA", "AssumeAutomaton", "#e8f3ea", "#2f6b3b", "#2f6b3b",
          "#2f6b3b")
     | Guarantee ->
-        ("g", "G", "GuaranteeAutomaton", "#f6eadf", "#8b5a2b", "#8b5a2b",
+        ("g", "qG", "GuaranteeAutomaton", "#f6eadf", "#8b5a2b", "#8b5a2b",
          "#8b5a2b")
   in
-  let bad_fill = "#f6d7d7" in
-  let bad_border = "#a53030" in
   let guard_rows = grouped_guard_rows grouped in
   let alias_tbl = Hashtbl.create 16 in
   List.iter (fun (alias, formula) -> Hashtbl.replace alias_tbl formula alias)
@@ -82,19 +80,17 @@ let prepare_automaton_graph ~kind ~labels ~grouped =
   in
   let nodes =
     List.mapi
-      (fun i lbl ->
-        let is_bad = compact_display_string lbl = "false" in
+      (fun i _ ->
         let fill =
-          if is_bad then bad_fill else if i = 0 then "#d9e8ff" else node_fill
+          if i = initial_state then "#d9e8ff" else node_fill
         in
         let border =
-          if is_bad then bad_border
-          else if i = 0 then "#3f6fb5"
+          if i = initial_state then "#3f6fb5"
           else node_border
         in
         {
           node_id = Printf.sprintf "%s%d" prefix i;
-          node_label = `Html (html_state_label ~state_prefix ~idx:i ~is_bad);
+          node_label = `Html (html_state_label ~state_prefix ~idx:i);
           node_fill = fill;
           node_border = border;
           node_fontcolor = Some border;
@@ -105,16 +101,11 @@ let prepare_automaton_graph ~kind ~labels ~grouped =
     List.map
       (fun (src, guard, dst) ->
         let formula = pretty_plain_dot_formula guard in
-        let dst_is_bad =
-          match List.nth_opt labels dst with
-          | Some lbl -> compact_display_string lbl = "false"
-          | None -> false
-        in
         {
           edge_src = Printf.sprintf "%s%d" prefix src;
           edge_dst = Printf.sprintf "%s%d" prefix dst;
           edge_label = alias_of_guard formula;
-          edge_color = (if dst_is_bad then bad_border else edge_color);
+          edge_color;
           edge_style = "solid";
         })
       grouped
@@ -126,9 +117,9 @@ let prepare_automaton_graph ~kind ~labels ~grouped =
   in
   (graph_name, title_color, prefix, nodes, edges, guard_rows, anchor)
 
-let emit_automaton_dot ~kind ~labels ~grouped =
+let emit_automaton_dot ~kind ~initial_state ~labels ~grouped =
   let graph_name, title_color, prefix, nodes, edges, guard_rows, anchor =
-    prepare_automaton_graph ~kind ~labels ~grouped
+    prepare_automaton_graph ~kind ~initial_state ~labels ~grouped
   in
   let buf = Buffer.create 1024 in
   Buffer.add_string buf (Printf.sprintf "digraph %s {\n" graph_name);
