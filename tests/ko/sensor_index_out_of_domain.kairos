@@ -1,0 +1,20 @@
+// Scenario: a controller monitors exactly three temperature sensors, 0 through 2.
+// Fault: the transition reads sensor[3], outside the declared index domain.
+node sensor_index_out_of_domain(sensor[0..2]: int) returns (alarm: bool)
+contracts
+states
+  Init(init), Monitoring;
+transitions
+  Init:
+    to Monitoring {
+      alarm := false;
+    }
+  Monitoring:
+    to Monitoring {
+      if sensor[3] > 100 then
+        alarm := true;
+      else
+        alarm := false;
+      end;
+    }
+end

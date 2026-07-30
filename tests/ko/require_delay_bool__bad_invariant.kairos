@@ -1,3 +1,5 @@
+// BAD INVARIANT — the stored boolean sample is given the wrong polarity.
+// The program copies [u] without inversion, so the relation cannot be preserved.
 node require_delay_bool(u: int) returns (y: int)
 contracts
   requires: G (u = 0 or u = 1);
@@ -8,7 +10,7 @@ states
   Init(init), Run;
 invariants
   in Run:
-    0 = 1;
+    m = 1 - prev u;
 transitions
   Init:
     to Run {

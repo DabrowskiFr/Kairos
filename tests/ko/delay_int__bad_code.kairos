@@ -1,11 +1,6 @@
-(* BAD CODE — should be rejected by the verifier.
-   Difference from ok/delay_int.kairos:
-     Run -> Run sets  y := 0  instead of  y := z.
-   Why it must be rejected:
-     The Run-state invariant guarantees  z = prev x.  The output y must be set
-     to z to implement the one-cycle delay required by  X G(y = prev x).
-     With y := 0 the output never reflects the previous input, so the contract
-     fails as soon as x != 0. *)
+// BAD CODE — should be rejected by the verifier.
+// The Run step emits 0 instead of the stored previous input.
+// It therefore violates the one-cycle-delay guarantee.
 node delay_int(x: int) returns (y: int)
 contracts
   ensures: X ( G (y =  prev x) );
@@ -23,7 +18,7 @@ transitions
   }
   Run:
     to Run  {
-    y := 0; // BUG: should be  y := z  (z = prev x by Run invariant)
+    y := 0;
     z := x;
   }
 end

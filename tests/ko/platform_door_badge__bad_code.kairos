@@ -1,0 +1,45 @@
+// Fault: the authorized-opening branch keeps the platform door locked.
+// This is the only difference from ok/platform_door_badge.kairos.
+//
+// With a healthy controller, an opening request, and a valid badge, the
+// implementation assigns unlocked := false. The service guarantee requires
+// unlocked = true for exactly that admitted input, so verification must fail.
+// Scenario: platform door controlled by a badge reader.
+// When the controller is healthy, an opening request backed by a valid badge
+// unlocks the door. A controller fault makes the implementation fail closed.
+//
+// The health requirement is intentional: without it, the service guarantee
+// would also demand that a failed controller unlock the door. This case
+// therefore exercises the assumption and guarantee partial monitors together.
+node platform_door_badge(
+  controllerHealthy: bool, openRequest: bool, badgeValid: bool
+) returns (
+  unlocked: bool
+)
+contracts
+  requires: G(controllerHealthy = true);
+  ensures: G(unlocked = true => badgeValid = true);
+  ensures: G(
+    (openRequest = true and badgeValid = true) => unlocked = true);
+states
+  Control(init);
+transitions
+  Control:
+    to Control when
+      controllerHealthy = true and
+      openRequest = true and
+      badgeValid = true
+    {
+      unlocked := false;
+    }
+    to Control when
+      controllerHealthy = true and
+      (openRequest = false or badgeValid = false)
+    {
+      unlocked := false;
+    }
+    to Control {
+      // This branch is reachable only when the controller is faulty.
+      unlocked := false;
+    }
+end

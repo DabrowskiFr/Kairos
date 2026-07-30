@@ -1,3 +1,5 @@
+// BAD INVARIANT — Green is assigned the encoding reserved for Yellow.
+// Entering Green sets color to 0, so the mistaken color = 1 is rejected.
 node traffic3() returns (color: int)
 contracts
   ensures: G( color = 0 => X( color = 1 ) );
@@ -8,7 +10,7 @@ states
   Init(init), Green, Yellow, Red;
 invariants
   in Green:
-    0 = 1;
+    color = 1;
   in Yellow:
     color = 1;
   in Red:

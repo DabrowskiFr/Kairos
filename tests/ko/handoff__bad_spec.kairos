@@ -1,6 +1,10 @@
+// BAD SPECIFICATION — the next owner is required to remain disabled.
+// After mode A is active, the handoff deliberately enables mode B.
 node handoff() returns (modeA: int, modeB: int)
 contracts
   ensures: G( {modeA} = {1} => X( {modeB} = {0} ) );
+  ensures: G( {modeB} = {1} => X( {modeA} = {1} ) );
+  ensures: G (G ( {modeA} = {1} => X( {modeB} = {1} ) ));
 states
   Init(init), A, B;
 invariants

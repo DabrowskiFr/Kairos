@@ -119,6 +119,7 @@ and expand_action env stack name args =
       @ List.map assertion (instantiate action.action_ensures)
 
 let validate_unique_named_decls = Validation.validate_unique_named_decls
+let validate_control_graph = Validation.validate_control_graph
 let validate_observers = Validation.validate_observers
 let validate_action_contracts = Validation.validate_action_contracts
 let validate_history_def_decl = Validation.validate_history_def_decl
@@ -213,6 +214,7 @@ let node_env base_env (n : S.node) =
   }
 
 let lower_node base_env (n : S.node) : Kx_ast.node =
+  validate_control_graph n;
   let env = node_env base_env n in
   validate_observers n;
   validate_action_contracts n;

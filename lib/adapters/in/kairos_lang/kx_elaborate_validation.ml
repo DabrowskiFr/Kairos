@@ -31,6 +31,31 @@ let validate_unique_named_decls kind get_name decls =
       | None -> Hashtbl.add seen name ())
     decls
 
+let validate_control_graph (n : S.node) =
+  let declared_states = Hashtbl.create 16 in
+  List.iter
+    (fun state ->
+      match Hashtbl.find_opt declared_states state with
+      | Some () ->
+          Kx_frontend_error.well_formedness
+            (Printf.sprintf "duplicate control state '%s' in node '%s'" state
+               n.node_name)
+      | None -> Hashtbl.add declared_states state ())
+    n.state_decls.states;
+  List.iter
+    (fun (transition : S.transition) ->
+      if not (Hashtbl.mem declared_states transition.src) then
+        Kx_frontend_error.well_formedness
+          (Printf.sprintf
+             "transition %s -> %s in node '%s' has undeclared source state '%s'"
+             transition.src transition.dst n.node_name transition.src);
+      if not (Hashtbl.mem declared_states transition.dst) then
+        Kx_frontend_error.well_formedness
+          (Printf.sprintf
+             "transition %s -> %s in node '%s' has undeclared destination state '%s'"
+             transition.src transition.dst n.node_name transition.dst))
+    n.transitions
+
 let indexed_ref_name = Names.indexed_ref_name
 
 let is_scalar_ref_named name (r : S.indexed_ref) =

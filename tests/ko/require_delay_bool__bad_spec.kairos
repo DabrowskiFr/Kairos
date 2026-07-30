@@ -1,3 +1,5 @@
+// BAD SPECIFICATION — the one-cycle delay is accidentally omitted.
+// In Run, y is the preceding input sample rather than the current one.
 node require_delay_bool(u: int) returns (y: int)
 contracts
   requires: G (u = 0 or u = 1);

@@ -1,8 +1,11 @@
+// BAD SPECIFICATION — the account policy mistakenly forbids a zero balance.
+// A reset legitimately produces bal = 0, so strict positivity is too strong.
 node credit_balance_monitor(reset: int, credit: int, debit: int) returns (bal: int)
 contracts
   requires: G((reset = 0 or reset = 1) and (credit >= 0) and (debit >= 0));
   requires: G((reset = 1) => (credit = 0 and debit = 0));
-  ensures: G((reset = 1) => (bal = 1));
+  ensures: G((reset = 1) => (bal = 0));
+  ensures: G(bal > 0);
 locals
   m : int;
 states
@@ -20,6 +23,10 @@ transitions
     to Run when reset = 0 and debit <= credit {
       bal := credit - debit;
       m := credit - debit;
+    }
+    to Run when reset = 0 and debit > credit {
+      bal := 0;
+      m := 0;
     }
   Run:
     to Run when reset = 1 {

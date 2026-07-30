@@ -1,0 +1,38 @@
+// Fault: the controller-health assumption has been omitted.
+// This is the only difference from ok/platform_door_badge.kairos.
+//
+// The implementation deliberately fails closed when the controller is faulty.
+// Without the health assumption, a faulty controller receiving an opening
+// request with a valid badge is nevertheless subject to the service guarantee,
+// which incorrectly requires the door to unlock. Verification must fail.
+node platform_door_badge(
+  controllerHealthy: bool, openRequest: bool, badgeValid: bool
+) returns (
+  unlocked: bool
+)
+contracts
+  ensures: G(unlocked = true => badgeValid = true);
+  ensures: G(
+    (openRequest = true and badgeValid = true) => unlocked = true);
+states
+  Control(init);
+transitions
+  Control:
+    to Control when
+      controllerHealthy = true and
+      openRequest = true and
+      badgeValid = true
+    {
+      unlocked := true;
+    }
+    to Control when
+      controllerHealthy = true and
+      (openRequest = false or badgeValid = false)
+    {
+      unlocked := false;
+    }
+    to Control {
+      // This branch is reachable only when the controller is faulty.
+      unlocked := false;
+    }
+end

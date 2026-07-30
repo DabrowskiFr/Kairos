@@ -1,0 +1,39 @@
+// Scenario: platform door controlled by a badge reader.
+// When the controller is healthy, an opening request backed by a valid badge
+// unlocks the door. A controller fault makes the implementation fail closed.
+//
+// The health requirement is intentional: without it, the service guarantee
+// would also demand that a failed controller unlock the door. This case
+// therefore exercises the assumption and guarantee partial monitors together.
+node platform_door_badge(
+  controllerHealthy: bool, openRequest: bool, badgeValid: bool
+) returns (
+  unlocked: bool
+)
+contracts
+  requires: G(controllerHealthy = true);
+  ensures: G(unlocked = true => badgeValid = true);
+  ensures: G(
+    (openRequest = true and badgeValid = true) => unlocked = true);
+states
+  Control(init);
+transitions
+  Control:
+    to Control when
+      controllerHealthy = true and
+      openRequest = true and
+      badgeValid = true
+    {
+      unlocked := true;
+    }
+    to Control when
+      controllerHealthy = true and
+      (openRequest = false or badgeValid = false)
+    {
+      unlocked := false;
+    }
+    to Control {
+      // This branch is reachable only when the controller is faulty.
+      unlocked := false;
+    }
+end

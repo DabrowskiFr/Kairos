@@ -1,3 +1,5 @@
+// BAD INVARIANT — Run is incorrectly assumed to keep the output low.
+// The normal toggle step changes y from 0 to 1, invalidating y = 0.
 node toggle() returns (y: int)
 contracts
   ensures: y = 0;
@@ -6,8 +8,8 @@ contracts
 states
   Init(init), Run;
 invariants
-  in Init:
-    0 = 1;
+  in Run:
+    y = 0;
 transitions
   Init:
     to Run  {

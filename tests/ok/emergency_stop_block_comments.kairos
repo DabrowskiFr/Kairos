@@ -1,0 +1,24 @@
+(* Scenario: a machine enters a permanent stopped state when its emergency
+   input is raised.
+
+   This source also checks that Kairos accepts block comments across several
+   lines. (* A nested comment must not terminate the outer comment. *) *)
+node emergency_stop_block_comments(emergency: bool) returns (stopped: bool)
+contracts
+  ensures: G(emergency = true => stopped = true);
+states
+  Running(init), Stopped;
+transitions
+  Running:
+    (* The emergency transition has priority over the fallback transition. *)
+    to Stopped when emergency = true {
+      stopped := true;
+    }
+    to Running {
+      stopped := false;
+    }
+  Stopped:
+    to Stopped {
+      stopped := true;
+    }
+end

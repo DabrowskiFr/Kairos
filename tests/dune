@@ -13,6 +13,8 @@
   ../scripts/check_architecture_fitness.py
   ../scripts/check_package_boundaries.sh
   ../scripts/check_why_backend_guardrail.py
+  ../scripts/validate_ok_ko.sh
+  ../scripts/validate_performance.sh
   check_c_codegen.sh
   check_elaboration_frontier.sh
   check_reference_stability.sh
@@ -20,38 +22,9 @@
   frontend/spec_past_formula_frontier.kairos
   ../examples/medical_infusion_light.kairos
   ../examples/evaluation/case_studies/medical_infusion_controller.kairos
-  ok/action_contract_inline.kairos
-  ok/explicit_single_route_safety.kairos
-  ok/enum_quantified_predicate.kairos
-  ok/history_observers.kairos
-  ok/history_observers_concise.kairos
-  ok/history_self_pre_k.kairos
-  ok/history_spec_expressions.kairos
-  ok/if_without_else.kairos
-  ok/multiple_assignment_sugar.kairos
-  ok/named_action_inline.kairos
-  ok/pure_function_bool_enum.kairos
-  ok/public_observer_contract.kairos
-  ok/reactive_alarm_cover.kairos
-  ok/resettable_delay.kairos
-  ok/spec_definition_past.kairos
-  ok/state_selector_invariants.kairos
-  ok/toggle.kairos
-  ok/w_bundle_prev_window.kairos
-  ok/while_counter.kairos
-  ko/assign_input.kairos
-  ko/internal_prefix_reserved.kairos
-  ko/concise_observer_bad_pre.kairos
-  ko/multiple_assignment_arity.kairos
-  ko/multiple_assignment_rhs_depends.kairos
-  ko/observer_drives_output.kairos
-  ko/node_requires_output.kairos
-  ko/private_ghost_contract.kairos
-  ko/state_invariant_current_input.kairos
-  ko/uninitialized_pre_contract.kairos
-  ko/uninitialized_pre_k_invariant.kairos
-  ko/unknown_history_definition.kairos
-  ko/unknown_predicate_fallback.kairos)
+  (glob_files ok/*.kairos)
+  (glob_files ko/*.kairos)
+  ko/expectations.tsv)
  (action
   (progn
    (run python3 ../scripts/check_architecture_fitness.py)
@@ -61,7 +34,121 @@
    (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe})
    (run
     bash
+    ../scripts/validate_ok_ko.sh
+    --repo-root
+    %{workspace_root}
+    --cli
+    %{exe:../bin/cli/kairos.exe}
+    --frontend-only
+    --jobs
+    8
+    --timeout-file
+    10)
+   (run
+    bash
     ./check_vstte_medical_examples.sh
     %{exe:../bin/cli/kairos.exe}
     ../examples/medical_infusion_light.kairos
     ../examples/evaluation/case_studies/medical_infusion_controller.kairos))))
+
+(rule
+ (alias proof-regression)
+ (deps
+  ../scripts/validate_ok_ko.sh
+  (glob_files ok/*.kairos)
+  (glob_files ko/*.kairos)
+  ko/expectations.tsv
+  ../examples/evaluation/case_studies/medical_infusion_controller.kairos
+  %{exe:../bin/cli/kairos.exe})
+ (action
+  (progn
+   (run
+    bash
+    ../scripts/validate_ok_ko.sh
+    --repo-root
+    %{workspace_root}
+    --cli
+    %{exe:../bin/cli/kairos.exe}
+    --jobs
+    4
+    --timeout-goal
+    5
+    --timeout-negative-goal
+    1
+    --timeout-file
+    30)
+   (run
+    bash
+    ../scripts/validate_ok_ko.sh
+    --repo-root
+    %{workspace_root}
+    --cli
+    %{exe:../bin/cli/kairos.exe}
+    --single-ok
+    ../examples/evaluation/case_studies/medical_infusion_controller.kairos
+    --timeout-goal
+    30
+    --timeout-file
+    120))))
+
+(rule
+ (alias performance-regression)
+ (deps
+  ../scripts/validate_performance.sh
+  (glob_files ok/*.kairos)
+  ../examples/medical_infusion_light.kairos
+  ../examples/railway_interlocking.kairos
+  %{exe:../bin/cli/kairos.exe})
+ (action
+  (run
+   bash
+   ../scripts/validate_performance.sh
+   --repo-root
+   %{workspace_root}
+   --cli
+   %{exe:../bin/cli/kairos.exe}
+   --skip-build)))
+
+(rule
+ (alias strategy-regression)
+ (deps
+  ../scripts/validate_performance.sh
+  ok/toggle.kairos
+  ok/resettable_delay.kairos
+  ok/platform_door_badge.kairos
+  ok/independent_alarm_acknowledgement.kairos
+  ../examples/medical_infusion_light.kairos
+  %{exe:../bin/cli/kairos.exe})
+ (action
+  (run
+   bash
+   ../scripts/validate_performance.sh
+   --repo-root
+   %{workspace_root}
+   --cli
+   %{exe:../bin/cli/kairos.exe}
+   --strategy-matrix
+   --skip-build)))
+
+(rule
+ (alias performance-full-regression)
+ (deps
+  ../scripts/validate_performance.sh
+  ../examples/evaluation/case_studies/medical_infusion_controller.kairos
+  %{exe:../bin/cli/kairos.exe})
+ (action
+  (setenv
+   KAIROS_PERFORMANCE_TIMEOUT_S
+   30
+   (run
+    bash
+    ../scripts/validate_performance.sh
+    --repo-root
+    %{workspace_root}
+    --cli
+    %{exe:../bin/cli/kairos.exe}
+    --case
+    medical-full
+    --runs
+    3
+    --skip-build))))

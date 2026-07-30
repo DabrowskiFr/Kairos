@@ -1,0 +1,31 @@
+// A platform gate can move only from one of its declared physical positions.
+// Fault: Closing is used as a transition source but is not a declared state.
+node platform_gate_unknown_source(request_open: bool) returns (gate_open: bool)
+contracts
+  ensures: G (gate_open = true => request_open = true);
+states
+  Init(init), Closed, Open;
+transitions
+  Init:
+    to Closed {
+      gate_open := false;
+    }
+  Closed:
+    to Open when request_open = true {
+      gate_open := true;
+    }
+    to Closed {
+      gate_open := false;
+    }
+  Open:
+    to Closed when request_open = false {
+      gate_open := false;
+    }
+    to Open {
+      gate_open := true;
+    }
+  Closing:
+    to Closed {
+      gate_open := false;
+    }
+end

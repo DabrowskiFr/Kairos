@@ -1,0 +1,26 @@
+// Single business fault: acknowledging channel A also clears channel B,
+// although channel B has not received its own acknowledgement.
+// Scenario: two independent alarm channels latch a fault until their own
+// acknowledgement. Acknowledging one channel must not affect the other.
+node independent_alarm_acknowledgement(
+  faultA: bool, faultB: bool, ackA: bool, ackB: bool
+) returns (
+  alarmA: bool, alarmB: bool
+)
+contracts
+  ensures: G(faultA = true => X((alarmA = true) W (ackA = true)));
+  ensures: G(faultB = true => X((alarmB = true) W (ackB = true)));
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      alarmA := faultA;
+      alarmB := faultB;
+    }
+  Run:
+    to Run {
+      alarmA := faultA or (alarmA and not ackA);
+      alarmB := faultB or (alarmB and not (ackA or ackB));
+    }
+end

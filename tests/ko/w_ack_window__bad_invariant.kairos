@@ -1,3 +1,5 @@
+// BAD INVARIANT — Run is incorrectly assumed to keep acknowledgement asserted.
+// A request-free step sets ack to 0, contradicting the claimed ack = 1.
 node w_ack_window(req: int) returns (ack: int)
 contracts
   requires: G(req = 0 or req = 1);
@@ -5,8 +7,8 @@ contracts
 states
   Init(init), Run;
 invariants
-  in Init:
-    0 = 1;
+  in Run:
+    ack = 1;
 transitions
   Init:
     to Run {

@@ -1,3 +1,5 @@
+// BAD INVARIANT — the stored previous sample is claimed to have an offset.
+// The transition assigns [s := x] exactly, so induction must reject the offset.
 node edge_rise(x: int) returns (y: int)
 contracts
   ensures:  G ( {y} = {1} => {x} = {1} );
@@ -9,7 +11,7 @@ states
   Init(init), Run;
 invariants
   in Run:
-    0 = 1;
+    s = pre(x) + 1;
 transitions
   Init:
     to Run  {

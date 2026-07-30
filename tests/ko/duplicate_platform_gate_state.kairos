@@ -1,0 +1,27 @@
+// A platform gate has one control state for each physical position.
+// Fault: Closed is declared twice, so the controller state is ambiguous.
+node platform_gate_duplicate_state(request_open: bool) returns (gate_open: bool)
+contracts
+  ensures: G (gate_open = true => request_open = true);
+states
+  Init(init), Closed, Open, Closed;
+transitions
+  Init:
+    to Closed {
+      gate_open := false;
+    }
+  Closed:
+    to Open when request_open = true {
+      gate_open := true;
+    }
+    to Closed {
+      gate_open := false;
+    }
+  Open:
+    to Closed when request_open = false {
+      gate_open := false;
+    }
+    to Open {
+      gate_open := true;
+    }
+end

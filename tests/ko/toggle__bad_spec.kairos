@@ -1,6 +1,10 @@
+// BAD SPECIFICATION — the initial phase of the alternating signal is reversed.
+// Initialization emits y = 0, not y = 1.
 node toggle() returns (y: int)
 contracts
   ensures: y = 1;
+  ensures: G ( y = 0 => X ( y = 1 ) );
+  ensures: G ( y = 1 => X ( y = 0 ) );
 states
   Init(init), Run;
 transitions

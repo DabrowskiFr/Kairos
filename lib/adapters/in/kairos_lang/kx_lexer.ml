@@ -283,7 +283,7 @@ let rec token lexbuf =
       ignore (set_lexeme lexbuf);
       token lexbuf
   | "(*" ->
-      comment lexbuf;
+      comment 1 lexbuf;
       token lexbuf
   | ":=" -> tok lexbuf ASSIGN
   | "->" -> tok lexbuf ARROW
@@ -326,8 +326,14 @@ let rec token lexbuf =
       let s = set_lexeme lexbuf in
       raise (Lexing_error (Printf.sprintf "Unexpected char: %s" s))
 
-and comment lexbuf =
+and comment depth lexbuf =
   match%sedlex lexbuf with
-  | "*)" -> ()
+  | "(*" -> comment (depth + 1) lexbuf
+  | "*)" ->
+      if depth = 1 then () else comment (depth - 1) lexbuf
   | eof -> raise (Lexing_error "Unterminated comment")
-  | _ -> comment lexbuf
+  | '\n' ->
+      Sedlexing.new_line lexbuf;
+      comment depth lexbuf
+  | any -> comment depth lexbuf
+  | _ -> raise (Lexing_error "Invalid comment")

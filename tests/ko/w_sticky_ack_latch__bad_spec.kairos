@@ -1,7 +1,9 @@
+// BAD SPECIFICATION — the latched acknowledgement has reversed polarity.
+// Once armed, the implementation holds ack = 1 until drop is asserted.
 node w_sticky_ack_latch(arm: int, drop: int) returns (ack: int)
 contracts
   requires: G((arm = 0 or arm = 1) and (drop = 0 or drop = 1));
-  ensures: next always ((arm = 1) => ((ack = 2) W (drop = 1)));
+  ensures: next always ((arm = 1) => ((ack = 0) W (drop = 1)));
 states
   Init(init), Idle, Latched;
 invariants

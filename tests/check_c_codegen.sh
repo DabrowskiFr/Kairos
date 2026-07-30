@@ -71,4 +71,78 @@ if ! diff -u "$expected" "$toggle_dir/out.txt"; then
   exit 1
 fi
 
-echo "[c-codegen] OK: generated C compiles and preserves stateful outputs"
+alarm_dir="$tmpdir/reactive_alarm"
+"$cli" --emit-c="$alarm_dir" "$test_root/ok/reactive_alarm_cover.kairos"
+cat > "$alarm_dir/harness.c" <<'EOF'
+#include "kairos_generated.h"
+#include <stdio.h>
+
+static void print_step(
+    const reactive_alarm_cover_state_t *state,
+    reactive_alarm_cover_control_state_t expected_state,
+    bool motor_on,
+    bool alarm_latched) {
+  printf("%d %d %d\n",
+         state->control_state == expected_state,
+         motor_on,
+         alarm_latched);
+}
+
+int main(void) {
+  reactive_alarm_cover_state_t state;
+  bool motor_on = false;
+  bool alarm_latched = false;
+
+  reactive_alarm_cover_init(&state);
+
+  /* Hazard and start arrive together: the safety transition has priority. */
+  reactive_alarm_cover_step(
+      &state, true, false, true, false, &motor_on, &alarm_latched);
+  print_step(
+      &state,
+      KAIROS_REACTIVE_ALARM_COVER_STATE_ALARMPENDING,
+      motor_on,
+      alarm_latched);
+
+  reactive_alarm_cover_step(
+      &state, false, false, false, false, &motor_on, &alarm_latched);
+  print_step(
+      &state,
+      KAIROS_REACTIVE_ALARM_COVER_STATE_ALARM,
+      motor_on,
+      alarm_latched);
+
+  reactive_alarm_cover_step(
+      &state, false, false, false, true, &motor_on, &alarm_latched);
+  print_step(
+      &state,
+      KAIROS_REACTIVE_ALARM_COVER_STATE_IDLE,
+      motor_on,
+      alarm_latched);
+
+  reactive_alarm_cover_step(
+      &state, false, false, true, false, &motor_on, &alarm_latched);
+  print_step(
+      &state,
+      KAIROS_REACTIVE_ALARM_COVER_STATE_RUN,
+      motor_on,
+      alarm_latched);
+
+  return 0;
+}
+EOF
+
+cc -std=c99 -Wall -Wextra -pedantic -Werror \
+  "$alarm_dir/kairos_generated.c" "$alarm_dir/harness.c" \
+  -o "$alarm_dir/harness"
+
+"$alarm_dir/harness" > "$alarm_dir/out.txt"
+alarm_expected="$tmpdir/reactive_alarm.expected"
+printf "1 0 1\n1 0 1\n1 0 0\n1 1 0\n" > "$alarm_expected"
+
+if ! diff -u "$alarm_expected" "$alarm_dir/out.txt"; then
+  echo "Generated C alarm runtime did not preserve transition priority" >&2
+  exit 1
+fi
+
+echo "[c-codegen] OK: generated C preserves state and safety priority"

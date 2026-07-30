@@ -1,3 +1,5 @@
+// BAD INVARIANT — the second register is mistaken for a one-cycle delay.
+// It receives the old [s1], hence represents [prev2 x], so induction fails.
 node delay_int2(x: int) returns (y: int)
 contracts
   ensures: next next always ( y = prev2 x );
@@ -7,10 +9,10 @@ states
   Init1(init), Init2, Run;
 invariants
   in Init2:
-    0 = 1;
+    s1 = prev x;
   in Run:
     s1 = prev x;
-    s2 = prev2 x;
+    s2 = prev x;
 transitions
   Init1:
     to Init2 {

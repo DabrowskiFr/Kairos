@@ -1,3 +1,5 @@
+// BAD INVARIANT — Hold is incorrectly described with an asserted output.
+// All entries into Hold assign y to 0, contradicting the claimed y = 1.
 node w_guarded_prev_hold(gate: int, x: int) returns (y: int)
 contracts
   requires: G(gate = 0 or gate = 1);
@@ -8,7 +10,7 @@ states
   Init(init), Wait, Hold;
 invariants
   in Hold:
-    0 = 1;
+    y = 1;
 transitions
   Init:
     to Hold when gate = 1 {

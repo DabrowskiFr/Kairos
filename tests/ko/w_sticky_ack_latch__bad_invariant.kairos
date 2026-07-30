@@ -1,3 +1,5 @@
+// BAD INVARIANT — Idle is incorrectly described as acknowledged.
+// Every transition to Idle clears ack, so the claimed ack = 1 cannot hold.
 node w_sticky_ack_latch(arm: int, drop: int) returns (ack: int)
 contracts
   requires: G((arm = 0 or arm = 1) and (drop = 0 or drop = 1));
@@ -6,7 +8,7 @@ states
   Init(init), Idle, Latched;
 invariants
   in Idle:
-    0 = 1;
+    ack = 1;
   in Latched:
     ack = 1;
 transitions

@@ -1,0 +1,22 @@
+// Scenario: a maintenance note is appended after a valid emergency controller.
+// Fault: the block comment is truncated before its closing delimiter.
+node unterminated_block_comment(emergency: bool) returns (stopped: bool)
+contracts
+  ensures: G(emergency = true => stopped = true);
+states
+  Running(init), Stopped;
+transitions
+  Running:
+    to Stopped when emergency = true {
+      stopped := true;
+    }
+    to Running {
+      stopped := false;
+    }
+  Stopped:
+    to Stopped {
+      stopped := true;
+    }
+end
+
+(* Maintenance note: verify the emergency sensor before restart.

@@ -1,11 +1,23 @@
-# Generated `ko` suite
+# Negative regression cases
 
-For each file in `tests/ok/inputs`, this directory contains three negative variants:
+Each file describes one understandable programming or specification mistake.
+When an `OK` counterpart exists, the negative file changes exactly one
+semantic element: the implementation, an invariant, or a contract.
 
-- `__bad_spec`: wrong global specification
-- `__bad_invariant`: wrong user invariant
-- `__bad_code`: wrong program code
+[`expectations.tsv`](expectations.tsv) records the boundary at which every
+case must be rejected:
 
-`__bad_code` variants are intentionally still executable and well-formed:
-they rewrite output-producing code on an active path into type-correct but
-semantically wrong updates, preferring non-init transitions when available.
+- `frontend`: parsing, elaboration, typing, ownership, or initialization;
+- `pipeline`: a scientific pipeline constraint checked after elaboration;
+- `proof`: a well-formed program whose generated obligations are not all
+  proved.
+
+The fast corpus check is part of `dune runtest`. The complete solver campaign
+is available through:
+
+```sh
+dune build @proof-regression
+```
+
+An outer harness timeout, an internal error, an unexpected solver status, or a
+negative case that becomes green fails the campaign.
