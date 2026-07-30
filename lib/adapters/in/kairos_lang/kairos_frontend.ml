@@ -59,15 +59,6 @@ let parse_info_of_frontend (info : Kx_parse_api.parse_info) : parse_info =
     warnings = info.warnings;
   }
 
-let structured_frontend_error (err : Kx_frontend_error.t) : error =
-  match err.kind with
-  | Kx_frontend_error.Parse -> Parse_error err.message
-  | Kx_frontend_error.Elaboration -> Elaboration_error err.message
-  | Kx_frontend_error.Type -> Type_error err.message
-  | Kx_frontend_error.Well_formedness ->
-      Well_formedness_error err.message
-  | Kx_frontend_error.Internal -> Internal_error err.message
-
 let read_all_text (path : string) : (string, error) result =
   try
     let ic = open_in_bin path in
@@ -77,121 +68,31 @@ let read_all_text (path : string) : (string, error) result =
     Ok s
   with exn -> Error (Io_error (Printexc.to_string exn))
 
-let normalize_path path =
-  let absolute =
-    if Filename.is_relative path then Filename.concat (Sys.getcwd ()) path
-    else path
-  in
-  let parts = String.split_on_char '/' absolute in
-  let normalized =
-    List.fold_left
-      (fun acc -> function
-        | "" | "." -> acc
-        | ".." -> (match acc with [] -> [] | _ :: rest -> rest)
-        | part -> part :: acc)
-      [] parts
-    |> List.rev
-  in
-  "/" ^ String.concat "/" normalized
-
-let resolve_import_path ~owner import_path =
-  let candidate =
-    if Filename.is_relative import_path then
-      Filename.concat (Filename.dirname owner) import_path
-    else import_path
-  in
-  normalize_path candidate
-
-let load_surface_with_imports ~(input_file : string) :
-    ( Kx_surface_syntax.source * Kx_parse_api.parse_info * string list,
-      error )
-    result =
-  let visited = Hashtbl.create 16 in
-  let resolved_imports = ref [] in
-  let empty_source () : Kx_surface_syntax.source =
-    { imports = []; frontend_decls = []; nodes = [] }
-  in
-  let merge (left : Kx_surface_syntax.source)
-      (right : Kx_surface_syntax.source) : Kx_surface_syntax.source =
-    {
-      imports = [];
-      frontend_decls = left.frontend_decls @ right.frontend_decls;
-      nodes = left.nodes @ right.nodes;
-    }
-  in
-  let rec load ~root ~stack path =
-    let path = normalize_path path in
-    if List.mem path stack then
-      Error
-        (Elaboration_error
-           (Printf.sprintf "cyclic import: %s"
-              (String.concat " -> " (List.rev (path :: stack)))))
-    else if Hashtbl.mem visited path then
-      Ok (empty_source (), None)
-    else
-      match read_all_text path with
-      | Error _ as error -> error
-      | Ok text -> (
-          try
-            let surface, info =
-              Kx_parse_api.parse_surface_text_with_info ~filename:path ~text
-            in
-            Hashtbl.add visited path ();
-            let rec load_imports acc = function
-              | [] -> Ok acc
-              | (import_path, _) :: rest ->
-                  let imported =
-                    resolve_import_path ~owner:path import_path
-                  in
-                  resolved_imports := !resolved_imports @ [ imported ];
-                  (match load ~root:false ~stack:(path :: stack) imported with
-                  | Error _ as error -> error
-                  | Ok (source, _) ->
-                      load_imports (merge acc source) rest)
-            in
-            match load_imports (empty_source ()) surface.imports with
-            | Error _ as error -> error
-            | Ok imported ->
-                let current = { surface with imports = [] } in
-                Ok (merge imported current, if root then Some info else None)
-          with
-          | Kx_frontend_error.Error err ->
-              Error (structured_frontend_error err)
-          | exn -> Error (Internal_error (Printexc.to_string exn)))
-  in
-  match load ~root:true ~stack:[] input_file with
-  | Error _ as error -> error
-  | Ok (source, Some info) ->
-      Ok (source, info, !resolved_imports)
-  | Ok (_, None) ->
-      Error
-        (Internal_error
-           "root source lost its parse diagnostics during import resolution")
+let structured_frontend_error (err : Kx_frontend_error.t) : error =
+  match err.kind with
+  | Kx_frontend_error.Parse -> Parse_error err.message
+  | Kx_frontend_error.Elaboration -> Elaboration_error err.message
+  | Kx_frontend_error.Type -> Type_error err.message
+  | Kx_frontend_error.Well_formedness ->
+      Well_formedness_error err.message
+  | Kx_frontend_error.Internal -> Internal_error err.message
 
 let parse_input ~(input_file : string) : (input, error) result =
-  match load_surface_with_imports ~input_file with
+  match read_all_text input_file with
   | Error _ as err -> err
-  | Ok (surface_source, parse_info_kx, resolved_imports) -> (
+  | Ok source_text -> (
       try
-        let source_kx = Kx_elaborate.elaborate_source surface_source in
+        let source_kx, parse_info_kx =
+          Kx_parse_api.parse_source_text_with_info ~filename:input_file ~text:source_text
+        in
         let parse_info = parse_info_of_frontend parse_info_kx in
-        let parsed_model =
+        let verification_model =
           Kairos_to_model.program ~type_decls:source_kx.type_decls
             ~function_decls:source_kx.function_decls source_kx.nodes
         in
-        let instance_decls =
-          List.map
-            (fun (node : Kx_ast.node) ->
-              let semantics = Kx_ast.semantics_of_node node in
-              (semantics.sem_nname, semantics.sem_instances))
-            source_kx.nodes
-        in
-        let verification_model =
-          Kx_hierarchy_inline.flatten_program ~instance_decls parsed_model
-        in
         Ok
           {
-            imports = resolved_imports;
+            imports = Kx_parse_api.imported_paths source_kx;
             parse_info;
             verification_model;
           }

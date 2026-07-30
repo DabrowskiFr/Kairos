@@ -35,7 +35,6 @@ compile_generated "$test_root/ok/pure_function_bool_enum.kairos" pure_function_b
 compile_generated "$test_root/ok/action_contract_inline.kairos" action_contract_inline
 compile_generated "$test_root/ok/while_counter.kairos" while_counter
 compile_generated "$test_root/ok/w_bundle_prev_window.kairos" keyword_sanitization
-compile_generated "$test_root/ok/hierarchical_node_inline.kairos" hierarchical_node_inline
 
 python3 - "$tmpdir/resettable_delay/kairos_generated_interface.json" <<'PY'
 import json
@@ -61,55 +60,6 @@ assert node["c_api"]["state_type"] == "resettable_delay_state_t"
 assert node["c_api"]["init_function"] == "resettable_delay_init"
 assert node["c_api"]["step_function"] == "resettable_delay_step"
 PY
-
-python3 - "$tmpdir/hierarchical_node_inline/kairos_generated_interface.json" <<'PY'
-import json
-import sys
-
-with open(sys.argv[1], encoding="utf-8") as stream:
-    manifest = json.load(stream)
-
-assert [node["name"] for node in manifest["nodes"]] == [
-    "hierarchical_node_inline"
-]
-assert manifest["nodes"][0]["c_api"]["step_function"] == (
-    "hierarchical_node_inline_step"
-)
-PY
-
-hierarchy_dir="$tmpdir/hierarchical_node_inline"
-cat > "$hierarchy_dir/harness.c" <<'EOF'
-#include "kairos_generated.h"
-#include <stdio.h>
-
-int main(void) {
-  hierarchical_node_inline_state_t state;
-  bool filtered = true;
-
-  hierarchical_node_inline_init(&state);
-  hierarchical_node_inline_step(&state, 42, &filtered);
-  printf("%d\n", filtered);
-  hierarchical_node_inline_step(&state, 42, &filtered);
-  printf("%d\n", filtered);
-  hierarchical_node_inline_step(&state, 42, &filtered);
-  printf("%d\n", filtered);
-
-  return 0;
-}
-EOF
-
-cc -std=c99 -Wall -Wextra -pedantic -Werror \
-  "$hierarchy_dir/kairos_generated.c" "$hierarchy_dir/harness.c" \
-  -o "$hierarchy_dir/harness"
-
-"$hierarchy_dir/harness" > "$hierarchy_dir/out.txt"
-hierarchy_expected="$tmpdir/hierarchical_node_inline.expected"
-printf "0\n1\n1\n" > "$hierarchy_expected"
-
-if ! diff -u "$hierarchy_expected" "$hierarchy_dir/out.txt"; then
-  echo "Generated C hierarchy did not preserve nested initialization" >&2
-  exit 1
-fi
 
 toggle_dir="$tmpdir/toggle"
 "$cli" --emit-c="$toggle_dir" "$test_root/ok/toggle.kairos"

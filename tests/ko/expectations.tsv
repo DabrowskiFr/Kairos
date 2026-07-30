@@ -20,9 +20,6 @@ ghost_auxiliary_invariant__bad_rhs.kairos	frontend	ghost-visibility
 handoff__bad_code.kairos	proof	implementation
 handoff__bad_invariant.kairos	proof	invariant
 handoff__bad_spec.kairos	proof	contract
-hierarchy_binding_changes.kairos	frontend	hierarchy-static-bindings
-hierarchy_call_not_total.kairos	frontend	hierarchy-total-clock
-hierarchy_recursive_instance.kairos	frontend	hierarchy-recursion
 history_definition__bad_ensures.kairos	proof	history-definition
 independent_alarm_acknowledgement__bad_code.kairos	proof	independent-weak-until
 init_state_invariant.kairos	frontend	state-selector

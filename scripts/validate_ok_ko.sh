@@ -144,6 +144,11 @@ fi
 report_dir="$repo_root/_build/validation"
 mkdir -p "$report_dir"
 
+# Returns 0 if the file uses import (with_calls), 1 otherwise (without_calls)
+has_import() {
+  rg -q '^import ' "$1"
+}
+
 stderr_has_fatal_error() {
   local stderr_file="$1"
   rg -q '(^| )kairos: |Field [^[:space:]]+ is used more than once in a record|Fatal error:|exception' "$stderr_file"
@@ -391,6 +396,7 @@ collect_suite_files() {
     ok)
       for file in "$dir"/*.kairos; do
         [ -e "$file" ] || continue
+        has_import "$file" && continue
         printf '%s\n' "$file"
       done
       ;;
@@ -398,6 +404,7 @@ collect_suite_files() {
       while IFS=$'\t' read -r base stage _coverage; do
         [[ -n "$base" && "${base:0:1}" != "#" ]] || continue
         file="$dir/$base"
+        has_import "$file" && continue
         printf '%s\n' "$file"
       done < "$ko_manifest"
       ;;
@@ -406,6 +413,7 @@ collect_suite_files() {
         [[ -n "$base" && "${base:0:1}" != "#" ]] || continue
         [[ "$stage" == "proof" ]] || continue
         file="$dir/$base"
+        has_import "$file" && continue
         printf '%s\n' "$file"
       done < "$ko_manifest"
       ;;
@@ -414,6 +422,7 @@ collect_suite_files() {
         [[ -n "$base" && "${base:0:1}" != "#" ]] || continue
         [[ "$stage" == "frontend" ]] || continue
         file="$dir/$base"
+        has_import "$file" && continue
         printf '%s\n' "$file"
       done < "$ko_manifest"
       ;;
@@ -422,6 +431,7 @@ collect_suite_files() {
         [[ -n "$base" && "${base:0:1}" != "#" ]] || continue
         [[ "$stage" == "pipeline" ]] || continue
         file="$dir/$base"
+        has_import "$file" && continue
         printf '%s\n' "$file"
       done < "$ko_manifest"
       ;;

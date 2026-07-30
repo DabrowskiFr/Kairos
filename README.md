@@ -63,49 +63,6 @@ embedded project layer.
 inputs and outputs, and the exact C ABI names. Embedded project generators
 should consume this manifest instead of parsing the generated header.
 
-## Compose nodes by mono-clock frontend inlining
-
-Kairos supports a weak, static, mono-clock hierarchy which is completely
-removed before the verification engine runs:
-
-```kairos
-import "threshold_filter.kairos";
-
-node filtered_system(raw: int) returns (filtered: bool)
-contracts
-instances
-  instance filter: threshold_filter;
-states
-  Init(init), Run;
-transitions
-  Init:
-    to Run {
-      call filter(raw) returns (filtered);
-    }
-  Run:
-    to Run {
-      call filter(raw) returns (filtered);
-    }
-end
-```
-
-The hierarchy elaborator:
-
-- resolves imports relative to the importing file;
-- gives every instance private control and data state;
-- renames and retains internal contracts and invariants;
-- emits only unreferenced root nodes;
-- eliminates all `instance` and `call` constructs after preliminary frontend
-  validation and before proof planning or C generation.
-
-This is monolithic verification, not modular proof. All instances share the
-owner's clock: each static instance must be called exactly once on every
-transition, in the same order and with the same variable-to-port bindings.
-Calls cannot be nested, conditional, or recursive. Conditional behaviour is
-expressed through ordinary inputs (for example, an explicit `enable` input),
-while feedback uses a caller-owned snapshot variable so that a tick delay is
-visible in the Kairos source.
-
 ## Where test examples are located
 
 - Expected **valid** examples: `tests/ok/`

@@ -20,7 +20,6 @@
   check_reference_stability.sh
   check_vstte_medical_examples.sh
   frontend/spec_past_formula_frontier.kairos
-  frontend/hierarchy_filter.kairos
   ../examples/medical_infusion_light.kairos
   ../examples/evaluation/case_studies/medical_infusion_controller.kairos
   (glob_files ok/*.kairos)
