@@ -20,6 +20,7 @@ module C = Core_syntax
 module Common = C_codegen_common
 module Env = C_codegen_env
 module Functions = C_codegen_functions
+module Manifest = C_codegen_manifest
 module Names = C_codegen_names
 module Node = C_codegen_node
 module Types = C_codegen_types
@@ -188,4 +189,8 @@ let emit_program ?(header_name = "kairos_generated.h") program :
     [
       { Types.file_name = header_name; contents = header };
       { Types.file_name = source_name; contents = source };
+      {
+        Types.file_name = Manifest.manifest_name_of_header header_name;
+        contents = Manifest.emit ~header_name program;
+      };
     ]

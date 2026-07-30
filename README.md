@@ -52,11 +52,16 @@ The command writes:
 ```text
 _build/embedded-c/kairos_generated.h
 _build/embedded-c/kairos_generated.c
+_build/embedded-c/kairos_generated_interface.json
 ```
 
 The generated C is board-agnostic. Arduino, PlatformIO, sensor bindings, pin
 mapping, and upload configuration should wrap these files from a separate
 embedded project layer.
+
+`kairos_generated_interface.json` describes every generated node, its typed
+inputs and outputs, and the exact C ABI names. Embedded project generators
+should consume this manifest instead of parsing the generated header.
 
 ## Where test examples are located
 

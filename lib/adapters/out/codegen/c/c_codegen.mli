@@ -25,6 +25,7 @@ type generated_file = { file_name : string; contents : string }
 
 val emit_program :
   ?header_name:string -> Verification_model.program_model -> (generated_file list, string) result
-(** Emit [kairos_generated.h] and [kairos_generated.c] by default. The input program is expected to
-    be the normalized frontend model, so source-order transition priority and implicit skip
-    transitions are already reflected in the node steps. *)
+(** Emit [kairos_generated.h], [kairos_generated.c], and the machine-readable
+    [kairos_generated_interface.json] by default. The input program is expected
+    to be the normalized frontend model, so source-order transition priority
+    and implicit skip transitions are already reflected in the node steps. *)

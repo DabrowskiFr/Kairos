@@ -36,6 +36,31 @@ compile_generated "$test_root/ok/action_contract_inline.kairos" action_contract_
 compile_generated "$test_root/ok/while_counter.kairos" while_counter
 compile_generated "$test_root/ok/w_bundle_prev_window.kairos" keyword_sanitization
 
+python3 - "$tmpdir/resettable_delay/kairos_generated_interface.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as stream:
+    manifest = json.load(stream)
+
+assert manifest["format"] == "kairos-c-interface"
+assert manifest["version"] == 1
+assert manifest["header"] == "kairos_generated.h"
+
+node = manifest["nodes"][0]
+assert node["name"] == "resettable_delay"
+assert [item["name"] for item in node["inputs"]] == ["reset", "x"]
+assert [item["type"]["kind"] for item in node["inputs"]] == [
+    "integer",
+    "integer",
+]
+assert [item["name"] for item in node["outputs"]] == ["y"]
+assert node["outputs"][0]["passing"] == "pointer"
+assert node["c_api"]["state_type"] == "resettable_delay_state_t"
+assert node["c_api"]["init_function"] == "resettable_delay_init"
+assert node["c_api"]["step_function"] == "resettable_delay_step"
+PY
+
 toggle_dir="$tmpdir/toggle"
 "$cli" --emit-c="$toggle_dir" "$test_root/ok/toggle.kairos"
 cat > "$toggle_dir/harness.c" <<'EOF'

@@ -22,3 +22,5 @@ val emit_program :
   ?header_name:string ->
   Verification_model.program_model ->
   (C_codegen_types.generated_file list, string) result
+(** Emit the C header, C implementation, and versioned JSON interface
+    manifest for the supplied program. *)
