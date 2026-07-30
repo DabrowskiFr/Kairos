@@ -1,0 +1,16 @@
+node threshold_filter(sample: int) returns (accepted: bool)
+contracts
+  requires: G(sample >= 0);
+  ensures: X G(accepted = true => sample > 10);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      accepted := false;
+    }
+  Run:
+    to Run {
+      accepted := sample > 10;
+    }
+end

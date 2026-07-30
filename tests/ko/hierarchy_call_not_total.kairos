@@ -1,0 +1,23 @@
+node hierarchy_leaf(sample: int) returns (value: int)
+contracts
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run { value := sample; }
+  Run:
+    to Run { value := sample; }
+end
+
+node hierarchy_call_not_total(sample: int) returns (value: int)
+contracts
+instances
+  instance leaf: hierarchy_leaf;
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run { value := 0; }
+  Run:
+    to Run { call leaf(sample) returns (value); }
+end

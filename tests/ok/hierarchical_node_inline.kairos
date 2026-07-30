@@ -1,0 +1,41 @@
+// Static node instances are a frontend-only convenience. The hierarchy pass
+// removes both the instance declaration and calls before verification/codegen.
+import "../frontend/hierarchy_filter.kairos";
+
+node filter_wrapper(raw: int) returns (filtered: bool)
+contracts
+  requires: G(raw >= 0);
+  ensures: X G(filtered = true => raw > 10);
+instances
+  instance filter: threshold_filter;
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      call filter(raw) returns (filtered);
+    }
+  Run:
+    to Run {
+      call filter(raw) returns (filtered);
+    }
+end
+
+node hierarchical_node_inline(raw: int) returns (filtered: bool)
+contracts
+  requires: G(raw >= 0);
+  ensures: X G(filtered = true => raw > 10);
+instances
+  instance wrapper: filter_wrapper;
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run {
+      call wrapper(raw) returns (filtered);
+    }
+  Run:
+    to Run {
+      call wrapper(raw) returns (filtered);
+    }
+end
