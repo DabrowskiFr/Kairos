@@ -204,7 +204,8 @@ let incoming_post_formula ~(node : Core_syntax.historical Abs.node_ir)
   let is_input = is_input_of_node node in
   let program_guard = guard_fo_of_transition summary.identity.program_step in
   let source_annotation =
-    control_annotation_formula node summary.identity.product_src.prog_state
+    control_annotation_formula node
+      (Abs.product_source summary).prog_state
   in
   let body_effect =
     transition_effect_formula ~node summary.identity.program_step
@@ -228,7 +229,7 @@ type incoming_entry = {
 let states_needing_characteristic (node : Core_syntax.historical Abs.node_ir) : Abs.product_state list =
   node.summaries
   |> List.map (fun (summary : Core_syntax.historical Abs.product_step_summary) ->
-         summary.identity.product_src)
+         Abs.product_source summary)
   |> List.sort_uniq Stdlib.compare
 
 let needs_characteristic
@@ -280,7 +281,8 @@ let build ~(initial_state : Abs.product_state)
               shift_formula_forward_inputs ~is_input program_post_formula
               |> simplify_fo
             in
-            add_incoming case.product_dst ~program_entry_formula acc)
+            add_incoming (Abs.product_destination pc case)
+              ~program_entry_formula acc)
           acc pc.product_cases)
       [] node.summaries
   in
@@ -317,7 +319,10 @@ let preservation_ensures (t : t) ~(node : Core_syntax.historical Abs.node_ir)
     (pc : Core_syntax.historical Abs.product_step_summary) : Core_syntax.historical Core_syntax.hexpr list =
   pc.product_cases
   |> List.filter_map (fun (case : Core_syntax.historical Abs.product_case) ->
-         match entry_of_product_state t case.product_dst with
+         match
+           entry_of_product_state t
+             (Abs.product_destination pc case)
+         with
          | None -> None
          | Some _ ->
              let contribution = incoming_post_formula ~node pc case in

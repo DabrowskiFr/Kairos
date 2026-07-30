@@ -31,6 +31,7 @@ type helper_unit = {
 }
 
 type context = {
+  node_name : Core_syntax.ident;
   env : Why_compile_expr.env;
   inputs : Why3.Ptree.binder list;
   formula_sharing : Why_compile_formula_sharing.t;
@@ -78,7 +79,9 @@ let build_individual (ctx : context) (plan : Proof_ir.individual) :
   let i = plan.member.id in
   let sc = plan.member.contract in
   let helper_name =
-    ident (Step_names.product_step_helper_name ~index:i sc)
+    ident
+      (Step_names.product_step_helper_name ~node_name:ctx.node_name
+         ~index:i sc)
   in
   let helper_contract =
     Product_specs.individual_helper_contract ~env:ctx.env ~inputs:ctx.inputs
@@ -111,7 +114,8 @@ let build_grouped (ctx : context) (plan : Proof_ir.grouped) :
   let first_sc = first.contract in
   let helper_name =
     ident
-      (Step_names.product_step_group_helper_name ~index:first_i first_sc)
+      (Step_names.product_step_group_helper_name
+         ~node_name:ctx.node_name ~index:first_i first_sc)
   in
   let post_pred_name = helper_name.Ptree.id_str ^ "_post" in
   let grouped_contract =
@@ -137,10 +141,10 @@ let build_grouped (ctx : context) (plan : Proof_ir.grouped) :
       @ [ Ptree.Dlet (helper_name, false, Expr.RKnone, fn) ];
   }
 
-let kernel_step_helper_units ~env ~inputs ~formula_sharing ~formula_imports
-    ~bundles plan =
+let kernel_step_helper_units ~node_name ~env ~inputs ~formula_sharing
+    ~formula_imports ~bundles plan =
   let ctx =
-    { env; inputs; formula_sharing; formula_imports; bundles }
+    { node_name; env; inputs; formula_sharing; formula_imports; bundles }
   in
   plan
   |> List.map (function

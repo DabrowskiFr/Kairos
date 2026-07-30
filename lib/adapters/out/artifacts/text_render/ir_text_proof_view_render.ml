@@ -169,10 +169,11 @@ let render_transition_full (buf : Buffer.t) (idx : int) (t : Ir.transition) =
 
 let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
     (summary : Core_syntax.history_free Ir.product_step_summary) =
+  let product_src = Ir.product_source summary in
   let product_dsts =
     summary.product_cases
     |> List.map (fun (c : Core_syntax.history_free Ir.product_case) ->
-           c.product_dst)
+           Ir.product_destination summary c)
     |> List.sort_uniq Stdlib.compare
   in
   let guarantee_guards =
@@ -186,11 +187,11 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
     else Some (Printf.sprintf "D%d" summary_index)
   in
   line ~indent buf
-    (Printf.sprintf "%s @ %s via t%d" name (render_product_state summary.identity.product_src)
+    (Printf.sprintf "%s @ %s via t%d" name (render_product_state product_src)
        summary.trace.step_uid);
   line ~indent:(indent + 1) buf "identity:";
   line ~indent:(indent + 2) buf ("source_id=" ^ source_id);
-  line ~indent:(indent + 2) buf ("source=" ^ render_product_state summary.identity.product_src);
+  line ~indent:(indent + 2) buf ("source=" ^ render_product_state product_src);
   line ~indent:(indent + 2) buf
     (Printf.sprintf "assume_destination=A%d"
        summary.identity
@@ -220,9 +221,10 @@ let render_product_summary ~name ~summary_index ~(indent : int) (buf : Buffer.t)
     List.iteri
       (fun idx (c : Core_syntax.history_free Ir.product_case) ->
         let product_dst_id = Printf.sprintf "K%d_%d" summary_index (idx + 1) in
+        let product_dst = Ir.product_destination summary c in
         line ~indent:(indent + 2) buf (Printf.sprintf "case[%d]:" idx);
         line ~indent:(indent + 3) buf ("product_dst_id=" ^ product_dst_id);
-        line ~indent:(indent + 3) buf ("product_dst=" ^ render_product_state c.product_dst);
+        line ~indent:(indent + 3) buf ("product_dst=" ^ render_product_state product_dst);
         line ~indent:(indent + 3) buf
           ("guarantee_guard="
           ^ Pretty.string_of_fo c.guarantee_guard.logic))

@@ -219,14 +219,14 @@ let test_raw_states_and_conditional_guarantee_blocking () =
   let initial_summary =
     product_node.ir.summaries
     |> List.find_opt (fun summary ->
-           summary.Ir.identity.product_src.guarantee_state_index
-           = 2)
+           (Ir.product_source summary).guarantee_state_index = 2)
     |> require_some "raw-state summary"
   in
   let destinations =
     initial_summary.product_cases
     |> List.map (fun case ->
-           case.Ir.product_dst.guarantee_state_index)
+           (Ir.product_destination initial_summary case)
+             .guarantee_state_index)
     |> List.sort_uniq Int.compare
   in
   check "raw guarantee destinations are preserved"
@@ -237,8 +237,7 @@ let test_raw_states_and_conditional_guarantee_blocking () =
   let initial_summary =
     instrumented.ir.summaries
     |> List.find_opt (fun summary ->
-           summary.Ir.identity.product_src.guarantee_state_index
-           = 2)
+           (Ir.product_source summary).guarantee_state_index = 2)
     |> require_some "instrumented raw-state summary"
   in
   let progress =

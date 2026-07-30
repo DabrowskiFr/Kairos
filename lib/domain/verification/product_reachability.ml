@@ -65,9 +65,10 @@ let collect_known_states (node : 'phase Abs.node_ir) :
   let add st = Hashtbl.replace tbl st () in
   List.iter
     (fun (pc : 'phase Abs.product_step_summary) ->
-      add pc.identity.product_src;
+      add (Abs.product_source pc);
       List.iter
-        (fun (case : 'phase Abs.product_case) -> add case.product_dst)
+        (fun (case : 'phase Abs.product_case) ->
+          add (Abs.product_destination pc case))
         pc.product_cases)
     node.summaries;
   tbl
@@ -90,10 +91,12 @@ let build_with_edge_may_fire ~edge_may_fire
     changed := false;
     List.iter
       (fun (pc : 'phase Abs.product_step_summary) ->
-        if Hashtbl.mem reachable pc.identity.product_src then
+        if Hashtbl.mem reachable (Abs.product_source pc) then
           List.iter
             (fun (case : 'phase Abs.product_case) ->
-              if edge_may_fire pc case && mark case.product_dst then changed := true)
+              if edge_may_fire pc case
+                 && mark (Abs.product_destination pc case)
+              then changed := true)
             pc.product_cases)
       node.summaries
   done;
@@ -124,7 +127,9 @@ let entry_facts_of_product_state (t : t) (st : Abs.product_state) :
 let preservation_ensures (t : t) (pc : Core_syntax.historical Abs.product_step_summary) : Core_syntax.historical Core_syntax.hexpr list =
   pc.product_cases
   |> List.filter_map (fun (case : Core_syntax.historical Abs.product_case) ->
-         let dst_reach = formula_of_product_state t case.product_dst in
+         let dst_reach =
+           formula_of_product_state t (Abs.product_destination pc case)
+         in
          if is_htrue dst_reach then None
          else Some (mk_himp case.guarantee_guard.logic dst_reach |> simplify_fo))
   |> List.filter (fun f -> not (is_htrue f))

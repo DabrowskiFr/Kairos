@@ -86,7 +86,8 @@ let enrich_product_step_summary ~(record_family : family_name:string ->
   let destination_invariants_by_case =
     pc.product_cases
     |> List.map (fun (case : Core_syntax.historical Abs.product_case) ->
-           (case, invs_of_state case.product_dst.prog_state))
+           let product_dst = Abs.product_destination pc case in
+           (case, invs_of_state product_dst.prog_state))
   in
   let shifted_guarded_destination_invariants =
     destination_invariants_by_case

@@ -49,6 +49,7 @@ export interface ProofTrace {
   obligation_kind: string;
   obligation_family: string | null;
   obligation_category: string | null;
+  canonical_obligation_ids: number[];
   vc_id: string | null;
   source_span: Loc | null;
   obc_span: TextSpan | null;

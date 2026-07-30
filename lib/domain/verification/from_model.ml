@@ -104,52 +104,7 @@ let validate_node_origin ~(model : Vm.node_model)
                "IR node '%s' transition %d does not originate from proof case \
                 '%s'"
                node.semantics.sem_nname step_uid model.node_name)
-        else if
-          not
-            (String.equal summary.identity.product_src.prog_state
-               expected_transition.src_state)
-        then
-          Error
-            (Printf.sprintf
-               "IR node '%s' transition %d has an inconsistent product source"
-               node.semantics.sem_nname step_uid)
-        else
-          let destinations =
-            List.map
-              (fun (case : 'phase Ir.product_case) ->
-                case.product_dst)
-              summary.product_cases
-          in
-          if
-            not
-              (List.for_all
-                 (fun (destination : Ir.product_state) ->
-                   String.equal destination.prog_state
-                     expected_transition.dst_state)
-                 destinations)
-          then
-            Error
-              (Printf.sprintf
-                 "IR node '%s' transition %d has an inconsistent product \
-                  destination"
-                 node.semantics.sem_nname step_uid)
-          else if
-            not
-              (List.for_all
-                 (fun (destination : Ir.product_state) ->
-                   destination.assume_state_index
-                   =
-                   summary.identity
-                     .assume_destination_state_index)
-                 destinations)
-          then
-            Error
-              (Printf.sprintf
-                 "IR node '%s' transition %d mixes distinct assumption \
-                  successors in one summary"
-                 node.semantics.sem_nname step_uid)
-          else
-            Ok ()
+        else Ok ()
     in
     let rec validate_summaries = function
       | [] -> Ok ()
@@ -184,13 +139,6 @@ let build_node_analysis
     (Product_build.analyze_node ~build ~node
        ~program_transitions:node.steps)
 
-let product_state_of_pt (st : PT.product_state) : Ir.product_state =
-  {
-    prog_state = st.prog_state;
-    assume_state_index = st.assume_state_index;
-    guarantee_state_index = st.guarantee_state_index;
-  }
-
 let transition_indices (program_transitions : Vm.program_step list) :
     (Vm.program_step, int) Hashtbl.t =
   program_transitions
@@ -216,10 +164,9 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                         PT.monitor_successor)
                     ->
                       ({
-                         product_dst =
-                           PT.successor_destination prefix
-                             guarantee_successor
-                           |> product_state_of_pt;
+                         guarantee_destination_state_index =
+                           guarantee_successor
+                             .destination_state_index;
                          guarantee_guard =
                            Ir_formula.make
                              guarantee_successor.guard;
@@ -233,9 +180,15 @@ let build_minimal_summaries ~(analysis : Temporal_automata.node_data)
                       program_step =
                         transition_of_program_step
                           prefix.prog_transition;
-                      product_src =
-                        PT.prefix_source prefix
-                        |> product_state_of_pt;
+                      monitor_source =
+                        {
+                          Ir.assume_state_index =
+                            prefix
+                              .assume_source_state_index;
+                          guarantee_state_index =
+                            prefix
+                              .guarantee_source_state_index;
+                        };
                       assume_destination_state_index =
                         prefix.assume_successor
                           .destination_state_index;

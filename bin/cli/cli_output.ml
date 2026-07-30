@@ -141,7 +141,7 @@ let write_goals_dump out
   let header =
     "index,name,status,time_s,why3_prepare_s,why3_print_s,why3_spawn_s,\
      why3_wait_s,why3_solver_s,dump_path,vcid,node,transition,obligation_kind,\
-     obligation_family,obligation_category,source"
+     obligation_family,obligation_category,canonical_obligation_ids,source"
   in
   let rows =
     List.mapi
@@ -163,6 +163,8 @@ let write_goals_dump out
           trace.obligation_kind;
           Option.value trace.obligation_family ~default:"";
           Option.value trace.obligation_category ~default:"";
+          String.concat ";"
+            (List.map string_of_int trace.canonical_obligation_ids);
           trace.source;
         ]
         |> List.map csv_escape |> String.concat ",")

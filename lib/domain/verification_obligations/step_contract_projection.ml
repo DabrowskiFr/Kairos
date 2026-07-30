@@ -19,12 +19,20 @@
 type step_contract = {
   transition_id : string;
   program_step : Ir.transition;
-  product_src : Ir.product_state;
+  monitor_source : Ir.monitor_state_pair;
   assume_guard : Core_syntax.history_free Ir.summary_formula;
   requires : Core_syntax.history_free Ir.summary_formula list;
   ensures : Core_syntax.history_free Ir.summary_formula list;
   elaboration_checks : Core_syntax.history_free Ir.summary_formula list;
 }
+
+let product_source (contract : step_contract) : Ir.product_state =
+  {
+    prog_state = contract.program_step.src_state;
+    assume_state_index = contract.monitor_source.assume_state_index;
+    guarantee_state_index =
+      contract.monitor_source.guarantee_state_index;
+  }
 
 let preconditions (contract : step_contract) =
   contract.requires @ [ contract.assume_guard ]
@@ -45,7 +53,7 @@ let contract_of_summary
   {
     transition_id = transition_id_of_summary summary;
     program_step = summary.identity.program_step;
-    product_src = summary.identity.product_src;
+    monitor_source = summary.identity.monitor_source;
     assume_guard = Ir_formula.make summary.identity.assume_guard;
     requires = common_requires summary;
     ensures = summary.ensures;

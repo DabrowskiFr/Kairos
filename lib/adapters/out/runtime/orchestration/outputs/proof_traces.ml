@@ -51,6 +51,7 @@ let base_trace ~idx ~goal_name ~status ~time_s
     obligation_kind = "unknown";
     obligation_family = None;
     obligation_category = None;
+    canonical_obligation_ids = [];
     vc_id;
     source_span = None;
     why_span = None;
@@ -68,8 +69,14 @@ let goal_name_lookup_key (goal_name : string) =
 let manifest_index (manifest : Why_pipeline.compilation_manifest) =
   let index = Hashtbl.create (List.length manifest * 2 + 1) in
   List.iter
-    (fun (entry : Why_compile.compiled_obligation) ->
-      Hashtbl.replace index entry.generated_symbol entry)
+    (fun (entry : Why_compile.compiled_proof_unit) ->
+      if Hashtbl.mem index entry.generated_symbol then
+        invalid_arg
+          (Printf.sprintf
+             "duplicate generated proof-unit symbol in compilation manifest: \
+              %s"
+             entry.generated_symbol)
+      else Hashtbl.add index entry.generated_symbol entry)
     manifest;
   index
 
@@ -77,7 +84,7 @@ let apply_manifest manifest goal_name
     (trace : Pipeline_proof_types.proof_trace) =
   match Hashtbl.find_opt manifest (goal_name_lookup_key goal_name) with
   | None -> trace
-  | Some (entry : Why_compile.compiled_obligation) ->
+  | Some (entry : Why_compile.compiled_proof_unit) ->
       {
         trace with
         source = entry.source;
@@ -86,6 +93,7 @@ let apply_manifest manifest goal_name
         obligation_kind = entry.obligation_kind;
         obligation_family = Some entry.obligation_family;
         obligation_category = entry.obligation_category;
+        canonical_obligation_ids = entry.canonical_obligation_ids;
       }
 
 let build_from_execution ~goals ~manifest

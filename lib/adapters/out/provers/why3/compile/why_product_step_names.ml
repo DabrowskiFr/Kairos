@@ -11,17 +11,24 @@
 module Step_contract_projection =
   Kairos_verification_obligations.Step_contract_projection
 
-let product_step_helper_name ~(index : int)
+let product_step_helper_name ~(node_name : Core_syntax.ident)
+    ~(index : int)
     (step : Step_contract_projection.step_contract) =
-  Printf.sprintf "step_%s_ps_%s_a%d_g%d_%d"
+  let product_source =
+    Step_contract_projection.product_source step
+  in
+  Printf.sprintf "__kairos_proof_unit_%s_%s_ps_%s_a%d_g%d_%d"
+    (String.lowercase_ascii node_name)
     (String.lowercase_ascii step.transition_id)
-    (String.lowercase_ascii step.product_src.prog_state)
-    step.product_src.assume_state_index
-    step.product_src.guarantee_state_index
+    (String.lowercase_ascii product_source.prog_state)
+    product_source.assume_state_index
+    product_source.guarantee_state_index
     index
 
-let product_step_group_helper_name ~(index : int)
+let product_step_group_helper_name ~(node_name : Core_syntax.ident)
+    ~(index : int)
     (step : Step_contract_projection.step_contract) =
-  Printf.sprintf "step_%s_group_%d"
+  Printf.sprintf "__kairos_proof_unit_%s_%s_group_%d"
+    (String.lowercase_ascii node_name)
     (String.lowercase_ascii step.transition_id)
     index

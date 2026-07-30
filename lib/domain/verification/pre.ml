@@ -99,10 +99,11 @@ let run_node ~record_family ~product_invariants
     List.map
       (fun (pc : Core_syntax.historical Abs.product_step_summary) ->
         let program_guard = guard_fo_of_transition_core pc.identity.program_step in
+        let product_src = Abs.product_source pc in
         let propagation_requires =
           Product_invariant.entry_facts
             pre_generation.product_invariants
-            pc.identity.product_src
+            product_src
           |> List.fold_left
                (fun accumulated (family, formulas) ->
                  let formulas =
@@ -118,7 +119,7 @@ let run_node ~record_family ~product_invariants
                pc.propagation_requires
         in
         let state_invariants =
-          invariants_of_state n pc.identity.product_src.prog_state
+          invariants_of_state n product_src.prog_state
         in
         let requires =
           []

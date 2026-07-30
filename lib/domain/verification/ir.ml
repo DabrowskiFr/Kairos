@@ -38,6 +38,11 @@ type product_state = {
   guarantee_state_index : automaton_state_index;
 }
 
+type monitor_state_pair = {
+  assume_state_index : automaton_state_index;
+  guarantee_state_index : automaton_state_index;
+}
+
 type transition = {
   src_state : ident;
   dst_state : ident;
@@ -46,7 +51,7 @@ type transition = {
 }
 
 type 'phase product_case = {
-  product_dst : product_state;
+  guarantee_destination_state_index : automaton_state_index;
   guarantee_guard : 'phase summary_formula;
 }
 
@@ -54,7 +59,7 @@ type product_step_summary_trace = { step_uid : transition_index }
 
 type 'phase product_step_summary_identity = {
   program_step : transition;
-  product_src : product_state;
+  monitor_source : monitor_state_pair;
   assume_destination_state_index : automaton_state_index;
   assume_guard : 'phase Core_syntax.hexpr;
 }
@@ -68,6 +73,24 @@ type 'phase product_step_summary = {
   elaboration_checks : 'phase summary_formula list;
   product_cases : 'phase product_case list;
 }
+
+let product_source (summary : 'phase product_step_summary) : product_state =
+  {
+    prog_state = summary.identity.program_step.src_state;
+    assume_state_index = summary.identity.monitor_source.assume_state_index;
+    guarantee_state_index =
+      summary.identity.monitor_source.guarantee_state_index;
+  }
+
+let product_destination (summary : 'phase product_step_summary)
+    (case : 'phase product_case) : product_state =
+  {
+    prog_state = summary.identity.program_step.dst_state;
+    assume_state_index =
+      summary.identity.assume_destination_state_index;
+    guarantee_state_index =
+      case.guarantee_destination_state_index;
+  }
 
 type node_signature = {
   sem_nname : ident;

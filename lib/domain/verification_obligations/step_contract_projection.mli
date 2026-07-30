@@ -25,13 +25,17 @@
 type step_contract = {
   transition_id : string;
   program_step : Ir.transition;
-  product_src : Ir.product_state;
+  monitor_source : Ir.monitor_state_pair;
   assume_guard : Core_syntax.history_free Ir.summary_formula;
   requires : Core_syntax.history_free Ir.summary_formula list;
   ensures : Core_syntax.history_free Ir.summary_formula list;
   elaboration_checks : Core_syntax.history_free Ir.summary_formula list;
 }
 (** Step contract before backend-specific lowering. *)
+
+val product_source : step_contract -> Ir.product_state
+(** Derives the complete product source from the program transition and
+    monitor-source indices stored by the contract. *)
 
 val preconditions : step_contract -> Core_syntax.history_free Ir.summary_formula list
 (** Preconditions already carried by the enriched IR, followed by the

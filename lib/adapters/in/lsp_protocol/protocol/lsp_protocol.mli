@@ -70,6 +70,7 @@ type proof_trace = {
   obligation_kind : string;
   obligation_family : string option;
   obligation_category : string option;
+  canonical_obligation_ids : int list;
   vc_id : string option;
   source_span : loc option;
   why_span : text_span option;

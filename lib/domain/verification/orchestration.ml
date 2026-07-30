@@ -205,7 +205,7 @@ let summary_lowering_shape :
   {
     trace = summary.trace;
     program_step = summary.identity.program_step;
-    product_src = summary.identity.product_src;
+    product_src = Ir.product_source summary;
     assume_destination_state_index =
       summary.identity
         .assume_destination_state_index;
@@ -218,7 +218,8 @@ let summary_lowering_shape :
     product_cases =
       List.map
         (fun (case : phase Ir.product_case) ->
-          (case.product_dst, case.guarantee_guard.meta))
+          (Ir.product_destination summary case,
+           case.guarantee_guard.meta))
         summary.product_cases;
   }
 

@@ -71,6 +71,7 @@ let proof_trace_of_pipeline
     obligation_kind = trace.obligation_kind;
     obligation_family = trace.obligation_family;
     obligation_category = trace.obligation_category;
+    canonical_obligation_ids = trace.canonical_obligation_ids;
     vc_id = trace.vc_id;
     source_span = Option.map loc_of_engine trace.source_span;
     why_span = Option.map text_span_of_pipeline trace.why_span;

@@ -40,8 +40,9 @@ module Product_helpers = Why_compile_product_helpers
 module Product_specs = Why_compile_product_specs
 module Ptree_helpers = Why_compile_ptree_helpers
 
-type compiled_obligation = {
+type compiled_proof_unit = {
   generated_symbol : string;
+  canonical_obligation_ids : int list;
   source : string;
   node_name : string;
   transition : string;
@@ -52,12 +53,12 @@ type compiled_obligation = {
 
 type compilation = {
   ast : Why3.Ptree.mlw_file;
-  manifest : compiled_obligation list;
+  manifest : compiled_proof_unit list;
 }
 
 type node_compilation = {
   modules : Modules.module_unit list;
-  manifest : compiled_obligation list;
+  manifest : compiled_proof_unit list;
 }
 
 let product_state_source (state : Ir.product_state) =
@@ -69,16 +70,21 @@ let transition_source (contract : Step_contract_projection.step_contract) =
     contract.program_step.dst_state contract.transition_id
 
 let individual_manifest ~node_name ~generated_symbol
+    ~canonical_obligation_ids
     (plan : Proof_ir.individual) =
   let contract = plan.member.contract in
+  let product_source =
+    Step_contract_projection.product_source contract
+  in
   {
     generated_symbol;
+    canonical_obligation_ids;
     source =
       Printf.sprintf
         "helper=%s;partition=%s;product_src=%s;requires=%d;ensures=%d;\
          elaboration_checks=%d"
         generated_symbol plan.member.partition_name
-        (product_state_source contract.product_src)
+        (product_state_source product_source)
         (List.length contract.requires)
         (List.length contract.ensures)
         (List.length contract.elaboration_checks);
@@ -91,12 +97,17 @@ let individual_manifest ~node_name ~generated_symbol
   }
 
 let grouped_manifest ~node_name ~generated_symbol
+    ~canonical_obligation_ids
     (plan : Proof_ir.grouped) =
   let contract =
     (List.hd plan.members).Obligations.contract
   in
+  let product_source =
+    Step_contract_projection.product_source contract
+  in
   {
     generated_symbol;
+    canonical_obligation_ids;
     source =
       Printf.sprintf
         "helper=%s;group_size=%d;partitions=%s;product_src=%s;requires=%d;ensures=%d;\
@@ -106,7 +117,7 @@ let grouped_manifest ~node_name ~generated_symbol
         |> List.map (fun member ->
                member.Obligations.partition_name)
         |> String.concat ",")
-        (product_state_source contract.product_src)
+        (product_state_source product_source)
         (List.length contract.requires)
         (List.length contract.ensures)
         (List.length contract.elaboration_checks);
@@ -120,12 +131,19 @@ let grouped_manifest ~node_name ~generated_symbol
 
 let manifest_of_helper ~node_name plan
     (unit : Product_helpers.helper_unit) =
+  let canonical_obligation_ids =
+    plan
+    |> Proof_ir.obligation_members
+    |> List.map (fun member -> member.Obligations.id)
+  in
   match plan with
   | Proof_ir.Individual individual ->
       individual_manifest ~node_name ~generated_symbol:unit.helper_name
+        ~canonical_obligation_ids
         individual
   | Proof_ir.Grouped grouped ->
-      grouped_manifest ~node_name ~generated_symbol:unit.helper_name grouped
+      grouped_manifest ~node_name ~generated_symbol:unit.helper_name
+        ~canonical_obligation_ids grouped
 
 let compile_node (plan : Proof_ir.t) : node_compilation =
   let semantics = plan.source.semantics in
@@ -157,7 +175,8 @@ let compile_node (plan : Proof_ir.t) : node_compilation =
       plan.shared_postconditions
   in
   let helper_units =
-    Product_helpers.kernel_step_helper_units ~env ~inputs ~formula_sharing
+    Product_helpers.kernel_step_helper_units
+      ~node_name:semantics.sem_nname ~env ~inputs ~formula_sharing
       ~formula_imports ~bundles obligations
   in
   let shared_post_modules = Bundles.shared_post_modules bundles in

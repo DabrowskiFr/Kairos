@@ -24,6 +24,7 @@ type helper_unit = {
 }
 
 val kernel_step_helper_units :
+  node_name:Core_syntax.ident ->
   env:Why_compile_expr.env ->
   inputs:Why3.Ptree.binder list ->
   formula_sharing:Why_compile_formula_sharing.t ->

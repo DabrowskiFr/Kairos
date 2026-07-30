@@ -23,8 +23,9 @@
     completed
     {!Kairos_verification_obligations.Verification_proof_ir.t}. *)
 
-type compiled_obligation = {
+type compiled_proof_unit = {
   generated_symbol : string;
+  canonical_obligation_ids : int list;
   source : string;
   node_name : string;
   transition : string;
@@ -35,7 +36,7 @@ type compiled_obligation = {
 
 type compilation = {
   ast : Why3.Ptree.mlw_file;
-  manifest : compiled_obligation list;
+  manifest : compiled_proof_unit list;
 }
 
 val compile_program_ast :

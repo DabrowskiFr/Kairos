@@ -26,7 +26,7 @@ type obligations_outputs = {
   metrics : Why3_contract.execution_metrics;
 }
 
-type compilation_manifest = Why_compile.compiled_obligation list
+type compilation_manifest = Why_compile.compiled_proof_unit list
 
 type compilation = {
   ast : Why3.Ptree.mlw_file;

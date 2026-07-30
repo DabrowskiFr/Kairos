@@ -85,7 +85,8 @@ let run_node (node : Core_syntax.historical Abs.node_ir) :
              summary.product_cases
              |> List.map (fun (c : Core_syntax.historical Abs.product_case) ->
                     {
-                      Abs.product_dst = c.product_dst;
+                      Abs.guarantee_destination_state_index =
+                        c.guarantee_destination_state_index;
                       guarantee_guard = lower c.guarantee_guard;
                     })
            in
@@ -94,7 +95,7 @@ let run_node (node : Core_syntax.historical Abs.node_ir) :
              identity =
                {
                  Abs.program_step = summary.identity.program_step;
-                 product_src = summary.identity.product_src;
+                 monitor_source = summary.identity.monitor_source;
                  assume_destination_state_index =
                    summary.identity
                      .assume_destination_state_index;
