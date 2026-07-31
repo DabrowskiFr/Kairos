@@ -39,6 +39,21 @@ type raw_vdecl = {
 }
 [@@deriving yojson]
 
+type typed_param = {
+  param_name : ident;
+  param_ty : ty;
+}
+[@@deriving yojson]
+
+type action_param_mode = APIn | APInOut [@@deriving yojson]
+
+type action_param = {
+  action_param_name : ident;
+  action_param_ty : ty;
+  action_param_mode : action_param_mode;
+}
+[@@deriving yojson]
+
 type spec_param_kind = SPFormula | SPHExpr | SPNat [@@deriving yojson]
 
 type nat_expr =
@@ -58,6 +73,7 @@ and expr_desc =
   | SELitInt of int
   | SELitBool of bool
   | SEVar of indexed_ref
+  | SEPre of indexed_ref
   | SECall of ident * expr list
   | SEBin of binop * expr * expr
   | SECmp of relop * expr * expr
@@ -72,9 +88,8 @@ and hexpr_desc =
   | SHVar of indexed_ref
   | SHPreK of indexed_ref * nat_expr
   | SHPast of hexpr * nat_expr
-  | SHHistoryCall of ident * indexed_ref
   | SHHistoryAlias of ident * indexed_ref
-  | SHCall of ident * ident list
+  | SHCall of ident * hexpr list
   | SHExpr of expr
   | SHBin of binop * hexpr * hexpr
   | SHCmp of relop * hexpr * hexpr
@@ -128,7 +143,7 @@ type history_alias_decl = {
 
 type predicate_decl = {
   predicate_name : ident;
-  predicate_params : ident list;
+  predicate_params : typed_param list;
   predicate_body : hexpr;
 }
 [@@deriving yojson]
@@ -142,7 +157,7 @@ and stmt_desc =
   | SSMatch of expr * (ident * stmt list) list * stmt list
   | SSSkip
   | SSCall of ident * expr list * ident list
-  | SSActionCall of ident * ident list
+  | SSActionCall of ident * expr list
   | SSFor of ident * ident * stmt list
   | SSForRange of ident * nat_expr * nat_expr * stmt list
 [@@deriving yojson]
@@ -156,7 +171,7 @@ and history_expr_desc =
 
 type action_decl = {
   action_name : ident;
-  action_params : ident list;
+  action_params : action_param list;
   action_requires : hexpr list;
   action_ensures : hexpr list;
   action_body : stmt list;
@@ -167,17 +182,6 @@ type spec_def_decl = {
   spec_def_name : ident;
   spec_def_params : spec_param list;
   spec_def_body : ltl;
-}
-[@@deriving yojson]
-
-type history_def_decl = {
-  history_def_name : ident;
-  history_param : ident;
-  history_ty : ty;
-  history_init : history_expr;
-  history_init_ensures : hexpr list;
-  history_step : history_expr;
-  history_step_ensures : hexpr list;
 }
 [@@deriving yojson]
 
@@ -207,6 +211,13 @@ type state_invariant = {
 }
 [@@deriving yojson]
 
+type derived_output_decl = {
+  derived_output_name : ident;
+  derived_output_true_states : state_selector;
+  derived_output_loc : Kx_loc.loc option;
+}
+[@@deriving yojson]
+
 type transition = {
   src : ident;
   dst : ident;
@@ -219,8 +230,14 @@ type transition = {
 type state_decls = {
   states : ident list;
   init_state : ident;
+  init_is_hidden : bool;
 }
 [@@deriving yojson]
+
+let visible_states decls =
+  if decls.init_is_hidden then
+    List.filter (fun state -> not (String.equal state decls.init_state)) decls.states
+  else decls.states
 
 type node = {
   node_name : ident;
@@ -235,6 +252,7 @@ type node = {
   instances : (ident * ident) list;
   locals : raw_vdecl list;
   state_decls : state_decls;
+  derived_outputs : derived_output_decl list;
   state_invariants : state_invariant list;
   transitions : transition list;
 }
@@ -244,7 +262,6 @@ type frontend_decl =
   | STypeDecl of enum_decl
   | SFunctionDecl of function_decl
   | SSpecDefDecl of spec_def_decl
-  | SHistoryDefDecl of history_def_decl
 [@@deriving yojson]
 
 type import_decl = string * Kx_loc.loc option [@@deriving yojson]

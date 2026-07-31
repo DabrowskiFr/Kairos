@@ -57,7 +57,8 @@ type parse_info = {
   warnings : string list;
 }
 
-(** Parse source text and keep explicit imports with parse diagnostics. *)
+(** Parse source text, resolve declaration-only spec imports relative to the
+    source file, and keep explicit imports with parse diagnostics. *)
 val parse_source_text_with_info :
   filename:string ->
   text:string ->

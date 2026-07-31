@@ -48,6 +48,7 @@ let rec subst_expr ~(param : string) ~(value : string) (e : S.expr) : S.expr =
     match e.sexpr with
     | SELitInt _ | SELitBool _ -> e.sexpr
     | SEVar r -> SEVar (subst_ref ~param ~value r)
+    | SEPre r -> SEPre (subst_ref ~param ~value r)
     | SECall (callee, args) ->
         SECall (callee, List.map (subst_expr ~param ~value) args)
     | SEBin (op, a, b) ->
@@ -67,11 +68,10 @@ let rec subst_hexpr ~(param : string) ~(value : string) (h : S.hexpr) :
     | SHPreK (r, k) -> SHPreK (subst_ref ~param ~value r, subst_nat_expr ~param ~value k)
     | SHPast (inner, k) ->
         SHPast (subst_hexpr ~param ~value inner, subst_nat_expr ~param ~value k)
-    | SHHistoryCall (name, r) -> SHHistoryCall (name, subst_ref ~param ~value r)
     | SHHistoryAlias (alias, r) ->
         SHHistoryAlias (alias, subst_ref ~param ~value r)
     | SHCall (callee, args) ->
-        SHCall (callee, List.map (subst_ident ~param ~value) args)
+        SHCall (callee, List.map (subst_hexpr ~param ~value) args)
     | SHExpr e -> SHExpr (subst_expr ~param ~value e)
     | SHBin (op, a, b) ->
         SHBin (op, subst_hexpr ~param ~value a, subst_hexpr ~param ~value b)
@@ -184,7 +184,7 @@ let rec subst_stmt ~(param : string) ~(value : string) (s : S.stmt) : S.stmt =
             List.map (subst_expr ~param ~value) args,
             List.map (subst_ident ~param ~value) outs )
     | SSActionCall (callee, args) ->
-        SSActionCall (callee, List.map (subst_ident ~param ~value) args)
+        SSActionCall (callee, List.map (subst_expr ~param ~value) args)
     | SSFor (bound, enum_name, body) when String.equal bound param ->
         SSFor (bound, enum_name, body)
     | SSFor (bound, enum_name, body) ->
@@ -198,6 +198,229 @@ let rec subst_stmt ~(param : string) ~(value : string) (s : S.stmt) : S.stmt =
             subst_nat_expr ~param ~value lo,
             subst_nat_expr ~param ~value hi,
             List.map (subst_stmt ~param ~value) body )
+  in
+  { s with sstmt }
+
+let action_actual_error param usage =
+  Kx_frontend_error.elaboration
+    (Printf.sprintf
+       "action parameter '%s' is used as %s and therefore requires a variable reference argument"
+       param usage)
+
+let actual_ref ~(param : string) ~(usage : string) (actual : S.expr) =
+  match actual.sexpr with
+  | SEVar r -> r
+  | _ -> action_actual_error param usage
+
+let actual_scalar_name ~(param : string) ~(usage : string) (actual : S.expr) =
+  match actual_ref ~param ~usage actual with
+  | { ref_base; ref_indices = [] } -> ref_base
+  | _ -> action_actual_error param usage
+
+let subst_ref_expr ~(param : string) ~(actual : S.expr) (r : S.indexed_ref) :
+    S.indexed_ref =
+  if String.equal r.ref_base param then
+    match r.ref_indices with
+    | [] -> actual_ref ~param ~usage:"an assignment destination" actual
+    | _ ->
+        Kx_frontend_error.elaboration
+          (Printf.sprintf
+             "action parameter '%s' cannot be used as the base of an indexed variable"
+             param)
+  else
+    let ref_indices =
+      List.map
+        (fun index ->
+          if String.equal index param then
+            actual_scalar_name ~param ~usage:"a static array index" actual
+          else index)
+        r.ref_indices
+    in
+    { r with ref_indices }
+
+let subst_nat_expr_expr ~(param : string) ~(actual : S.expr) = function
+  | SNNat _ as n -> n
+  | SNVar id when String.equal id param -> (
+      match actual.sexpr with
+      | SELitInt n when n >= 0 -> SNNat n
+      | SEVar { ref_base; ref_indices = [] } -> SNVar ref_base
+      | _ ->
+          Kx_frontend_error.elaboration
+            (Printf.sprintf
+               "action parameter '%s' is used as a static natural number and requires a non-negative literal or scalar name"
+               param))
+  | SNVar id -> SNVar id
+
+let rec subst_expr_actual ~(param : string) ~(actual : S.expr) (e : S.expr) :
+    S.expr =
+  match e.sexpr with
+  | SEVar { ref_base; ref_indices = [] } when String.equal ref_base param ->
+      actual
+  | _ ->
+      let sexpr =
+        match e.sexpr with
+        | SELitInt _ | SELitBool _ -> e.sexpr
+        | SEVar r -> SEVar (subst_ref_expr ~param ~actual r)
+        | SEPre r -> SEPre (subst_ref_expr ~param ~actual r)
+        | SECall (callee, args) ->
+            SECall
+              (callee, List.map (subst_expr_actual ~param ~actual) args)
+        | SEBin (op, a, b) ->
+            SEBin
+              ( op,
+                subst_expr_actual ~param ~actual a,
+                subst_expr_actual ~param ~actual b )
+        | SECmp (op, a, b) ->
+            SECmp
+              ( op,
+                subst_expr_actual ~param ~actual a,
+                subst_expr_actual ~param ~actual b )
+        | SEUn (op, inner) ->
+            SEUn (op, subst_expr_actual ~param ~actual inner)
+      in
+      { e with sexpr }
+
+let rec subst_hexpr_actual ~(param : string) ~(actual : S.expr)
+    (h : S.hexpr) : S.hexpr =
+  match h.shexpr with
+  | SHVar { ref_base; ref_indices = [] } when String.equal ref_base param ->
+      { h with shexpr = SHExpr actual }
+  | _ ->
+      let shexpr =
+        match h.shexpr with
+        | SHLitInt _ | SHLitBool _ -> h.shexpr
+        | SHVar r -> SHVar (subst_ref_expr ~param ~actual r)
+        | SHPreK (r, k) ->
+            SHPreK
+              ( subst_ref_expr ~param ~actual r,
+                subst_nat_expr_expr ~param ~actual k )
+        | SHPast (inner, k) ->
+            SHPast
+              ( subst_hexpr_actual ~param ~actual inner,
+                subst_nat_expr_expr ~param ~actual k )
+        | SHHistoryAlias (alias, r) ->
+            SHHistoryAlias (alias, subst_ref_expr ~param ~actual r)
+        | SHCall (callee, args) ->
+            SHCall
+              (callee, List.map (subst_hexpr_actual ~param ~actual) args)
+        | SHExpr e -> SHExpr (subst_expr_actual ~param ~actual e)
+        | SHBin (op, a, b) ->
+            SHBin
+              ( op,
+                subst_hexpr_actual ~param ~actual a,
+                subst_hexpr_actual ~param ~actual b )
+        | SHCmp (op, a, b) ->
+            SHCmp
+              ( op,
+                subst_hexpr_actual ~param ~actual a,
+                subst_hexpr_actual ~param ~actual b )
+        | SHUn (op, inner) ->
+            SHUn (op, subst_hexpr_actual ~param ~actual inner)
+        | SHForall (bound, enum_name, body)
+          when String.equal bound param ->
+            SHForall (bound, enum_name, body)
+        | SHExists (bound, enum_name, body)
+          when String.equal bound param ->
+            SHExists (bound, enum_name, body)
+        | SHForall (bound, enum_name, body) ->
+            SHForall
+              (bound, enum_name, subst_hexpr_actual ~param ~actual body)
+        | SHExists (bound, enum_name, body) ->
+            SHExists
+              (bound, enum_name, subst_hexpr_actual ~param ~actual body)
+        | SHRangeForall (bound, lo, hi, body)
+          when String.equal bound param ->
+            SHRangeForall
+              ( bound,
+                subst_nat_expr_expr ~param ~actual lo,
+                subst_nat_expr_expr ~param ~actual hi,
+                body )
+        | SHRangeExists (bound, lo, hi, body)
+          when String.equal bound param ->
+            SHRangeExists
+              ( bound,
+                subst_nat_expr_expr ~param ~actual lo,
+                subst_nat_expr_expr ~param ~actual hi,
+                body )
+        | SHRangeForall (bound, lo, hi, body) ->
+            SHRangeForall
+              ( bound,
+                subst_nat_expr_expr ~param ~actual lo,
+                subst_nat_expr_expr ~param ~actual hi,
+                subst_hexpr_actual ~param ~actual body )
+        | SHRangeExists (bound, lo, hi, body) ->
+            SHRangeExists
+              ( bound,
+                subst_nat_expr_expr ~param ~actual lo,
+                subst_nat_expr_expr ~param ~actual hi,
+                subst_hexpr_actual ~param ~actual body )
+      in
+      { h with shexpr }
+
+let rec subst_stmt_actual ~(param : string) ~(actual : S.expr) (s : S.stmt) :
+    S.stmt =
+  let sstmt =
+    match s.sstmt with
+    | SSAssign (lhs, rhs) ->
+        SSAssign
+          ( subst_ref_expr ~param ~actual lhs,
+            subst_expr_actual ~param ~actual rhs )
+    | SSIf (cond, then_branch, else_branch) ->
+        SSIf
+          ( subst_expr_actual ~param ~actual cond,
+            List.map (subst_stmt_actual ~param ~actual) then_branch,
+            List.map (subst_stmt_actual ~param ~actual) else_branch )
+    | SSWhile (cond, invariants, variant, body) ->
+        SSWhile
+          ( subst_expr_actual ~param ~actual cond,
+            List.map (subst_hexpr_actual ~param ~actual) invariants,
+            Option.map (subst_expr_actual ~param ~actual) variant,
+            List.map (subst_stmt_actual ~param ~actual) body )
+    | SSMatch (scrutinee, branches, default_branch) ->
+        SSMatch
+          ( subst_expr_actual ~param ~actual scrutinee,
+            List.map
+              (fun (ctor, body) ->
+                (ctor, List.map (subst_stmt_actual ~param ~actual) body))
+              branches,
+            List.map (subst_stmt_actual ~param ~actual) default_branch )
+    | SSSkip -> SSSkip
+    | SSCall (callee, args, outs) ->
+        let outs =
+          List.map
+            (fun out ->
+              if String.equal out param then
+                actual_scalar_name ~param ~usage:"a node-call output" actual
+              else out)
+            outs
+        in
+        SSCall
+          ( callee,
+            List.map (subst_expr_actual ~param ~actual) args,
+            outs )
+    | SSActionCall (callee, args) ->
+        SSActionCall
+          (callee, List.map (subst_expr_actual ~param ~actual) args)
+    | SSFor (bound, enum_name, body) when String.equal bound param ->
+        SSFor (bound, enum_name, body)
+    | SSFor (bound, enum_name, body) ->
+        SSFor
+          ( bound,
+            enum_name,
+            List.map (subst_stmt_actual ~param ~actual) body )
+    | SSForRange (bound, lo, hi, body)
+      when String.equal bound param ->
+        SSForRange
+          ( bound,
+            subst_nat_expr_expr ~param ~actual lo,
+            subst_nat_expr_expr ~param ~actual hi,
+            body )
+    | SSForRange (bound, lo, hi, body) ->
+        SSForRange
+          ( bound,
+            subst_nat_expr_expr ~param ~actual lo,
+            subst_nat_expr_expr ~param ~actual hi,
+            List.map (subst_stmt_actual ~param ~actual) body )
   in
   { s with sstmt }
 

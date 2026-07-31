@@ -10,4 +10,4 @@
 
 (** Completion candidates for Kairos source buffers. *)
 
-val completion_items_for_text : string -> string list
+val completion_items_for_text : ?filename:string -> string -> string list

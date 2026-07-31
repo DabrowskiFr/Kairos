@@ -1,0 +1,19 @@
+node duplicate_initialization() returns (x: int)
+contracts
+  ensures: X G(x >= 0);
+states
+  Init(init), Run;
+transitions
+  init:
+    to Run {
+      x := 0;
+    }
+  Init:
+    to Run {
+      x := 0;
+    }
+  Run:
+    to Run {
+      x := x + 1;
+    }
+end

@@ -69,6 +69,24 @@ val subst_stmt :
   Kx_surface_syntax.stmt ->
   Kx_surface_syntax.stmt
 
+val subst_expr_actual :
+  param:string ->
+  actual:Kx_surface_syntax.expr ->
+  Kx_surface_syntax.expr ->
+  Kx_surface_syntax.expr
+
+val subst_hexpr_actual :
+  param:string ->
+  actual:Kx_surface_syntax.expr ->
+  Kx_surface_syntax.hexpr ->
+  Kx_surface_syntax.hexpr
+
+val subst_stmt_actual :
+  param:string ->
+  actual:Kx_surface_syntax.expr ->
+  Kx_surface_syntax.stmt ->
+  Kx_surface_syntax.stmt
+
 val subst_history_expr :
   param:string ->
   value:string ->

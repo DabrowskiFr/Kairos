@@ -78,14 +78,16 @@ let validate_node (n : Verification_model.node_model) : unit =
     let plen = String.length prefix in
     String.length s >= plen && String.equal (String.sub s 0 plen) prefix
   in
-  let is_generated_history_var x = has_prefix ~prefix:"__kairos_history_" x in
-  let reject_ghost_use ?(allow_generated_history = false)
+  let is_generated_frontend_ghost x =
+    has_prefix ~prefix:"__kairos_observer_pre_" x
+  in
+  let reject_ghost_use ?(allow_generated_frontend = false)
       ?(allow_public_ghosts = false) context vars =
     match
       List.find_opt
         (fun x ->
           is_ghost_var x
-          && not (allow_generated_history && is_generated_history_var x)
+          && not (allow_generated_frontend && is_generated_frontend_ghost x)
           && not (allow_public_ghosts && is_public_ghost_var x))
         vars
     with
@@ -358,7 +360,7 @@ let validate_node (n : Verification_model.node_model) : unit =
           expect_ty "transition elaboration check" TBool (hexpr_ty ensure);
           validate_hexpr_history_availability "transition elaboration check"
             ~available:destination_available ensure;
-          reject_ghost_use ~allow_generated_history:true
+          reject_ghost_use ~allow_generated_frontend:true
             ~allow_public_ghosts:true "transition elaboration check"
             (vars_of_hexpr ensure))
         step.elaboration_checks)
@@ -381,13 +383,13 @@ let validate_node (n : Verification_model.node_model) : unit =
       validate_ltl_history_availability "requires contract" assume;
       let assume_vars = vars_of_ltl assume in
       reject_non_input_assumption assume_vars;
-      reject_ghost_use ~allow_generated_history:true ~allow_public_ghosts:true
+      reject_ghost_use ~allow_generated_frontend:true ~allow_public_ghosts:true
         "requires contract" assume_vars)
     n.assumes;
   List.iter
     (fun guarantee ->
       validate_ltl guarantee;
       validate_ltl_history_availability "ensures contract" guarantee;
-      reject_ghost_use ~allow_generated_history:true ~allow_public_ghosts:true
+      reject_ghost_use ~allow_generated_frontend:true ~allow_public_ghosts:true
         "ensures contract" (vars_of_ltl guarantee))
     n.guarantees

@@ -1,5 +1,5 @@
 node action_contract_inline(x: int) returns (y: int)
-action assignNonNeg(target, value)
+action assignNonNeg(inout target: int, value: int)
 contracts
   requires: value >= 0;
   ensures: target >= 0;

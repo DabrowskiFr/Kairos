@@ -33,6 +33,7 @@ compile_generated() {
 compile_generated "$test_root/ok/resettable_delay.kairos" resettable_delay
 compile_generated "$test_root/ok/pure_function_bool_enum.kairos" pure_function_bool_enum
 compile_generated "$test_root/ok/action_contract_inline.kairos" action_contract_inline
+compile_generated "$test_root/ok/derived_state_outputs.kairos" derived_state_outputs
 compile_generated "$test_root/ok/while_counter.kairos" while_counter
 compile_generated "$test_root/ok/w_bundle_prev_window.kairos" keyword_sanitization
 

@@ -26,7 +26,6 @@ module Names = Kx_elaborate_names
 module Subst = Kx_elaborate_subst
 
 let indexed_ref_name = Names.indexed_ref_name
-let generated_history_name = Names.generated_history_name
 let nat_literal_of_ident = Subst.nat_literal_of_ident
 let subst_hexpr = Subst.subst_hexpr
 let subst_ltl = Subst.subst_ltl
@@ -76,6 +75,121 @@ let rec core_hexpr_or = function
   | [ x ] -> x
   | x :: xs -> B.mk_hor x (core_hexpr_or xs)
 
+let type_error context message =
+  Kx_frontend_error.elaboration
+    (Printf.sprintf "%s: %s" context message)
+
+let check_expected_type ~context expected actual =
+  let integral = function
+    | TInt -> true
+    | TBool | TReal | TCustom _ -> false
+  in
+  if expected <> actual && not (integral expected && integral actual) then
+    type_error context
+      (Printf.sprintf "expected %s but got %s"
+         (type_name expected) (type_name actual))
+
+let value_type_exn env context name =
+  match value_type env name with
+  | Some ty -> ty
+  | None ->
+      type_error context (Printf.sprintf "unknown value '%s'" name)
+
+let check_call_arguments ~context formals actual_types =
+  if List.length formals <> List.length actual_types then
+    type_error context
+      (Printf.sprintf "expects %d arguments but got %d"
+         (List.length formals) (List.length actual_types));
+  List.iter2
+    (fun (formal : vdecl) actual ->
+      check_expected_type
+        ~context:(Printf.sprintf "%s, argument '%s'" context formal.vname)
+        formal.vty actual)
+    formals actual_types
+
+let rec infer_expr_type env (e : Kx_core_syntax.expr) =
+  let context = "executable expression" in
+  match e.expr with
+  | ELitInt _ -> TInt
+  | ELitBool _ -> TBool
+  | EVar name -> value_type_exn env context name
+  | EFunCall (name, args) -> (
+      match function_sig env name with
+      | None -> type_error context (Printf.sprintf "unknown function '%s'" name)
+      | Some (formals, return_ty) ->
+          check_call_arguments
+            ~context:(Printf.sprintf "function '%s'" name)
+            formals (List.map (infer_expr_type env) args);
+          return_ty)
+  | EBin ((Add | Sub | Mul | Div), left, right) ->
+      let left_ty = infer_expr_type env left in
+      let right_ty = infer_expr_type env right in
+      check_expected_type ~context left_ty right_ty;
+      let result_ty = if left_ty = TInt then right_ty else left_ty in
+      (match result_ty with
+      | TInt | TReal -> result_ty
+      | TBool | TCustom _ ->
+          type_error context "arithmetic operands must be numeric")
+  | EBin ((And | Or), left, right) ->
+      check_expected_type ~context TBool (infer_expr_type env left);
+      check_expected_type ~context TBool (infer_expr_type env right);
+      TBool
+  | ECmp (_, left, right) ->
+      let left_ty = infer_expr_type env left in
+      check_expected_type ~context left_ty (infer_expr_type env right);
+      TBool
+  | EUn (Neg, inner) ->
+      let inner_ty = infer_expr_type env inner in
+      (match inner_ty with
+      | TInt | TReal -> inner_ty
+      | TBool | TCustom _ ->
+          type_error context "unary minus expects a numeric operand")
+  | EUn (Not, inner) ->
+      check_expected_type ~context TBool (infer_expr_type env inner);
+      TBool
+
+let rec infer_hexpr_type env (h : Kx_core_syntax.hexpr) =
+  let context = "historical expression" in
+  match h.hexpr with
+  | HLitInt _ -> TInt
+  | HLitBool _ -> TBool
+  | HVar name | HPreK (name, _) -> value_type_exn env context name
+  | HPred (_, _) -> TBool
+  | HFunCall (name, args) -> (
+      match function_sig env name with
+      | None -> type_error context (Printf.sprintf "unknown function '%s'" name)
+      | Some (formals, return_ty) ->
+          check_call_arguments
+            ~context:(Printf.sprintf "function '%s'" name)
+            formals (List.map (infer_hexpr_type env) args);
+          return_ty)
+  | HBin ((Add | Sub | Mul | Div), left, right) ->
+      let left_ty = infer_hexpr_type env left in
+      let right_ty = infer_hexpr_type env right in
+      check_expected_type ~context left_ty right_ty;
+      let result_ty = if left_ty = TInt then right_ty else left_ty in
+      (match result_ty with
+      | TInt | TReal -> result_ty
+      | TBool | TCustom _ ->
+          type_error context "arithmetic operands must be numeric")
+  | HBin ((And | Or), left, right) ->
+      check_expected_type ~context TBool (infer_hexpr_type env left);
+      check_expected_type ~context TBool (infer_hexpr_type env right);
+      TBool
+  | HCmp (_, left, right) ->
+      let left_ty = infer_hexpr_type env left in
+      check_expected_type ~context left_ty (infer_hexpr_type env right);
+      TBool
+  | HUn (Neg, inner) ->
+      let inner_ty = infer_hexpr_type env inner in
+      (match inner_ty with
+      | TInt | TReal -> inner_ty
+      | TBool | TCustom _ ->
+          type_error context "unary minus expects a numeric operand")
+  | HUn (Not, inner) ->
+      check_expected_type ~context TBool (infer_hexpr_type env inner);
+      TBool
+
 let is_scalar_ref_named name (r : S.indexed_ref) =
   String.equal r.ref_base name && r.ref_indices = []
 
@@ -122,14 +236,6 @@ let rec shift_hexpr_past k (h : hexpr) : hexpr =
     | HCmp (op, a, b) -> mk (HCmp (op, shift_hexpr_past k a, shift_hexpr_past k b))
     | HUn (op, inner) -> mk (HUn (op, shift_hexpr_past k inner))
 
-let ident_args_of_exprs ~(context : string) (args : S.expr list) : ident list =
-  List.map
-    (fun arg ->
-      match arg.sexpr with
-      | SEVar { ref_base; ref_indices = [] } -> ref_base
-      | _ -> Kx_frontend_error.elaboration (Printf.sprintf "%s expects identifier arguments" context))
-    args
-
 let implicit_history_alias_k (alias : string) : int option =
   let prefix = "prev" in
   let plen = String.length prefix in
@@ -161,23 +267,6 @@ let expand_history_alias env alias arg =
       match implicit_history_alias_k alias with
       | Some k -> B.mk_hpre_k arg k
       | None -> Kx_frontend_error.elaboration (Printf.sprintf "unknown history alias '%s'" alias))
-
-let rec ident_arg_of_surface_hexpr ctx (h : S.hexpr) : ident =
-  match h.shexpr with
-  | SHVar ({ ref_base; ref_indices = [] } as r) -> (
-      match List.assoc_opt ref_base ctx.hexpr_params with
-      | Some actual -> ident_arg_of_surface_hexpr ctx actual
-      | None -> indexed_ref_name r)
-  | _ -> Kx_frontend_error.elaboration "predicate arguments must be identifiers"
-
-let ident_arg_of_name ctx id =
-  match List.assoc_opt id ctx.hexpr_params with
-  | Some actual -> ident_arg_of_surface_hexpr ctx actual
-  | None -> id
-
-let spec_arg_as_ident ctx = function
-  | SAHExpr h -> ident_arg_of_surface_hexpr ctx h
-  | SAFormula _ -> Kx_frontend_error.elaboration "predicate arguments must be identifiers"
 
 let formula_arg_of_spec_arg _ctx = function
   | SAFormula f -> f
@@ -211,14 +300,24 @@ let rec lower_expr env (e : S.expr) : expr =
         | Some n -> ELitInt n
         | None -> EVar (indexed_ref_name r))
     | SEVar r -> EVar (indexed_ref_name r)
+    | SEPre r ->
+        Kx_frontend_error.elaboration
+          (Printf.sprintf
+             "internal error: executable pre(%s) reached core lowering"
+             (indexed_ref_name r))
     | SECall (callee, args) -> (
         match function_sig env callee with
         | Some _ -> EFunCall (callee, List.map (lower_expr env) args)
         | None ->
             let args =
-              ident_args_of_exprs ~context:("predicate '" ^ callee ^ "'") args
+              List.map
+                (fun (arg : S.expr) ->
+                  S.mk_hexpr ?loc:arg.loc (SHExpr arg))
+                args
             in
-            (expr_of_fo (expand_predicate env empty_spec_context [] callee args)).expr)
+            (expr_of_fo
+               (expand_predicate env empty_spec_context [] callee args))
+              .expr)
     | SEBin (op, a, b) -> EBin (op, lower_expr env a, lower_expr env b)
     | SECmp (op, a, b) -> ECmp (op, lower_expr env a, lower_expr env b)
     | SEUn (op, inner) -> EUn (op, lower_expr env inner)
@@ -257,16 +356,12 @@ and lower_hexpr env ctx stack (h : S.hexpr) : hexpr =
           | None -> mk (HPreK (indexed_ref_name r, k)))
       | _ -> mk (HPreK (indexed_ref_name r, k)))
   | SHPast (inner, k) -> lower_hexpr env ctx stack inner |> shift_hexpr_past (eval_nat ctx k)
-  | SHHistoryCall (name, r) ->
-      let r = resolve_history_source_ref ctx r in
-      if not (List.mem_assoc name env.history_defs) then
-        Kx_frontend_error.elaboration (Printf.sprintf "unknown history definition '%s'" name);
-      mk (HVar (generated_history_name name r))
   | SHHistoryAlias (alias, r) -> expand_history_alias env alias (indexed_ref_name r)
   | SHCall (callee, args) ->
-      let args = List.map (ident_arg_of_name ctx) args in
       if is_bool_function env callee then
-        mk (HFunCall (callee, List.map B.mk_hvar args))
+        mk
+          (HFunCall
+             (callee, List.map (lower_hexpr env ctx stack) args))
       else expand_predicate env ctx stack callee args
   | SHExpr e -> B.hexpr_of_expr (lower_expr env e)
   | SHBin (op, a, b) -> mk (HBin (op, lower_hexpr env ctx stack a, lower_hexpr env ctx stack b))
@@ -303,10 +398,43 @@ and expand_predicate env ctx stack name args =
         Kx_frontend_error.elaboration
           (Printf.sprintf "predicate '%s' expects %d arguments but got %d" name
              (List.length pred.predicate_params) (List.length args));
+      let actual_types =
+        List.map
+          (fun arg ->
+            infer_hexpr_type env (lower_hexpr env ctx stack arg))
+          args
+      in
+      List.iter2
+        (fun (param : S.typed_param) actual_ty ->
+          check_expected_type
+            ~context:
+              (Printf.sprintf "argument '%s' of predicate '%s'"
+                 param.param_name name)
+            param.param_ty actual_ty)
+        pred.predicate_params actual_types;
+      let fresh_params =
+        List.mapi
+          (fun index (param : S.typed_param) ->
+            ( param,
+              Names.generated_parameter_name "predicate_parameter" name
+                index ))
+          pred.predicate_params
+      in
       let body =
+        List.fold_left
+          (fun body ((param : S.typed_param), fresh_name) ->
+            subst_hexpr ~param:param.param_name ~value:fresh_name body)
+          pred.predicate_body fresh_params
+      in
+      let ctx =
         List.fold_left2
-          (fun acc param value -> subst_hexpr ~param ~value acc)
-          pred.predicate_body pred.predicate_params args
+          (fun ctx (_, fresh_name) value ->
+            {
+              ctx with
+              hexpr_params =
+                (fresh_name, value) :: ctx.hexpr_params;
+            })
+          ctx fresh_params args
       in
       lower_hexpr env ctx (name :: stack) body
 
@@ -335,9 +463,12 @@ and expand_spec_call env ctx name args =
       in
       lower_ltl env ctx def.spec_def_body
   | None ->
-      let args = List.map (spec_arg_as_ident ctx) args in
+      let args = List.map (hexpr_arg_of_spec_arg ctx) args in
       if is_bool_function env name then
-        ltl_of_fo (B.mk_hexpr (HFunCall (name, List.map B.mk_hvar args)))
+        ltl_of_fo
+          (B.mk_hexpr
+             (HFunCall
+                (name, List.map (lower_hexpr env ctx []) args)))
       else ltl_of_fo (expand_predicate env ctx [] name args)
 
 and lower_ltl env ctx (f : S.ltl) : ltl =

@@ -1,0 +1,20 @@
+node action_input_assignment(
+  sample: int
+) returns (
+  total: int
+)
+
+action invalid(target: int) {
+  target := 0;
+}
+
+contracts
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      invalid(total);
+    }
+end

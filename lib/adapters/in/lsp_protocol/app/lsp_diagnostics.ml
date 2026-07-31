@@ -24,8 +24,9 @@ type diagnostic = {
   message : string;
 }
 
-let diagnostics_for_text ~uri:_ ~(text : string) : diagnostic list =
-  Kairos_engine.Api.source_diagnostics ~text
+let diagnostics_for_text ~uri ~(text : string) : diagnostic list =
+  let filename = Lsp_symbols.filename_of_uri uri in
+  Kairos_engine.Api.source_diagnostics ~filename ~text
   |> List.map
        (fun (item : Kairos_engine.Api.source_diagnostic) ->
          {

@@ -113,8 +113,95 @@ let parse_surface_text_with_info ~(filename : string) ~(text : string) :
   | e ->
       raise e
 
+let read_import_text ~(importer : string) (path : string) : string =
+  try
+    let ic = open_in_bin path in
+    let len = in_channel_length ic in
+    let text = really_input_string ic len in
+    close_in ic;
+    text
+  with exn ->
+    Kx_frontend_error.elaboration
+      (Printf.sprintf "cannot import spec file '%s' from '%s': %s" path
+         importer (Printexc.to_string exn))
+
+let canonical_import_path ~(importer : string) (path : string) : string =
+  let candidate =
+    if Filename.is_relative path then
+      Filename.concat (Filename.dirname importer) path
+    else path
+  in
+  try Unix.realpath candidate
+  with Unix.Unix_error (error, _, _) ->
+    Kx_frontend_error.elaboration
+      (Printf.sprintf "cannot import spec file '%s' from '%s': %s" path
+         importer (Unix.error_message error))
+
+let spec_decl_name = function
+  | Kx_surface_syntax.SSpecDefDecl decl -> Some decl.spec_def_name
+  | _ -> None
+
+let validate_spec_library ~(path : string)
+    (source : Kx_surface_syntax.source) : unit =
+  if source.nodes <> [] then
+    Kx_frontend_error.elaboration
+      (Printf.sprintf
+         "imported spec file '%s' must not declare nodes" path);
+  List.iter
+    (fun decl ->
+      match spec_decl_name decl with
+      | Some _ -> ()
+      | None ->
+          Kx_frontend_error.elaboration
+            (Printf.sprintf
+               "imported spec file '%s' may contain only spec definitions"
+               path))
+    source.frontend_decls
+
+let resolve_spec_imports ~(filename : string)
+    (root : Kx_surface_syntax.source) : Kx_surface_syntax.source =
+  if root.imports = [] then root
+  else
+    let root_path =
+      try Unix.realpath filename
+      with Unix.Unix_error _ ->
+        if Filename.is_relative filename then
+          Filename.concat (Sys.getcwd ()) filename
+        else filename
+    in
+    let loaded = Hashtbl.create 16 in
+    let rec load_library ~(stack : string list) ~(importer : string)
+        ((path, _) : Kx_surface_syntax.import_decl) =
+      let resolved = canonical_import_path ~importer path in
+      if List.mem resolved stack then (
+        let cycle = List.rev (resolved :: stack) |> String.concat " -> " in
+        Kx_frontend_error.elaboration
+          (Printf.sprintf "cyclic spec import: %s" cycle))
+      else if Hashtbl.mem loaded resolved then []
+      else (
+        Hashtbl.add loaded resolved ();
+        let text = read_import_text ~importer resolved in
+        let source, _ =
+          parse_surface_text_with_info ~filename:resolved ~text
+        in
+        validate_spec_library ~path:resolved source;
+        let imported =
+          List.concat_map
+            (load_library ~stack:(resolved :: stack) ~importer:resolved)
+            source.imports
+        in
+        imported @ source.frontend_decls)
+    in
+    let imported_decls =
+      List.concat_map
+        (load_library ~stack:[ root_path ] ~importer:root_path)
+        root.imports
+    in
+    { root with frontend_decls = imported_decls @ root.frontend_decls }
+
 let parse_source_text_with_info ~(filename : string) ~(text : string) : source * parse_info =
   let surface_source, info = parse_surface_text_with_info ~filename ~text in
+  let surface_source = resolve_spec_imports ~filename surface_source in
   let elaborated_source = Kx_elaborate.elaborate_source surface_source in
   let imports =
     List.map

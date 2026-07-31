@@ -26,7 +26,8 @@ let indexed_ref_name (r : S.indexed_ref) =
 let same_indexed_ref (a : S.indexed_ref) (b : S.indexed_ref) =
   String.equal a.ref_base b.ref_base && a.ref_indices = b.ref_indices
 
-let generated_history_prefix = "__kairos_history_"
+let generated_delay_name r =
+  "__kairos_observer_pre_" ^ indexed_ref_name r
 
-let generated_history_name def_name r =
-  generated_history_prefix ^ def_name ^ "_" ^ indexed_ref_name r
+let generated_parameter_name kind owner index =
+  Printf.sprintf "__kairos_%s_%s_%d" kind owner index

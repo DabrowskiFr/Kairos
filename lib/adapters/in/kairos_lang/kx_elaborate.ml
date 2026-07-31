@@ -21,12 +21,12 @@ open Kx_core_syntax
 
 module S = Kx_surface_syntax
 module Names = Kx_elaborate_names
+module Delays = Kx_elaborate_delays
 module Observers = Kx_elaborate_observers
 module State_selectors = Kx_elaborate_state_selectors
 module Subst = Kx_elaborate_subst
 module Validation = Kx_elaborate_validation
 include Kx_elaborate_env
-include Kx_elaborate_histories
 include Kx_elaborate_logic
 
 type source = {
@@ -40,6 +40,8 @@ let indexed_ref_name = Names.indexed_ref_name
 
 let subst_hexpr = Subst.subst_hexpr
 let subst_stmt = Subst.subst_stmt
+let subst_hexpr_actual = Subst.subst_hexpr_actual
+let subst_stmt_actual = Subst.subst_stmt_actual
 
 let rec lower_stmt env stack (s : S.stmt) : Kx_ast.stmt list =
   match s.sstmt with
@@ -100,15 +102,69 @@ and expand_action env stack name args =
         Kx_frontend_error.elaboration
           (Printf.sprintf "action '%s' expects %d arguments but got %d" name
              (List.length action.action_params) (List.length args));
+      List.iter2
+        (fun (param : S.action_param) (arg : S.expr) ->
+          let actual_ty = infer_expr_type env (lower_expr env arg) in
+          check_expected_type
+            ~context:
+              (Printf.sprintf "argument '%s' of action '%s'"
+                 param.action_param_name name)
+            param.action_param_ty actual_ty;
+          match (param.action_param_mode, arg.sexpr) with
+          | APIn, _ -> ()
+          | APInOut, SEVar target
+            when List.mem_assoc (indexed_ref_name target) env.variables ->
+              ()
+          | APInOut, SEVar target ->
+              Kx_frontend_error.elaboration
+                (Printf.sprintf
+                   "inout parameter '%s' of action '%s' requires a writable variable, but '%s' is not a node variable"
+                   param.action_param_name name (indexed_ref_name target))
+          | APInOut, _ ->
+              Kx_frontend_error.elaboration
+                (Printf.sprintf
+                   "inout parameter '%s' of action '%s' requires a variable reference argument"
+                   param.action_param_name name))
+        action.action_params args;
+      let fresh_params =
+        List.mapi
+          (fun index (param : S.action_param) ->
+            ( param,
+              Names.generated_parameter_name "action_parameter" name index ))
+          action.action_params
+      in
+      let renamed_body =
+        List.fold_left
+          (fun body ((param : S.action_param), fresh_name) ->
+            List.map
+              (subst_stmt ~param:param.action_param_name ~value:fresh_name)
+              body)
+          action.action_body fresh_params
+      in
       let body =
         List.fold_left2
-          (fun acc param value -> List.map (subst_stmt ~param ~value) acc)
-          action.action_body action.action_params args
+          (fun acc (_, fresh_name) actual ->
+            List.map
+              (subst_stmt_actual ~param:fresh_name ~actual)
+              acc)
+          renamed_body fresh_params args
       in
       let instantiate formulas =
+        let renamed =
+          List.fold_left
+            (fun formulas ((param : S.action_param), fresh_name) ->
+              List.map
+                (subst_hexpr ~param:param.action_param_name
+                   ~value:fresh_name)
+                formulas)
+            formulas fresh_params
+        in
         List.fold_left2
-          (fun acc param value -> List.map (subst_hexpr ~param ~value) acc)
-          formulas action.action_params args
+          (fun acc (_, fresh_name) actual ->
+            List.map
+              (subst_hexpr_actual ~param:fresh_name ~actual)
+              acc)
+          renamed fresh_params args
       in
       let assertion formula =
         Kx_ast_builders.mk_stmt
@@ -122,21 +178,69 @@ let validate_unique_named_decls = Validation.validate_unique_named_decls
 let validate_control_graph = Validation.validate_control_graph
 let validate_observers = Validation.validate_observers
 let validate_action_contracts = Validation.validate_action_contracts
-let validate_history_def_decl = Validation.validate_history_def_decl
+let validate_action_parameters = Validation.validate_action_parameters
+let validate_derived_outputs = Validation.validate_derived_outputs
 let validate_spec_def_decl = Validation.validate_spec_def_decl
 let observer_updates_for_transition = Observers.observer_updates_for_transition
 let observer_locals = Observers.observer_locals
 let expand_state_invariants = State_selectors.expand_state_invariants
 
-let expand_observers_in_transition ~init_state observers (t : S.transition) =
-  { t with body = t.body @ observer_updates_for_transition ~init_state observers t }
+let expand_observers_in_transition ~init_state schedule (t : S.transition) =
+  { t with body = t.body @ observer_updates_for_transition ~init_state schedule t }
 
-let lower_contracts env contracts =
+let resolve_derived_outputs (n : S.node) =
+  let visible_states = S.visible_states n.state_decls in
+  List.map
+    (fun (decl : S.derived_output_decl) ->
+      let true_states =
+        State_selectors.resolve_state_selector ~node_name:n.node_name
+          ~states:visible_states decl.derived_output_true_states
+      in
+      (decl, true_states))
+    n.derived_outputs
+
+let derived_assignment dst
+    ((decl, true_states) : S.derived_output_decl * ident list) =
+  let value = List.exists (String.equal dst) true_states in
+  let rhs = S.mk_expr ?loc:decl.derived_output_loc (SELitBool value) in
+  S.mk_stmt ?loc:decl.derived_output_loc
+    (SSAssign (S.mk_scalar_ref decl.derived_output_name, rhs))
+
+let expand_derived_outputs_in_transition derived_outputs (t : S.transition) =
+  {
+    t with
+    body = List.map (derived_assignment t.dst) derived_outputs @ t.body;
+  }
+
+let derived_output_state_invariants (n : S.node) derived_outputs =
+  S.visible_states n.state_decls
+  |> List.filter (fun state ->
+         not (String.equal state n.state_decls.init_state))
+  |> List.concat_map (fun state ->
+         List.map
+           (fun ((decl, true_states) :
+                  S.derived_output_decl * ident list) ->
+             let value = List.exists (String.equal state) true_states in
+             let lhs =
+               S.mk_hexpr ?loc:decl.derived_output_loc
+                 (SHVar (S.mk_scalar_ref decl.derived_output_name))
+             in
+             let rhs =
+               S.mk_hexpr ?loc:decl.derived_output_loc (SHLitBool value)
+             in
+             ( state,
+               S.mk_hexpr ?loc:decl.derived_output_loc
+                 (SHCmp (REq, lhs, rhs)) ))
+           derived_outputs)
+
+let lower_contracts ~hide_init env contracts =
   let assumes, guarantees =
     List.fold_left
       (fun (assumes, guarantees) -> function
         | S.SCRequires f -> (List.rev_append (lower_contract_ltls env f) assumes, guarantees)
-        | S.SCEnsures f -> (assumes, List.rev_append (lower_contract_ltls env f) guarantees))
+        | S.SCEnsures f ->
+            let f = if hide_init then S.SLX f else f in
+            (assumes, List.rev_append (lower_contract_ltls env f) guarantees))
       ([], []) contracts
   in
   (List.rev assumes, List.rev guarantees)
@@ -165,12 +269,6 @@ let node_env base_env (n : S.node) =
           (Printf.sprintf "predicate '%s' conflicts with a spec definition of the same name" p.predicate_name))
     n.predicates;
   List.iter
-    (fun (p : S.predicate_decl) ->
-      if List.mem_assoc p.predicate_name base_env.history_defs then
-        Kx_frontend_error.elaboration
-          (Printf.sprintf "predicate '%s' conflicts with a history definition of the same name" p.predicate_name))
-    n.predicates;
-  List.iter
     (fun (a : S.action_decl) ->
       if List.mem_assoc a.action_name base_env.functions then
         Kx_frontend_error.elaboration
@@ -184,18 +282,50 @@ let node_env base_env (n : S.node) =
     n.actions;
   List.iter
     (fun (a : S.action_decl) ->
-      if List.mem_assoc a.action_name base_env.history_defs then
-        Kx_frontend_error.elaboration
-          (Printf.sprintf "action '%s' conflicts with a history definition of the same name" a.action_name))
-    n.actions;
-  List.iter
-    (fun (a : S.action_decl) ->
       if List.exists (fun (p : S.predicate_decl) -> String.equal p.predicate_name a.action_name) n.predicates then
         Kx_frontend_error.elaboration
           (Printf.sprintf "action '%s' conflicts with a predicate of the same name" a.action_name))
     n.actions;
+  let variable_decls =
+    lower_raw_vdecls base_env
+      (n.inputs @ n.outputs @ n.locals @ n.ghosts)
+    @ List.map
+        (fun (observer : S.observer_decl) ->
+          {
+            vname = observer.observer_name;
+            vty = observer.observer_ty;
+          })
+        n.observers
+  in
+  let variables =
+    List.map (fun (decl : vdecl) -> (decl.vname, decl.vty)) variable_decls
+  in
+  List.iter
+    (fun (predicate : S.predicate_decl) ->
+      validate_unique_named_decls "predicate parameter"
+        (fun (param : S.typed_param) -> param.param_name)
+        predicate.predicate_params;
+      List.iter
+        (fun (param : S.typed_param) ->
+          validate_type base_env
+            (Printf.sprintf "parameter '%s' of predicate '%s'"
+               param.param_name predicate.predicate_name)
+            param.param_ty)
+        predicate.predicate_params)
+    n.predicates;
+  List.iter
+    (fun (action : S.action_decl) ->
+      List.iter
+        (fun (param : S.action_param) ->
+          validate_type base_env
+            (Printf.sprintf "parameter '%s' of action '%s'"
+               param.action_param_name action.action_name)
+            param.action_param_ty)
+        action.action_params)
+    n.actions;
   {
     base_env with
+    variables;
     predicates = List.map (fun p -> (p.S.predicate_name, p)) n.predicates;
     actions = List.map (fun a -> (a.S.action_name, a)) n.actions;
     history_aliases =
@@ -218,27 +348,53 @@ let lower_node base_env (n : S.node) : Kx_ast.node =
   let env = node_env base_env n in
   validate_observers n;
   validate_action_contracts n;
+  validate_action_parameters n;
+  validate_derived_outputs n;
   let contracts = n.contracts in
-  let generated_histories = collect_node_histories env n contracts in
-  let generated_history_ghosts = history_ghosts generated_histories in
   let generated_observer_ghosts = observer_locals n.observers in
-  let public_ghosts = List.map (fun (o : S.observer_decl) -> o.observer_name) n.observers in
-  let input_names = List.map (fun (v : vdecl) -> v.vname) (lower_raw_vdecls env n.inputs) in
-  let transitions =
-    List.map
-      (expand_histories_in_transition ~input_names ~init_state:n.state_decls.init_state
-         generated_histories)
-      n.transitions
-    |> List.map
-         (expand_observers_in_transition ~init_state:n.state_decls.init_state n.observers)
+  let preliminary_generated_variables =
+    lower_raw_vdecls env
+      generated_observer_ghosts
+    |> List.map (fun (decl : vdecl) -> (decl.vname, decl.vty))
   in
-  let assumes, guarantees = lower_contracts env contracts in
-  let state_invariants = expand_state_invariants n in
+  let preliminary_env =
+    { env with variables = preliminary_generated_variables @ env.variables }
+  in
+  let delays = Delays.collect preliminary_env n.observers in
+  let generated_delay_ghosts = Delays.ghosts delays in
+  let observers = Delays.rewrite_observers delays n.observers in
+  let observer_schedule = Observers.schedule observers in
+  let generated_variables =
+    lower_raw_vdecls preliminary_env generated_delay_ghosts
+    |> List.map (fun (decl : vdecl) -> (decl.vname, decl.vty))
+  in
+  let env =
+    { preliminary_env with variables = generated_variables @ preliminary_env.variables }
+  in
+  let public_ghosts = List.map (fun (o : S.observer_decl) -> o.observer_name) n.observers in
+  let derived_outputs = resolve_derived_outputs n in
+  let transitions =
+    List.map (expand_derived_outputs_in_transition derived_outputs) n.transitions
+    |> List.map
+         (expand_observers_in_transition ~init_state:n.state_decls.init_state observer_schedule)
+    |> List.map (Delays.append_commits delays)
+  in
+  let assumes, guarantees =
+    lower_contracts ~hide_init:n.state_decls.init_is_hidden env contracts
+  in
+  let state_invariants =
+    expand_state_invariants n
+    @ derived_output_state_invariants n derived_outputs
+    @ Delays.state_invariants ~states:n.state_decls.states
+        ~init_state:n.state_decls.init_state delays
+  in
   let node =
     Kx_ast_builders.mk_node ~nname:n.node_name ~inputs:(lower_raw_vdecls env n.inputs)
 	  ~outputs:(lower_raw_vdecls env n.outputs) ~assumes ~guarantees ~instances:n.instances
 	  ~locals:(lower_raw_vdecls env n.locals)
-	  ~ghosts:(lower_raw_vdecls env (n.ghosts @ generated_history_ghosts @ generated_observer_ghosts))
+	  ~ghosts:(lower_raw_vdecls env
+        (n.ghosts @ generated_observer_ghosts
+       @ generated_delay_ghosts))
 	  ~public_ghosts
       ~states:n.state_decls.states ~init_state:n.state_decls.init_state
       ~trans:(List.map (lower_transition env) transitions)
@@ -276,9 +432,6 @@ let elaborate_frontend_decl (env, type_decls, function_decls) = function
 	      if List.mem_assoc f.function_name env.spec_defs then
 	        Kx_frontend_error.elaboration
 	          (Printf.sprintf "pure function '%s' conflicts with a spec definition of the same name" f.function_name);
-	      if List.mem_assoc f.function_name env.history_defs then
-	        Kx_frontend_error.elaboration
-	          (Printf.sprintf "pure function '%s' conflicts with a history definition of the same name" f.function_name);
 	      let lowered = lower_function_decl env f in
 	      let signature = (lowered.function_params, lowered.function_return) in
 	      let env = { env with functions = (lowered.function_name, signature) :: env.functions } in
@@ -290,22 +443,7 @@ let elaborate_frontend_decl (env, type_decls, function_decls) = function
 	      if List.mem_assoc d.spec_def_name env.functions then
 	        Kx_frontend_error.elaboration
 	          (Printf.sprintf "spec definition '%s' conflicts with a pure function of the same name" d.spec_def_name);
-	      if List.mem_assoc d.spec_def_name env.history_defs then
-	        Kx_frontend_error.elaboration
-	          (Printf.sprintf "spec definition '%s' conflicts with a history definition of the same name" d.spec_def_name);
 	      let env = { env with spec_defs = (d.spec_def_name, d) :: env.spec_defs } in
-	      (env, type_decls, function_decls)
-	  | S.SHistoryDefDecl d ->
-	      validate_history_def_decl d;
-	      if List.mem_assoc d.history_def_name env.history_defs then
-	        Kx_frontend_error.elaboration (Printf.sprintf "duplicate history definition '%s'" d.history_def_name);
-	      if List.mem_assoc d.history_def_name env.functions then
-	        Kx_frontend_error.elaboration
-	          (Printf.sprintf "history definition '%s' conflicts with a pure function of the same name" d.history_def_name);
-	      if List.mem_assoc d.history_def_name env.spec_defs then
-	        Kx_frontend_error.elaboration
-	          (Printf.sprintf "history definition '%s' conflicts with a spec definition of the same name" d.history_def_name);
-	      let env = { env with history_defs = (d.history_def_name, d) :: env.history_defs } in
 	      (env, type_decls, function_decls)
 
 let elaborate_source (source : S.source) : source =

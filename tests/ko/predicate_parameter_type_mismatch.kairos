@@ -1,0 +1,19 @@
+node predicate_parameter_type_mismatch(
+  flag: bool
+) returns (
+  accepted: bool
+)
+
+predicate accepts(value: int) =
+  true = true;
+
+contracts
+
+states Init(init);
+
+trans
+  Init:
+    to Init when accepts(flag) {
+      accepted := true;
+    }
+end

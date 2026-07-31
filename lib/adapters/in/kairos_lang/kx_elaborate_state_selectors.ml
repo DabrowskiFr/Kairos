@@ -67,17 +67,19 @@ let reject_initial_state_invariant ~node_name ~init_state states =
          node_name init_state)
 
 let expand_state_invariants (n : S.node) =
+  let visible_states = S.visible_states n.state_decls in
   List.concat_map
     (fun (inv : S.state_invariant) ->
       let states =
-        resolve_state_selector ~node_name:n.node_name ~states:n.state_decls.states inv.selector
+        resolve_state_selector ~node_name:n.node_name ~states:visible_states inv.selector
       in
       if states = [] then
         Kx_frontend_error.well_formedness
           (Printf.sprintf
              "state selector for an invariant in node '%s' does not select any state"
              n.node_name);
-      reject_initial_state_invariant ~node_name:n.node_name
-        ~init_state:n.state_decls.init_state states;
+      if not n.state_decls.init_is_hidden then
+        reject_initial_state_invariant ~node_name:n.node_name
+          ~init_state:n.state_decls.init_state states;
       List.map (fun state -> (state, inv.formula)) states)
     n.state_invariants

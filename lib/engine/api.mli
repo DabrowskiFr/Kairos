@@ -106,9 +106,15 @@ val run_with_callbacks :
     (int -> string -> string -> float -> string option -> string option -> unit) ->
   (Contract.outputs, error) result
 
-val source_diagnostics : text:string -> source_diagnostic list
+val source_diagnostics :
+  filename:string ->
+  text:string ->
+  source_diagnostic list
 
-val semantic_symbols : text:string -> semantic_symbols option
+val semantic_symbols :
+  filename:string ->
+  text:string ->
+  semantic_symbols option
 
 val surface_dump : input_file:string -> (string, error) result
 val elaborated_dump : input_file:string -> (string, error) result

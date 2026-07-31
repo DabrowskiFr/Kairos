@@ -262,7 +262,6 @@ def check_no_legacy_objects(repo: Path) -> list[str]:
         suffixes={".ml", ".mli", ".sh", ".ts", ".json"},
     )
 
-
 def quoted_dependencies(opam: str) -> set[str]:
     return set(re.findall(r'"([A-Za-z0-9_.+-]+)"', opam))
 

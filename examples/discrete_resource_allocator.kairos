@@ -14,17 +14,17 @@ node discrete_resource_allocator(
 ghosts
   proofBusy[Resource]: bool;
 
-predicate resourceFree(r) =
+predicate resourceFree(r: Resource) =
   forall c in Client. holds[c, r] = false;
 
-predicate resourceExclusive(r) =
+predicate resourceExclusive(r: Resource) =
   forall c1 in Client. forall c2 in Client.
     not (holds[c1, r] = true and holds[c2, r] = true) or c1 = c2;
 
 predicate allResourcesExclusive() =
   forall r in Resource. resourceExclusive(r);
 
-predicate releaseRequested(c, r) =
+predicate releaseRequested(c: Client, r: Resource) =
   releaseReq[c, r] = true;
 
 contracts

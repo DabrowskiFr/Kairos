@@ -25,9 +25,13 @@
 
 val observer_raw_vdecl : Kx_surface_syntax.observer_decl -> Kx_surface_syntax.raw_vdecl
 
+type schedule
+
+val schedule : Kx_surface_syntax.observer_decl list -> schedule
+
 val observer_updates_for_transition :
   init_state:string ->
-  Kx_surface_syntax.observer_decl list ->
+  schedule ->
   Kx_surface_syntax.transition ->
   Kx_surface_syntax.stmt list
 

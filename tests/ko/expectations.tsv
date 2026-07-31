@@ -1,7 +1,12 @@
 # file	expected_stage	coverage
+action_inout_requires_lvalue.kairos	frontend	action-parameter-mode
+action_input_forwarded_to_inout.kairos	frontend	action-parameter-mode
+action_input_assignment.kairos	frontend	action-parameter-mode
+action_parameter_type_mismatch.kairos	frontend	action-parameter-typing
 all_states_invariant_includes_init.kairos	frontend	state-selector
 assign_input.kairos	frontend	assignment-ownership
-concise_observer_bad_pre.kairos	frontend	history-initialization
+observer_current_cycle.kairos	frontend	observer-causality
+observer_pre_in_init.kairos	frontend	history-initialization
 credit_balance_monitor__bad_code.kairos	proof	implementation
 credit_balance_monitor__bad_invariant.kairos	proof	invariant
 credit_balance_monitor__bad_spec.kairos	proof	contract
@@ -11,6 +16,7 @@ delay_int2__bad_spec.kairos	proof	contract
 delay_int__bad_code.kairos	proof	implementation
 delay_int__bad_invariant.kairos	proof	invariant
 delay_int__bad_spec.kairos	proof	contract
+derived_output_assignment.kairos	frontend	derived-output-ownership
 duplicate_platform_gate_state.kairos	frontend	control-state-declaration
 edge_rise__bad_invariant.kairos	proof	invariant
 edge_rise__bad_spec.kairos	proof	contract
@@ -20,10 +26,11 @@ ghost_auxiliary_invariant__bad_rhs.kairos	frontend	ghost-visibility
 handoff__bad_code.kairos	proof	implementation
 handoff__bad_invariant.kairos	proof	invariant
 handoff__bad_spec.kairos	proof	contract
-history_definition__bad_ensures.kairos	proof	history-definition
 independent_alarm_acknowledgement__bad_code.kairos	proof	independent-weak-until
 init_state_invariant.kairos	frontend	state-selector
+duplicate_initialization.kairos	frontend	initialization is declared twice
 internal_prefix_reserved.kairos	frontend	reserved-name
+imported_spec_contains_node.kairos	frontend	spec-import
 multiple_assignment_arity.kairos	frontend	parallel-assignment
 multiple_assignment_rhs_depends.kairos	frontend	parallel-assignment
 node_call_writes_input.kairos	frontend	call-output-ownership
@@ -31,6 +38,7 @@ node_requires_output.kairos	frontend	contract-observability
 observer_drives_output.kairos	frontend	observer-separation
 platform_door_badge__bad_assumption.kairos	proof	assumption-boundary
 platform_door_badge__bad_code.kairos	proof	implementation
+predicate_parameter_type_mismatch.kairos	frontend	predicate-parameter-typing
 private_ghost_contract.kairos	frontend	ghost-visibility
 pure_function_contract__bad_arg_type.kairos	frontend	function-typing
 pure_function_contract__bad_arity.kairos	frontend	function-arity
@@ -57,7 +65,6 @@ traffic3__bad_invariant.kairos	proof	invariant
 traffic3__bad_spec.kairos	proof	contract
 uninitialized_pre_contract.kairos	frontend	history-initialization
 uninitialized_pre_k_invariant.kairos	frontend	history-initialization
-unknown_history_definition.kairos	frontend	history-definition
 unknown_platform_gate_transition_destination.kairos	frontend	control-state-reference
 unknown_platform_gate_transition_source.kairos	frontend	control-state-reference
 unknown_predicate_fallback.kairos	frontend	predicate-resolution
@@ -78,3 +85,4 @@ w_sticky_ack_latch__bad_invariant.kairos	proof	invariant
 w_sticky_ack_latch__bad_spec.kairos	proof	contract
 wr_input_output__bad_invariant.kairos	proof	invariant
 wr_input_output__bad_spec.kairos	proof	contract
+cyclic_spec_import.kairos	frontend	spec-import-cycle

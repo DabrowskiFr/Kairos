@@ -1,0 +1,20 @@
+node action_parameter_type_mismatch(
+  flag: bool
+) returns (
+  accepted: bool
+)
+
+action accept(value: int) {
+  accepted := true;
+}
+
+contracts
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      accept(flag);
+    }
+end

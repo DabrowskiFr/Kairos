@@ -41,37 +41,37 @@ node quantified_railway_interlocking(
   pointPosition[Point]: PointPosition
 )
 
-predicate routeIdle(r) =
+predicate routeIdle(r: Route) =
   routeState[r] = Idle;
 
-predicate routeLocked(r) =
+predicate routeLocked(r: Route) =
   routeState[r] = Locked;
 
-predicate signalRed(r) =
+predicate signalRed(r: Route) =
   signal[r] = Red;
 
-predicate signalGreen(r) =
+predicate signalGreen(r: Route) =
   signal[r] = Green;
 
-predicate cancelRequested(r) =
+predicate cancelRequested(r: Route) =
   cancel[r] = true and routeState[r] != Idle;
 
 predicate allRoutesIdle() =
   forall r in Route. routeIdle(r);
 
-action clearRoute(r) {
+action clearRoute(r: Route) {
   signal[r] := stopSignal();
   routeState[r] := idleState();
   reserved[r] := false;
 }
 
-action cancelRoute(r) {
+action cancelRoute(r: Route) {
   routeState[r] := releasingState();
   reserved[r] := true;
   signal[r] := stopSignal();
 }
 
-action lockRoute(r) {
+action lockRoute(r: Route) {
   routeState[r] := lockedState();
   reserved[r] := true;
   signal[r] := proceedSignal();

@@ -1,0 +1,24 @@
+node action_input_forwarded_to_inout(
+  sample: int
+) returns (
+  total: int
+)
+
+action mutate(inout target: int) {
+  target := 0;
+}
+
+action invalid(target: int) {
+  mutate(target);
+}
+
+contracts
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      invalid(total);
+    }
+end

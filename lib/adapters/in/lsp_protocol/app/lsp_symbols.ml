@@ -84,8 +84,41 @@ let identifier_occurrences
     lines;
   List.rev !out
 
-let semantic_symbols_for_text text =
-  Kairos_engine.Api.semantic_symbols ~text
+let hex_digit = function
+  | '0' .. '9' as c -> Char.code c - Char.code '0'
+  | 'a' .. 'f' as c -> Char.code c - Char.code 'a' + 10
+  | 'A' .. 'F' as c -> Char.code c - Char.code 'A' + 10
+  | _ -> -1
+
+let percent_decode text =
+  let out = Buffer.create (String.length text) in
+  let rec loop index =
+    if index >= String.length text then Buffer.contents out
+    else if index + 2 < String.length text && text.[index] = '%' then
+      let high = hex_digit text.[index + 1] in
+      let low = hex_digit text.[index + 2] in
+      if high >= 0 && low >= 0 then (
+        Buffer.add_char out (Char.chr ((high * 16) + low));
+        loop (index + 3))
+      else (
+        Buffer.add_char out text.[index];
+        loop (index + 1))
+    else (
+      Buffer.add_char out text.[index];
+      loop (index + 1))
+  in
+  loop 0
+
+let filename_of_uri uri =
+  let prefix = "file://" in
+  let prefix_len = String.length prefix in
+  if String.length uri >= prefix_len
+     && String.sub uri 0 prefix_len = prefix
+  then percent_decode (String.sub uri prefix_len (String.length uri - prefix_len))
+  else "<client-buffer>"
+
+let semantic_symbols_for_text ?(filename = "<client-buffer>") text =
+  Kairos_engine.Api.semantic_symbols ~filename ~text
 
 let symbol_kind (symbols : semantic_symbols) (ident : string) : string option =
   if List.mem ident symbols.nodes then Some "node"

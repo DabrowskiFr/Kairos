@@ -5,6 +5,13 @@ Kairos LSP server.
 
 ## Core features
 
+- Syntax highlighting for the complete current surface language: declarations,
+  contracts, histories, observers, actions, state machines, control flow,
+  quantifiers and temporal operators
+- Typed predicate parameters and typed action parameters, including the
+  writable `inout` mode
+- Read-only boolean outputs derived from control state with `derive`
+- Declaration-only specification libraries with `import spec "path";`
 - Build, Prove, Automata, Eval, Reset and Cancel Run commands
 - Outline, Goals, Artifacts and Runs side views
 - Proof dashboard with live goal grouping and quick navigation to Why
@@ -50,7 +57,7 @@ command or reading surface in the extension.
 
 ## Development
 
-From `extensions/kairos-vscode`:
+From `vscode/`:
 
 ```bash
 npm install

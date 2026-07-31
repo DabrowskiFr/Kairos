@@ -5,15 +5,29 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#strings" },
-    { "include": "#nodeHeader" },
+    { "include": "#imports" },
+    { "include": "#typeDeclarations" },
+    { "include": "#callableDeclarations" },
+    { "include": "#specDeclarations" },
+    { "include": "#nodeHeaders" },
+    { "include": "#instanceDeclarations" },
+    { "include": "#derivedOutputDeclarations" },
     { "include": "#sectionKeywords" },
     { "include": "#stateLabels" },
     { "include": "#transitionTargets" },
-    { "include": "#declarationNames" },
     { "include": "#temporalOperators" },
-    { "include": "#keywords" },
+    { "include": "#historyOperators" },
+    { "include": "#quantifiers" },
+    { "include": "#parameterModes" },
+    { "include": "#controlKeywords" },
+    { "include": "#declarationKeywords" },
+    { "include": "#logicalKeywords" },
     { "include": "#types" },
     { "include": "#constants" },
+    { "include": "#specialVariables" },
+    { "include": "#functionCalls" },
+    { "include": "#declarationNames" },
+    { "include": "#enumConstructors" },
     { "include": "#numbers" },
     { "include": "#operators" }
   ],
@@ -43,20 +57,105 @@
           "patterns": [
             {
               "name": "constant.character.escape.kairos",
+              "match": "\\\\(?:[\"\\\\nt])"
+            },
+            {
+              "name": "invalid.illegal.escape.kairos",
               "match": "\\\\."
             }
           ]
         }
       ]
     },
-    "nodeHeader": {
+    "imports": {
+      "patterns": [
+        {
+          "name": "meta.import.kairos",
+          "match": "^\\s*(import)\\s+(?:(spec)\\s+)?(\"(?:[^\"\\\\]|\\\\.)*\")\\s*(;)",
+          "captures": {
+            "1": { "name": "keyword.control.import.kairos" },
+            "2": { "name": "keyword.declaration.spec.kairos" },
+            "3": { "name": "string.quoted.double.kairos" },
+            "4": { "name": "punctuation.terminator.statement.kairos" }
+          }
+        }
+      ]
+    },
+    "typeDeclarations": {
+      "patterns": [
+        {
+          "name": "meta.type.declaration.kairos",
+          "match": "^\\s*(type)\\s+([A-Za-z_][A-Za-z0-9_']*)\\s*(=)",
+          "captures": {
+            "1": { "name": "keyword.declaration.type.kairos" },
+            "2": { "name": "entity.name.type.kairos" },
+            "3": { "name": "keyword.operator.assignment.definition.kairos" }
+          }
+        }
+      ]
+    },
+    "callableDeclarations": {
+      "patterns": [
+        {
+          "name": "meta.callable.declaration.kairos",
+          "match": "^\\s*(function|predicate|action)\\s+([A-Za-z_][A-Za-z0-9_']*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.function.kairos" },
+            "2": { "name": "entity.name.function.kairos" }
+          }
+        }
+      ]
+    },
+    "specDeclarations": {
+      "patterns": [
+        {
+          "name": "meta.spec.declaration.kairos",
+          "match": "^\\s*(spec)\\s+(def)\\s+([A-Za-z_][A-Za-z0-9_']*)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.spec.kairos" },
+            "2": { "name": "keyword.declaration.definition.kairos" },
+            "3": { "name": "entity.name.function.kairos" }
+          }
+        }
+      ]
+    },
+    "nodeHeaders": {
       "patterns": [
         {
           "name": "meta.node.header.kairos",
-          "match": "\\b(node)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+          "match": "^\\s*(node)\\s+([A-Za-z_][A-Za-z0-9_']*)\\b",
           "captures": {
             "1": { "name": "keyword.declaration.node.kairos" },
             "2": { "name": "entity.name.function.kairos" }
+          }
+        }
+      ]
+    },
+    "instanceDeclarations": {
+      "patterns": [
+        {
+          "name": "meta.instance.declaration.kairos",
+          "match": "^\\s*(instance)\\s+([A-Za-z_][A-Za-z0-9_']*)\\s*(:)\\s*([A-Za-z_][A-Za-z0-9_']*)",
+          "captures": {
+            "1": { "name": "keyword.declaration.instance.kairos" },
+            "2": { "name": "variable.other.definition.kairos" },
+            "3": { "name": "punctuation.separator.type.kairos" },
+            "4": { "name": "entity.name.type.node.kairos" }
+          }
+        }
+      ]
+    },
+    "derivedOutputDeclarations": {
+      "patterns": [
+        {
+          "name": "meta.derived-output.declaration.kairos",
+          "match": "^\\s*(derive)\\s+([A-Za-z_][A-Za-z0-9_']*)\\s*(=)\\s*(state)\\s+(in)\\b",
+          "captures": {
+            "1": { "name": "keyword.declaration.derived.kairos" },
+            "2": { "name": "variable.other.definition.kairos" },
+            "3": { "name": "keyword.operator.assignment.definition.kairos" },
+            "4": { "name": "variable.language.special.kairos" },
+            "5": { "name": "keyword.control.membership.kairos" }
           }
         }
       ]
@@ -65,32 +164,53 @@
       "patterns": [
         {
           "name": "keyword.control.section.kairos",
-          "match": "^\\s*(contracts|locals|states|invariants|transitions)\\b"
+          "match": "^\\s*(?:contracts|instances|locals|ghost|ghosts|observers|states|invariants|trans|transitions)\\b"
+        },
+        {
+          "name": "keyword.control.contract.kairos",
+          "match": "^\\s*(?:requires|ensures)\\s*(?=:)"
+        },
+        {
+          "name": "keyword.control.annotation.kairos",
+          "match": "^\\s*(?:invariant|variant)\\s*(?=:|\\bin\\b)"
         }
       ]
     },
     "stateLabels": {
       "patterns": [
         {
-          "name": "meta.state.declaration.kairos",
-          "match": "\\b([A-Z][A-Za-z0-9_]*)(?=\\s*(?:\\(init\\))?(?:,|;))",
+          "name": "meta.state.initial-transition.kairos",
+          "match": "^\\s*(init)\\s*(:)(?=\\s*(?:to\\b|$))",
           "captures": {
-            "1": { "name": "entity.name.type.state.kairos" }
+            "1": { "name": "keyword.control.block.kairos" },
+            "2": { "name": "punctuation.separator.kairos" }
+          }
+        },
+        {
+          "name": "meta.state.initializer.kairos",
+          "match": "\\b([A-Za-z_][A-Za-z0-9_']*)\\s*(\\()\\s*(init)\\s*(\\))",
+          "captures": {
+            "1": { "name": "entity.name.type.state.kairos" },
+            "2": { "name": "punctuation.parenthesis.open.kairos" },
+            "3": { "name": "storage.modifier.initial.kairos" },
+            "4": { "name": "punctuation.parenthesis.close.kairos" }
           }
         },
         {
           "name": "meta.state.label.kairos",
-          "match": "^\\s*([A-Z][A-Za-z0-9_]*)\\s*:",
+          "match": "^\\s*([A-Za-z_][A-Za-z0-9_']*)\\s*(:)(?=\\s*(?:to\\b|$))",
           "captures": {
-            "1": { "name": "entity.name.type.state.kairos" }
+            "1": { "name": "entity.name.type.state.kairos" },
+            "2": { "name": "punctuation.separator.kairos" }
           }
         },
         {
-          "name": "meta.invariant.label.kairos",
-          "match": "\\b(in)\\s+([A-Z][A-Za-z0-9_]*)\\s*:",
+          "name": "meta.invariant.selector.kairos",
+          "match": "\\b(in)\\s+([A-Za-z_][A-Za-z0-9_']*)\\s*(:)",
           "captures": {
             "1": { "name": "keyword.control.invariant.kairos" },
-            "2": { "name": "entity.name.type.state.kairos" }
+            "2": { "name": "entity.name.type.state.kairos" },
+            "3": { "name": "punctuation.separator.kairos" }
           }
         }
       ]
@@ -98,8 +218,17 @@
     "transitionTargets": {
       "patterns": [
         {
+          "name": "meta.transition.source.kairos",
+          "match": "\\b(from)\\s+([A-Za-z_][A-Za-z0-9_']*)\\s*(:)",
+          "captures": {
+            "1": { "name": "keyword.control.transition.kairos" },
+            "2": { "name": "entity.name.type.state.kairos" },
+            "3": { "name": "punctuation.separator.kairos" }
+          }
+        },
+        {
           "name": "meta.transition.target.kairos",
-          "match": "\\b(to)\\s+([A-Z][A-Za-z0-9_]*)\\b(?:\\s+(when)\\b)?",
+          "match": "\\b(to)\\s+([A-Za-z_][A-Za-z0-9_']*)\\b(?:\\s+(when)\\b)?",
           "captures": {
             "1": { "name": "keyword.control.transition.kairos" },
             "2": { "name": "entity.name.type.state.kairos" },
@@ -108,38 +237,91 @@
         }
       ]
     },
-    "declarationNames": {
-      "patterns": [
-        {
-          "name": "meta.declaration.variable.kairos",
-          "match": "\\b([a-zA-Z_][A-Za-z0-9_]*)\\b\\s*:",
-          "captures": {
-            "1": { "name": "variable.other.definition.kairos" }
-          }
-        }
-      ]
-    },
     "temporalOperators": {
       "patterns": [
         {
           "name": "keyword.operator.temporal.kairos",
-          "match": "\\b(?:G|F|X|U|W|R|M|Y|Z|H|O|always|eventually|next|prev\\d*)\\b"
+          "match": "\\b(?:G|X|W|R|always|next|weakuntil|release)\\b"
         }
       ]
     },
-    "keywords": {
+    "historyOperators": {
       "patterns": [
         {
-          "name": "keyword.control.kairos",
-          "match": "\\b(?:returns|requires|ensures|when|skip|end|init|not|and|or|in|except)\\b"
+          "name": "keyword.operator.history.kairos",
+          "match": "\\b(?:pre|pre_k|past|prev[0-9]*)\\b"
+        }
+      ]
+    },
+    "quantifiers": {
+      "patterns": [
+        {
+          "name": "keyword.control.quantifier.kairos",
+          "match": "\\b(?:forall|exists)\\b"
+        }
+      ]
+    },
+    "parameterModes": {
+      "patterns": [
+        {
+          "name": "storage.modifier.parameter.kairos",
+          "match": "\\binout\\b"
+        }
+      ]
+    },
+    "controlKeywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.conditional.kairos",
+          "match": "\\b(?:if|then|else|match|with|when)\\b"
+        },
+        {
+          "name": "keyword.control.loop.kairos",
+          "match": "\\b(?:while|do|for|variant)\\b"
+        },
+        {
+          "name": "keyword.control.transition.kairos",
+          "match": "\\b(?:from|to|skip|call)\\b"
+        },
+        {
+          "name": "keyword.control.block.kairos",
+          "match": "\\b(?:end|init|step)\\b"
+        },
+        {
+          "name": "keyword.control.contract.kairos",
+          "match": "\\b(?:requires|ensures|invariant|invariants|except)\\b"
+        },
+        {
+          "name": "keyword.control.membership.kairos",
+          "match": "\\bin\\b"
+        }
+      ]
+    },
+    "declarationKeywords": {
+      "patterns": [
+        {
+          "name": "keyword.declaration.kairos",
+          "match": "\\b(?:node|type|function|predicate|action|derive|spec|def|import|let|instance|instances|locals|ghost|ghosts|observers|states|trans|transitions|contracts|returns)\\b"
+        }
+      ]
+    },
+    "logicalKeywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.logical.kairos",
+          "match": "\\b(?:and|or|not)\\b"
         }
       ]
     },
     "types": {
       "patterns": [
         {
-          "name": "storage.type.kairos",
-          "match": "\\b(?:int|bool|float|real|unit)\\b"
+          "name": "storage.type.primitive.kairos",
+          "match": "\\b(?:int|bool|real)\\b"
+        },
+        {
+          "name": "storage.type.meta.kairos",
+          "match": "\\b(?:Formula|formula|HExpr|hexpr|Nat|nat)\\b"
         }
       ]
     },
@@ -151,11 +333,49 @@
         }
       ]
     },
+    "specialVariables": {
+      "patterns": [
+        {
+          "name": "variable.language.special.kairos",
+          "match": "\\b(?:result|self|state)\\b"
+        }
+      ]
+    },
+    "functionCalls": {
+      "patterns": [
+        {
+          "name": "meta.function-call.kairos",
+          "match": "\\b([A-Za-z_][A-Za-z0-9_']*)\\s*(?=\\()",
+          "captures": {
+            "1": { "name": "entity.name.function.call.kairos" }
+          }
+        }
+      ]
+    },
+    "declarationNames": {
+      "patterns": [
+        {
+          "name": "meta.variable.declaration.kairos",
+          "match": "\\b([A-Za-z_][A-Za-z0-9_']*)\\b(?=\\s*(?:\\[[^\\]]*\\])?\\s*:)",
+          "captures": {
+            "1": { "name": "variable.other.definition.kairos" }
+          }
+        }
+      ]
+    },
+    "enumConstructors": {
+      "patterns": [
+        {
+          "name": "constant.language.enum.kairos",
+          "match": "\\b[A-Z][A-Za-z0-9_']*\\b"
+        }
+      ]
+    },
     "numbers": {
       "patterns": [
         {
-          "name": "constant.numeric.kairos",
-          "match": "(?<![A-Za-z0-9_])(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?![A-Za-z0-9_])"
+          "name": "constant.numeric.integer.kairos",
+          "match": "(?<![A-Za-z0-9_'])(?:0|[1-9][0-9]*)(?![A-Za-z0-9_'])"
         }
       ]
     },
@@ -166,16 +386,36 @@
           "match": ":="
         },
         {
+          "name": "keyword.operator.flow.kairos",
+          "match": "->"
+        },
+        {
           "name": "keyword.operator.logical.kairos",
-          "match": "<=>|=>|>=|<=|!=|=|>|<"
+          "match": "=>|>=|<=|!=|=|>|<"
         },
         {
           "name": "keyword.operator.arithmetic.kairos",
           "match": "[+\\-*/]"
         },
         {
+          "name": "punctuation.separator.alternation.kairos",
+          "match": "\\|"
+        },
+        {
+          "name": "punctuation.definition.parameter.kairos",
+          "match": "\\$"
+        },
+        {
+          "name": "punctuation.separator.range.kairos",
+          "match": "\\.\\."
+        },
+        {
+          "name": "punctuation.accessor.kairos",
+          "match": "\\."
+        },
+        {
           "name": "punctuation.separator.kairos",
-          "match": "[,;]"
+          "match": "[:,;]"
         },
         {
           "name": "punctuation.bracket.kairos",

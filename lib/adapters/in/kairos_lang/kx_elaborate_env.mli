@@ -20,11 +20,10 @@
 
 type env = {
   enum_sets : (Kx_core_syntax.ident * Kx_core_syntax.ident list) list;
+  variables : (Kx_core_syntax.ident * Kx_core_syntax.ty) list;
   functions :
     (Kx_core_syntax.ident * (Kx_core_syntax.vdecl list * Kx_core_syntax.ty)) list;
   spec_defs : (Kx_core_syntax.ident * Kx_surface_syntax.spec_def_decl) list;
-  history_defs :
-    (Kx_core_syntax.ident * Kx_surface_syntax.history_def_decl) list;
   predicates : (Kx_core_syntax.ident * Kx_surface_syntax.predicate_decl) list;
   actions : (Kx_core_syntax.ident * Kx_surface_syntax.action_decl) list;
   history_aliases : (Kx_core_syntax.ident * (Kx_core_syntax.ident * int)) list;
@@ -50,3 +49,6 @@ val range_values : int -> int -> int list
 val eval_nat : spec_context -> Kx_surface_syntax.nat_expr -> int
 val function_sig : env -> Kx_core_syntax.ident -> (Kx_core_syntax.vdecl list * Kx_core_syntax.ty) option
 val is_bool_function : env -> Kx_core_syntax.ident -> bool
+val value_type : env -> Kx_core_syntax.ident -> Kx_core_syntax.ty option
+val type_name : Kx_core_syntax.ty -> string
+val validate_type : env -> string -> Kx_core_syntax.ty -> unit

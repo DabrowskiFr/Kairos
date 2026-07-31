@@ -22,5 +22,6 @@ val validate_unique_named_decls : string -> ('a -> string) -> 'a list -> unit
 val validate_control_graph : Kx_surface_syntax.node -> unit
 val validate_observers : Kx_surface_syntax.node -> unit
 val validate_action_contracts : Kx_surface_syntax.node -> unit
-val validate_history_def_decl : Kx_surface_syntax.history_def_decl -> unit
+val validate_action_parameters : Kx_surface_syntax.node -> unit
+val validate_derived_outputs : Kx_surface_syntax.node -> unit
 val validate_spec_def_decl : Kx_surface_syntax.spec_def_decl -> unit

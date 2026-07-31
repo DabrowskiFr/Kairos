@@ -14,7 +14,8 @@ let completion oc ~(docs : Lsp_document_store.t) ~id ~params =
   let items =
     match Lsp_text_document_request.document docs params with
     | Some doc ->
-        Lsp_completion.completion_items_for_text doc.text
+        let filename = Lsp_symbols.filename_of_uri doc.uri in
+        Lsp_completion.completion_items_for_text ~filename doc.text
         |> List.map Lsp_completion_view.completion_item_json
     | None -> []
   in

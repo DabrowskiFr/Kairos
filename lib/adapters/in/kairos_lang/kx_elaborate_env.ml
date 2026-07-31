@@ -22,9 +22,9 @@ module Names = Kx_elaborate_names
 
 type env = {
   enum_sets : (ident * ident list) list;
+  variables : (ident * ty) list;
   functions : (ident * (vdecl list * ty)) list;
   spec_defs : (ident * S.spec_def_decl) list;
-  history_defs : (ident * S.history_def_decl) list;
   predicates : (ident * S.predicate_decl) list;
   actions : (ident * S.action_decl) list;
   history_aliases : (ident * (ident * int)) list;
@@ -33,9 +33,9 @@ type env = {
 let empty_env =
   {
     enum_sets = [];
+    variables = [];
     functions = [];
     spec_defs = [];
-    history_defs = [];
     predicates = [];
     actions = [];
     history_aliases = [];
@@ -116,3 +116,27 @@ let function_sig env name = List.assoc_opt name env.functions
 
 let is_bool_function env name =
   match function_sig env name with Some (_, TBool) -> true | Some _ | None -> false
+
+let constructor_type env name =
+  List.find_map
+    (fun (enum_name, constructors) ->
+      if List.mem name constructors then Some (TCustom enum_name) else None)
+    env.enum_sets
+
+let value_type env name =
+  match List.assoc_opt name env.variables with
+  | Some ty -> Some ty
+  | None -> constructor_type env name
+
+let type_name = function
+  | TInt -> "int"
+  | TBool -> "bool"
+  | TReal -> "real"
+  | TCustom name -> name
+
+let validate_type env context = function
+  | TInt | TBool | TReal -> ()
+  | TCustom name when List.mem_assoc name env.enum_sets -> ()
+  | TCustom name ->
+      Kx_frontend_error.elaboration
+        (Printf.sprintf "%s uses unknown type '%s'" context name)

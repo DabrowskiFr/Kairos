@@ -29,11 +29,6 @@ val resolve_history_source_ref :
   Kx_surface_syntax.indexed_ref ->
   Kx_surface_syntax.indexed_ref
 
-val ident_arg_of_name :
-  Kx_elaborate_env.spec_context ->
-  Kx_core_syntax.ident ->
-  Kx_core_syntax.ident
-
 val bind_spec_param :
   Kx_elaborate_env.spec_context ->
   Kx_surface_syntax.spec_param ->
@@ -42,6 +37,15 @@ val bind_spec_param :
 
 val lower_expr :
   Kx_elaborate_env.env -> Kx_surface_syntax.expr -> Kx_core_syntax.expr
+
+val infer_expr_type :
+  Kx_elaborate_env.env -> Kx_core_syntax.expr -> Kx_core_syntax.ty
+
+val check_expected_type :
+  context:string ->
+  Kx_core_syntax.ty ->
+  Kx_core_syntax.ty ->
+  unit
 
 val lower_hexpr :
   Kx_elaborate_env.env ->

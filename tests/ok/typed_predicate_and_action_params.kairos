@@ -1,0 +1,44 @@
+node typed_predicate_and_action_params(
+  sample: int
+) returns (
+  total: int
+)
+
+predicate wouldExceed(accumulated: int, amount: int) =
+  accumulated + amount > 100;
+
+predicate shiftedNonnegative(value: int) =
+  booleanIdentity(value + 1 >= 0);
+
+predicate nonnegative(value: int) =
+  value >= 0;
+
+predicate booleanIdentity(value: bool) =
+  value = true;
+
+// Parameter names deliberately cross the node-variable names. Expansion must
+// remain simultaneous and capture-free.
+action add(inout sample: int, in total: int)
+{
+  sample := sample + total;
+}
+
+contracts
+
+states Init(init), Run;
+
+trans
+  Init:
+    to Run {
+      total := 0;
+    }
+
+  Run:
+    to Run when wouldExceed(total, sample + 1)
+      and shiftedNonnegative(sample) {
+      add(total, sample + 1);
+    }
+    to Run when not wouldExceed(total, sample + 1) {
+      add(total, sample);
+    }
+end

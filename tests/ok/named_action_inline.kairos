@@ -12,13 +12,13 @@ ghosts
 predicate mirrored() =
   forall r in Route. proofLocked[r] = locked[r];
 
-action clearRoute(r) {
+action clearRoute(r: Route) {
   locked[r] := false;
   enabled[r] := false;
   proofLocked[r] := false;
 }
 
-action lockRoute(r) {
+action lockRoute(r: Route) {
   locked[r] := true;
   enabled[r] := true;
   proofLocked[r] := true;

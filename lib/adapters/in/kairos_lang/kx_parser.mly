@@ -31,10 +31,32 @@ let indexed_ref_name (r:indexed_ref) : string =
 let is_scalar_ref_named (name:string) (r:indexed_ref) : bool =
   String.equal r.ref_base name && r.ref_indices = []
 
-let resolve_init_state ~(inline_init:ident option) : ident =
-  match inline_init with
-  | Some s -> s
-  | None -> Kx_frontend_error.well_formedness "missing init state: mark one state with '(init)'"
+let hidden_init_state = "KairosInternalInit"
+
+let resolve_state_decls ~(states:ident list) ~(inline_init:ident option)
+    ~(transitions:transition list) : state_decls =
+  if List.exists (String.equal hidden_init_state) states then
+    Kx_frontend_error.well_formedness
+      (Printf.sprintf "state name '%s' is reserved for frontend lowering"
+         hidden_init_state);
+  let has_explicit_init =
+    List.exists (fun (t:transition) -> String.equal t.src hidden_init_state) transitions
+  in
+  match inline_init, has_explicit_init with
+  | Some _, true ->
+      Kx_frontend_error.well_formedness
+        "initialization is declared twice: use either 'State(init)' or 'transitions init:', not both"
+  | Some init_state, false ->
+      { states; init_state; init_is_hidden = false }
+  | None, true ->
+      {
+        states = hidden_init_state :: states;
+        init_state = hidden_init_state;
+        init_is_hidden = true;
+      }
+  | None, false ->
+      Kx_frontend_error.well_formedness
+        "missing initialization: add a 'transitions init:' group"
 
 let implicit_history_alias_k (alias:string) : int option =
   let prefix = "prev" in
@@ -92,8 +114,8 @@ let rec observer_expr_of_hexpr ~(observer:string) ~(phase:string) (h:hexpr) : ex
       concise_observer_error ~observer ~phase
         "reads the observer directly; use pre(observer) in the step expression"
   | SHVar r -> mk (SEVar r)
-  | SHPreK (r, SNNat 1) when String.equal phase "step" && is_scalar_ref_named observer r ->
-      mk (SEVar r)
+  | SHPreK (r, SNNat 1) when String.equal phase "step" ->
+      mk (SEPre r)
   | SHPreK (r, _) when is_scalar_ref_named observer r ->
       concise_observer_error ~observer ~phase
         "can only use pre(observer) in the step expression"
@@ -103,7 +125,7 @@ let rec observer_expr_of_hexpr ~(observer:string) ~(phase:string) (h:hexpr) : ex
   | SHExpr _ ->
       concise_observer_error ~observer ~phase
         "cannot embed executable expressions with braces"
-  | SHPast _ | SHHistoryCall _ | SHHistoryAlias _ | SHCall _
+  | SHPast _ | SHHistoryAlias _ | SHCall _
   | SHForall _ | SHExists _ | SHRangeForall _ | SHRangeExists _ ->
       concise_observer_error ~observer ~phase
         "uses a construct that is not supported in concise observer equations"
@@ -132,7 +154,7 @@ let rec observer_stmts_of_history_expr ~(observer:string) ~(phase:string)
 let rec expr_refs (e:expr) : string list =
   match e.sexpr with
   | SELitInt _ | SELitBool _ -> []
-  | SEVar r -> [indexed_ref_name r]
+  | SEVar r | SEPre r -> [indexed_ref_name r]
   | SECall (_, args) -> List.concat_map expr_refs args
   | SEBin (_, a, b) | SECmp (_, a, b) -> expr_refs a @ expr_refs b
   | SEUn (_, inner) -> expr_refs inner
@@ -182,10 +204,10 @@ let range_strings lo hi =
 
 %}
 
-%token TYPE FUNCTION PREDICATE ACTION SPEC DEF HISTORY
+%token TYPE FUNCTION PREDICATE ACTION SPEC DEF DERIVE
 %token NODE RETURNS LOCALS GHOSTS OBSERVERS STATES INIT STEP TRANS END
 %token REQUIRES ENSURES
-%token INVARIANT IN
+%token INVARIANT IN INOUT
 %token INVARIANTS
 %token EXCEPT
 %token CONTRACTS
@@ -225,6 +247,10 @@ source_file:
       {
         { imports = $2; frontend_decls = $3; nodes = $4 }
       }
+  | frontend_scope_start imports_opt frontend_decls_opt EOF
+      {
+        { imports = $2; frontend_decls = $3; nodes = [] }
+      }
 
 program:
   | frontend_scope_start imports_opt frontend_decls_opt nodes EOF { $4 }
@@ -245,6 +271,10 @@ import_decl:
       {
         ($2, Some (loc_of_positions (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2)))
       }
+  | IMPORT SPEC STRING SEMI
+      {
+        ($3, Some (loc_of_positions (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3)))
+      }
 
 frontend_decls_opt:
   | /* empty */ { [] }
@@ -258,7 +288,6 @@ frontend_decl:
   | type_decl { STypeDecl $1 }
   | function_decl { SFunctionDecl $1 }
   | spec_def_decl { SSpecDefDecl $1 }
-  | history_def_decl { SHistoryDefDecl $1 }
 
 type_decl:
   | TYPE IDENT EQ enum_ctor_list SEMI
@@ -326,43 +355,6 @@ spec_def_decl:
         }
       }
 
-history_def_decl:
-  | HISTORY DEF IDENT LPAREN IDENT COLON HEXPR RPAREN COLON ty
-    INIT EQ history_expr SEMI history_init_ensures_opt
-    STEP EQ history_expr SEMI history_step_ensures_opt
-      {
-        let () = forbid_reserved_identifier ~context:"history definition name" $3 in
-        let () = forbid_reserved_identifier ~context:"history definition parameter" $5 in
-        if String.equal $5 "self" then
-          Kx_frontend_error.well_formedness
-            "history definition parameter 'self' is reserved for the generated history value";
-        {
-          history_def_name = $3;
-          history_param = $5;
-          history_ty = $10;
-          history_init = $13;
-          history_init_ensures = $15;
-          history_step = $18;
-          history_step_ensures = $20;
-        }
-      }
-
-history_init_ensures_opt:
-  | /* empty */ { [] }
-  | history_init_ensures { $1 }
-
-history_init_ensures:
-  | INIT ENSURES COLON fo_formula SEMI history_init_ensures { $4 :: $6 }
-  | INIT ENSURES COLON fo_formula SEMI { [$4] }
-
-history_step_ensures_opt:
-  | /* empty */ { [] }
-  | history_step_ensures { $1 }
-
-history_step_ensures:
-  | STEP ENSURES COLON fo_formula SEMI history_step_ensures { $4 :: $6 }
-  | STEP ENSURES COLON fo_formula SEMI { [$4] }
-
 history_expr:
   | IF fo_formula THEN history_expr ELSE history_expr END
       {
@@ -396,20 +388,26 @@ spec_param_kind:
   | NAT { SPNat }
 
 predicate_decl:
-  | PREDICATE IDENT LPAREN pred_params_opt RPAREN EQ fo_formula SEMI
+  | PREDICATE IDENT LPAREN typed_params_opt RPAREN EQ fo_formula SEMI
       {
         let () = forbid_reserved_identifier ~context:"predicate name" $2 in
-        List.iter (fun name -> forbid_reserved_identifier ~context:"predicate parameter" name) $4;
+        List.iter
+          (fun param ->
+            forbid_reserved_identifier ~context:"predicate parameter" param.param_name)
+          $4;
         { predicate_name = $2; predicate_params = $4; predicate_body = $7 }
       }
 
-pred_params_opt:
+typed_params_opt:
   | /* empty */ { [] }
-  | pred_params { $1 }
+  | typed_params { $1 }
 
-pred_params:
-  | IDENT COMMA pred_params { $1 :: $3 }
-  | IDENT { [$1] }
+typed_params:
+  | typed_param COMMA typed_params { $1 :: $3 }
+  | typed_param { [$1] }
+
+typed_param:
+  | IDENT COLON ty { { param_name = $1; param_ty = $3 } }
 
 nodes:
   | node nodes { $1 :: $2 }
@@ -424,14 +422,17 @@ node:
 	  action_decls_opt
 	  node_contracts_block instances_opt
   locals_opt
-  STATES state_decls SEMI
+	  STATES state_decls SEMI
+  derived_outputs_opt
   state_invariants_opt
 	  TRANS transitions
 	  END
 	  {
 	    let () = forbid_reserved_identifier ~context:"node name" $2 in
 	    let states, inline_init = $19 in
-	    let init_state = resolve_init_state ~inline_init in
+	    let state_decls =
+	      resolve_state_decls ~states ~inline_init ~transitions:$24
+	    in
 	    {
 	      node_name = $2;
 	      inputs = $4;
@@ -444,9 +445,10 @@ node:
 	      contracts = $15;
 	      instances = $16;
 	      locals = $17;
-	      state_decls = { states; init_state };
-	      state_invariants = $21;
-	      transitions = $23;
+	      state_decls;
+	      derived_outputs = $21;
+	      state_invariants = $22;
+	      transitions = $24;
 	    }
 	  }
 
@@ -611,7 +613,12 @@ alias_decl:
       {
         let () = forbid_reserved_identifier ~context:"history alias parameter" $3 in
         let () = forbid_reserved_identifier ~context:"history alias rhs parameter" $7 in
-        { alias_name = $2; alias_param = $3; alias_rhs_param = $7; alias_k = $9 }
+        {
+          alias_name = $2;
+          alias_param = $3;
+          alias_rhs_param = $7;
+          alias_k = $9;
+        }
       }
 
 predicate_decls_opt:
@@ -631,13 +638,42 @@ action_decls:
   | action_decl { [$1] }
 
 action_decl:
-  | ACTION IDENT LPAREN pred_params_opt RPAREN action_contracts_opt LBRACE stmt_list_opt RBRACE
+  | ACTION IDENT LPAREN action_params_opt RPAREN action_contracts_opt LBRACE stmt_list_opt RBRACE
       {
         let () = forbid_reserved_identifier ~context:"action name" $2 in
-        List.iter (fun name -> forbid_reserved_identifier ~context:"action parameter" name) $4;
+        List.iter
+          (fun param ->
+            forbid_reserved_identifier ~context:"action parameter"
+              param.action_param_name)
+          $4;
         let requires, ensures = $6 in
         { action_name = $2; action_params = $4; action_requires = requires;
           action_ensures = ensures; action_body = $8 }
+      }
+
+action_params_opt:
+  | /* empty */ { [] }
+  | action_params { $1 }
+
+action_params:
+  | action_param COMMA action_params { $1 :: $3 }
+  | action_param { [$1] }
+
+action_param:
+  | IDENT COLON ty
+      {
+        { action_param_name = $1; action_param_ty = $3;
+          action_param_mode = APIn }
+      }
+  | IN IDENT COLON ty
+      {
+        { action_param_name = $2; action_param_ty = $4;
+          action_param_mode = APIn }
+      }
+  | INOUT IDENT COLON ty
+      {
+        { action_param_name = $2; action_param_ty = $4;
+          action_param_mode = APInOut }
       }
 
 action_contracts_opt:
@@ -693,6 +729,33 @@ state_decl:
       {
         let () = forbid_reserved_identifier ~context:"state name" $1 in
         ($1, Some $1)
+      }
+
+derived_outputs_opt:
+  | /* empty */ { [] }
+  | derived_outputs { $1 }
+
+derived_outputs:
+  | derived_output_decl derived_outputs { $1 :: $2 }
+  | derived_output_decl { [$1] }
+
+derived_output_decl:
+  | DERIVE IDENT EQ IDENT IN state_selector SEMI
+      {
+        let () = forbid_reserved_identifier ~context:"derived output" $2 in
+        if not (String.equal $4 "state") then
+          Kx_frontend_error.well_formedness
+            (Printf.sprintf
+               "derived output '%s' must be defined from 'state', not '%s'"
+               $2 $4);
+        {
+          derived_output_name = $2;
+          derived_output_true_states = $6;
+          derived_output_loc =
+            Some
+              (loc_of_positions
+                 (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7));
+        }
       }
 
 state_invariants_opt:
@@ -758,6 +821,12 @@ transition_group:
           { src = $1; dst; guard; body; ensures = [] })
         $3
     }
+  | INIT COLON to_transitions {
+      List.map
+        (fun (dst, guard, body) ->
+          { src = hidden_init_state; dst; guard; body; ensures = [] })
+        $3
+    }
 
 to_transitions:
   | to_transition to_transitions { $1 :: $2 }
@@ -795,7 +864,7 @@ stmt_list:
 stmt_item:
   | assignment_stmt SEMI { $1 }
   | stmt SEMI { [$1] }
-  | IDENT LPAREN id_list_opt RPAREN SEMI
+  | IDENT LPAREN expr_list_opt RPAREN SEMI
       { [mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 5) (SSActionCall ($1, $3))] }
   | FOR IDENT IN IDENT LBRACE stmt_list_opt RBRACE
       { [mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SSFor ($2, $4, $6))] }
@@ -861,6 +930,8 @@ indexed_ref_list:
 arith_atom:
   | INT { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (SELitInt $1) }
   | indexed_ref { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (SEVar $1) }
+  | PRE LPAREN indexed_ref RPAREN
+      { mk_expr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (SEPre $3) }
   | LPAREN arith RPAREN { $2 }
 
 arith_unary:
@@ -948,9 +1019,6 @@ h_atom:
   | INT { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (SHLitInt $1) }
   | TRUE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (SHLitBool true) }
   | FALSE { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (SHLitBool false) }
-  | HISTORY IDENT LPAREN indexed_ref RPAREN {
-      mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 5) (SHHistoryCall ($2, $4))
-    }
   | IDENT indexed_ref { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (SHHistoryAlias ($1, $2)) }
   | indexed_ref { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (SHVar $1) }
   | PRE LPAREN indexed_ref RPAREN {
@@ -1002,7 +1070,7 @@ ltl_atom:
 
 fo_leaf:
   | hexpr relop hexpr { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 3) (SHCmp($2,$1,$3)) }
-  | IDENT LPAREN id_list_opt RPAREN
+  | IDENT LPAREN predicate_arg_list_opt RPAREN
       { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (SHCall ($1, $3)) }
   | FORALL IDENT IN IDENT DOT fo_formula
       { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 6) (SHForall ($2, $4, $6)) }
@@ -1013,6 +1081,18 @@ fo_leaf:
   | EXISTS IDENT IN nat_expr DOT DOT nat_expr DOT fo_formula
       { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 9) (SHRangeExists ($2, $4, $7, $9)) }
   | LPAREN fo_formula RPAREN { $2 }
+
+predicate_arg_list_opt:
+  | /* empty */ { [] }
+  | predicate_arg_list { $1 }
+
+predicate_arg_list:
+  | predicate_arg COMMA predicate_arg_list { $1 :: $3 }
+  | predicate_arg { [$1] }
+
+predicate_arg:
+  | fo_formula { $1 }
+  | hexpr { $1 }
 
 fo_un:
   | NOT fo_un { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 2) (SHUn(Not,$2)) }

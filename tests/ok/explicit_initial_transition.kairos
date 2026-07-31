@@ -1,0 +1,18 @@
+node explicit_initial_transition() returns (x: int)
+contracts
+  ensures: G(x >= 0);
+states
+  Run;
+invariants
+  in states:
+    x >= 0;
+transitions
+  init:
+    to Run {
+      x := 0;
+    }
+  Run:
+    to Run {
+      x := x + 1;
+    }
+end

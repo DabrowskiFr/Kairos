@@ -8,7 +8,7 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
-let completion_items_for_text (text : string) : string list =
+let completion_items_for_text ?filename (text : string) : string list =
   let tbl = Hashtbl.create 256 in
   let push s = if String.length s > 0 then Hashtbl.replace tbl s () in
   let keywords =
@@ -36,13 +36,13 @@ let completion_items_for_text (text : string) : string list =
       "skip";
       "init";
       "step";
-      "history";
       "self";
+      "bool";
     ]
   in
   List.iter push keywords;
   begin
-    match Lsp_symbols.semantic_symbols_for_text text with
+    match Lsp_symbols.semantic_symbols_for_text ?filename text with
     | Some symbols -> List.iter push symbols.all
     | None -> ()
   end;

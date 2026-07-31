@@ -1,0 +1,14 @@
+// Reusable temporal specification schemes.
+//
+// A `spec def` is not implementation code. These definitions are expanded
+// before elaboration and do not introduce node composition.
+
+// If a trigger holds now, the response must hold on the next state.
+spec def responds_now_next(trigger: Formula, response: Formula) =
+  G($trigger => X($response));
+
+// Once triggered, hold weak-until a release condition.
+spec def holds_until_release(
+  trigger: Formula, hold: Formula, clear: Formula
+) =
+  G($trigger => ($hold W $clear));

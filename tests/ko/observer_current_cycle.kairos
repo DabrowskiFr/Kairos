@@ -1,0 +1,14 @@
+node observer_current_cycle(x: int) returns (ok: bool)
+observers
+  left : int = x -> right;
+  right : int = x -> left;
+contracts
+  ensures: X G(ok = true);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run { ok := true; }
+  Run:
+    to Run { ok := true; }
+end

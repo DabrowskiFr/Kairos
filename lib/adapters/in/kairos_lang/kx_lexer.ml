@@ -42,7 +42,7 @@ let () =
       ("function", FUNCTION);
       ("predicate", PREDICATE);
       ("action", ACTION);
-      ("history", HISTORY);
+      ("derive", DERIVE);
       ("spec", SPEC);
       ("def", DEF);
       ("returns", RETURNS);
@@ -61,6 +61,7 @@ let () =
       ("invariant", INVARIANT);
       ("invariants", INVARIANTS);
       ("in", IN);
+      ("inout", INOUT);
       ("except", EXCEPT);
       ("contracts", CONTRACTS);
       ("import", IMPORT);
@@ -139,7 +140,7 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("function", FUNCTION);
     ("predicate", PREDICATE);
     ("action", ACTION);
-    ("history", HISTORY);
+    ("derive", DERIVE);
     ("spec", SPEC);
     ("def", DEF);
     ("returns", RETURNS);
@@ -158,6 +159,7 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("invariant", INVARIANT);
     ("invariants", INVARIANTS);
     ("in", IN);
+    ("inout", INOUT);
     ("except", EXCEPT);
     ("contracts", CONTRACTS);
     ("import", IMPORT);

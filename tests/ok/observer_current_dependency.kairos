@@ -1,0 +1,14 @@
+node observer_current_dependency(x: int) returns (ok: bool)
+observers
+  dependent : int = x -> sampled + pre(x);
+  sampled : int = x -> x;
+contracts
+  ensures: X G(ok = true);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run { ok := true; }
+  Run:
+    to Run { ok := true; }
+end

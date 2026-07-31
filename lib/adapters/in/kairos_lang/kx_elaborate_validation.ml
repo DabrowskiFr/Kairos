@@ -20,6 +20,7 @@ open Kx_surface_syntax
 
 module Names = Kx_elaborate_names
 module S = Kx_surface_syntax
+module State_selectors = Kx_elaborate_state_selectors
 
 let validate_unique_named_decls kind get_name decls =
   let seen = Hashtbl.create 17 in
@@ -64,7 +65,8 @@ let is_scalar_ref_named name (r : S.indexed_ref) =
 let rec stmt_assigns_to targets (s : S.stmt) : string option =
   let assigned_ref r =
     let name = indexed_ref_name r in
-    if List.mem name targets then Some name else None
+    if List.mem name targets || List.mem r.ref_base targets then Some name
+    else None
   in
   match s.sstmt with
   | SSAssign (lhs, _) -> assigned_ref lhs
@@ -74,25 +76,35 @@ let rec stmt_assigns_to targets (s : S.stmt) : string option =
   | SSMatch (_, branches, default_branch) ->
       List.find_map (stmt_assigns_to targets)
         (List.concat_map snd branches @ default_branch)
-  | SSSkip | SSCall _ | SSActionCall _ -> None
+  | SSCall (_, _, outs) ->
+      List.find_opt (fun out -> List.mem out targets) outs
+  | SSSkip | SSActionCall _ -> None
   | SSFor (_, _, body) -> List.find_map (stmt_assigns_to targets) body
   | SSForRange (_, _, _, body) -> List.find_map (stmt_assigns_to targets) body
 
 let rec expr_refs (e : S.expr) : string list =
   match e.sexpr with
   | SELitInt _ | SELitBool _ -> []
-  | SEVar r -> [ indexed_ref_name r ]
+  | SEVar r | SEPre r -> [ indexed_ref_name r ]
   | SECall (_, args) -> List.concat_map expr_refs args
   | SEBin (_, a, b) | SECmp (_, a, b) -> expr_refs a @ expr_refs b
   | SEUn (_, inner) -> expr_refs inner
 
+let rec expr_pre_refs (e : S.expr) : string list =
+  match e.sexpr with
+  | SELitInt _ | SELitBool _ | SEVar _ -> []
+  | SEPre r -> [ indexed_ref_name r ]
+  | SECall (_, args) -> List.concat_map expr_pre_refs args
+  | SEBin (_, a, b) | SECmp (_, a, b) -> expr_pre_refs a @ expr_pre_refs b
+  | SEUn (_, inner) -> expr_pre_refs inner
+
 let rec hexpr_refs (h : S.hexpr) : string list =
   match h.shexpr with
   | SHLitInt _ | SHLitBool _ -> []
-  | SHVar r | SHPreK (r, _) | SHHistoryCall (_, r) | SHHistoryAlias (_, r) ->
+  | SHVar r | SHPreK (r, _) | SHHistoryAlias (_, r) ->
       [ indexed_ref_name r ]
   | SHPast (inner, _) -> hexpr_refs inner
-  | SHCall (_, args) -> args
+  | SHCall (_, args) -> List.concat_map hexpr_refs args
   | SHExpr e -> expr_refs e
   | SHBin (_, a, b) | SHCmp (_, a, b) -> hexpr_refs a @ hexpr_refs b
   | SHUn (_, inner) -> hexpr_refs inner
@@ -116,9 +128,28 @@ let rec stmt_refs (s : S.stmt) : string list =
       @ List.concat_map stmt_refs (List.concat_map snd branches @ default_branch)
   | SSSkip -> []
   | SSCall (_, args, _) -> List.concat_map expr_refs args
-  | SSActionCall _ -> []
+  | SSActionCall (_, args) -> List.concat_map expr_refs args
   | SSFor (_, _, body) -> List.concat_map stmt_refs body
   | SSForRange (_, _, _, body) -> List.concat_map stmt_refs body
+
+let rec stmt_pre_refs (s : S.stmt) : string list =
+  match s.sstmt with
+  | SSAssign (_, rhs) -> expr_pre_refs rhs
+  | SSIf (cond, then_branch, else_branch) ->
+      expr_pre_refs cond @ List.concat_map stmt_pre_refs (then_branch @ else_branch)
+  | SSWhile (cond, _, variant, body) ->
+      expr_pre_refs cond
+      @ Option.fold ~none:[] ~some:expr_pre_refs variant
+      @ List.concat_map stmt_pre_refs body
+  | SSMatch (scrutinee, branches, default_branch) ->
+      expr_pre_refs scrutinee
+      @ List.concat_map stmt_pre_refs
+          (List.concat_map snd branches @ default_branch)
+  | SSCall (_, args, _) | SSActionCall (_, args) ->
+      List.concat_map expr_pre_refs args
+  | SSFor (_, _, body) | SSForRange (_, _, _, body) ->
+      List.concat_map stmt_pre_refs body
+  | SSSkip -> []
 
 let rec stmt_assignment_targets (s : S.stmt) : string list =
   match s.sstmt with
@@ -196,17 +227,19 @@ let validate_observer_body observer_names (obs : S.observer_decl) phase body =
     Kx_frontend_error.well_formedness
       (Printf.sprintf "%s must assign observer '%s' on every path" context
          obs.observer_name);
-  let refs = List.concat_map stmt_refs body in
-  let forbidden_observer_ref name =
-    List.mem name observer_names
-    && (String.equal phase "init" || not (String.equal name obs.observer_name))
-  in
-  match List.find_opt forbidden_observer_ref refs with
+  let _ = observer_names in
+  match
+    if String.equal phase "init" then
+      match List.concat_map stmt_pre_refs body with
+      | name :: _ -> Some name
+      | [] -> None
+    else None
+  with
   | None -> ()
   | Some name ->
       Kx_frontend_error.well_formedness
         (Printf.sprintf
-           "%s reads observer '%s'; init blocks cannot read observers and step blocks may only read their own observer"
+           "%s reads pre(%s), but observer initialization has no previous instant"
            context name)
 
 let validate_observers (n : S.node) =
@@ -273,7 +306,7 @@ let validate_action_contracts (n : S.node) =
   let rec check_formula context (h : S.hexpr) =
     match h.shexpr with
     | SHLitInt _ | SHLitBool _ | SHVar _ -> ()
-    | SHPreK _ | SHPast _ | SHHistoryCall _ | SHHistoryAlias _ ->
+    | SHPreK _ | SHPast _ | SHHistoryAlias _ ->
         Kx_frontend_error.well_formedness
           (Printf.sprintf
              "%s cannot use temporal or history operators; action contracts are local block contracts"
@@ -306,89 +339,192 @@ let validate_action_contracts (n : S.node) =
         a.action_ensures)
     n.actions
 
-let validate_history_def_decl (d : S.history_def_decl) =
-  let context = Printf.sprintf "history definition '%s'" d.history_def_name in
-  let rec validate_update_hexpr phase (h : S.hexpr) =
-    let validate_expr e =
-      if List.mem "self" (expr_refs e) then
-        Kx_frontend_error.well_formedness
-          (Printf.sprintf
-             "%s %s expression reads bare self inside executable braces; use pre(self)"
-             context phase)
+let validate_action_parameters (n : S.node) =
+  let first_duplicate names =
+    let rec loop seen = function
+      | [] -> None
+      | name :: rest ->
+          if List.mem name seen then Some name
+          else loop (name :: seen) rest
     in
-    match h.shexpr with
-    | SHLitInt _ | SHLitBool _ -> ()
-    | SHVar r when is_scalar_ref_named "self" r ->
-        Kx_frontend_error.well_formedness
-          (Printf.sprintf "%s %s expression reads bare self; use pre(self)" context
-             phase)
-    | SHVar _ -> ()
-    | SHPreK (r, _) when is_scalar_ref_named "self" r ->
-        if String.equal phase "init" then
-          Kx_frontend_error.well_formedness (Printf.sprintf "%s init expression cannot read pre(self)" context)
-    | SHPreK (r, _) when is_scalar_ref_named d.history_param r ->
-        Kx_frontend_error.well_formedness
-          (Printf.sprintf
-             "%s %s expression cannot read pre(%s); use %s for the current sample"
-             context phase d.history_param d.history_param)
-    | SHPreK _ | SHPast _ ->
-        Kx_frontend_error.well_formedness
-          (Printf.sprintf "%s %s expression can only use bounded past on self"
-             context phase)
-    | SHHistoryCall _ ->
-        Kx_frontend_error.well_formedness
-          (Printf.sprintf "%s %s expression cannot call another history definition"
-             context phase)
-    | SHHistoryAlias _ ->
-        Kx_frontend_error.well_formedness
-          (Printf.sprintf "%s %s expression cannot use a history alias" context phase)
-    | SHCall (name, _) ->
-        Kx_frontend_error.well_formedness
-          (Printf.sprintf "%s %s expression cannot call predicate '%s'" context phase
-             name)
-    | SHExpr e -> validate_expr e
-    | SHBin (_, a, b) | SHCmp (_, a, b) ->
-        validate_update_hexpr phase a;
-        validate_update_hexpr phase b
-    | SHUn (_, inner) -> validate_update_hexpr phase inner
-    | SHForall _ | SHExists _ | SHRangeForall _ | SHRangeExists _ ->
-        Kx_frontend_error.well_formedness
-          (Printf.sprintf "%s %s expression cannot contain quantifiers" context phase)
+    loop [] names
   in
-  let rec validate_update_expr phase (h : S.history_expr) =
-    match h.shistory_expr with
-    | SHValue formula -> validate_update_hexpr phase formula
-    | SHIf (cond, then_value, else_value) ->
-        validate_update_hexpr phase cond;
-        validate_update_expr phase then_value;
-        validate_update_expr phase else_value
-  in
-  let rec ensure_contains_history_call (formula : S.hexpr) =
-    match formula.shexpr with
-    | SHHistoryCall _ | SHHistoryAlias _ -> true
-    | SHLitInt _ | SHLitBool _ | SHVar _ | SHPreK _ | SHCall _ | SHExpr _ ->
-        false
-    | SHPast (inner, _) | SHUn (_, inner) -> ensure_contains_history_call inner
-    | SHBin (_, a, b) | SHCmp (_, a, b) ->
-        ensure_contains_history_call a || ensure_contains_history_call b
-    | SHForall (_, _, body) | SHExists (_, _, body) ->
-        ensure_contains_history_call body
-    | SHRangeForall (_, _, _, body) | SHRangeExists (_, _, _, body) ->
-        ensure_contains_history_call body
-  in
-  let validate_ensures phase formulas =
-    List.iter
-      (fun formula ->
-        if ensure_contains_history_call formula then
+  List.iter
+    (fun (action : S.action_decl) ->
+      let names =
+        List.map
+          (fun (param : S.action_param) -> param.action_param_name)
+          action.action_params
+      in
+      (match first_duplicate names with
+      | Some name ->
           Kx_frontend_error.well_formedness
-            (Printf.sprintf "%s %s ensures cannot call history definitions or aliases"
-               context phase))
-      formulas
+            (Printf.sprintf
+               "action '%s' in node '%s' declares parameter '%s' more than once"
+               action.action_name n.node_name name)
+      | None -> ());
+      List.iter
+        (fun (param : S.action_param) ->
+          match param.action_param_mode with
+          | APInOut -> ()
+          | APIn -> (
+              match
+                List.find_map
+                  (stmt_assigns_to [ param.action_param_name ])
+                  action.action_body
+              with
+              | None -> ()
+              | Some _ ->
+                  Kx_frontend_error.well_formedness
+                    (Printf.sprintf
+                       "input parameter '%s' of action '%s' cannot be assigned; declare it inout"
+                       param.action_param_name action.action_name)))
+        action.action_params)
+    n.actions;
+  let rec check_nested_calls caller_inputs context (stmt : S.stmt) =
+    match stmt.sstmt with
+    | SSActionCall (callee, args) -> (
+        match
+          List.find_opt
+            (fun (action : S.action_decl) ->
+              String.equal action.action_name callee)
+            n.actions
+        with
+        | None -> ()
+        | Some callee_action ->
+            if List.length callee_action.action_params = List.length args then
+              List.iter2
+                (fun (callee_param : S.action_param) (arg : S.expr) ->
+                  match (callee_param.action_param_mode, arg.sexpr) with
+                  | APInOut, SEVar { ref_base; ref_indices = [] }
+                    when List.mem ref_base caller_inputs ->
+                      Kx_frontend_error.well_formedness
+                        (Printf.sprintf
+                           "%s passes read-only parameter '%s' to inout parameter '%s' of action '%s'"
+                           context ref_base callee_param.action_param_name
+                           callee)
+                  | _ -> ())
+                callee_action.action_params args)
+    | SSIf (_, then_branch, else_branch) ->
+        List.iter (check_nested_calls caller_inputs context)
+          (then_branch @ else_branch)
+    | SSWhile (_, _, _, body) | SSFor (_, _, body)
+    | SSForRange (_, _, _, body) ->
+        List.iter (check_nested_calls caller_inputs context) body
+    | SSMatch (_, branches, default_branch) ->
+        List.iter (check_nested_calls caller_inputs context)
+          (List.concat_map snd branches @ default_branch)
+    | SSAssign _ | SSSkip | SSCall _ -> ()
   in
-  validate_update_expr "init" d.history_init;
-  validate_update_expr "step" d.history_step;
-  validate_ensures "init" d.history_init_ensures;
-  validate_ensures "step" d.history_step_ensures
+  List.iter
+    (fun (action : S.action_decl) ->
+      let inputs =
+        List.filter_map
+          (fun (param : S.action_param) ->
+            match param.action_param_mode with
+            | APIn -> Some param.action_param_name
+            | APInOut -> None)
+          action.action_params
+      in
+      let context =
+        Printf.sprintf "action '%s' in node '%s'" action.action_name
+          n.node_name
+      in
+      List.iter (check_nested_calls inputs context) action.action_body)
+    n.actions
+
+let validate_derived_outputs (n : S.node) =
+  validate_unique_named_decls "derived output"
+    (fun (decl : S.derived_output_decl) -> decl.derived_output_name)
+    n.derived_outputs;
+  let derived_names =
+    List.map
+      (fun (decl : S.derived_output_decl) -> decl.derived_output_name)
+      n.derived_outputs
+  in
+  List.iter
+    (fun (decl : S.derived_output_decl) ->
+      (match
+        List.find_opt
+          (fun (output : S.raw_vdecl) ->
+            String.equal output.raw_vname decl.derived_output_name)
+          n.outputs
+      with
+      | None ->
+          Kx_frontend_error.well_formedness
+            (Printf.sprintf
+               "derived value '%s' in node '%s' is not a declared output"
+               decl.derived_output_name n.node_name)
+      | Some { raw_indices = Some _; _ } ->
+          Kx_frontend_error.well_formedness
+            (Printf.sprintf
+               "derived output '%s' in node '%s' must be scalar"
+               decl.derived_output_name n.node_name)
+      | Some { raw_vty = TBool; _ } -> ()
+      | Some _ ->
+          Kx_frontend_error.well_formedness
+            (Printf.sprintf
+               "derived output '%s' in node '%s' must have type bool"
+               decl.derived_output_name n.node_name));
+      ignore
+        (State_selectors.resolve_state_selector ~node_name:n.node_name
+           ~states:(S.visible_states n.state_decls)
+           decl.derived_output_true_states))
+    n.derived_outputs;
+  let reject_target context target =
+    if List.mem target derived_names then
+      Kx_frontend_error.well_formedness
+        (Printf.sprintf
+           "%s assigns derived output '%s'; derived outputs are read-only"
+           context target)
+  in
+  let rec check_stmt context (stmt : S.stmt) =
+    match stmt.sstmt with
+    | SSAssign (target, _) ->
+        reject_target context (indexed_ref_name target)
+    | SSIf (_, then_branch, else_branch) ->
+        List.iter (check_stmt context) (then_branch @ else_branch)
+    | SSWhile (_, _, _, body) | SSFor (_, _, body)
+    | SSForRange (_, _, _, body) ->
+        List.iter (check_stmt context) body
+    | SSMatch (_, branches, default_branch) ->
+        List.iter (check_stmt context)
+          (List.concat_map snd branches @ default_branch)
+    | SSCall (_, _, outs) -> List.iter (reject_target context) outs
+    | SSActionCall (callee, args) -> (
+        match
+          List.find_opt
+            (fun (action : S.action_decl) ->
+              String.equal action.action_name callee)
+            n.actions
+        with
+        | Some action when List.length action.action_params = List.length args ->
+            List.iter2
+              (fun (param : S.action_param) (arg : S.expr) ->
+                match (param.action_param_mode, arg.sexpr) with
+                | APInOut, SEVar target ->
+                    reject_target context (indexed_ref_name target)
+                | _ -> ())
+              action.action_params args
+        | _ -> ())
+    | SSSkip -> ()
+  in
+  List.iter
+    (fun (action : S.action_decl) ->
+      let context =
+        Printf.sprintf "action '%s' in node '%s'" action.action_name
+          n.node_name
+      in
+      List.iter (check_stmt context) action.action_body)
+    n.actions;
+  List.iter
+    (fun (transition : S.transition) ->
+      let context =
+        Printf.sprintf "transition %s -> %s in node '%s'" transition.src
+          transition.dst n.node_name
+      in
+      List.iter (check_stmt context) transition.body)
+    n.transitions
 
 let validate_spec_def_decl (d : S.spec_def_decl) =
   validate_unique_named_decls "spec definition parameter"

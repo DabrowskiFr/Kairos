@@ -2,7 +2,7 @@
   "name": "kairos-vscode",
   "displayName": "Kairos",
   "description": "Kairos language support via the Kairos LSP server",
-  "version": "0.1.3",
+  "version": "0.1.10",
   "publisher": "kairos",
   "engines": {
     "vscode": "^1.85.0"

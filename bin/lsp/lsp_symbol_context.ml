@@ -20,7 +20,9 @@ let resolve (docs : Lsp_document_store.t) params =
   | Some doc -> (
       match
         ( Lsp_symbols.identifier_at doc.text doc.line doc.character,
-          Lsp_symbols.semantic_symbols_for_text doc.text )
+          Lsp_symbols.semantic_symbols_for_text
+            ~filename:(Lsp_symbols.filename_of_uri doc.uri)
+            doc.text )
       with
       | Some ident, Some symbols ->
           Some { uri = doc.uri; text = doc.text; ident; symbols }

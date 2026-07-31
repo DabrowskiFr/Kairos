@@ -123,11 +123,10 @@ let frontend_error_source = function
   | Kx_frontend_error.Well_formedness -> "kairos-well-formedness"
   | Kx_frontend_error.Internal -> "kairos-internal"
 
-let source_diagnostics ~text =
+let source_diagnostics ~filename ~text =
   try
     let _source, info =
-      Kx_parse_api.parse_source_text_with_info ~filename:"<client-buffer>"
-        ~text
+      Kx_parse_api.parse_source_text_with_info ~filename ~text
     in
     let diagnostics = ref [] in
     List.iter
@@ -158,11 +157,10 @@ let source_diagnostics ~text =
           ~message:(Printexc.to_string exn);
       ]
 
-let semantic_symbols ~text =
+let semantic_symbols ~filename ~text =
   try
     let source, _info =
-      Kx_parse_api.parse_source_text_with_info ~filename:"<client-buffer>"
-        ~text
+      Kx_parse_api.parse_source_text_with_info ~filename ~text
     in
     let all = Hashtbl.create 256 in
     let nodes = Hashtbl.create 64 in

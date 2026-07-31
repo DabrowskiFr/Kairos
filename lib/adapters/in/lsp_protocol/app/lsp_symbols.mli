@@ -27,7 +27,11 @@ type semantic_symbols = Kairos_engine.Api.semantic_symbols = {
 
 type document_symbol = { name : string; line : int; character : int }
 
-val semantic_symbols_for_text : string -> semantic_symbols option
+val filename_of_uri : string -> string
+val semantic_symbols_for_text :
+  ?filename:string ->
+  string ->
+  semantic_symbols option
 val symbol_kind : semantic_symbols -> string -> string option
 val identifier_occurrences : string -> string -> (int * int * int) list
 val identifier_at : string -> int -> int -> string option

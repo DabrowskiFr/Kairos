@@ -1,0 +1,4 @@
+import spec "cycle_b.kairos";
+
+spec def cycle_a(prop: Formula) =
+  $prop;

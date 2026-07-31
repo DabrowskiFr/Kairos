@@ -25,5 +25,5 @@
 val indexed_ident_many : string -> string list -> string
 val indexed_ref_name : Kx_surface_syntax.indexed_ref -> string
 val same_indexed_ref : Kx_surface_syntax.indexed_ref -> Kx_surface_syntax.indexed_ref -> bool
-val generated_history_prefix : string
-val generated_history_name : string -> Kx_surface_syntax.indexed_ref -> string
+val generated_delay_name : Kx_surface_syntax.indexed_ref -> string
+val generated_parameter_name : string -> string -> int -> string

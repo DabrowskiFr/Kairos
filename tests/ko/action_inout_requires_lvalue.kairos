@@ -1,0 +1,20 @@
+node action_inout_requires_lvalue(
+  sample: int
+) returns (
+  total: int
+)
+
+action set(inout target: int, value: int) {
+  target := value;
+}
+
+contracts
+
+states Init(init);
+
+trans
+  Init:
+    to Init {
+      set(total + 1, sample);
+    }
+end

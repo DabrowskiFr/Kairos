@@ -1,0 +1,20 @@
+node observer_pre_other(x: int) returns (ok: bool)
+observers
+  delayed : int = x -> pre(x);
+  blockDelayed : int
+    init {
+      blockDelayed := x;
+    }
+    step {
+      blockDelayed := pre(x);
+    }
+contracts
+  ensures: X G(ok = true);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run { ok := true; }
+  Run:
+    to Run { ok := true; }
+end
