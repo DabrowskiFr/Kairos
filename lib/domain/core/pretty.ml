@@ -96,6 +96,7 @@ let rec string_of_hexpr_with_ctx :
   | HLitBool b -> if b then "true" else "false"
   | HLitEnum c -> c
   | HVar x -> x
+  | HOld inner -> "old(" ^ string_of_hexpr_with_ctx ~ctx:0 inner ^ ")"
   | HPreK (v, k) ->
       if k = 1 then "pre(" ^ v ^ ")" else "pre_k(" ^ v ^ ", " ^ string_of_int k ^ ")"
   | HPred (id, hs) ->

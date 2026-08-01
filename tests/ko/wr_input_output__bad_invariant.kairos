@@ -2,9 +2,9 @@
 // A normal low-input step sets y to 0, contradicting the claimed y = 1.
 node wr_input_output(x: int) returns (y: int)
 contracts
-  requires: G(x = 0 or x = 1);
-  ensures: X G((x = 1) => ((y = 1) W (x = 0)));
-  ensures: X G((x = 1) R (y = 0 or x = 1));
+  assume: G(x = 0 or x = 1);
+  guarantee: X G((x = 1) => ((y = 1) W (x = 0)));
+  guarantee: X G((x = 1) R (y = 0 or x = 1));
 states
   Init(init), Run;
 invariants

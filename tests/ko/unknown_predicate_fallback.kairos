@@ -3,7 +3,7 @@ node unknown_predicate_fallback(input: bool) returns (
 )
 
 contracts
-  ensures: G(ghostPredicate(input));
+  guarantee: G(ghostPredicate(input));
 
 states Init(init);
 

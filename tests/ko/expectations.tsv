@@ -3,6 +3,17 @@ action_inout_requires_lvalue.kairos	frontend	action-parameter-mode
 action_input_forwarded_to_inout.kairos	frontend	action-parameter-mode
 action_input_assignment.kairos	frontend	action-parameter-mode
 action_parameter_type_mismatch.kairos	frontend	action-parameter-typing
+method_direct_recursion.kairos	frontend	method-call-acyclicity
+method_mutual_recursion.kairos	frontend	method-call-acyclicity
+method_old_in_requires.kairos	frontend	method-old-scope
+old_outside_method_ensures.kairos	frontend	method-old-scope
+while_missing_variant.kairos	frontend	loop-termination
+match_non_exhaustive.kairos	frontend	enum-match-exhaustiveness
+match_duplicate_branch.kairos	frontend	enum-match-duplicate-branch
+match_wrong_constructor.kairos	frontend	enum-match-constructor-typing
+match_branch_after_default.kairos	frontend	enum-match-unreachable-branch
+match_unreachable_default.kairos	frontend	enum-match-unreachable-default
+match_non_enum_scrutinee.kairos	frontend	enum-match-scrutinee-typing
 all_states_invariant_includes_init.kairos	frontend	state-selector
 assign_input.kairos	frontend	assignment-ownership
 observer_current_cycle.kairos	frontend	observer-causality
@@ -16,7 +27,6 @@ delay_int2__bad_spec.kairos	proof	contract
 delay_int__bad_code.kairos	proof	implementation
 delay_int__bad_invariant.kairos	proof	invariant
 delay_int__bad_spec.kairos	proof	contract
-derived_output_assignment.kairos	frontend	derived-output-ownership
 duplicate_platform_gate_state.kairos	frontend	control-state-declaration
 edge_rise__bad_invariant.kairos	proof	invariant
 edge_rise__bad_spec.kairos	proof	contract

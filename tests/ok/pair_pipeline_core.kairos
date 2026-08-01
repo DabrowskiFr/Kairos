@@ -1,6 +1,6 @@
 node pair_pipeline_core(x: int) returns (t: int)
 contracts
-  ensures: X G (t = prev x);
+  guarantee: X G (t = prev x);
 locals
   z: int;
 states

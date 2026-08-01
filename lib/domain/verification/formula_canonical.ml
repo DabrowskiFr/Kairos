@@ -15,6 +15,7 @@ type key =
   | KBool of bool
   | KEnum of string
   | KVar of string
+  | KOld of key
   | KPreK of string * int
   | KPred of string * key list
   | KFunCall of string * key list
@@ -30,6 +31,7 @@ let rec exact_key :
   | HLitBool value -> KBool value
   | HLitEnum name -> KEnum name
   | HVar name -> KVar name
+  | HOld inner -> KOld (exact_key inner)
   | HPreK (name, depth) -> KPreK (name, depth)
   | HPred (name, args) -> KPred (name, List.map exact_key args)
   | HFunCall (name, args) -> KFunCall (name, List.map exact_key args)

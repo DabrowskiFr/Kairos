@@ -25,7 +25,7 @@ type env = {
     (Kx_core_syntax.ident * (Kx_core_syntax.vdecl list * Kx_core_syntax.ty)) list;
   spec_defs : (Kx_core_syntax.ident * Kx_surface_syntax.spec_def_decl) list;
   predicates : (Kx_core_syntax.ident * Kx_surface_syntax.predicate_decl) list;
-  actions : (Kx_core_syntax.ident * Kx_surface_syntax.action_decl) list;
+  methods : (Kx_core_syntax.ident * Kx_surface_syntax.method_decl) list;
   history_aliases : (Kx_core_syntax.ident * (Kx_core_syntax.ident * int)) list;
 }
 

@@ -75,6 +75,7 @@ and hexpr_desc =
   | HLitInt of int
   | HLitBool of bool
   | HVar of ident
+  | HOld of hexpr
   | HPreK of ident * int
   | HPred of ident * hexpr list
   | HFunCall of ident * hexpr list

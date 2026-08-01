@@ -156,6 +156,7 @@ let signature_of_model_node
     sem_inputs = node.inputs;
     sem_outputs = node.outputs;
     sem_locals = node.locals @ node.ghosts;
+    sem_methods = node.methods;
     sem_states = node.states;
     sem_init_state = node.init_state;
   }

@@ -4,9 +4,9 @@ node public_observer_contract(x: int) returns (
 observers
   total : int = x -> pre(total) + x;
 contracts
-  requires: G(x >= 0);
-  ensures: G(total >= 0);
-  ensures: G(out = x);
+  assume: G(x >= 0);
+  guarantee: G(total >= 0);
+  guarantee: G(out = x);
 states
   Init(init), Run;
 transitions

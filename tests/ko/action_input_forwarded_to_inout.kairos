@@ -4,11 +4,11 @@ node action_input_forwarded_to_inout(
   total: int
 )
 
-action mutate(inout target: int) {
+method mutate(inout target: int) {
   target := 0;
 }
 
-action invalid(target: int) {
+method invalid(target: int) {
   mutate(target);
 }
 

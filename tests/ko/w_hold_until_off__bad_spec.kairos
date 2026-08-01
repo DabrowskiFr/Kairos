@@ -2,8 +2,8 @@
 // After an on command, the controller keeps light = 1 until off is asserted.
 node w_hold_until_off(on: int, off: int) returns (light: int)
 contracts
-  requires: G((on = 0 or on = 1) and (off = 0 or off = 1));
-  ensures: X G((on = 1 and off = 0) => ((light = 0) W (off = 1)));
+  assume: G((on = 0 or on = 1) and (off = 0 or off = 1));
+  guarantee: X G((on = 1 and off = 0) => ((light = 0) W (off = 1)));
 states
   Init(init), Off, On;
 invariants

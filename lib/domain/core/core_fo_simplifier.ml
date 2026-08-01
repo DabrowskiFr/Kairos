@@ -31,6 +31,7 @@ let rec simplify_uncached (f : Core_syntax.historical Core_syntax.hexpr) :
     Core_syntax.historical Core_syntax.hexpr =
   match f.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HPreK _ | HPred _ | HFunCall _ -> f
+  | HOld inner -> Keys.mk_h (HOld (simplify inner))
   | HUn (Neg, inner) -> Keys.mk_h (HUn (Neg, simplify inner))
   | HUn (Not, inner) ->
       begin match (simplify inner).hexpr with

@@ -5,7 +5,7 @@ ghosts
   grantMirror: bool;
 
 contracts
-  ensures: G(granted = true => request = true);
+  guarantee: G(granted = true => request = true);
 
 states Init(init), Run;
 

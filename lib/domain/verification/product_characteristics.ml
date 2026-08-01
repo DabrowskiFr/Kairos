@@ -40,29 +40,43 @@ let product_state_key (st : Abs.product_state) =
   Printf.sprintf "%s/a%d/g%d" st.prog_state st.assume_state_index
     st.guarantee_state_index
 
-let rec assigned_vars_of_stmt (stmt : Core_syntax.stmt) : StringSet.t =
+let rec assigned_vars_of_stmt methods (stmt : Core_syntax.stmt) : StringSet.t =
   match stmt.stmt with
   | SAssign (name, _) -> StringSet.singleton name
   | SAssert _ | SSkip -> StringSet.empty
   | SIf (_, then_branch, else_branch) ->
       StringSet.union
-        (assigned_vars_of_stmts then_branch)
-        (assigned_vars_of_stmts else_branch)
-  | SWhile (_, _, _, body) -> assigned_vars_of_stmts body
+        (assigned_vars_of_stmts methods then_branch)
+        (assigned_vars_of_stmts methods else_branch)
+  | SWhile (_, _, _, body) -> assigned_vars_of_stmts methods body
   | SMatch (_, branches, default_branch) ->
       List.fold_left
         (fun assigned (_, body) ->
-          StringSet.union assigned (assigned_vars_of_stmts body))
-        (assigned_vars_of_stmts default_branch) branches
+          StringSet.union assigned (assigned_vars_of_stmts methods body))
+        (assigned_vars_of_stmts methods default_branch) branches
   | SCall (_, _, destinations) ->
       List.fold_left
         (fun assigned name -> StringSet.add name assigned)
         StringSet.empty destinations
+  | SMethodCall (name, args) -> (
+      match List.find_opt (fun (decl : method_decl) -> String.equal decl.method_name name) methods with
+      | None -> StringSet.empty
+      | Some decl ->
+          let assigned =
+            List.fold_left (fun acc name -> StringSet.add name acc)
+              StringSet.empty decl.method_writes
+          in
+          List.fold_left2
+            (fun acc (param : method_param) arg ->
+              match (param.method_param_mode, arg.expr) with
+              | MPInOut, EVar name -> StringSet.add name acc
+              | _ -> acc)
+            assigned decl.method_params args)
 
-and assigned_vars_of_stmts (stmts : Core_syntax.stmt list) : StringSet.t =
+and assigned_vars_of_stmts methods (stmts : Core_syntax.stmt list) : StringSet.t =
   List.fold_left
     (fun assigned stmt ->
-      StringSet.union assigned (assigned_vars_of_stmt stmt))
+      StringSet.union assigned (assigned_vars_of_stmt methods stmt))
     StringSet.empty stmts
 
 let is_htrue (f : Core_syntax.historical Core_syntax.hexpr) : bool =
@@ -154,24 +168,25 @@ let rec post_expr_of_expr env (expr : Core_syntax.expr) :
       Option.map (fun argument -> mk_hexpr (HUn (operator, argument)))
         (recurse argument)
 
-let forget_assigned env statements =
+let forget_assigned methods env statements =
   StringSet.fold
     (fun name env -> bind_symbolic_value env name None)
-    (assigned_vars_of_stmts statements) env
+    (assigned_vars_of_stmts methods statements) env
 
-let rec symbolic_execute_statement env (statement : Core_syntax.stmt) =
+let rec symbolic_execute_statement methods env (statement : Core_syntax.stmt) =
   match statement.stmt with
   | SAssign (name, rhs) ->
       bind_symbolic_value env name (post_expr_of_expr env rhs)
   | SAssert _ | SSkip -> env
-  | SIf _ | SWhile _ | SMatch _ -> forget_assigned env [ statement ]
+  | SIf _ | SWhile _ | SMatch _ -> forget_assigned methods env [ statement ]
   | SCall (_, _, destinations) ->
       List.fold_left
         (fun env name -> bind_symbolic_value env name None)
         env destinations
+  | SMethodCall _ -> forget_assigned methods env [ statement ]
 
-let symbolic_execute_statements env statements =
-  List.fold_left symbolic_execute_statement env statements
+let symbolic_execute_statements methods env statements =
+  List.fold_left (symbolic_execute_statement methods) env statements
 
 let transition_effect_formula ~(node : Core_syntax.historical Abs.node_ir)
     (transition : Abs.transition) : Core_syntax.historical Core_syntax.hexpr =
@@ -181,7 +196,10 @@ let transition_effect_formula ~(node : Core_syntax.historical Abs.node_ir)
     List.map (fun name -> (name, Some (mk_hvar name))) inputs
     @ List.map (fun name -> (name, Some (mk_hpre_k name 1))) non_inputs
   in
-  let final = symbolic_execute_statements initial transition.body_stmts in
+  let final =
+    symbolic_execute_statements node.semantics.sem_methods initial
+      transition.body_stmts
+  in
   non_inputs
   |> List.filter_map (fun name ->
          Option.map

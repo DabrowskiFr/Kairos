@@ -35,6 +35,7 @@ type node_model = {
   node_name : ident;
   type_decls : enum_decl list;
   function_decls : pure_function_decl list;
+  methods : method_decl list;
   inputs : vdecl list;
   outputs : vdecl list;
   locals : vdecl list;

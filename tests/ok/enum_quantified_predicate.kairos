@@ -14,9 +14,9 @@ predicate tracksClear() =
   forall t in Track. occupied[t] = false;
 
 contracts
-  ensures: forall r in Route.
+  guarantee: forall r in Route.
     G(signal[r] = true => tracksClear());
-  ensures: forall ch in Channel.
+  guarantee: forall ch in Channel.
     G(healthy[ch] = true);
 
 states Init(init);

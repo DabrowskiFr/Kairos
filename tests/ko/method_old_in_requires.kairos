@@ -1,0 +1,12 @@
+node method_old_in_requires() returns (out: int)
+method increment()
+contracts
+  requires: old(out) >= 0;
+{
+  out := out + 1;
+}
+states Init(init);
+trans
+  Init:
+    to Init { increment(); }
+end

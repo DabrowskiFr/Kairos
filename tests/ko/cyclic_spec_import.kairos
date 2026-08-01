@@ -2,7 +2,7 @@ import spec "../spec/cycle_a.kairos";
 
 node cyclic_spec_import(x: bool) returns (y: bool)
 contracts
-  ensures: G(y = x);
+  guarantee: G(y = x);
 states
   Run(init);
 transitions

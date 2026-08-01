@@ -6,11 +6,11 @@ Kairos LSP server.
 ## Core features
 
 - Syntax highlighting for the complete current surface language: declarations,
-  contracts, histories, observers, actions, state machines, control flow,
+  contracts, histories, observers, private methods, state machines, control flow,
   quantifiers and temporal operators
-- Typed predicate parameters and typed action parameters, including the
+- Typed predicate parameters and typed method parameters, including the
   writable `inout` mode
-- Read-only boolean outputs derived from control state with `derive`
+- Exhaustive enum `match` statements, including the final `_` branch
 - Declaration-only specification libraries with `import spec "path";`
 - Build, Prove, Automata, Eval, Reset and Cancel Run commands
 - Outline, Goals, Artifacts and Runs side views

@@ -22,6 +22,25 @@ let mk_hexpr_loc start_pos end_pos desc =
 let mk_history_expr_loc start_pos end_pos desc =
   Kx_surface_syntax.mk_history_expr ~loc:(loc start_pos end_pos) desc
 
+let split_stmt_match_arms arms =
+  let rec loop branches default_branch = function
+    | [] -> (List.rev branches, default_branch)
+    | `Constructor (ctor, body) :: rest ->
+        (match default_branch with
+        | Some _ ->
+            Kx_frontend_error.well_formedness
+              (Printf.sprintf
+                 "match branch '%s' is unreachable because it follows '_'" ctor)
+        | None -> loop ((ctor, body) :: branches) None rest)
+    | `Default body :: rest ->
+        (match default_branch with
+        | Some _ ->
+            Kx_frontend_error.well_formedness
+              "match contains more than one '_' branch"
+        | None -> loop branches (Some body) rest)
+  in
+  loop [] None arms
+
 let indexed_ref base indices = { ref_base = base; ref_indices = indices }
 let scalar_ref base = indexed_ref base []
 
@@ -125,7 +144,7 @@ let rec observer_expr_of_hexpr ~(observer:string) ~(phase:string) (h:hexpr) : ex
   | SHExpr _ ->
       concise_observer_error ~observer ~phase
         "cannot embed executable expressions with braces"
-  | SHPast _ | SHHistoryAlias _ | SHCall _
+  | SHOld _ | SHPast _ | SHHistoryAlias _ | SHCall _
   | SHForall _ | SHExists _ | SHRangeForall _ | SHRangeExists _ ->
       concise_observer_error ~observer ~phase
         "uses a construct that is not supported in concise observer equations"
@@ -204,9 +223,9 @@ let range_strings lo hi =
 
 %}
 
-%token TYPE FUNCTION PREDICATE ACTION SPEC DEF DERIVE
+%token TYPE FUNCTION PREDICATE METHOD SPEC DEF
 %token NODE RETURNS LOCALS GHOSTS OBSERVERS STATES INIT STEP TRANS END
-%token REQUIRES ENSURES
+%token REQUIRES ENSURES ASSUME GUARANTEE
 %token INVARIANT IN INOUT
 %token INVARIANTS
 %token EXCEPT
@@ -216,11 +235,11 @@ let range_strings lo hi =
 %token INSTANCE INSTANCES CALL
 %token IF THEN ELSE SKIP FOR FORALL EXISTS WHILE DO VARIANT
 %token WHEN
-%token MATCH WITH BAR
+%token MATCH WITH BAR UNDERSCORE
 %token FROM TO
 %token TRUE FALSE
 %token TINT TBOOL TREAL FORMULA HEXPR NAT
-%token PRE
+%token PRE OLD
 %token PREK
 %token PAST
 %token AND OR NOT
@@ -419,11 +438,10 @@ node:
 	  ghosts_opt
 	  observers_opt
 	  predicate_decls_opt
-	  action_decls_opt
+	  method_decls_opt
 	  node_contracts_block instances_opt
   locals_opt
 	  STATES state_decls SEMI
-  derived_outputs_opt
   state_invariants_opt
 	  TRANS transitions
 	  END
@@ -431,7 +449,7 @@ node:
 	    let () = forbid_reserved_identifier ~context:"node name" $2 in
 	    let states, inline_init = $19 in
 	    let state_decls =
-	      resolve_state_decls ~states ~inline_init ~transitions:$24
+	      resolve_state_decls ~states ~inline_init ~transitions:$23
 	    in
 	    {
 	      node_name = $2;
@@ -441,14 +459,13 @@ node:
 	      ghosts = $11;
 	      observers = $12;
 	      predicates = $13;
-	      actions = $14;
+	      methods = $14;
 	      contracts = $15;
 	      instances = $16;
 	      locals = $17;
 	      state_decls;
-	      derived_outputs = $21;
-	      state_invariants = $22;
-	      transitions = $24;
+	      state_invariants = $21;
+	      transitions = $23;
 	    }
 	  }
 
@@ -537,10 +554,22 @@ instance_decl:
       }
 
 node_contracts:
-  | REQUIRES COLON ltl SEMI node_contracts { SCRequires $3 :: $5 }
-  | ENSURES COLON ltl SEMI node_contracts { SCEnsures $3 :: $5 }
-  | REQUIRES COLON ltl SEMI { [SCRequires $3] }
-  | ENSURES COLON ltl SEMI { [SCEnsures $3] }
+  | ASSUME contract_name_opt COLON ltl SEMI node_contracts
+      { SCAssume ($2, $4) :: $6 }
+  | GUARANTEE contract_name_opt COLON ltl SEMI node_contracts
+      { SCGuarantee ($2, $4) :: $6 }
+  | ASSUME contract_name_opt COLON ltl SEMI
+      { [SCAssume ($2, $4)] }
+  | GUARANTEE contract_name_opt COLON ltl SEMI
+      { [SCGuarantee ($2, $4)] }
+
+contract_name_opt:
+  | /* empty */ { None }
+  | IDENT
+      {
+        let () = forbid_reserved_identifier ~context:"contract name" $1 in
+        Some $1
+      }
 
 vdecls_opt:
   | /* empty */ { [] }
@@ -629,73 +658,73 @@ predicate_decls:
   | predicate_decl predicate_decls { $1 :: $2 }
   | predicate_decl { [$1] }
 
-action_decls_opt:
+method_decls_opt:
   | /* empty */ { [] }
-  | action_decls { $1 }
+  | method_decls { $1 }
 
-action_decls:
-  | action_decl action_decls { $1 :: $2 }
-  | action_decl { [$1] }
+method_decls:
+  | method_decl method_decls { $1 :: $2 }
+  | method_decl { [$1] }
 
-action_decl:
-  | ACTION IDENT LPAREN action_params_opt RPAREN action_contracts_opt LBRACE stmt_list_opt RBRACE
+method_decl:
+  | METHOD IDENT LPAREN method_params_opt RPAREN method_contracts_opt LBRACE stmt_list_opt RBRACE
       {
-        let () = forbid_reserved_identifier ~context:"action name" $2 in
+        let () = forbid_reserved_identifier ~context:"method name" $2 in
         List.iter
           (fun param ->
-            forbid_reserved_identifier ~context:"action parameter"
-              param.action_param_name)
+            forbid_reserved_identifier ~context:"method parameter"
+              param.method_param_name)
           $4;
         let requires, ensures = $6 in
-        { action_name = $2; action_params = $4; action_requires = requires;
-          action_ensures = ensures; action_body = $8 }
+        { method_name = $2; method_params = $4; method_requires = requires;
+          method_ensures = ensures; method_body = $8 }
       }
 
-action_params_opt:
+method_params_opt:
   | /* empty */ { [] }
-  | action_params { $1 }
+  | method_params { $1 }
 
-action_params:
-  | action_param COMMA action_params { $1 :: $3 }
-  | action_param { [$1] }
+method_params:
+  | method_param COMMA method_params { $1 :: $3 }
+  | method_param { [$1] }
 
-action_param:
+method_param:
   | IDENT COLON ty
       {
-        { action_param_name = $1; action_param_ty = $3;
-          action_param_mode = APIn }
+        { method_param_name = $1; method_param_ty = $3;
+          method_param_mode = MPIn }
       }
   | IN IDENT COLON ty
       {
-        { action_param_name = $2; action_param_ty = $4;
-          action_param_mode = APIn }
+        { method_param_name = $2; method_param_ty = $4;
+          method_param_mode = MPIn }
       }
   | INOUT IDENT COLON ty
       {
-        { action_param_name = $2; action_param_ty = $4;
-          action_param_mode = APInOut }
+        { method_param_name = $2; method_param_ty = $4;
+          method_param_mode = MPInOut }
       }
 
-action_contracts_opt:
+method_contracts_opt:
   | /* empty */ { ([], []) }
-  | CONTRACTS action_contracts { $2 }
+  | CONTRACTS method_contracts { $2 }
 
-action_contracts:
-  | action_contract action_contracts
+method_contracts:
+  | method_contract method_contracts
       {
         let reqs, enss = $2 in
         match $1 with
         | `Requires f -> (f :: reqs, enss)
         | `Ensures f -> (reqs, f :: enss)
       }
-  | action_contract
+  | method_contract
       {
         match $1 with
         | `Requires f -> ([f], [])
         | `Ensures f -> ([], [f])
       }
 
-action_contract:
+method_contract:
   | REQUIRES COLON fo_formula SEMI { `Requires $3 }
   | ENSURES COLON fo_formula SEMI { `Ensures $3 }
 
@@ -729,33 +758,6 @@ state_decl:
       {
         let () = forbid_reserved_identifier ~context:"state name" $1 in
         ($1, Some $1)
-      }
-
-derived_outputs_opt:
-  | /* empty */ { [] }
-  | derived_outputs { $1 }
-
-derived_outputs:
-  | derived_output_decl derived_outputs { $1 :: $2 }
-  | derived_output_decl { [$1] }
-
-derived_output_decl:
-  | DERIVE IDENT EQ IDENT IN state_selector SEMI
-      {
-        let () = forbid_reserved_identifier ~context:"derived output" $2 in
-        if not (String.equal $4 "state") then
-          Kx_frontend_error.well_formedness
-            (Printf.sprintf
-               "derived output '%s' must be defined from 'state', not '%s'"
-               $2 $4);
-        {
-          derived_output_name = $2;
-          derived_output_true_states = $6;
-          derived_output_loc =
-            Some
-              (loc_of_positions
-                 (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7));
-        }
       }
 
 state_invariants_opt:
@@ -865,7 +867,7 @@ stmt_item:
   | assignment_stmt SEMI { $1 }
   | stmt SEMI { [$1] }
   | IDENT LPAREN expr_list_opt RPAREN SEMI
-      { [mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 5) (SSActionCall ($1, $3))] }
+      { [mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 5) (SSMethodCall ($1, $3))] }
   | FOR IDENT IN IDENT LBRACE stmt_list_opt RBRACE
       { [mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 7) (SSFor ($2, $4, $6))] }
   | FOR IDENT IN nat_expr DOT DOT nat_expr LBRACE stmt_list_opt RBRACE
@@ -893,9 +895,23 @@ stmt:
         mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 6)
           (SSWhile ($2, invariants, variant, $5))
       }
+  | MATCH expr WITH stmt_match_arms END
+      {
+        let branches, default_branch = split_stmt_match_arms $4 in
+        mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 5)
+          (SSMatch ($2, branches, default_branch))
+      }
   | SKIP { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) SSSkip }
   | CALL IDENT LPAREN expr_list_opt RPAREN RETURNS LPAREN id_list_opt RPAREN
       { mk_stmt_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 9) (SSCall($2, $4, $8)) }
+
+stmt_match_arms:
+  | stmt_match_arm stmt_match_arms { $1 :: $2 }
+  | stmt_match_arm { [$1] }
+
+stmt_match_arm:
+  | BAR IDENT LBRACE stmt_list_opt RBRACE { `Constructor ($2, $4) }
+  | BAR UNDERSCORE LBRACE stmt_list_opt RBRACE { `Default $4 }
 
 if_tail:
   | ELSE stmt_list_opt END { ($2, Parsing.rhs_end_pos 3) }
@@ -1023,6 +1039,9 @@ h_atom:
   | indexed_ref { mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 1) (SHVar $1) }
   | PRE LPAREN indexed_ref RPAREN {
       mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (SHPreK ($3, SNNat 1))
+    }
+  | OLD LPAREN hexpr RPAREN {
+      mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 4) (SHOld $3)
     }
   | PREK LPAREN indexed_ref COMMA nat_expr RPAREN {
       mk_hexpr_loc (Parsing.rhs_start_pos 1) (Parsing.rhs_end_pos 6) (SHPreK ($3, $5))

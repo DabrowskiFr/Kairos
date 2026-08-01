@@ -92,6 +92,9 @@ let relop_id (r : relop) : string =
 type env = {
   rec_name : string;
   rec_vars : string list;
+  ref_vars : string list;
+  input_vars : vdecl list;
+  methods : method_decl list;
   used_inputs : used_inputs ref option;
 }
 
@@ -112,12 +115,24 @@ let field (env : env) (name : ident) : Ptree.expr =
 let is_rec_var (env : env) (x : ident) : bool =
   List.exists (( = ) x) env.rec_vars
 
+let is_ref_var (env : env) (x : ident) : bool =
+  List.exists (( = ) x) env.ref_vars
+
+let ref_contents_expr name =
+  mk_expr (Eidapp (qid1 "contents", [ mk_expr (Eident (qid1 name)) ]))
+
+let ref_contents_term name =
+  mk_term (Tidapp (qid1 "contents", [ mk_term (Tident (qid1 name)) ]))
+
 let term_var (env : env) (x : ident) : Ptree.term_desc =
   if is_rec_var env x then begin
     note_input env env.rec_name;
     Tidapp (qid1 x, [ mk_term (Tident (qid1 env.rec_name)) ])
   end
-  else begin
+  else if is_ref_var env x then begin
+    note_input env x;
+    (ref_contents_term x).term_desc
+  end else begin
     note_input env x;
     Tident (qid1 x)
   end
@@ -134,6 +149,10 @@ let rec compile_expr (env : env) (e : expr) : Ptree.expr =
   | ELitEnum c -> mk_expr (Eident (qid1 c))
   | EVar x ->
       if is_rec_var env x then field env x
+      else if is_ref_var env x then begin
+        note_input env x;
+        ref_contents_expr x
+      end
       else begin
         note_input env x;
         mk_expr (Eident (qid1 x))
@@ -189,13 +208,18 @@ let rec compile_expr (env : env) (e : expr) : Ptree.expr =
         (Einnfix
            (compile_expr env a, infix_ident (relop_id op), compile_expr env b))
 
-let compile_hexpr (env : env) (h : history_free hexpr) : Ptree.term =
+let compile_hexpr_with_old ~(allow_old : bool) (env : env)
+    (h : history_free hexpr) : Ptree.term =
   let rec compile_hexpr_term (h : history_free hexpr) =
     match h.hexpr with
     | HLitInt n -> mk_term (Tconst (Constant.int_const (BigInt.of_int n)))
     | HLitBool b -> mk_term (if b then Ttrue else Tfalse)
     | HLitEnum c -> mk_term (Tident (qid1 c))
     | HVar x -> mk_term (term_var env x)
+    | HOld inner ->
+        if not allow_old then
+          invalid_arg "old is only compiled in method postconditions";
+        mk_term (Tat (compile_hexpr_term inner, ident Dexpr.old_label))
     | HUn (Neg, a) -> mk_term (Tidapp (qid1 "(-)", [ compile_hexpr_term a ]))
     | HUn (Not, a) -> mk_term (Tnot (compile_hexpr_term a))
     | HBin (op, a, b) -> (
@@ -216,6 +240,9 @@ let compile_hexpr (env : env) (h : history_free hexpr) : Ptree.term =
           (List.map compile_hexpr_term args)
   in
   compile_hexpr_term h
+
+let compile_hexpr env h = compile_hexpr_with_old ~allow_old:false env h
+let compile_method_post env h = compile_hexpr_with_old ~allow_old:true env h
 
 let compile_term (env : env) (e : expr) : Ptree.term =
   compile_hexpr env (Core_syntax_builders.hexpr_of_expr e)

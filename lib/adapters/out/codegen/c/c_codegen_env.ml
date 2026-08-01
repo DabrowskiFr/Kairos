@@ -32,6 +32,9 @@ type node_env = {
   output_names : StringSet.t;
   local_names : StringSet.t;
   ghost_names : StringSet.t;
+  writable_name : variable_scope;
+  output_pointer : C.ident -> string;
+  inout_pointer : C.ident -> string option;
 }
 
 let enum_ctor_c_name env ctor =
@@ -55,6 +58,9 @@ let node_env program_env (node : Verification_model.node_model) =
   let local_names = set_of_vdecls node.locals in
   let ghost_names = set_of_vdecls node.ghosts in
   let variable_name = node_variable_name input_names output_names local_names ghost_names in
+  let writable_name name =
+    if StringSet.mem name input_names then None else variable_name name
+  in
   {
     expr_env = { program_env; variable_name };
     node;
@@ -62,14 +68,54 @@ let node_env program_env (node : Verification_model.node_model) =
     output_names;
     local_names;
     ghost_names;
+    writable_name;
+    output_pointer = (fun name -> "&" ^ Names.output_tmp_name_of_ident name);
+    inout_pointer = (fun _ -> None);
+  }
+
+let method_env program_env (node : Verification_model.node_model)
+    (decl : C.method_decl) =
+  let base = node_env program_env node in
+  let params =
+    List.map (fun (param : C.method_param) -> (param.method_param_name, param))
+      decl.method_params
+  in
+  let variable_name name =
+    match List.assoc_opt name params with
+    | Some { method_param_mode = C.MPIn; _ } ->
+        Some (Names.method_param_name name)
+    | Some { method_param_mode = C.MPInOut; _ } ->
+        Some ("(*" ^ Names.method_param_name name ^ ")")
+    | None when StringSet.mem name base.output_names ->
+        Some ("(*" ^ Names.method_output_pointer_name name ^ ")")
+    | None -> base.expr_env.variable_name name
+  in
+  let writable_name name =
+    match List.assoc_opt name params with
+    | Some { method_param_mode = C.MPIn; _ } -> None
+    | Some { method_param_mode = C.MPInOut; _ } -> variable_name name
+    | None when StringSet.mem name base.input_names -> None
+    | None -> variable_name name
+  in
+  {
+    base with
+    expr_env = { program_env; variable_name };
+    writable_name;
+    output_pointer = Names.method_output_pointer_name;
+    inout_pointer =
+      (fun name ->
+        match List.assoc_opt name params with
+        | Some { method_param_mode = C.MPInOut; _ } ->
+            Some (Names.method_param_name name)
+        | _ -> None);
   }
 
 let lvalue_of_ident env name =
-  if StringSet.mem name env.input_names then Common.errorf "cannot assign to input '%s'" name
-  else if StringSet.mem name env.output_names then Ok (Names.output_tmp_name_of_ident name)
-  else if StringSet.mem name env.local_names || StringSet.mem name env.ghost_names then
-    Ok ("state->" ^ Names.field_name_of_ident name)
-  else Common.errorf "unknown assignment target '%s'" name
+  match env.writable_name name with
+  | Some target -> Ok target
+  | None when Option.is_some (env.expr_env.variable_name name) ->
+      Common.errorf "cannot assign to read-only variable '%s'" name
+  | None -> Common.errorf "unknown assignment target '%s'" name
 
 let function_scope params name =
   let rec find = function

@@ -8,8 +8,8 @@ node pure_function_contract(input: int) returns (
 )
 
 contracts
-  requires: G(input >= 0);
-  ensures: G(out >= 0);
+  assume: G(input >= 0);
+  guarantee: G(out >= 0);
 
 states Init(init);
 

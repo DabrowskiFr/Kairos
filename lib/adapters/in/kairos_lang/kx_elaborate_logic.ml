@@ -46,6 +46,8 @@ let rec expr_of_fo (h : hexpr) : expr =
     | HLitInt n -> ELitInt n
     | HLitBool b -> ELitBool b
     | HVar id -> EVar id
+    | HOld _ ->
+        Kx_frontend_error.elaboration "old cannot be used in executable expressions"
     | HPreK _ -> Kx_frontend_error.elaboration "historical predicate cannot be used in executable expressions"
     | HPred _ -> Kx_frontend_error.elaboration "unexpanded predicate cannot be used in executable expressions"
     | HFunCall (fn, args) -> EFunCall (fn, List.map expr_of_fo args)
@@ -154,6 +156,7 @@ let rec infer_hexpr_type env (h : Kx_core_syntax.hexpr) =
   | HLitInt _ -> TInt
   | HLitBool _ -> TBool
   | HVar name | HPreK (name, _) -> value_type_exn env context name
+  | HOld inner -> infer_hexpr_type env inner
   | HPred (_, _) -> TBool
   | HFunCall (name, args) -> (
       match function_sig env name with
@@ -229,6 +232,9 @@ let rec shift_hexpr_past k (h : hexpr) : hexpr =
     match h.hexpr with
     | HLitInt _ | HLitBool _ -> h
     | HVar v -> mk (HPreK (v, k))
+    | HOld _ ->
+        Kx_frontend_error.elaboration
+          "old is only allowed in method postconditions"
     | HPreK (v, j) -> mk (HPreK (v, j + k))
     | HPred (name, args) -> mk (HPred (name, List.map (shift_hexpr_past k) args))
     | HFunCall (name, args) -> mk (HFunCall (name, List.map (shift_hexpr_past k) args))
@@ -324,7 +330,7 @@ let rec lower_expr env (e : S.expr) : expr =
   in
   { expr; loc = e.loc }
 
-and lower_hexpr env ctx stack (h : S.hexpr) : hexpr =
+and lower_hexpr ?(allow_old = false) env ctx stack (h : S.hexpr) : hexpr =
   let mk desc = B.mk_hexpr ?loc:h.hloc desc in
   match h.shexpr with
   | SHLitInt n -> mk (HLitInt n)
@@ -340,10 +346,15 @@ and lower_hexpr env ctx stack (h : S.hexpr) : hexpr =
                 match List.assoc_opt ref_base ctx.hexpr_params with
                 | Some { shexpr = SHVar actual; _ } when is_scalar_ref_named ref_base actual ->
                     mk (HVar (indexed_ref_name actual))
-                | Some actual -> lower_hexpr env ctx stack actual
+                | Some actual -> lower_hexpr ~allow_old env ctx stack actual
                 | None -> mk (HVar (indexed_ref_name r)))
             | _ -> mk (HVar (indexed_ref_name r))
           end)
+  | SHOld inner ->
+      if not allow_old then
+        Kx_frontend_error.elaboration
+          "old is only allowed in method postconditions";
+      mk (HOld (lower_hexpr ~allow_old env ctx stack inner))
   | SHPreK (r, k) -> (
       let k = eval_nat ctx k in
       let r = ref_with_nat_params ctx r in
@@ -352,40 +363,56 @@ and lower_hexpr env ctx stack (h : S.hexpr) : hexpr =
           match List.assoc_opt ref_base ctx.hexpr_params with
           | Some { shexpr = SHVar actual; _ } when is_scalar_ref_named ref_base actual ->
               mk (HVar (indexed_ref_name actual)) |> shift_hexpr_past k
-          | Some actual -> lower_hexpr env ctx stack actual |> shift_hexpr_past k
+          | Some actual ->
+              lower_hexpr ~allow_old env ctx stack actual |> shift_hexpr_past k
           | None -> mk (HPreK (indexed_ref_name r, k)))
       | _ -> mk (HPreK (indexed_ref_name r, k)))
-  | SHPast (inner, k) -> lower_hexpr env ctx stack inner |> shift_hexpr_past (eval_nat ctx k)
+  | SHPast (inner, k) ->
+      lower_hexpr ~allow_old env ctx stack inner
+      |> shift_hexpr_past (eval_nat ctx k)
   | SHHistoryAlias (alias, r) -> expand_history_alias env alias (indexed_ref_name r)
   | SHCall (callee, args) ->
       if is_bool_function env callee then
         mk
           (HFunCall
-             (callee, List.map (lower_hexpr env ctx stack) args))
+             (callee, List.map (lower_hexpr ~allow_old env ctx stack) args))
       else expand_predicate env ctx stack callee args
   | SHExpr e -> B.hexpr_of_expr (lower_expr env e)
-  | SHBin (op, a, b) -> mk (HBin (op, lower_hexpr env ctx stack a, lower_hexpr env ctx stack b))
-  | SHCmp (op, a, b) -> mk (HCmp (op, lower_hexpr env ctx stack a, lower_hexpr env ctx stack b))
-  | SHUn (op, inner) -> mk (HUn (op, lower_hexpr env ctx stack inner))
+  | SHBin (op, a, b) ->
+      mk
+        (HBin
+           (op, lower_hexpr ~allow_old env ctx stack a,
+            lower_hexpr ~allow_old env ctx stack b))
+  | SHCmp (op, a, b) ->
+      mk
+        (HCmp
+           (op, lower_hexpr ~allow_old env ctx stack a,
+            lower_hexpr ~allow_old env ctx stack b))
+  | SHUn (op, inner) ->
+      mk (HUn (op, lower_hexpr ~allow_old env ctx stack inner))
   | SHForall (param, enum_name, body) ->
       enum_members env enum_name
-      |> List.map (fun value -> lower_hexpr env ctx stack (subst_hexpr ~param ~value body))
+      |> List.map (fun value ->
+             lower_hexpr ~allow_old env ctx stack
+               (subst_hexpr ~param ~value body))
       |> core_hexpr_and
   | SHExists (param, enum_name, body) ->
       enum_members env enum_name
-      |> List.map (fun value -> lower_hexpr env ctx stack (subst_hexpr ~param ~value body))
+      |> List.map (fun value ->
+             lower_hexpr ~allow_old env ctx stack
+               (subst_hexpr ~param ~value body))
       |> core_hexpr_or
   | SHRangeForall (param, lo, hi, body) ->
       range_values (eval_nat ctx lo) (eval_nat ctx hi)
       |> List.map (fun value ->
              let ctx = { ctx with nat_params = (param, value) :: ctx.nat_params } in
-             lower_hexpr env ctx stack body)
+             lower_hexpr ~allow_old env ctx stack body)
       |> core_hexpr_and
   | SHRangeExists (param, lo, hi, body) ->
       range_values (eval_nat ctx lo) (eval_nat ctx hi)
       |> List.map (fun value ->
              let ctx = { ctx with nat_params = (param, value) :: ctx.nat_params } in
-             lower_hexpr env ctx stack body)
+             lower_hexpr ~allow_old env ctx stack body)
       |> core_hexpr_or
 
 and expand_predicate env ctx stack name args =

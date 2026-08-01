@@ -4,7 +4,7 @@ node action_parameter_type_mismatch(
   accepted: bool
 )
 
-action accept(value: int) {
+method accept(value: int) {
   accepted := true;
 }
 

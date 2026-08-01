@@ -2,7 +2,7 @@ node state_invariant_current_input(i: int) returns (
   y: int
 )
 contracts
-  ensures: X G(y >= 0);
+  guarantee: X G(y >= 0);
 states
   Init(init), Run;
 invariants

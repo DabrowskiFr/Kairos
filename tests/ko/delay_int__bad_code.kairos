@@ -3,7 +3,7 @@
 // It therefore violates the one-cycle-delay guarantee.
 node delay_int(x: int) returns (y: int)
 contracts
-  ensures: X ( G (y =  prev x) );
+  guarantee: X ( G (y =  prev x) );
 locals
   z : int;
 states

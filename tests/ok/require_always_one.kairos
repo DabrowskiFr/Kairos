@@ -1,7 +1,7 @@
 node require_always_one(inp: int) returns (out: int)
 contracts
-  requires: G (inp = 1);
-  ensures: G (out = 1);
+  assume: G (inp = 1);
+  guarantee: G (out = 1);
 states
   S(init);
 transitions

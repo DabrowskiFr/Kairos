@@ -35,6 +35,9 @@ type used_inputs = StringSet.t
 type env = {
   rec_name : string;
   rec_vars : string list;
+  ref_vars : string list;
+  input_vars : Core_syntax.vdecl list;
+  methods : Core_syntax.method_decl list;
   used_inputs : used_inputs ref option;
 }
 
@@ -59,6 +62,7 @@ val mk_expr : Why3.Ptree.expr_desc -> Why3.Ptree.expr
 
 (** Wraps a term descriptor into a Why3 term node. *)
 val mk_term : Why3.Ptree.term_desc -> Why3.Ptree.term
+val apply_expr : Why3.Ptree.expr -> Why3.Ptree.expr list -> Why3.Ptree.expr
 
 (** [term_eq a b] builds the term [a = b]. *)
 val term_eq : Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
@@ -74,6 +78,8 @@ val field : env -> Core_syntax.ident -> Why3.Ptree.expr
 
 (** Tests whether a variable name is stored in the record. *)
 val is_rec_var : env -> Core_syntax.ident -> bool
+val is_ref_var : env -> Core_syntax.ident -> bool
+val ref_contents_expr : Core_syntax.ident -> Why3.Ptree.expr
 
 (** [term_of_var env name] builds the term for variable [name]. *)
 val term_of_var : env -> Core_syntax.ident -> Why3.Ptree.term
@@ -90,4 +96,7 @@ val compile_term : env -> Core_syntax.expr -> Why3.Ptree.term
 (** [compile_hexpr env f] compiles a canonical first-order formula from the IR
     to a Why3 term. *)
 val compile_hexpr :
+  env -> Core_syntax.history_free Core_syntax.hexpr -> Why3.Ptree.term
+
+val compile_method_post :
   env -> Core_syntax.history_free Core_syntax.hexpr -> Why3.Ptree.term

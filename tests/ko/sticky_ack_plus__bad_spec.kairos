@@ -2,9 +2,9 @@
 // Once req = 1 occurs, the latch keeps ack = 1 rather than ack = 0.
 node sticky_ack_plus(req: int) returns (ack: int)
 contracts
-  requires: G (req = 0 or req = 1);
-  ensures: G (req = 1 => G (ack = 0));
-  ensures: G (ack = 1 => G (ack = 1));
+  assume: G (req = 0 or req = 1);
+  guarantee: G (req = 1 => G (ack = 0));
+  guarantee: G (ack = 1 => G (ack = 1));
 states
   Init(init), Wait, Latched;
 invariants

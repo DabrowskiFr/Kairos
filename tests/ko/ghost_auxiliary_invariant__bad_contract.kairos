@@ -5,7 +5,7 @@ ghosts
   proofFlag: bool;
 
 contracts
-  ensures: G(proofFlag = false);
+  guarantee: G(proofFlag = false);
 
 states Init(init);
 

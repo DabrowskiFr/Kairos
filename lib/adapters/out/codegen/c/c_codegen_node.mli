@@ -21,6 +21,12 @@
 val emit_enum_decl : Core_syntax.enum_decl -> string list
 val emit_node_header : Verification_model.node_model -> string list
 val emit_init_function : Verification_model.node_model -> string list
+val method_prototype : Verification_model.node_model -> Core_syntax.method_decl -> string
+val emit_method_definition :
+  C_codegen_env.program_env ->
+  Verification_model.node_model ->
+  Core_syntax.method_decl ->
+  (string list, string) result
 
 val emit_step_function :
   C_codegen_env.program_env -> Verification_model.node_model -> (string list, string) result

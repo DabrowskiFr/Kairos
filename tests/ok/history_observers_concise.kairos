@@ -6,8 +6,8 @@ observers
   sumX : int = x -> pre(sumX) + x;
   maxX : int = x -> if x > pre(maxX) then x else pre(maxX) end;
 contracts
-  requires: G(x >= 0);
-  ensures: X G(ok = true);
+  assume: G(x >= 0);
+  guarantee: X G(ok = true);
 states
   Init(init), Run;
 invariants

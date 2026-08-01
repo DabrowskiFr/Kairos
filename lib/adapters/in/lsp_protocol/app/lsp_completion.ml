@@ -18,6 +18,8 @@ let completion_items_for_text ?filename (text : string) : string list =
       "contracts";
       "ensures";
       "requires";
+      "assume";
+      "guarantee";
       "assumes";
       "guarantees";
       "locals";
@@ -33,6 +35,7 @@ let completion_items_for_text ?filename (text : string) : string list =
       "then";
       "else";
       "match";
+      "with";
       "skip";
       "init";
       "step";

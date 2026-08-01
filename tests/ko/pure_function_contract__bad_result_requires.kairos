@@ -8,7 +8,7 @@ node pure_function_contract_bad_result_requires(input: int) returns (
 )
 
 contracts
-  ensures: G(out = input);
+  guarantee: G(out = input);
 
 states Init(init);
 

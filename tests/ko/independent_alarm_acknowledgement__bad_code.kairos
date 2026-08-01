@@ -8,8 +8,8 @@ node independent_alarm_acknowledgement(
   alarmA: bool, alarmB: bool
 )
 contracts
-  ensures: G(faultA = true => X((alarmA = true) W (ackA = true)));
-  ensures: G(faultB = true => X((alarmB = true) W (ackB = true)));
+  guarantee: G(faultA = true => X((alarmA = true) W (ackA = true)));
+  guarantee: G(faultB = true => X((alarmB = true) W (ackB = true)));
 states
   Init(init), Run;
 transitions

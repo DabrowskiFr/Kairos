@@ -2,8 +2,8 @@
 // Initialization writes [mode := 0], so entry into that state breaks induction.
 node w_mode_gate(start: int) returns (mode: int)
 contracts
-  requires: G(start = 0 or start = 1);
-  ensures: (mode = 0) W (start = 1);
+  assume: G(start = 0 or start = 1);
+  guarantee: (mode = 0) W (start = 1);
 states
   Init(init), BeforeStart, AfterStart;
 invariants

@@ -12,20 +12,28 @@ ghosts
 predicate mirrored() =
   forall r in Route. proofLocked[r] = locked[r];
 
-action clearRoute(r: Route) {
-  locked[r] := false;
-  enabled[r] := false;
-  proofLocked[r] := false;
+method clearRoute(
+  inout routeLocked: bool,
+  inout routeEnabled: bool,
+  inout routeProofLocked: bool
+) {
+  routeLocked := false;
+  routeEnabled := false;
+  routeProofLocked := false;
 }
 
-action lockRoute(r: Route) {
-  locked[r] := true;
-  enabled[r] := true;
-  proofLocked[r] := true;
+method lockRoute(
+  inout routeLocked: bool,
+  inout routeEnabled: bool,
+  inout routeProofLocked: bool
+) {
+  routeLocked := true;
+  routeEnabled := true;
+  routeProofLocked := true;
 }
 
 contracts
-  ensures: forall r in Route.
+  guarantee: forall r in Route.
     G(enabled[r] = true => locked[r] = true);
 
 states Init(init), Run;
@@ -38,7 +46,7 @@ trans
   Init:
     to Run {
       for r in Route {
-        clearRoute(r);
+        clearRoute(locked[r], enabled[r], proofLocked[r]);
       }
     }
 
@@ -46,9 +54,9 @@ trans
     to Run {
       for r in Route {
         if request[r] then
-          lockRoute(r);
+          lockRoute(locked[r], enabled[r], proofLocked[r]);
         else
-          clearRoute(r);
+          clearRoute(locked[r], enabled[r], proofLocked[r]);
         end;
       }
     }

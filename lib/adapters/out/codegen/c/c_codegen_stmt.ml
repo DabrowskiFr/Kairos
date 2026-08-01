@@ -20,6 +20,7 @@ module C = Core_syntax
 module Common = C_codegen_common
 module Env = C_codegen_env
 module Expr = C_codegen_expr
+module Names = C_codegen_names
 
 let ( let* ) = Common.( let* )
 
@@ -72,5 +73,54 @@ let rec emit_stmt env level (s : C.stmt) =
   | C.SSkip -> Ok []
   | C.SCall (callee, _, _) ->
       Common.errorf "node call '%s' is not supported by the C backend yet" callee
+  | C.SMethodCall (callee, args) -> (
+      match
+        List.find_opt
+          (fun (decl : C.method_decl) -> String.equal decl.method_name callee)
+          env.node.methods
+      with
+      | None -> Common.errorf "unknown method '%s'" callee
+      | Some decl ->
+          let emit_argument (param : C.method_param) arg =
+            match param.method_param_mode with
+            | C.MPIn -> Expr.c_expr env.expr_env arg
+            | C.MPInOut -> (
+                match arg.expr with
+                | C.EVar name -> (
+                    match env.inout_pointer name with
+                    | Some pointer -> Ok pointer
+                    | None when Common.StringSet.mem name env.output_names ->
+                        Ok (env.output_pointer name)
+                    | None ->
+                        let* target = Env.lvalue_of_ident env name in
+                        Ok ("&(" ^ target ^ ")"))
+                | _ ->
+                    Common.errorf
+                      "inout argument '%s' of method '%s' is not a variable"
+                      param.method_param_name callee)
+          in
+          let* explicit_args =
+            Common.map_result
+              (fun (param, arg) -> emit_argument param arg)
+              (List.combine decl.method_params args)
+          in
+          let implicit_args =
+            [ "state" ]
+            @ List.map
+                (fun (v : C.vdecl) ->
+                  Option.value (env.expr_env.variable_name v.vname)
+                    ~default:(Names.input_name v))
+                env.node.inputs
+            @ List.map
+                (fun (v : C.vdecl) -> env.output_pointer v.vname)
+                env.node.outputs
+          in
+          Ok
+            [
+              Common.line level
+                (Names.method_function_name env.node callee ^ "("
+               ^ String.concat ", " (implicit_args @ explicit_args)
+               ^ ");");
+            ])
 
 and emit_stmts env level stmts = Common.concat_map_result (emit_stmt env level) stmts

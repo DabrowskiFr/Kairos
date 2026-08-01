@@ -82,6 +82,8 @@ let rec c_hexpr : type phase. C_codegen_env.expr_env -> phase C.hexpr -> (string
       match env.variable_name name with
       | Some c_name -> Ok c_name
       | None -> Common.errorf "unknown variable '%s' in assertion expression" name)
+  | C.HOld _ ->
+      Common.errorf "old expressions are specification-only and cannot be emitted as C assertions"
   | C.HPreK (name, k) ->
       Common.errorf "historical expression pre^%d(%s) cannot be emitted as a C runtime assertion" k
         name

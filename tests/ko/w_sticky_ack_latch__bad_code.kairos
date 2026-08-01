@@ -3,8 +3,8 @@
 // This violates both the Latched invariant and the weak-until guarantee.
 node w_sticky_ack_latch(arm: int, drop: int) returns (ack: int)
 contracts
-  requires: G((arm = 0 or arm = 1) and (drop = 0 or drop = 1));
-  ensures: next always ((arm = 1) => ((ack = 1) W (drop = 1)));
+  assume: G((arm = 0 or arm = 1) and (drop = 0 or drop = 1));
+  guarantee: next always ((arm = 1) => ((ack = 1) W (drop = 1)));
 states
   Init(init), Idle, Latched;
 invariants

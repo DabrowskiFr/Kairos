@@ -2,12 +2,12 @@ node multiple_assignment_sugar(x: int) returns (
   a: int, b: int,
   ok: bool
 )
-action setPair() {
+method setPair() {
   a, b := x, x + 1;
   ok := true;
 }
 contracts
-  ensures: X G(ok = true);
+  guarantee: X G(ok = true);
 states
   Init(init), Run;
 transitions

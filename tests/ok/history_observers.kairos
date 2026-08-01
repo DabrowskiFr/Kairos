@@ -28,8 +28,8 @@ observers
       end;
     }
 contracts
-  requires: G(x >= 0);
-  ensures: X G(ok = true);
+  assume: G(x >= 0);
+  guarantee: X G(ok = true);
 states
   Init(init), Run;
 invariants

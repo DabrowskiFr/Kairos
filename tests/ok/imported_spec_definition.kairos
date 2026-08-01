@@ -2,8 +2,8 @@ import spec "../spec/response_patterns.kairos";
 
 node imported_spec_definition(trigger: bool) returns (response: bool)
 contracts
-  ensures: responds_next([trigger = true], [response = true]);
-  ensures: stable_after_init([response = trigger]);
+  guarantee: responds_next([trigger = true], [response = true]);
+  guarantee: stable_after_init([response = trigger]);
 states
   Run(init);
 transitions

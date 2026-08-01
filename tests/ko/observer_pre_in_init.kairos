@@ -8,7 +8,7 @@ observers
       delayed := pre(x);
     }
 contracts
-  ensures: X G(ok = true);
+  guarantee: X G(ok = true);
 states
   Init(init), Run;
 transitions

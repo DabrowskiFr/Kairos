@@ -3,10 +3,10 @@
 // The result no longer agrees with the stored account history.
 node credit_balance_monitor(reset: int, credit: int, debit: int) returns (bal: int)
 contracts
-  requires: G((reset = 0 or reset = 1) and (credit >= 0) and (debit >= 0));
-  requires: G((reset = 1) => (credit = 0 and debit = 0));
-  ensures: G((reset = 1) => (bal = 0));
-  ensures: G(bal >= 0);
+  assume: G((reset = 0 or reset = 1) and (credit >= 0) and (debit >= 0));
+  assume: G((reset = 1) => (credit = 0 and debit = 0));
+  guarantee: G((reset = 1) => (bal = 0));
+  guarantee: G(bal >= 0);
 locals
   m : int;
 states

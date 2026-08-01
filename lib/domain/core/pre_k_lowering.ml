@@ -53,6 +53,7 @@ let rec hexpr_to_expr_with_temporal_bindings ~(inputs : ident list) ~(var_types 
   | HLitBool b -> Some { expr = ELitBool b; loc }
   | HLitEnum c -> Some { expr = ELitEnum c; loc }
   | HVar v -> Some { expr = EVar v; loc }
+  | HOld _ -> None
   | HPreK (v, k) -> begin
       match temporal_slot_for_pre_k ~temporal_bindings ~var_name:v ~depth:k with
       | Some name -> Some { expr = EVar name; loc }
@@ -103,6 +104,9 @@ let rec lower_hexpr_temporal_bindings
   | HLitBool value -> Some { hexpr = HLitBool value; loc }
   | HLitEnum name -> Some { hexpr = HLitEnum name; loc }
   | HVar name -> Some { hexpr = HVar name; loc }
+  | HOld inner ->
+      Option.map (fun inner -> { h with hexpr = HOld inner })
+        (lower_hexpr_temporal_bindings ~temporal_bindings inner)
   | HPreK (v, k) -> begin
       match temporal_slot_for_pre_k ~temporal_bindings ~var_name:v ~depth:k with
       | Some name -> Some { hexpr = HVar name; loc }

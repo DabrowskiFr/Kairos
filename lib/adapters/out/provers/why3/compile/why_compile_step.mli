@@ -18,7 +18,7 @@
 
 (** Compilation of imperative transition bodies.
 
-    Translates Kairos action sequences and already-selected transitions into
+    Translates Kairos method/statement sequences and already-selected transitions into
     WhyML expressions. Product-step helper generation owns the proof structure;
     this module only emits the imperative code executed by a transition. *)
 
@@ -26,3 +26,6 @@
     WhyML expression. *)
 val compile_transition_body :
   Why_compile_expr.env -> Ir.transition -> Why3.Ptree.expr
+
+val compile_seq :
+  Why_compile_expr.env -> Core_syntax.stmt list -> Why3.Ptree.expr

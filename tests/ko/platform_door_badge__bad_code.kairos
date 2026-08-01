@@ -17,9 +17,9 @@ node platform_door_badge(
   unlocked: bool
 )
 contracts
-  requires: G(controllerHealthy = true);
-  ensures: G(unlocked = true => badgeValid = true);
-  ensures: G(
+  assume: G(controllerHealthy = true);
+  guarantee: G(unlocked = true => badgeValid = true);
+  guarantee: G(
     (openRequest = true and badgeValid = true) => unlocked = true);
 states
   Control(init);

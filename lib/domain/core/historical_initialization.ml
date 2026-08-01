@@ -25,6 +25,7 @@ let rec required_depth_hexpr :
  fun h ->
   match h.hexpr with
   | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ -> 0
+  | HOld inner -> required_depth_hexpr inner
   | HPreK (_, k) -> k
   | HPred (_, args) | HFunCall (_, args) ->
       max_list (List.map required_depth_hexpr args)

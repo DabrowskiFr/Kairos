@@ -100,6 +100,8 @@ let state_type_name node = node_base_name node ^ "_state_t"
 let control_state_type_name node = node_base_name node ^ "_control_state_t"
 let init_function_name node = node_base_name node ^ "_init"
 let step_function_name node = node_base_name node ^ "_step"
+let method_function_name node name =
+  node_base_name node ^ "_method_" ^ sanitize_ident name
 
 let control_state_ctor node state =
   "KAIROS_" ^ upper_ident (node_base_name node) ^ "_STATE_" ^ upper_ident state
@@ -110,6 +112,8 @@ let input_name_of_ident name = "in_" ^ sanitize_ident name
 let output_tmp_name (v : C.vdecl) = "tmp_" ^ sanitize_ident v.vname
 let output_tmp_name_of_ident name = "tmp_" ^ sanitize_ident name
 let output_pointer_name (v : C.vdecl) = "out_" ^ sanitize_ident v.vname
+let method_output_pointer_name name = "ctx_out_" ^ sanitize_ident name
+let method_param_name name = "arg_" ^ sanitize_ident name
 let field_name (v : C.vdecl) = "field_" ^ sanitize_ident v.vname
 let field_name_of_ident name = "field_" ^ sanitize_ident name
 let function_param_name (v : C.vdecl) = "arg_" ^ sanitize_ident v.vname

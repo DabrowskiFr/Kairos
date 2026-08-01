@@ -98,6 +98,8 @@ let rec hexpr ~(type_decls : Core_syntax.enum_decl list)
         match Validation.lookup_constructor type_decls v with
         | Some _ -> Core_syntax.HLitEnum v
         | None -> Core_syntax.HVar v)
+    | Kx_core_syntax.HOld inner ->
+        Core_syntax.HOld (hexpr ~type_decls inner)
     | Kx_core_syntax.HPreK (v, k) -> Core_syntax.HPreK (v, k)
     | Kx_core_syntax.HPred (id, hs) ->
         Core_syntax.HPred (id, List.map (hexpr ~type_decls) hs)
@@ -189,6 +191,8 @@ let rec stmt ~(type_decls : Core_syntax.enum_decl list)
     | Kx_ast.SSkip -> Core_syntax.SSkip
     | Kx_ast.SCall (callee, args, outs) ->
         Core_syntax.SCall (callee, List.map (expr ~type_decls) args, outs)
+    | Kx_ast.SMethodCall (callee, args) ->
+        Core_syntax.SMethodCall (callee, List.map (expr ~type_decls) args)
   in
   { Core_syntax.stmt = lowered; loc = Option.map loc source_stmt.loc }
 
@@ -202,6 +206,31 @@ let step ~(type_decls : Core_syntax.enum_decl list)
     elaboration_checks = List.map (hexpr ~type_decls) source_transition.ensures;
   }
 
+let lower_method ~(type_decls : Core_syntax.enum_decl list)
+    (decl : Kx_ast.method_decl) : Core_syntax.method_decl =
+  {
+    method_name = decl.method_name;
+    method_params =
+      List.map
+        (fun (param : Kx_ast.method_param) ->
+          {
+            Core_syntax.method_param_name = param.method_param_name;
+            method_param_ty = lower_ty param.method_param_ty;
+            method_param_mode =
+              (match param.method_param_mode with
+              | Kx_ast.MPIn -> Core_syntax.MPIn
+              | Kx_ast.MPInOut -> Core_syntax.MPInOut);
+          })
+        decl.method_params;
+    method_requires =
+      List.map (history_free_hexpr ~type_decls) decl.method_requires;
+    method_ensures =
+      List.map (history_free_hexpr ~type_decls) decl.method_ensures;
+    method_body = List.map (stmt ~type_decls) decl.method_body;
+    method_reads = decl.method_reads;
+    method_writes = decl.method_writes;
+  }
+
 let node ~(type_decls : Core_syntax.enum_decl list)
     ~(function_decls : Core_syntax.pure_function_decl list) (n : Kx_ast.node) :
     Verification_model.node_model =
@@ -212,6 +241,7 @@ let node ~(type_decls : Core_syntax.enum_decl list)
       Verification_model.node_name = sem.sem_nname;
       type_decls;
       function_decls;
+      methods = List.map (lower_method ~type_decls) sem.sem_methods;
       inputs = List.map lower_vdecl sem.sem_inputs;
       outputs = List.map lower_vdecl sem.sem_outputs;
       locals = List.map lower_vdecl sem.sem_locals;

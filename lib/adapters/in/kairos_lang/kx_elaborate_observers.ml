@@ -46,8 +46,9 @@ let rec stmt_refs (stmt : S.stmt) =
       @ List.concat_map stmt_refs body
   | SSMatch (scrutinee, branches, default_branch) ->
       expr_refs scrutinee
-      @ List.concat_map stmt_refs (List.concat_map snd branches @ default_branch)
-  | SSCall (_, args, _) | SSActionCall (_, args) -> List.concat_map expr_refs args
+      @ List.concat_map stmt_refs
+          (List.concat_map snd branches @ Option.value ~default:[] default_branch)
+  | SSCall (_, args, _) | SSMethodCall (_, args) -> List.concat_map expr_refs args
   | SSFor (_, _, body) | SSForRange (_, _, _, body) -> List.concat_map stmt_refs body
   | SSSkip -> []
 

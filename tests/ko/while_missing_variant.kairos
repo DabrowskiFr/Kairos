@@ -1,0 +1,12 @@
+node while_missing_variant(limit: int) returns (out: int)
+states Init(init);
+trans
+  Init:
+    to Init {
+      while out < limit
+      invariant: out <= limit;
+      do
+        out := out + 1;
+      end;
+    }
+end

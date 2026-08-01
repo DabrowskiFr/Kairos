@@ -23,6 +23,7 @@ let shift_hexpr_forward ~(is_input : ident -> bool) (h : historical hexpr) : his
     match h.hexpr with
     | HLitInt _ | HLitBool _ | HLitEnum _ -> h
     | HVar v -> if is_input v then mk_hpre_k v 1 else h
+    | HOld inner -> with_hexpr_desc h (HOld (go inner))
     | HPreK (v, k) -> mk_hpre_k v (k + 1)
     | HPred (id, hs) -> with_hexpr_desc h (HPred (id, List.map go hs))
     | HFunCall (fn, hs) -> with_hexpr_desc h (HFunCall (fn, List.map go hs))
@@ -37,6 +38,7 @@ let shift_hexpr_entry_to_post ~(is_input : ident -> bool) (h : historical hexpr)
     match h.hexpr with
     | HLitInt _ | HLitBool _ | HLitEnum _ -> h
     | HVar v -> if is_input v then h else mk_hpre_k v 1
+    | HOld inner -> with_hexpr_desc h (HOld (go inner))
     | HPreK _ -> h
     | HPred (id, hs) -> with_hexpr_desc h (HPred (id, List.map go hs))
     | HFunCall (fn, hs) -> with_hexpr_desc h (HFunCall (fn, List.map go hs))
@@ -58,6 +60,7 @@ let shift_hexpr_backward ~(is_input : ident -> bool) (h : historical hexpr) : hi
                 current inputs have no predecessor-time counterpart"
                v);
         h
+    | HOld inner -> with_hexpr_desc h (HOld (go inner))
     | HPreK (v, k) -> if k <= 1 then mk_hvar v else mk_hpre_k v (k - 1)
     | HPred (id, hs) -> with_hexpr_desc h (HPred (id, List.map go hs))
     | HFunCall (fn, hs) -> with_hexpr_desc h (HFunCall (fn, List.map go hs))

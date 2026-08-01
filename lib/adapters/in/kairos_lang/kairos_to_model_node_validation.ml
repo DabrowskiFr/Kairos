@@ -74,6 +74,16 @@ let validate_node (n : Verification_model.node_model) : unit =
     | Some sig_ -> sig_
     | None -> fail_node node_name (Printf.sprintf "unknown pure function '%s'" called)
   in
+  let find_method called =
+    match
+      List.find_opt
+        (fun (decl : Core_syntax.method_decl) ->
+          String.equal decl.method_name called)
+        n.methods
+    with
+    | Some decl -> decl
+    | None -> fail_node node_name (Printf.sprintf "unknown method '%s'" called)
+  in
   let has_prefix ~(prefix : string) (s : string) : bool =
     let plen = String.length prefix in
     String.length s >= plen && String.equal (String.sub s 0 plen) prefix
@@ -117,6 +127,7 @@ let validate_node (n : Verification_model.node_model) : unit =
     match h.hexpr with
     | HLitInt _ | HLitBool _ | HLitEnum _ -> []
     | HVar x | HPreK (x, _) -> [ x ]
+    | HOld inner -> vars_of_hexpr inner
     | HPred (_, args) -> List.concat_map vars_of_hexpr args
     | HFunCall (_, args) -> List.concat_map vars_of_hexpr args
     | HUn (_, inner) -> vars_of_hexpr inner
@@ -183,6 +194,7 @@ let validate_node (n : Verification_model.node_model) : unit =
     | HLitBool _ -> TBool
     | HLitEnum c -> find_ctor c
     | HVar x -> find_var x
+    | HOld inner -> hexpr_ty inner
     | HPreK (x, _) -> find_var x
     | HPred _ -> TBool
     | HFunCall (called, args) ->
@@ -278,7 +290,7 @@ let validate_node (n : Verification_model.node_model) : unit =
     | SMatch (_, branches, default_branch) ->
         List.exists stmt_writes_real (List.concat_map snd branches @ default_branch)
     | SSkip -> false
-    | SCall _ -> true
+    | SCall _ | SMethodCall _ -> true
   in
   let stmt_list_writes_real body = List.exists stmt_writes_real body in
   let rec validate_stmt ~available (s : Core_syntax.stmt) : unit =
@@ -344,6 +356,32 @@ let validate_node (n : Verification_model.node_model) : unit =
                 (Printf.sprintf "call output cannot target ghost variable '%s'" out);
             ignore (find_var out))
           outs
+    | SMethodCall (callee, args) ->
+        let decl = find_method callee in
+        if List.length decl.method_params <> List.length args then
+          fail_node node_name
+            (Printf.sprintf "method '%s' expects %d arguments but got %d"
+               callee (List.length decl.method_params) (List.length args));
+        List.iter2
+          (fun (param : Core_syntax.method_param) arg ->
+            expect_ty
+              ("argument " ^ param.method_param_name ^ " of method '" ^ callee
+             ^ "'")
+              param.method_param_ty (expr_ty arg);
+            match (param.method_param_mode, arg.expr) with
+            | MPIn, _ -> ()
+            | MPInOut, EVar name ->
+                if List.mem name input_var_names then
+                  fail_node node_name
+                    (Printf.sprintf
+                       "method '%s' cannot receive input '%s' as an inout argument"
+                       callee name)
+            | MPInOut, _ ->
+                fail_node node_name
+                  (Printf.sprintf
+                     "inout parameter '%s' of method '%s' requires a variable"
+                     param.method_param_name callee))
+          decl.method_params args
   in
   List.iter
     (fun (step : Verification_model.program_step) ->

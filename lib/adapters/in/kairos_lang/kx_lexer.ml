@@ -41,8 +41,7 @@ let () =
       ("type", TYPE);
       ("function", FUNCTION);
       ("predicate", PREDICATE);
-      ("action", ACTION);
-      ("derive", DERIVE);
+      ("method", METHOD);
       ("spec", SPEC);
       ("def", DEF);
       ("returns", RETURNS);
@@ -58,6 +57,8 @@ let () =
       ("end", END);
       ("requires", REQUIRES);
       ("ensures", ENSURES);
+      ("assume", ASSUME);
+      ("guarantee", GUARANTEE);
       ("invariant", INVARIANT);
       ("invariants", INVARIANTS);
       ("in", IN);
@@ -96,6 +97,7 @@ let () =
       ("Nat", NAT);
       ("nat", NAT);
       ("pre", PRE);
+      ("old", OLD);
       ("pre_k", PREK);
       ("past", PAST);
       ("and", AND);
@@ -139,8 +141,7 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("type", TYPE);
     ("function", FUNCTION);
     ("predicate", PREDICATE);
-    ("action", ACTION);
-    ("derive", DERIVE);
+    ("method", METHOD);
     ("spec", SPEC);
     ("def", DEF);
     ("returns", RETURNS);
@@ -156,6 +157,8 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("end", END);
     ("requires", REQUIRES);
     ("ensures", ENSURES);
+    ("assume", ASSUME);
+    ("guarantee", GUARANTEE);
     ("invariant", INVARIANT);
     ("invariants", INVARIANTS);
     ("in", IN);
@@ -178,6 +181,7 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("exists", EXISTS);
     ("match", MATCH);
     ("with", WITH);
+    ("_", UNDERSCORE);
     ("when", WHEN);
     ("from", FROM);
     ("to", TO);
@@ -194,6 +198,7 @@ let expected_tokens : (string * Kx_parser.token) list =
     ("Nat", NAT);
     ("nat", NAT);
     ("pre", PRE);
+    ("old", OLD);
     ("pre_k", PREK);
     ("past", PAST);
     ("and", AND);
@@ -312,6 +317,7 @@ let rec token lexbuf =
   | "." -> tok lexbuf DOT
   | "$" -> tok lexbuf DOLLAR
   | "|" -> tok lexbuf BAR
+  | "_" -> tok lexbuf UNDERSCORE
   | Plus '0' .. '9' ->
       let s = set_lexeme lexbuf in
       INT (int_of_string s)

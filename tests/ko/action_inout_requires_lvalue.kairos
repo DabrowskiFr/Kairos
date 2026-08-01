@@ -4,7 +4,7 @@ node action_inout_requires_lvalue(
   total: int
 )
 
-action set(inout target: int, value: int) {
+method set(inout target: int, value: int) {
   target := value;
 }
 

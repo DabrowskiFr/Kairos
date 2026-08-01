@@ -11,7 +11,6 @@
     { "include": "#specDeclarations" },
     { "include": "#nodeHeaders" },
     { "include": "#instanceDeclarations" },
-    { "include": "#derivedOutputDeclarations" },
     { "include": "#sectionKeywords" },
     { "include": "#stateLabels" },
     { "include": "#transitionTargets" },
@@ -98,7 +97,7 @@
       "patterns": [
         {
           "name": "meta.callable.declaration.kairos",
-          "match": "^\\s*(function|predicate|action)\\s+([A-Za-z_][A-Za-z0-9_']*)\\b",
+          "match": "^\\s*(function|predicate|method)\\s+([A-Za-z_][A-Za-z0-9_']*)\\b",
           "captures": {
             "1": { "name": "keyword.declaration.function.kairos" },
             "2": { "name": "entity.name.function.kairos" }
@@ -145,21 +144,6 @@
         }
       ]
     },
-    "derivedOutputDeclarations": {
-      "patterns": [
-        {
-          "name": "meta.derived-output.declaration.kairos",
-          "match": "^\\s*(derive)\\s+([A-Za-z_][A-Za-z0-9_']*)\\s*(=)\\s*(state)\\s+(in)\\b",
-          "captures": {
-            "1": { "name": "keyword.declaration.derived.kairos" },
-            "2": { "name": "variable.other.definition.kairos" },
-            "3": { "name": "keyword.operator.assignment.definition.kairos" },
-            "4": { "name": "variable.language.special.kairos" },
-            "5": { "name": "keyword.control.membership.kairos" }
-          }
-        }
-      ]
-    },
     "sectionKeywords": {
       "patterns": [
         {
@@ -168,7 +152,7 @@
         },
         {
           "name": "keyword.control.contract.kairos",
-          "match": "^\\s*(?:requires|ensures)\\s*(?=:)"
+          "match": "^\\s*(?:requires|ensures|assume|guarantee)\\b"
         },
         {
           "name": "keyword.control.annotation.kairos",
@@ -249,7 +233,7 @@
       "patterns": [
         {
           "name": "keyword.operator.history.kairos",
-          "match": "\\b(?:pre|pre_k|past|prev[0-9]*)\\b"
+          "match": "\\b(?:pre|pre_k|past|old|prev[0-9]*)\\b"
         }
       ]
     },
@@ -289,7 +273,7 @@
         },
         {
           "name": "keyword.control.contract.kairos",
-          "match": "\\b(?:requires|ensures|invariant|invariants|except)\\b"
+          "match": "\\b(?:requires|ensures|assume|guarantee|invariant|invariants|except)\\b"
         },
         {
           "name": "keyword.control.membership.kairos",
@@ -301,7 +285,7 @@
       "patterns": [
         {
           "name": "keyword.declaration.kairos",
-          "match": "\\b(?:node|type|function|predicate|action|derive|spec|def|import|let|instance|instances|locals|ghost|ghosts|observers|states|trans|transitions|contracts|returns)\\b"
+          "match": "\\b(?:node|type|function|predicate|method|spec|def|import|let|instance|instances|locals|ghost|ghosts|observers|states|trans|transitions|contracts|returns)\\b"
         }
       ]
     },
@@ -365,6 +349,13 @@
     },
     "enumConstructors": {
       "patterns": [
+        {
+          "name": "meta.match.wildcard.kairos",
+          "match": "(^\\s*\\|\\s*)(_)(?=\\s*\\{)",
+          "captures": {
+            "2": { "name": "constant.language.wildcard.kairos" }
+          }
+        },
         {
           "name": "constant.language.enum.kairos",
           "match": "\\b[A-Z][A-Za-z0-9_']*\\b"

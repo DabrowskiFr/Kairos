@@ -27,6 +27,12 @@ let rec render_stmt (s : stmt) (indent_level : int) : string list =
       [ indent_str indent_level ^ "assert " ^ Pretty.string_of_fo formula ^ ";" ]
   | SSkip -> [ indent_str indent_level ^ "skip;" ]
   | SCall _ -> failwith "calls are not supported outside parser/AST"
+  | SMethodCall (name, args) ->
+      [
+        indent_str indent_level ^ name ^ "("
+        ^ String.concat ", " (List.map Pretty.string_of_expr args)
+        ^ ");";
+      ]
   | SIf (c, t, e) ->
       [ indent_str indent_level ^ "if " ^ Pretty.string_of_expr c ^ " then" ]
       @ List.concat_map (fun st -> render_stmt st (indent_level + 1)) t

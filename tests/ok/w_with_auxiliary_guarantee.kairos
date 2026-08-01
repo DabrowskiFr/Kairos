@@ -1,7 +1,7 @@
 node w_with_auxiliary_guarantee(arm: int, stop: int, x: int) returns (y: int)
 contracts
-  ensures: G (arm = 1 => X ((y = prev x) W (stop = 1)));
-  ensures: G (arm = 1 => G (armed = 1));
+  guarantee: G (arm = 1 => X ((y = prev x) W (stop = 1)));
+  guarantee: G (arm = 1 => G (armed = 1));
 locals
   z: int;
   armed: int;

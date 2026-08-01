@@ -3,9 +3,9 @@
 // This violates the Latched invariant and the persistence guarantees.
 node sticky_ack_plus(req: int) returns (ack: int)
 contracts
-  requires: G (req = 0 or req = 1);
-  ensures: G (req = 1 => G (ack = 1));
-  ensures: G (ack = 1 => G (ack = 1));
+  assume: G (req = 0 or req = 1);
+  guarantee: G (req = 1 => G (ack = 1));
+  guarantee: G (ack = 1 => G (ack = 1));
 states
   Init(init), Wait, Latched;
 invariants

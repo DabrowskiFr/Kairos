@@ -50,6 +50,7 @@ let of_model_node (n : Vm.node_model) : Core_syntax.historical Ir.node_ir =
         sem_locals = n.locals @ n.ghosts;
         sem_states = n.states;
         sem_init_state = n.init_state;
+        sem_methods = n.methods;
       };
     source_info =
       {

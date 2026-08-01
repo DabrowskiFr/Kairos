@@ -68,6 +68,7 @@ let rec subst_hexpr ~(param : string) ~(value : string) (h : S.hexpr) :
     | SHPreK (r, k) -> SHPreK (subst_ref ~param ~value r, subst_nat_expr ~param ~value k)
     | SHPast (inner, k) ->
         SHPast (subst_hexpr ~param ~value inner, subst_nat_expr ~param ~value k)
+    | SHOld inner -> SHOld (subst_hexpr ~param ~value inner)
     | SHHistoryAlias (alias, r) ->
         SHHistoryAlias (alias, subst_ref ~param ~value r)
     | SHCall (callee, args) ->
@@ -176,15 +177,15 @@ let rec subst_stmt ~(param : string) ~(value : string) (s : S.stmt) : S.stmt =
             List.map
               (fun (ctor, body) -> (ctor, List.map (subst_stmt ~param ~value) body))
               branches,
-            List.map (subst_stmt ~param ~value) dflt )
+            Option.map (List.map (subst_stmt ~param ~value)) dflt )
     | SSSkip -> SSSkip
     | SSCall (callee, args, outs) ->
         SSCall
           ( callee,
             List.map (subst_expr ~param ~value) args,
             List.map (subst_ident ~param ~value) outs )
-    | SSActionCall (callee, args) ->
-        SSActionCall (callee, List.map (subst_expr ~param ~value) args)
+    | SSMethodCall (callee, args) ->
+        SSMethodCall (callee, List.map (subst_expr ~param ~value) args)
     | SSFor (bound, enum_name, body) when String.equal bound param ->
         SSFor (bound, enum_name, body)
     | SSFor (bound, enum_name, body) ->
@@ -204,7 +205,7 @@ let rec subst_stmt ~(param : string) ~(value : string) (s : S.stmt) : S.stmt =
 let action_actual_error param usage =
   Kx_frontend_error.elaboration
     (Printf.sprintf
-       "action parameter '%s' is used as %s and therefore requires a variable reference argument"
+       "method parameter '%s' is used as %s and therefore requires a variable reference argument"
        param usage)
 
 let actual_ref ~(param : string) ~(usage : string) (actual : S.expr) =
@@ -225,7 +226,7 @@ let subst_ref_expr ~(param : string) ~(actual : S.expr) (r : S.indexed_ref) :
     | _ ->
         Kx_frontend_error.elaboration
           (Printf.sprintf
-             "action parameter '%s' cannot be used as the base of an indexed variable"
+             "method parameter '%s' cannot be used as the base of an indexed variable"
              param)
   else
     let ref_indices =
@@ -247,7 +248,7 @@ let subst_nat_expr_expr ~(param : string) ~(actual : S.expr) = function
       | _ ->
           Kx_frontend_error.elaboration
             (Printf.sprintf
-               "action parameter '%s' is used as a static natural number and requires a non-negative literal or scalar name"
+               "method parameter '%s' is used as a static natural number and requires a non-negative literal or scalar name"
                param))
   | SNVar id -> SNVar id
 
@@ -298,6 +299,7 @@ let rec subst_hexpr_actual ~(param : string) ~(actual : S.expr)
             SHPast
               ( subst_hexpr_actual ~param ~actual inner,
                 subst_nat_expr_expr ~param ~actual k )
+        | SHOld inner -> SHOld (subst_hexpr_actual ~param ~actual inner)
         | SHHistoryAlias (alias, r) ->
             SHHistoryAlias (alias, subst_ref_expr ~param ~actual r)
         | SHCall (callee, args) ->
@@ -383,7 +385,7 @@ let rec subst_stmt_actual ~(param : string) ~(actual : S.expr) (s : S.stmt) :
               (fun (ctor, body) ->
                 (ctor, List.map (subst_stmt_actual ~param ~actual) body))
               branches,
-            List.map (subst_stmt_actual ~param ~actual) default_branch )
+            Option.map (List.map (subst_stmt_actual ~param ~actual)) default_branch )
     | SSSkip -> SSSkip
     | SSCall (callee, args, outs) ->
         let outs =
@@ -398,8 +400,8 @@ let rec subst_stmt_actual ~(param : string) ~(actual : S.expr) (s : S.stmt) :
           ( callee,
             List.map (subst_expr_actual ~param ~actual) args,
             outs )
-    | SSActionCall (callee, args) ->
-        SSActionCall
+    | SSMethodCall (callee, args) ->
+        SSMethodCall
           (callee, List.map (subst_expr_actual ~param ~actual) args)
     | SSFor (bound, enum_name, body) when String.equal bound param ->
         SSFor (bound, enum_name, body)

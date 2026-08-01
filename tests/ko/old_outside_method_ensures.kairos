@@ -1,0 +1,8 @@
+node old_outside_method_ensures() returns (out: int)
+contracts
+  guarantee: G(old(out) >= 0);
+states Init(init);
+trans
+  Init:
+    to Init { out := 0; }
+end

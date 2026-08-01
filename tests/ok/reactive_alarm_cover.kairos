@@ -9,7 +9,7 @@ node reactive_alarm_cover(
 predicate hazardActive() =
   occlusion = true or doorOpen = true;
 contracts
-  ensures: responds_now_next(
+  guarantee: responds_now_next(
     [hazardActive()], [alarmLatched = true and motorOn = false]);
 states
   Init(init), Idle, Run, AlarmPending, Alarm;

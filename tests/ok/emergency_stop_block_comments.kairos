@@ -5,7 +5,7 @@
    lines. (* A nested comment must not terminate the outer comment. *) *)
 node emergency_stop_block_comments(emergency: bool) returns (stopped: bool)
 contracts
-  ensures: G(emergency = true => stopped = true);
+  guarantee: G(emergency = true => stopped = true);
 states
   Running(init), Stopped;
 transitions

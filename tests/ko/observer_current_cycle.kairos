@@ -3,7 +3,7 @@ observers
   left : int = x -> right;
   right : int = x -> left;
 contracts
-  ensures: X G(ok = true);
+  guarantee: X G(ok = true);
 states
   Init(init), Run;
 transitions

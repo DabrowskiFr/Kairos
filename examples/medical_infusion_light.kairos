@@ -53,24 +53,30 @@ predicate alarmConditionAtTickEntry() =
 predicate clearAlarmAtTickEntry() =
   ack = true and not alarmConditionAtTickEntry();
 
-action initDisplays() {
+method initDisplays()
+contracts
+  ensures: totalDose = delivered;
+{
   totalDose := delivered; }
-action finishTick() {
+method finishTick()
+contracts
+  ensures: totalDose = old(totalDose) + delivered;
+{
   totalDose := totalDose + delivered; }
 
 contracts
-  requires: G (rate >= 0 and delivered >= 0
+  assume: G (rate >= 0 and delivered >= 0
     and maxRate >= 0 and doseLimit >= 0);
   // C-Alarm-Response: unsafe observations include the tick's alarm response.
-  ensures: G ((hazardActive() or rate > maxRate) =>
+  guarantee: G ((hazardActive() or rate > maxRate) =>
     alarmLatched = true and motorOn = false);
-  ensures: X G (doseWouldExceedAtTickEntry() => alarmLatched = true and motorOn = false);
-  ensures: X G (unexpectedFlowAtTickEntry() => alarmLatched = true and motorOn = false);
-  ensures: X G (alarmLatched = true => motorOn = false);
-  ensures: holds_until_release([alarmLatched = true and ack = false],
+  guarantee: X G (doseWouldExceedAtTickEntry() => alarmLatched = true and motorOn = false);
+  guarantee: X G (unexpectedFlowAtTickEntry() => alarmLatched = true and motorOn = false);
+  guarantee: X G (alarmLatched = true => motorOn = false);
+  guarantee: holds_until_release([alarmLatched = true and ack = false],
     [alarmLatched = true and motorOn = false],[clearAlarmAtTickEntry()]);
-  ensures: X G (totalDose = measuredDose);
-  ensures: X G (motorOn = true => measuredDose <= doseLimit);
+  guarantee: X G (totalDose = measuredDose);
+  guarantee: X G (motorOn = true => measuredDose <= doseLimit);
 states
   Init(init), Idle, Running, AlarmResponse, AlarmLatched;
 invariants

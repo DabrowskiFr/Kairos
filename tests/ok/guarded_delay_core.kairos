@@ -1,6 +1,6 @@
 node guarded_delay_core(x: int) returns (outv: int)
 contracts
-  ensures: X G (outv = prev x);
+  guarantee: X G (outv = prev x);
 locals
   z: int;
 states

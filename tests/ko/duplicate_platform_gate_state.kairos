@@ -2,7 +2,7 @@
 // Fault: Closed is declared twice, so the controller state is ambiguous.
 node platform_gate_duplicate_state(request_open: bool) returns (gate_open: bool)
 contracts
-  ensures: G (gate_open = true => request_open = true);
+  guarantee: G (gate_open = true => request_open = true);
 states
   Init(init), Closed, Open, Closed;
 transitions

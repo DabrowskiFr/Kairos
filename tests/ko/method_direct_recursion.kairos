@@ -1,0 +1,9 @@
+node method_direct_recursion() returns (out: int)
+method recurse() {
+  recurse();
+}
+states Init(init);
+trans
+  Init:
+    to Init { recurse(); }
+end

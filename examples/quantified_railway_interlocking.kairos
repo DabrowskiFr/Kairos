@@ -59,46 +59,58 @@ predicate cancelRequested(r: Route) =
 predicate allRoutesIdle() =
   forall r in Route. routeIdle(r);
 
-action clearRoute(r: Route) {
-  signal[r] := stopSignal();
-  routeState[r] := idleState();
-  reserved[r] := false;
+method clearRoute(
+  inout routeSignal: SignalColor,
+  inout state: RouteState,
+  inout routeReserved: bool
+) {
+  routeSignal := stopSignal();
+  state := idleState();
+  routeReserved := false;
 }
 
-action cancelRoute(r: Route) {
-  routeState[r] := releasingState();
-  reserved[r] := true;
-  signal[r] := stopSignal();
+method cancelRoute(
+  inout routeSignal: SignalColor,
+  inout state: RouteState,
+  inout routeReserved: bool
+) {
+  state := releasingState();
+  routeReserved := true;
+  routeSignal := stopSignal();
 }
 
-action lockRoute(r: Route) {
-  routeState[r] := lockedState();
-  reserved[r] := true;
-  signal[r] := proceedSignal();
+method lockRoute(
+  inout routeSignal: SignalColor,
+  inout state: RouteState,
+  inout routeReserved: bool
+) {
+  state := lockedState();
+  routeReserved := true;
+  routeSignal := proceedSignal();
 }
 
 contracts
-  ensures: G(routeState[R_AB] = Locked => X(reserved[R_AB] = true W routeState[R_AB] = Idle));
-  ensures: G(routeState[R_AC] = Locked => X(reserved[R_AC] = true W routeState[R_AC] = Idle));
-  ensures: G(routeState[R_DE] = Locked => X(reserved[R_DE] = true W routeState[R_DE] = Idle));
+  guarantee: G(routeState[R_AB] = Locked => X(reserved[R_AB] = true W routeState[R_AB] = Idle));
+  guarantee: G(routeState[R_AC] = Locked => X(reserved[R_AC] = true W routeState[R_AC] = Idle));
+  guarantee: G(routeState[R_DE] = Locked => X(reserved[R_DE] = true W routeState[R_DE] = Idle));
 
-  ensures: G(routeState[R_AB] = Locked =>
+  guarantee: G(routeState[R_AB] = Locked =>
     X((routeState[R_AC] != Locked and pointPosition[P1] = Normal) W routeState[R_AB] = Idle));
-  ensures: G(routeState[R_AC] = Locked =>
+  guarantee: G(routeState[R_AC] = Locked =>
     X((routeState[R_AB] != Locked and routeState[R_DE] != Locked and pointPosition[P1] = Reverse)
       W routeState[R_AC] = Idle));
-  ensures: G(routeState[R_DE] = Locked =>
+  guarantee: G(routeState[R_DE] = Locked =>
     X((routeState[R_AC] != Locked and pointPosition[P2] = Normal) W routeState[R_DE] = Idle));
 
-  ensures: G(signal[R_AB] = Green => occupied[TA] = false and occupied[TB] = false);
-  ensures: G(signal[R_AC] = Green => occupied[TA] = false and occupied[TC] = false);
-  ensures: G(signal[R_DE] = Green => occupied[TD] = false and occupied[TE] = false);
+  guarantee: G(signal[R_AB] = Green => occupied[TA] = false and occupied[TB] = false);
+  guarantee: G(signal[R_AC] = Green => occupied[TA] = false and occupied[TC] = false);
+  guarantee: G(signal[R_DE] = Green => occupied[TD] = false and occupied[TE] = false);
 
-  ensures: forall r in Route.
+  guarantee: forall r in Route.
     G(routeState[r] = Releasing => signalRed(r));
-  ensures: forall r in Route.
+  guarantee: forall r in Route.
     G(cancelRequested(r) => X(signalRed(r) W routeIdle(r)));
-  ensures: forall r in Route.
+  guarantee: forall r in Route.
     G(signalGreen(r) => routeLocked(r));
 
 states Init(init), Run;
@@ -123,7 +135,7 @@ trans
   Init:
     to Run {
       for r in Route {
-        clearRoute(r);
+        clearRoute(signal[r], routeState[r], reserved[r]);
       }
       pointPosition[P1] := Normal;
       pointPosition[P2] := Normal;
@@ -136,58 +148,58 @@ trans
       }
 
       if cancel[R_AB] and routeState[R_AB] != Idle then
-        cancelRoute(R_AB);
+        cancelRoute(signal[R_AB], routeState[R_AB], reserved[R_AB]);
       else
         skip;
       end;
 
       if cancel[R_AC] and routeState[R_AC] != Idle then
-        cancelRoute(R_AC);
+        cancelRoute(signal[R_AC], routeState[R_AC], reserved[R_AC]);
       else
         skip;
       end;
 
       if cancel[R_DE] and routeState[R_DE] != Idle then
-        cancelRoute(R_DE);
+        cancelRoute(signal[R_DE], routeState[R_DE], reserved[R_DE]);
       else
         skip;
       end;
 
       if request[R_AB] and not cancel[R_AB] and allRoutesIdle() and trackClear(occupied[TA]) and trackClear(occupied[TB]) then
-        lockRoute(R_AB);
+        lockRoute(signal[R_AB], routeState[R_AB], reserved[R_AB]);
         pointPosition[P1] := Normal;
       else
         skip;
       end;
 
       if request[R_AC] and not cancel[R_AC] and allRoutesIdle() and trackClear(occupied[TA]) and trackClear(occupied[TC]) then
-        lockRoute(R_AC);
+        lockRoute(signal[R_AC], routeState[R_AC], reserved[R_AC]);
         pointPosition[P1] := Reverse;
       else
         skip;
       end;
 
       if request[R_DE] and not cancel[R_DE] and allRoutesIdle() and trackClear(occupied[TD]) and trackClear(occupied[TE]) then
-        lockRoute(R_DE);
+        lockRoute(signal[R_DE], routeState[R_DE], reserved[R_DE]);
         pointPosition[P2] := Normal;
       else
         skip;
       end;
 
       if not cancel[R_AB] and releaseAck[R_AB] and routeState[R_AB] = Releasing then
-        clearRoute(R_AB);
+        clearRoute(signal[R_AB], routeState[R_AB], reserved[R_AB]);
       else
         skip;
       end;
 
       if not cancel[R_AC] and releaseAck[R_AC] and routeState[R_AC] = Releasing then
-        clearRoute(R_AC);
+        clearRoute(signal[R_AC], routeState[R_AC], reserved[R_AC]);
       else
         skip;
       end;
 
       if not cancel[R_DE] and releaseAck[R_DE] and routeState[R_DE] = Releasing then
-        clearRoute(R_DE);
+        clearRoute(signal[R_DE], routeState[R_DE], reserved[R_DE]);
       else
         skip;
       end;

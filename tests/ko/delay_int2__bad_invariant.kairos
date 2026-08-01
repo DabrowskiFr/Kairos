@@ -2,7 +2,7 @@
 // It receives the old [s1], hence represents [prev2 x], so induction fails.
 node delay_int2(x: int) returns (y: int)
 contracts
-  ensures: next next always ( y = prev2 x );
+  guarantee: next next always ( y = prev2 x );
 locals
   s1, s2: int;
 states

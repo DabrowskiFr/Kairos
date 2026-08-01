@@ -81,6 +81,7 @@ and _ hexpr_desc =
   | HLitBool : bool -> 'phase hexpr_desc
   | HLitEnum : ident -> 'phase hexpr_desc
   | HVar : ident -> 'phase hexpr_desc
+  | HOld : 'phase hexpr -> 'phase hexpr_desc
   | HPreK : ident * int -> historical hexpr_desc
   (** Explicit core-level predicate application. The Kairos source frontend
       does not emit this as a fallback for undeclared local predicates. *)
@@ -102,6 +103,7 @@ let rec hexpr_json : type phase. phase hexpr -> Yojson.Safe.t =
     | HLitBool value -> `List [ `String "HLitBool"; `Bool value ]
     | HLitEnum name -> `List [ `String "HLitEnum"; `String name ]
     | HVar name -> `List [ `String "HVar"; `String name ]
+    | HOld inner -> `List [ `String "HOld"; hexpr_json inner ]
     | HPreK (name, depth) ->
         `List [ `String "HPreK"; `List [ `String name; `Int depth ] ]
     | HPred (name, args) ->
@@ -185,6 +187,9 @@ let hexpr_json_of_yojson (json : Yojson.Safe.t) :
       | `List [ `String "HLitBool"; `Bool value ] -> Ok (HLitBool value)
       | `List [ `String "HLitEnum"; `String name ] -> Ok (HLitEnum name)
       | `List [ `String "HVar"; `String name ] -> Ok (HVar name)
+      | `List [ `String "HOld"; inner_json ] ->
+          let* inner = decode inner_json in
+          Ok (HOld inner)
       | `List
           [ `String "HPreK"; `List [ `String name; `Int depth ] ] ->
           Ok (HPreK (name, depth))
@@ -235,6 +240,9 @@ let rec history_free_of_historical
   | HLitBool value -> Some (rebuild (HLitBool value))
   | HLitEnum name -> Some (rebuild (HLitEnum name))
   | HVar name -> Some (rebuild (HVar name))
+  | HOld inner ->
+      Option.map (fun inner -> rebuild (HOld inner))
+        (history_free_of_historical inner)
   | HPreK _ -> None
   | HPred (name, args) ->
       Option.map
@@ -279,6 +287,7 @@ let rec historical_of_history_free
   | HLitBool value -> rebuild (HLitBool value)
   | HLitEnum name -> rebuild (HLitEnum name)
   | HVar name -> rebuild (HVar name)
+  | HOld inner -> rebuild (HOld (historical_of_history_free inner))
   | HPred (name, args) ->
       rebuild (HPred (name, List.map historical_of_history_free args))
   | HFunCall (name, args) ->
@@ -371,6 +380,15 @@ type pure_function_decl = {
 }
 [@@deriving yojson]
 
+type method_param_mode = MPIn | MPInOut [@@deriving yojson]
+
+type method_param = {
+  method_param_name : ident;
+  method_param_ty : ty;
+  method_param_mode : method_param_mode;
+}
+[@@deriving yojson]
+
 (** Internal imperative statement language used by the verification model and IR.
 
     Source-language adapters may define their own ASTs and lower into these
@@ -385,6 +403,7 @@ and stmt_desc =
   | SMatch of expr * (ident * stmt list) list * stmt list
   | SSkip
   | SCall of ident * expr list * ident list
+  | SMethodCall of ident * expr list
 
 let rec stmt_to_yojson statement =
   let statements_to_yojson statements =
@@ -449,6 +468,16 @@ let rec stmt_to_yojson statement =
                 `String name;
                 `List (List.map expr_to_yojson arguments);
                 `List (List.map (fun result -> `String result) results);
+              ];
+          ]
+    | SMethodCall (name, arguments) ->
+        `List
+          [
+            `String "SMethodCall";
+            `List
+              [
+                `String name;
+                `List (List.map expr_to_yojson arguments);
               ];
           ]
   in
@@ -565,6 +594,25 @@ let stmt_of_yojson json =
         let* arguments = decode_exprs arguments_json in
         let* results = decode_names results_json in
         Ok (SCall (name, arguments, results))
+    | `List
+        [ `String "SMethodCall"; `List [ `String name; arguments_json ] ] ->
+        let* arguments = decode_exprs arguments_json in
+        Ok (SMethodCall (name, arguments))
     | _ -> Error "stmt: invalid constructor"
   in
   decode json
+
+type method_decl = {
+  method_name : ident;
+  method_params : method_param list;
+  method_requires : history_free hexpr list
+      [@to_yojson history_free_hexpr_list_to_yojson]
+      [@of_yojson history_free_hexpr_list_of_yojson];
+  method_ensures : history_free hexpr list
+      [@to_yojson history_free_hexpr_list_to_yojson]
+      [@of_yojson history_free_hexpr_list_of_yojson];
+  method_body : stmt list;
+  method_reads : ident list;
+  method_writes : ident list;
+}
+[@@deriving yojson]

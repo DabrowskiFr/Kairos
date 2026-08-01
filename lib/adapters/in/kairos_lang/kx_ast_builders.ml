@@ -26,7 +26,7 @@ let mk_transition ~src ~dst ~guard ~body ?(ensures = []) () : transition =
   { src; dst; guard; body; ensures }
 
 let mk_node ~nname ~inputs ~outputs ~assumes ~guarantees ~instances ~locals ~ghosts
-    ~public_ghosts ~states ~init_state ~trans : node =
+    ~public_ghosts ~methods ~states ~init_state ~trans : node =
   {
     semantics =
       {
@@ -37,6 +37,7 @@ let mk_node ~nname ~inputs ~outputs ~assumes ~guarantees ~instances ~locals ~gho
         sem_locals = locals;
         sem_ghosts = ghosts;
         sem_public_ghosts = public_ghosts;
+        sem_methods = methods;
         sem_states = states;
         sem_init_state = init_state;
         sem_trans = trans;

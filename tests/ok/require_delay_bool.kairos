@@ -1,7 +1,7 @@
 node require_delay_bool(u: int) returns (y: int)
 contracts
-  requires: G (u = 0 or u = 1);
-  ensures: next always (y = prev u);
+  assume: G (u = 0 or u = 1);
+  guarantee: next always (y = prev u);
 locals
   m: int;
 states

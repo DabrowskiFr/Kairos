@@ -18,7 +18,7 @@ predicate booleanIdentity(value: bool) =
 
 // Parameter names deliberately cross the node-variable names. Expansion must
 // remain simultaneous and capture-free.
-action add(inout sample: int, in total: int)
+method add(inout sample: int, in total: int)
 {
   sample := sample + total;
 }

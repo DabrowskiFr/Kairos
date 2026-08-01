@@ -29,6 +29,7 @@ val state_type_name : Verification_model.node_model -> string
 val control_state_type_name : Verification_model.node_model -> string
 val init_function_name : Verification_model.node_model -> string
 val step_function_name : Verification_model.node_model -> string
+val method_function_name : Verification_model.node_model -> Core_syntax.ident -> string
 val control_state_ctor : Verification_model.node_model -> Core_syntax.ident -> string
 val pure_function_name : Core_syntax.ident -> string
 val input_name : Core_syntax.vdecl -> string
@@ -36,6 +37,8 @@ val input_name_of_ident : Core_syntax.ident -> string
 val output_tmp_name : Core_syntax.vdecl -> string
 val output_tmp_name_of_ident : Core_syntax.ident -> string
 val output_pointer_name : Core_syntax.vdecl -> string
+val method_output_pointer_name : Core_syntax.ident -> string
+val method_param_name : Core_syntax.ident -> string
 val field_name : Core_syntax.vdecl -> string
 val field_name_of_ident : Core_syntax.ident -> string
 val function_param_name : Core_syntax.vdecl -> string

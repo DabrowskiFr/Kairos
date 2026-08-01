@@ -2,7 +2,7 @@ node state_selector_invariants(alarm: bool) returns (
   x: int
 )
 contracts
-  ensures: X G(x >= 0);
+  guarantee: X G(x >= 0);
 states
   Init(init), Idle, Run, Alarm;
 invariants

@@ -29,7 +29,7 @@ type occurrence = {
 let shareable (formula : Core_syntax.history_free Ir.summary_formula) =
   match formula.logic.hexpr with
   | HBin ((And | Or), _, _) | HUn (Not, _) -> true
-  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _
+  | HLitInt _ | HLitBool _ | HLitEnum _ | HVar _ | HOld _
   | HPred _ | HFunCall _ | HUn (Neg, _)
   | HBin ((Add | Sub | Mul | Div), _, _)
   | HCmp _ ->

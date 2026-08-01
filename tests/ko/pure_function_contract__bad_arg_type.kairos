@@ -6,7 +6,7 @@ node pure_function_contract_bad_arg_type(flag: bool) returns (
 )
 
 contracts
-  ensures: G(out = 0);
+  guarantee: G(out = 0);
 
 states Init(init);
 

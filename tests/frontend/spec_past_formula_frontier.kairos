@@ -1,6 +1,6 @@
 node spec_past_formula_frontier(x: bool) returns (out: bool)
 contracts
-  ensures: G(out = x);
+  guarantee: G(out = x);
 states
   Init(init), Run;
 invariants

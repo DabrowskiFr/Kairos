@@ -1,6 +1,6 @@
 node delay_int2(x: int) returns (y: int)
 contracts
-  ensures: next next always ( y = prev2 x );
+  guarantee: next next always ( y = prev2 x );
 locals
   s1, s2: int;
 states

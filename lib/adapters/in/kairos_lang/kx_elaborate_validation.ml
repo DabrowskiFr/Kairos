@@ -59,6 +59,8 @@ let validate_control_graph (n : S.node) =
 
 let indexed_ref_name = Names.indexed_ref_name
 
+let match_default_stmts = Option.value ~default:[]
+
 let is_scalar_ref_named name (r : S.indexed_ref) =
   String.equal r.ref_base name && r.ref_indices = []
 
@@ -75,10 +77,10 @@ let rec stmt_assigns_to targets (s : S.stmt) : string option =
   | SSWhile (_, _, _, body) -> List.find_map (stmt_assigns_to targets) body
   | SSMatch (_, branches, default_branch) ->
       List.find_map (stmt_assigns_to targets)
-        (List.concat_map snd branches @ default_branch)
+        (List.concat_map snd branches @ match_default_stmts default_branch)
   | SSCall (_, _, outs) ->
       List.find_opt (fun out -> List.mem out targets) outs
-  | SSSkip | SSActionCall _ -> None
+  | SSSkip | SSMethodCall _ -> None
   | SSFor (_, _, body) -> List.find_map (stmt_assigns_to targets) body
   | SSForRange (_, _, _, body) -> List.find_map (stmt_assigns_to targets) body
 
@@ -103,7 +105,7 @@ let rec hexpr_refs (h : S.hexpr) : string list =
   | SHLitInt _ | SHLitBool _ -> []
   | SHVar r | SHPreK (r, _) | SHHistoryAlias (_, r) ->
       [ indexed_ref_name r ]
-  | SHPast (inner, _) -> hexpr_refs inner
+  | SHPast (inner, _) | SHOld inner -> hexpr_refs inner
   | SHCall (_, args) -> List.concat_map hexpr_refs args
   | SHExpr e -> expr_refs e
   | SHBin (_, a, b) | SHCmp (_, a, b) -> hexpr_refs a @ hexpr_refs b
@@ -125,10 +127,11 @@ let rec stmt_refs (s : S.stmt) : string list =
       @ List.concat_map stmt_refs body
   | SSMatch (scrutinee, branches, default_branch) ->
       expr_refs scrutinee
-      @ List.concat_map stmt_refs (List.concat_map snd branches @ default_branch)
+      @ List.concat_map stmt_refs
+          (List.concat_map snd branches @ match_default_stmts default_branch)
   | SSSkip -> []
   | SSCall (_, args, _) -> List.concat_map expr_refs args
-  | SSActionCall (_, args) -> List.concat_map expr_refs args
+  | SSMethodCall (_, args) -> List.concat_map expr_refs args
   | SSFor (_, _, body) -> List.concat_map stmt_refs body
   | SSForRange (_, _, _, body) -> List.concat_map stmt_refs body
 
@@ -144,8 +147,8 @@ let rec stmt_pre_refs (s : S.stmt) : string list =
   | SSMatch (scrutinee, branches, default_branch) ->
       expr_pre_refs scrutinee
       @ List.concat_map stmt_pre_refs
-          (List.concat_map snd branches @ default_branch)
-  | SSCall (_, args, _) | SSActionCall (_, args) ->
+          (List.concat_map snd branches @ match_default_stmts default_branch)
+  | SSCall (_, args, _) | SSMethodCall (_, args) ->
       List.concat_map expr_pre_refs args
   | SSFor (_, _, body) | SSForRange (_, _, _, body) ->
       List.concat_map stmt_pre_refs body
@@ -159,8 +162,8 @@ let rec stmt_assignment_targets (s : S.stmt) : string list =
   | SSWhile (_, _, _, body) -> List.concat_map stmt_assignment_targets body
   | SSMatch (_, branches, default_branch) ->
       List.concat_map stmt_assignment_targets
-        (List.concat_map snd branches @ default_branch)
-  | SSSkip | SSCall _ | SSActionCall _ -> []
+        (List.concat_map snd branches @ match_default_stmts default_branch)
+  | SSSkip | SSCall _ | SSMethodCall _ -> []
   | SSFor (_, _, body) -> List.concat_map stmt_assignment_targets body
   | SSForRange (_, _, _, body) -> List.concat_map stmt_assignment_targets body
 
@@ -172,8 +175,8 @@ let rec stmt_must_assign target (s : S.stmt) : bool =
       && stmt_list_must_assign target else_branch
   | SSMatch (_, branches, default_branch) ->
       List.for_all (fun (_, body) -> stmt_list_must_assign target body) branches
-      && stmt_list_must_assign target default_branch
-  | SSSkip | SSCall _ | SSActionCall _ | SSFor _ | SSForRange _ | SSWhile _ ->
+      && Option.fold ~none:true ~some:(stmt_list_must_assign target) default_branch
+  | SSSkip | SSCall _ | SSMethodCall _ | SSFor _ | SSForRange _ | SSWhile _ ->
       false
 
 and stmt_list_must_assign target body = List.exists (stmt_must_assign target) body
@@ -194,15 +197,15 @@ let validate_observer_body observer_names (obs : S.observer_decl) phase body =
              context)
     | SSMatch (_, branches, default_branch) ->
         List.iter reject_unsupported_stmt
-          (List.concat_map snd branches @ default_branch)
+          (List.concat_map snd branches @ match_default_stmts default_branch)
     | SSCall _ ->
         Kx_frontend_error.well_formedness
           (Printf.sprintf "%s cannot call a node; observer updates must be local"
              context)
-    | SSActionCall _ ->
+    | SSMethodCall _ ->
         Kx_frontend_error.well_formedness
           (Printf.sprintf
-             "%s cannot call an action; observer updates must be explicit"
+             "%s cannot call an method; observer updates must be explicit"
              context)
     | SSFor _ ->
         Kx_frontend_error.well_formedness
@@ -296,50 +299,128 @@ let validate_observers (n : S.node) =
           t.body)
       n.transitions;
     List.iter
-      (fun (a : S.action_decl) ->
+      (fun (a : S.method_decl) ->
         check_body
-          (Printf.sprintf "action '%s' in node '%s'" a.action_name n.node_name)
-          a.action_body)
-      n.actions)
+          (Printf.sprintf "method '%s' in node '%s'" a.method_name n.node_name)
+          a.method_body)
+      n.methods)
 
-let validate_action_contracts (n : S.node) =
-  let rec check_formula context (h : S.hexpr) =
+let validate_method_contracts (n : S.node) =
+  let rec check_formula ~allow_old ~inside_old context (h : S.hexpr) =
     match h.shexpr with
     | SHLitInt _ | SHLitBool _ | SHVar _ -> ()
+    | SHOld inner ->
+        if not allow_old then
+          Kx_frontend_error.well_formedness
+            (Printf.sprintf "%s cannot use old; old is only allowed in method ensures clauses" context);
+        if inside_old then
+          Kx_frontend_error.well_formedness
+            (Printf.sprintf "%s cannot contain nested old expressions" context);
+        check_formula ~allow_old:false ~inside_old:true context inner
     | SHPreK _ | SHPast _ | SHHistoryAlias _ ->
         Kx_frontend_error.well_formedness
           (Printf.sprintf
-             "%s cannot use temporal or history operators; action contracts are local block contracts"
+             "%s cannot use temporal or history operators; method contracts are local block contracts"
              context)
     | SHCall _ ->
         Kx_frontend_error.well_formedness
           (Printf.sprintf
-             "%s cannot call predicates yet; action contracts must expose their local formula directly"
+             "%s cannot call predicates yet; method contracts must expose their local formula directly"
              context)
     | SHExpr _ -> ()
     | SHBin (_, a, b) | SHCmp (_, a, b) ->
-        check_formula context a;
-        check_formula context b
-    | SHUn (_, inner) -> check_formula context inner
+        check_formula ~allow_old ~inside_old context a;
+        check_formula ~allow_old ~inside_old context b
+    | SHUn (_, inner) -> check_formula ~allow_old ~inside_old context inner
     | SHForall (_, _, body) | SHExists (_, _, body)
     | SHRangeForall (_, _, _, body) | SHRangeExists (_, _, _, body) ->
-        check_formula context body
+        check_formula ~allow_old ~inside_old context body
   in
   List.iter
-    (fun (a : S.action_decl) ->
+    (fun (a : S.method_decl) ->
       List.iter
-        (check_formula
-           (Printf.sprintf "requires clause of action '%s' in node '%s'"
-              a.action_name n.node_name))
-        a.action_requires;
+        (check_formula ~allow_old:false ~inside_old:false
+           (Printf.sprintf "requires clause of method '%s' in node '%s'"
+              a.method_name n.node_name))
+        a.method_requires;
       List.iter
-        (check_formula
-           (Printf.sprintf "ensures clause of action '%s' in node '%s'"
-              a.action_name n.node_name))
-        a.action_ensures)
-    n.actions
+        (check_formula ~allow_old:true ~inside_old:false
+           (Printf.sprintf "ensures clause of method '%s' in node '%s'"
+              a.method_name n.node_name))
+        a.method_ensures)
+    n.methods
 
-let validate_action_parameters (n : S.node) =
+let rec method_calls_of_stmt (stmt : S.stmt) =
+  match stmt.sstmt with
+  | SSMethodCall (name, _) -> [ name ]
+  | SSIf (_, then_branch, else_branch) ->
+      List.concat_map method_calls_of_stmt (then_branch @ else_branch)
+  | SSWhile (_, _, _, body) | SSFor (_, _, body)
+  | SSForRange (_, _, _, body) ->
+      List.concat_map method_calls_of_stmt body
+  | SSMatch (_, branches, default_branch) ->
+      List.concat_map method_calls_of_stmt
+        (List.concat_map snd branches @ match_default_stmts default_branch)
+  | SSAssign _ | SSSkip | SSCall _ -> []
+
+let validate_method_call_graph (n : S.node) =
+  let methods =
+    List.map
+      (fun (decl : S.method_decl) ->
+        (decl.method_name, List.concat_map method_calls_of_stmt decl.method_body))
+      n.methods
+  in
+  let visiting = Hashtbl.create 17 in
+  let visited = Hashtbl.create 17 in
+  let rec visit path name =
+    if Hashtbl.mem visiting name then (
+      let cycle = String.concat " -> " (List.rev (name :: path) @ [ name ]) in
+      Kx_frontend_error.well_formedness
+        (Printf.sprintf
+           "recursive method calls are not supported in node '%s': %s"
+           n.node_name cycle))
+    else if not (Hashtbl.mem visited name) then (
+      Hashtbl.replace visiting name ();
+      List.iter (visit (name :: path))
+        (List.assoc_opt name methods |> Option.value ~default:[]);
+      Hashtbl.remove visiting name;
+      Hashtbl.replace visited name ())
+  in
+  List.iter (fun (name, _) -> visit [] name) methods
+
+let validate_while_variants (n : S.node) =
+  let rec check context (stmt : S.stmt) =
+    match stmt.sstmt with
+    | SSWhile (_, _, None, _) ->
+        Kx_frontend_error.well_formedness
+          (Printf.sprintf "%s contains a while loop without a variant" context)
+    | SSWhile (_, _, Some _, body) | SSFor (_, _, body)
+    | SSForRange (_, _, _, body) -> List.iter (check context) body
+    | SSIf (_, then_branch, else_branch) ->
+        List.iter (check context) (then_branch @ else_branch)
+    | SSMatch (_, branches, default_branch) ->
+        List.iter (check context)
+          (List.concat_map snd branches @ match_default_stmts default_branch)
+    | SSAssign _ | SSSkip | SSCall _ | SSMethodCall _ -> ()
+  in
+  List.iter
+    (fun (decl : S.method_decl) ->
+      List.iter
+        (check
+           (Printf.sprintf "method '%s' in node '%s'" decl.method_name
+              n.node_name))
+        decl.method_body)
+    n.methods;
+  List.iter
+    (fun (transition : S.transition) ->
+      List.iter
+        (check
+           (Printf.sprintf "transition %s -> %s in node '%s'" transition.src
+              transition.dst n.node_name))
+        transition.body)
+    n.transitions
+
+let validate_method_parameters (n : S.node) =
   let first_duplicate names =
     let rec loop seen = function
       | [] -> None
@@ -350,61 +431,61 @@ let validate_action_parameters (n : S.node) =
     loop [] names
   in
   List.iter
-    (fun (action : S.action_decl) ->
+    (fun (method_decl : S.method_decl) ->
       let names =
         List.map
-          (fun (param : S.action_param) -> param.action_param_name)
-          action.action_params
+          (fun (param : S.method_param) -> param.method_param_name)
+          method_decl.method_params
       in
       (match first_duplicate names with
       | Some name ->
           Kx_frontend_error.well_formedness
             (Printf.sprintf
-               "action '%s' in node '%s' declares parameter '%s' more than once"
-               action.action_name n.node_name name)
+               "method '%s' in node '%s' declares parameter '%s' more than once"
+               method_decl.method_name n.node_name name)
       | None -> ());
       List.iter
-        (fun (param : S.action_param) ->
-          match param.action_param_mode with
-          | APInOut -> ()
-          | APIn -> (
+        (fun (param : S.method_param) ->
+          match param.method_param_mode with
+          | MPInOut -> ()
+          | MPIn -> (
               match
                 List.find_map
-                  (stmt_assigns_to [ param.action_param_name ])
-                  action.action_body
+                  (stmt_assigns_to [ param.method_param_name ])
+                  method_decl.method_body
               with
               | None -> ()
               | Some _ ->
                   Kx_frontend_error.well_formedness
                     (Printf.sprintf
-                       "input parameter '%s' of action '%s' cannot be assigned; declare it inout"
-                       param.action_param_name action.action_name)))
-        action.action_params)
-    n.actions;
+                       "input parameter '%s' of method '%s' cannot be assigned; declare it inout"
+                       param.method_param_name method_decl.method_name)))
+        method_decl.method_params)
+    n.methods;
   let rec check_nested_calls caller_inputs context (stmt : S.stmt) =
     match stmt.sstmt with
-    | SSActionCall (callee, args) -> (
+    | SSMethodCall (callee, args) -> (
         match
           List.find_opt
-            (fun (action : S.action_decl) ->
-              String.equal action.action_name callee)
-            n.actions
+            (fun (method_decl : S.method_decl) ->
+              String.equal method_decl.method_name callee)
+            n.methods
         with
         | None -> ()
         | Some callee_action ->
-            if List.length callee_action.action_params = List.length args then
+            if List.length callee_action.method_params = List.length args then
               List.iter2
-                (fun (callee_param : S.action_param) (arg : S.expr) ->
-                  match (callee_param.action_param_mode, arg.sexpr) with
-                  | APInOut, SEVar { ref_base; ref_indices = [] }
+                (fun (callee_param : S.method_param) (arg : S.expr) ->
+                  match (callee_param.method_param_mode, arg.sexpr) with
+                  | MPInOut, SEVar { ref_base; ref_indices = [] }
                     when List.mem ref_base caller_inputs ->
                       Kx_frontend_error.well_formedness
                         (Printf.sprintf
-                           "%s passes read-only parameter '%s' to inout parameter '%s' of action '%s'"
-                           context ref_base callee_param.action_param_name
+                           "%s passes read-only parameter '%s' to inout parameter '%s' of method '%s'"
+                           context ref_base callee_param.method_param_name
                            callee)
                   | _ -> ())
-                callee_action.action_params args)
+                callee_action.method_params args)
     | SSIf (_, then_branch, else_branch) ->
         List.iter (check_nested_calls caller_inputs context)
           (then_branch @ else_branch)
@@ -413,118 +494,25 @@ let validate_action_parameters (n : S.node) =
         List.iter (check_nested_calls caller_inputs context) body
     | SSMatch (_, branches, default_branch) ->
         List.iter (check_nested_calls caller_inputs context)
-          (List.concat_map snd branches @ default_branch)
+          (List.concat_map snd branches @ match_default_stmts default_branch)
     | SSAssign _ | SSSkip | SSCall _ -> ()
   in
   List.iter
-    (fun (action : S.action_decl) ->
+    (fun (method_decl : S.method_decl) ->
       let inputs =
         List.filter_map
-          (fun (param : S.action_param) ->
-            match param.action_param_mode with
-            | APIn -> Some param.action_param_name
-            | APInOut -> None)
-          action.action_params
+          (fun (param : S.method_param) ->
+            match param.method_param_mode with
+            | MPIn -> Some param.method_param_name
+            | MPInOut -> None)
+          method_decl.method_params
       in
       let context =
-        Printf.sprintf "action '%s' in node '%s'" action.action_name
+        Printf.sprintf "method '%s' in node '%s'" method_decl.method_name
           n.node_name
       in
-      List.iter (check_nested_calls inputs context) action.action_body)
-    n.actions
-
-let validate_derived_outputs (n : S.node) =
-  validate_unique_named_decls "derived output"
-    (fun (decl : S.derived_output_decl) -> decl.derived_output_name)
-    n.derived_outputs;
-  let derived_names =
-    List.map
-      (fun (decl : S.derived_output_decl) -> decl.derived_output_name)
-      n.derived_outputs
-  in
-  List.iter
-    (fun (decl : S.derived_output_decl) ->
-      (match
-        List.find_opt
-          (fun (output : S.raw_vdecl) ->
-            String.equal output.raw_vname decl.derived_output_name)
-          n.outputs
-      with
-      | None ->
-          Kx_frontend_error.well_formedness
-            (Printf.sprintf
-               "derived value '%s' in node '%s' is not a declared output"
-               decl.derived_output_name n.node_name)
-      | Some { raw_indices = Some _; _ } ->
-          Kx_frontend_error.well_formedness
-            (Printf.sprintf
-               "derived output '%s' in node '%s' must be scalar"
-               decl.derived_output_name n.node_name)
-      | Some { raw_vty = TBool; _ } -> ()
-      | Some _ ->
-          Kx_frontend_error.well_formedness
-            (Printf.sprintf
-               "derived output '%s' in node '%s' must have type bool"
-               decl.derived_output_name n.node_name));
-      ignore
-        (State_selectors.resolve_state_selector ~node_name:n.node_name
-           ~states:(S.visible_states n.state_decls)
-           decl.derived_output_true_states))
-    n.derived_outputs;
-  let reject_target context target =
-    if List.mem target derived_names then
-      Kx_frontend_error.well_formedness
-        (Printf.sprintf
-           "%s assigns derived output '%s'; derived outputs are read-only"
-           context target)
-  in
-  let rec check_stmt context (stmt : S.stmt) =
-    match stmt.sstmt with
-    | SSAssign (target, _) ->
-        reject_target context (indexed_ref_name target)
-    | SSIf (_, then_branch, else_branch) ->
-        List.iter (check_stmt context) (then_branch @ else_branch)
-    | SSWhile (_, _, _, body) | SSFor (_, _, body)
-    | SSForRange (_, _, _, body) ->
-        List.iter (check_stmt context) body
-    | SSMatch (_, branches, default_branch) ->
-        List.iter (check_stmt context)
-          (List.concat_map snd branches @ default_branch)
-    | SSCall (_, _, outs) -> List.iter (reject_target context) outs
-    | SSActionCall (callee, args) -> (
-        match
-          List.find_opt
-            (fun (action : S.action_decl) ->
-              String.equal action.action_name callee)
-            n.actions
-        with
-        | Some action when List.length action.action_params = List.length args ->
-            List.iter2
-              (fun (param : S.action_param) (arg : S.expr) ->
-                match (param.action_param_mode, arg.sexpr) with
-                | APInOut, SEVar target ->
-                    reject_target context (indexed_ref_name target)
-                | _ -> ())
-              action.action_params args
-        | _ -> ())
-    | SSSkip -> ()
-  in
-  List.iter
-    (fun (action : S.action_decl) ->
-      let context =
-        Printf.sprintf "action '%s' in node '%s'" action.action_name
-          n.node_name
-      in
-      List.iter (check_stmt context) action.action_body)
-    n.actions;
-  List.iter
-    (fun (transition : S.transition) ->
-      let context =
-        Printf.sprintf "transition %s -> %s in node '%s'" transition.src
-          transition.dst n.node_name
-      in
-      List.iter (check_stmt context) transition.body)
-    n.transitions
+      List.iter (check_nested_calls inputs context) method_decl.method_body)
+    n.methods
 
 let validate_spec_def_decl (d : S.spec_def_decl) =
   validate_unique_named_decls "spec definition parameter"

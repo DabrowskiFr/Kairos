@@ -126,6 +126,7 @@ let validate_function_decls (type_decls : Core_syntax.enum_decl list)
     | HLitBool _ -> TBool
     | HLitEnum c -> find_ctor fname c
     | HVar x -> find_var x
+    | HOld inner -> hexpr_ty fname var_types inner
     | HPreK _ -> fail_function fname "function contracts cannot mention history"
     | HPred (id, _) ->
         fail_function fname

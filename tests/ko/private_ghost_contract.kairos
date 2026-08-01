@@ -4,7 +4,7 @@ node private_ghost_contract(x: int) returns (
 ghosts
   private: int;
 contracts
-  ensures: G(private >= 0);
+  guarantee: G(private >= 0);
 states
   Init(init), Run;
 transitions

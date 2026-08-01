@@ -60,6 +60,7 @@ let rec hexpr_function_calls : type phase. Common.StringSet.t -> phase C.hexpr -
  fun acc h ->
   match h.hexpr with
   | C.HLitInt _ | C.HLitBool _ | C.HLitEnum _ | C.HVar _ | C.HPreK _ -> acc
+  | C.HOld inner -> hexpr_function_calls acc inner
   | C.HPred (_, args) -> List.fold_left hexpr_function_calls acc args
   | C.HFunCall (fn, args) -> List.fold_left hexpr_function_calls (Common.StringSet.add fn acc) args
   | C.HBin (_, left, right) | C.HCmp (_, left, right) ->
@@ -87,6 +88,7 @@ let rec stmt_function_calls acc (s : C.stmt) =
       List.fold_left stmt_function_calls acc default_branch
   | C.SSkip -> acc
   | C.SCall (_, args, _) -> List.fold_left expr_function_calls acc args
+  | C.SMethodCall (_, args) -> List.fold_left expr_function_calls acc args
 
 let step_function_calls acc (step : Verification_model.program_step) =
   let acc =
@@ -161,6 +163,18 @@ let emit_source ~header_name program =
   let* function_blocks =
     Common.map_result (Functions.emit_function_definition env) function_decls
   in
+  let method_prototypes =
+    List.concat_map
+      (fun (node : Verification_model.node_model) ->
+        List.map (Node.method_prototype node) node.methods)
+      program
+  in
+  let* method_blocks =
+    Common.concat_map_result
+      (fun (node : Verification_model.node_model) ->
+        Common.map_result (Node.emit_method_definition env node) node.methods)
+      program
+  in
   let* step_blocks = Common.map_result (Node.emit_step_function env) program in
   let init_blocks = List.map Node.emit_init_function program in
   let function_lines =
@@ -169,7 +183,10 @@ let emit_source ~header_name program =
     @ List.concat_map (fun lines -> lines @ [ Common.blank ]) function_blocks
   in
   let node_lines =
-    List.concat_map (fun lines -> lines @ [ Common.blank ]) init_blocks
+    method_prototypes
+    @ (if method_prototypes = [] then [] else [ Common.blank ])
+    @ List.concat_map (fun lines -> lines @ [ Common.blank ]) method_blocks
+    @ List.concat_map (fun lines -> lines @ [ Common.blank ]) init_blocks
     @ List.concat_map (fun lines -> lines @ [ Common.blank ]) step_blocks
   in
   Ok

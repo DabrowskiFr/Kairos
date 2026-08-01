@@ -69,6 +69,7 @@ let test_exact_initial_state_is_not_characterized () =
           sem_locals = [];
           sem_states = [ "S" ];
           sem_init_state = "S";
+          sem_methods = [];
         };
       source_info =
         { assumes = []; guarantees = []; state_invariants = [] };

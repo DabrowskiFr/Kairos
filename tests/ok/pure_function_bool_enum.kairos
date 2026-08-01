@@ -18,8 +18,8 @@ node pure_function_bool_enum(request: bool) returns (
 )
 
 contracts
-  ensures: G(isGreen(signal) => request = true);
-  ensures: G(isRed(signal) => greenSeen = false);
+  guarantee: G(isGreen(signal) => request = true);
+  guarantee: G(isRed(signal) => greenSeen = false);
 
 states Init(init);
 

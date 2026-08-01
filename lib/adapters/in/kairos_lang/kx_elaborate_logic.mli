@@ -41,6 +41,9 @@ val lower_expr :
 val infer_expr_type :
   Kx_elaborate_env.env -> Kx_core_syntax.expr -> Kx_core_syntax.ty
 
+val infer_hexpr_type :
+  Kx_elaborate_env.env -> Kx_core_syntax.hexpr -> Kx_core_syntax.ty
+
 val check_expected_type :
   context:string ->
   Kx_core_syntax.ty ->
@@ -48,6 +51,7 @@ val check_expected_type :
   unit
 
 val lower_hexpr :
+  ?allow_old:bool ->
   Kx_elaborate_env.env ->
   Kx_elaborate_env.spec_context ->
   Kx_core_syntax.ident list ->

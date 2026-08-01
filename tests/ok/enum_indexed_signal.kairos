@@ -5,8 +5,8 @@ node enum_indexed_signal(request[R1, R2]: bool) returns (
   signal[R1, R2]: SignalColor
 )
 contracts
-  ensures: G(signal[R1] = Green => request[R1] = true);
-  ensures: G(signal[R2] = Green => request[R2] = true);
+  guarantee: G(signal[R1] = Green => request[R1] = true);
+  guarantee: G(signal[R2] = Green => request[R2] = true);
 states
   Init(init), Run;
 transitions

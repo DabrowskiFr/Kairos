@@ -2,8 +2,8 @@
 // The implementation forwards the required value inp = 1, hence out = 1.
 node require_always_one(inp: int) returns (out: int)
 contracts
-  requires: G (inp = 1);
-  ensures: G (out = 0);
+  assume: G (inp = 1);
+  guarantee: G (out = 0);
 states
   S(init);
 transitions

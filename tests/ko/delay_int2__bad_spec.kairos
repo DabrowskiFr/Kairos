@@ -2,7 +2,7 @@
 // Its implementation deliberately returns the sample from two cycles ago.
 node delay_int2(x: int) returns (y: int)
 contracts
-  ensures: next next always ( y = prev x );
+  guarantee: next next always ( y = prev x );
 locals
   s1, s2: int;
 states

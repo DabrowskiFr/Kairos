@@ -65,6 +65,10 @@ let key_of_hexpr_impl ~include_locations (h : hexpr) : string =
     | HVar v ->
         Buffer.add_string buf "v:";
         Buffer.add_string buf v
+    | HOld inner ->
+        Buffer.add_string buf "old(";
+        add inner;
+        Buffer.add_char buf ')'
     | HPreK (v, k) ->
         Buffer.add_string buf "p:";
         Buffer.add_string buf (string_of_int k);

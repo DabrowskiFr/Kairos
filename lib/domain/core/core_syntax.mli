@@ -75,6 +75,7 @@ and _ hexpr_desc =
   | HLitBool : bool -> 'phase hexpr_desc
   | HLitEnum : ident -> 'phase hexpr_desc
   | HVar : ident -> 'phase hexpr_desc
+  | HOld : 'phase hexpr -> 'phase hexpr_desc
   | HPreK : ident * int -> historical hexpr_desc
   | HPred : ident * 'phase hexpr list -> 'phase hexpr_desc
   | HFunCall : ident * 'phase hexpr list -> 'phase hexpr_desc
@@ -153,6 +154,15 @@ type pure_function_decl = {
 }
 [@@deriving yojson]
 
+type method_param_mode = MPIn | MPInOut [@@deriving yojson]
+
+type method_param = {
+  method_param_name : ident;
+  method_param_ty : ty;
+  method_param_mode : method_param_mode;
+}
+[@@deriving yojson]
+
 (** Internal imperative statement language used by the verification model and
     downstream execution/proof views. *)
 type stmt = { stmt : stmt_desc; loc : Loc.loc option }
@@ -165,6 +175,18 @@ and stmt_desc =
   | SMatch of expr * (ident * stmt list) list * stmt list
   | SSkip
   | SCall of ident * expr list * ident list
+  | SMethodCall of ident * expr list
 
 val stmt_to_yojson : stmt -> Yojson.Safe.t
 val stmt_of_yojson : Yojson.Safe.t -> (stmt, string) result
+
+type method_decl = {
+  method_name : ident;
+  method_params : method_param list;
+  method_requires : history_free hexpr list;
+  method_ensures : history_free hexpr list;
+  method_body : stmt list;
+  method_reads : ident list;
+  method_writes : ident list;
+}
+[@@deriving yojson]

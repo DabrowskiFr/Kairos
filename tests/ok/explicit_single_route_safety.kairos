@@ -11,8 +11,8 @@ node explicit_single_route_safety(
   reserved[R1]: bool
 )
 contracts
-  ensures: G(routeState[R1] = Locked => X(reserved[R1] = true W routeState[R1] = Idle));
-  ensures: G(signal[R1] = Green => occupied[T1] = false);
+  guarantee: G(routeState[R1] = Locked => X(reserved[R1] = true W routeState[R1] = Idle));
+  guarantee: G(signal[R1] = Green => occupied[T1] = false);
 states
   Init(init), Run;
 invariants

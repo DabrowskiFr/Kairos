@@ -29,10 +29,14 @@ type node_env = {
   output_names : C_codegen_common.StringSet.t;
   local_names : C_codegen_common.StringSet.t;
   ghost_names : C_codegen_common.StringSet.t;
+  writable_name : variable_scope;
+  output_pointer : Core_syntax.ident -> string;
+  inout_pointer : Core_syntax.ident -> string option;
 }
 
 val program_env : Core_syntax.enum_decl list -> program_env
 val enum_ctor_c_name : expr_env -> Core_syntax.ident -> (string, string) result
 val function_scope : Core_syntax.vdecl list -> Core_syntax.ident -> string option
 val node_env : program_env -> Verification_model.node_model -> node_env
+val method_env : program_env -> Verification_model.node_model -> Core_syntax.method_decl -> node_env
 val lvalue_of_ident : node_env -> Core_syntax.ident -> (string, string) result

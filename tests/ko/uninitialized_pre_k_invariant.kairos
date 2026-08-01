@@ -1,7 +1,7 @@
 node uninitialized_pre_k_invariant(x: int) returns (out: int)
 
 contracts
-  ensures: G(out = x);
+  guarantee: G(out = x);
 
 states
   Init(init), Run;

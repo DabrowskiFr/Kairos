@@ -1,6 +1,6 @@
 node all_states_invariant_includes_init() returns (x: int)
 contracts
-  ensures: X G(x >= 0);
+  guarantee: X G(x >= 0);
 states
   Init(init), Run;
 invariants

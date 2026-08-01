@@ -1,8 +1,8 @@
 node while_counter(limit: int) returns (out: int)
 
 contracts
-  requires: G(limit >= 0);
-  ensures: G(out >= 0);
+  assume: G(limit >= 0);
+  guarantee: G(out >= 0);
 
 states Init(init), Run;
 

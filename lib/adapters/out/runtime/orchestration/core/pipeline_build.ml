@@ -33,6 +33,7 @@ let ( let* ) = Result.bind
 let rec stmt_contains_call (s : Core_syntax.stmt) : bool =
   match s.stmt with
   | SCall _ -> true
+  | SMethodCall _ -> false
   | SIf (_, then_branch, else_branch) ->
       List.exists stmt_contains_call then_branch || List.exists stmt_contains_call else_branch
   | SWhile (_, _, _, body) -> List.exists stmt_contains_call body

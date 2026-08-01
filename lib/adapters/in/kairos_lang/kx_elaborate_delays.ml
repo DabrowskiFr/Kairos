@@ -35,8 +35,8 @@ let rec stmt_pre_refs (stmt : S.stmt) =
   | SSMatch (scrutinee, branches, default_branch) ->
       expr_pre_refs scrutinee
       @ List.concat_map stmt_pre_refs
-          (List.concat_map snd branches @ default_branch)
-  | SSCall (_, args, _) | SSActionCall (_, args) ->
+          (List.concat_map snd branches @ Option.value ~default:[] default_branch)
+  | SSCall (_, args, _) | SSMethodCall (_, args) ->
       List.concat_map expr_pre_refs args
   | SSFor (_, _, body) | SSForRange (_, _, _, body) ->
       List.concat_map stmt_pre_refs body
@@ -127,11 +127,11 @@ let rec rewrite_stmt delays (stmt : S.stmt) =
         SSMatch
           ( rewrite_expr delays scrutinee,
             List.map (fun (ctor, body) -> (ctor, rewrite_list body)) branches,
-            rewrite_list default_branch )
+            Option.map rewrite_list default_branch )
     | SSCall (name, args, outputs) ->
         SSCall (name, List.map (rewrite_expr delays) args, outputs)
-    | SSActionCall (name, args) ->
-        SSActionCall (name, List.map (rewrite_expr delays) args)
+    | SSMethodCall (name, args) ->
+        SSMethodCall (name, List.map (rewrite_expr delays) args)
     | SSFor (name, enum_name, body) -> SSFor (name, enum_name, rewrite_list body)
     | SSForRange (name, lo, hi, body) ->
         SSForRange (name, lo, hi, rewrite_list body)

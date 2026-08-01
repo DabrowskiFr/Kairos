@@ -1,0 +1,19 @@
+type Mode = Idle | Running;
+type Other = Unknown;
+
+node match_wrong_constructor(mode: Mode) returns (code: int)
+contracts
+  guarantee: G(code >= 0);
+states Init(init), Run;
+transitions
+  Init:
+    to Run { code := 0; }
+  Run:
+    to Run {
+      match mode with
+      | Idle { code := 0; }
+      | Unknown { code := 1; }
+      | _ { code := 2; }
+      end;
+    }
+end

@@ -46,7 +46,16 @@ let rec compile_seq (env : env) (lst : Core_syntax.stmt list) : Ptree.expr =
                rhs );
            ])
     end
-    else begin
+    else if is_ref_var env x then begin
+      note_input env x;
+      mk_expr
+        (Eassign
+           [
+             ( mk_expr (Eident (qid1 x)),
+               Some (qid1 "contents"),
+               rhs );
+           ])
+    end else begin
       note_input env x;
       mk_expr (Eassign [ (mk_expr (Eident (qid1 x)), None, rhs) ])
     end
@@ -110,6 +119,82 @@ let rec compile_seq (env : env) (lst : Core_syntax.stmt list) : Ptree.expr =
         in
         mk_expr (Ematch (scrut, branches, []))
     | SCall _ -> failwith "instance calls are not supported"
+    | SMethodCall (callee, args) ->
+        let decl =
+          match
+            List.find_opt
+              (fun (decl : method_decl) ->
+                String.equal decl.method_name callee)
+              env.methods
+          with
+          | Some decl -> decl
+          | None -> failwith (Printf.sprintf "unknown method '%s'" callee)
+        in
+        let bindings = ref [] in
+        let temp_for name =
+          match List.assoc_opt name !bindings with
+          | Some temp -> temp
+          | None ->
+              let temp =
+                Printf.sprintf "__method_inout_%d" (List.length !bindings)
+              in
+              bindings := (name, temp) :: !bindings;
+              temp
+        in
+        let explicit_args =
+          List.map2
+            (fun (param : method_param) arg ->
+              match param.method_param_mode with
+              | MPIn -> compile_expr env arg
+              | MPInOut -> (
+                  match arg.expr with
+                  | EVar name when is_ref_var env name ->
+                      mk_expr (Eident (qid1 name))
+                  | EVar name when is_rec_var env name ->
+                      mk_expr (Eident (qid1 (temp_for name)))
+                  | EVar name ->
+                      failwith
+                        (Printf.sprintf
+                           "inout method argument '%s' is not writable" name)
+                  | _ ->
+                      failwith
+                        (Printf.sprintf
+                           "inout parameter '%s' of method '%s' requires a variable"
+                           param.method_param_name callee)))
+            decl.method_params args
+        in
+        let implicit_args =
+          mk_expr (Eident (qid1 env.rec_name))
+          :: List.map
+               (fun (input : vdecl) ->
+                 compile_expr env
+                   (Core_syntax_builders.mk_expr (EVar input.vname)))
+               env.input_vars
+        in
+        let call =
+          apply_expr (mk_expr (Eident (qid1 callee)))
+            (implicit_args @ explicit_args)
+        in
+        let commits =
+          List.rev_map
+            (fun (name, temp) ->
+              compile_assignment name (ref_contents_expr temp))
+            !bindings
+        in
+        let body = seq_exprs (call :: commits) in
+        List.fold_left
+          (fun body (name, temp) ->
+            let initial =
+              mk_expr
+                (Eidapp
+                   ( qid1 "ref",
+                     [
+                       compile_expr env
+                         (Core_syntax_builders.mk_expr (EVar name));
+                     ] ))
+            in
+            mk_expr (Elet (ident temp, false, Expr.RKnone, initial, body)))
+          body !bindings
   in
   match lst with
   | [] -> mk_expr (Etuple [])

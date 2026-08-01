@@ -1,6 +1,6 @@
 node explicit_initial_transition() returns (x: int)
 contracts
-  ensures: G(x >= 0);
+  guarantee: G(x >= 0);
 states
   Run;
 invariants

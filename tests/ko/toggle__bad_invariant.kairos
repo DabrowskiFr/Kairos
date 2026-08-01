@@ -2,9 +2,9 @@
 // The normal toggle step changes y from 0 to 1, invalidating y = 0.
 node toggle() returns (y: int)
 contracts
-  ensures: y = 0;
-  ensures: G ( y = 0 => X ( y = 1 ) );
-  ensures: G ( y = 1 => X ( y = 0 ) );
+  guarantee: y = 0;
+  guarantee: G ( y = 0 => X ( y = 1 ) );
+  guarantee: G ( y = 1 => X ( y = 0 ) );
 states
   Init(init), Run;
 invariants

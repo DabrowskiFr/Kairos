@@ -28,6 +28,7 @@ let current_inputs ~(input_names : ident list) (f : Core_syntax.historical Core_
     | HLitInt _ | HLitBool _ | HLitEnum _ | HPreK _ -> acc
     | HVar name ->
         if List.mem name input_names then name :: acc else acc
+    | HOld inner -> go acc inner
     | HPred (_, hs) | HFunCall (_, hs) -> List.fold_left go acc hs
     | HUn (_, inner) -> go acc inner
     | HBin (_, a, b) | HCmp (_, a, b) -> go (go acc a) b

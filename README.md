@@ -1,7 +1,7 @@
 # Kairos
 
 Kairos is a deductive verification tool for synchronous reactive programs.
-It takes a program and its temporal contracts (`requires`/`ensures`), builds
+It takes a program and its temporal contracts (`assume`/`guarantee`), builds
 an intermediate verification representation, and generates local proof
 obligations checked with a standard verification backend.
 
@@ -63,7 +63,7 @@ embedded project layer.
 inputs and outputs, and the exact C ABI names. Embedded project generators
 should consume this manifest instead of parsing the generated header.
 
-## Typed predicates and actions
+## Typed predicates and private methods
 
 Local predicates declare the type of every parameter. The same predicate can
 be instantiated with current executable values or with historical expressions
@@ -80,20 +80,60 @@ doseWouldExceed(totalDose, delivered)
 doseWouldExceed(pre(totalDose), delivered)
 ```
 
-Action parameters are read-only by default. Declare a parameter `inout` when
-the action may assign it; an `inout` argument must be a variable reference:
+Method parameters are read-only by default. Declare a parameter `inout` when
+the method may assign it; an `inout` argument must be a variable reference:
 
 ```kairos
-action add(inout target: int, amount: int) {
+method add(inout target: int, amount: int) {
   target := target + amount;
 }
 
 add(totalDose, delivered + 1);
 ```
 
-Predicates and actions are expanded by the frontend. Action contracts remain
-inline assertions at the call site; they do not introduce a separate
-pre-state operator or modular proof boundary.
+Predicates are expanded by the frontend. Methods remain private modular
+procedures through Why3: their bodies are proved once, while call sites use
+their `requires`, `ensures`, and inferred write frame. Methods return no value
+and recursive method-call cycles are rejected.
+
+Inside a method `ensures`, `old(expression)` denotes the value at method-call
+entry. It is distinct from `pre(variable)`, which denotes the preceding
+synchronous reaction and remains forbidden in method contracts. `old` is not
+accepted in a method `requires` or outside a method postcondition.
+
+Every `while` loop must declare an integer `variant`; Why3 proves that it
+decreases and remains bounded.
+
+An enum value can be dispatched with an exhaustive statement `match`:
+
+```kairos
+match mode with
+| Idle { code := 0; }
+| Running { code := 1; }
+| Alarm { code := 2; }
+end;
+```
+
+Without `_`, every constructor must occur exactly once. A final `_` branch may
+cover the missing constructors. Kairos rejects a non-enum scrutinee, a
+constructor from another enum, duplicate branches, non-exhaustive matches, and
+branches made unreachable by `_`.
+
+## Functional and temporal contracts
+
+`requires` and `ensures` are local, non-temporal contracts for functions and
+private methods. Node contracts use `assume` and `guarantee` because they
+describe traces of synchronous reactions:
+
+```kairos
+contracts
+  assume valid_samples: G(delivered >= 0);
+  guarantee: G(alarmLatched = true => motorOn = false);
+```
+
+The contract name is optional. Temporal and history operators are accepted in
+node assumptions and guarantees, but remain forbidden in method contracts.
+`old` remains specific to method postconditions.
 
 ## Reusable specification definitions
 
@@ -110,38 +150,11 @@ detects cyclic imports and duplicate definitions, then expands the imported
 definitions before elaborating the program. This is compile-time reuse only:
 it introduces neither node composition nor a modular proof boundary.
 
-## Outputs derived from control state
-
-A boolean output that is completely determined by the node's control state can
-be declared with `derive` immediately after the `states` declaration:
-
-```kairos
-states Idle, Running, Alarm;
-derive motorOn = state in Running;
-derive alarmLatched = state in Alarm;
-
-transitions
-  init:
-    to Idle { skip; }
-  // ...
-```
-
-The output remains part of the node's `returns` interface, but source code
-cannot assign it. On every explicit transition, the frontend assigns the value
-selected by the destination state before executing the transition body. It also
-generates the corresponding non-initial state invariants. This is surface
-syntax only: the core execution and proof engines continue to process an
-ordinary single-node program.
-
 `init:` is an initialization pseudo-source, not a control state. It therefore
 cannot receive an invariant and is not selected by `in states`. The frontend
 lowers it to a private state for the existing execution and proof engines.
 Node guarantees are interpreted from the first real state; the corresponding
 initial `X` is inserted during lowering rather than written in contracts.
-
-Use `derive` only for scalar boolean outputs with no memory independent of the
-control state. Quantities such as counters, accumulated doses, or timers remain
-ordinary assigned outputs or locals.
 
 ## Where test examples are located
 

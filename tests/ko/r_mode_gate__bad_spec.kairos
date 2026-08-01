@@ -2,8 +2,8 @@
 // The controller intentionally keeps mode = 0 throughout that waiting phase.
 node w_mode_gate(start: int) returns (mode: int)
 contracts
-  requires: G(start = 0 or start = 1);
-  ensures: (mode = 1) W (start = 1);
+  assume: G(start = 0 or start = 1);
+  guarantee: (mode = 1) W (start = 1);
 states
   Init(init), BeforeStart, AfterStart;
 invariants

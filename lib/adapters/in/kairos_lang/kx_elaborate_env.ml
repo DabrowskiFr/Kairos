@@ -26,7 +26,7 @@ type env = {
   functions : (ident * (vdecl list * ty)) list;
   spec_defs : (ident * S.spec_def_decl) list;
   predicates : (ident * S.predicate_decl) list;
-  actions : (ident * S.action_decl) list;
+  methods : (ident * S.method_decl) list;
   history_aliases : (ident * (ident * int)) list;
 }
 
@@ -37,7 +37,7 @@ let empty_env =
     functions = [];
     spec_defs = [];
     predicates = [];
-    actions = [];
+    methods = [];
     history_aliases = [];
   }
 

@@ -12,6 +12,7 @@ let require_some label = function
 let single_step_node ~name ~inputs : Verification_model.node_model =
   {
     node_name = name;
+    methods = [];
     type_decls = [];
     function_decls = [];
     inputs;
@@ -86,6 +87,7 @@ let test_total_assumption_blocking_yields_no_obligation () =
   let node : Verification_model.node_model =
     {
       node_name = "blocked_assumption";
+      methods = [];
       type_decls = [];
       function_decls = [];
       inputs = [];

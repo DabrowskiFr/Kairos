@@ -3,7 +3,7 @@ observers
   dependent : int = x -> sampled + pre(x);
   sampled : int = x -> x;
 contracts
-  ensures: X G(ok = true);
+  guarantee: X G(ok = true);
 states
   Init(init), Run;
 transitions

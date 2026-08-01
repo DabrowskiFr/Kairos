@@ -28,8 +28,8 @@ predicate releaseRequested(c: Client, r: Resource) =
   releaseReq[c, r] = true;
 
 contracts
-  ensures: G(allResourcesExclusive());
-  ensures: forall c in Client. forall r in Resource.
+  guarantee: G(allResourcesExclusive());
+  guarantee: forall c in Client. forall r in Resource.
     G(holds[c, r] = true =>
       X((holds[c, r] = true and resourceExclusive(r)) W releaseRequested(c, r)));
 

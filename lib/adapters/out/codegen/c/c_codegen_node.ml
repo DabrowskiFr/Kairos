@@ -60,6 +60,55 @@ let step_params node =
       (fun (v : C.vdecl) -> Names.c_type_name v.vty ^ " *" ^ Names.output_pointer_name v)
       node.outputs
 
+let method_params node (decl : C.method_decl) =
+  [ Names.state_type_name node ^ " *state" ]
+  @ List.map
+      (fun (v : C.vdecl) ->
+        Names.c_type_name v.vty ^ " " ^ Names.input_name v)
+      node.inputs
+  @ List.map
+      (fun (v : C.vdecl) ->
+        Names.c_type_name v.vty ^ " *"
+        ^ Names.method_output_pointer_name v.vname)
+      node.outputs
+  @ List.map
+      (fun (param : C.method_param) ->
+        Names.c_type_name param.method_param_ty ^ " "
+        ^ (match param.method_param_mode with C.MPIn -> "" | C.MPInOut -> "*")
+        ^ Names.method_param_name param.method_param_name)
+      decl.method_params
+
+let method_prototype node (decl : C.method_decl) =
+  "static void " ^ Names.method_function_name node decl.method_name ^ "("
+  ^ String.concat ", " (method_params node decl)
+  ^ ");"
+
+let emit_method_definition program_env node (decl : C.method_decl) =
+  let env = Env.method_env program_env node decl in
+  let* body = Stmt.emit_stmts env 1 decl.method_body in
+  let silence_unused =
+    [ Common.line 1 "(void)state;" ]
+    @ List.map
+        (fun (v : C.vdecl) -> Common.line 1 ("(void)" ^ Names.input_name v ^ ";"))
+        node.inputs
+    @ List.map
+        (fun (v : C.vdecl) ->
+          Common.line 1 ("(void)" ^ Names.method_output_pointer_name v.vname ^ ";"))
+        node.outputs
+    @ List.map
+        (fun (param : C.method_param) ->
+          Common.line 1
+            ("(void)" ^ Names.method_param_name param.method_param_name ^ ";"))
+        decl.method_params
+  in
+  Ok
+    ([
+       "static void " ^ Names.method_function_name node decl.method_name ^ "("
+       ^ String.concat ", " (method_params node decl)
+       ^ ") {";
+     ]
+    @ silence_unused @ body @ [ "}" ])
+
 let init_prototype node =
   "void " ^ Names.init_function_name node ^ "(" ^ Names.state_type_name node ^ " *state);"
 

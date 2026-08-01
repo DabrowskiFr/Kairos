@@ -1,0 +1,8 @@
+node method_mutual_recursion() returns (out: int)
+method first() { second(); }
+method second() { first(); }
+states Init(init);
+trans
+  Init:
+    to Init { first(); }
+end

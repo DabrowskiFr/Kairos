@@ -1,0 +1,36 @@
+type Mode = Idle | Running | Alarm;
+
+node match_statement(mode: Mode) returns (code: int)
+contracts
+  guarantee: G(code >= 0);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run { code := 0; }
+  Run:
+    to Run {
+      match mode with
+      | Idle { code := 0; }
+      | Running { code := 1; }
+      | Alarm { code := 2; }
+      end;
+    }
+end
+
+node match_statement_default(mode: Mode) returns (code: int)
+contracts
+  guarantee: G(code >= 0);
+states
+  Init(init), Run;
+transitions
+  Init:
+    to Run { code := 0; }
+  Run:
+    to Run {
+      match mode with
+      | Idle { code := 0; }
+      | _ { code := 1; }
+      end;
+    }
+end

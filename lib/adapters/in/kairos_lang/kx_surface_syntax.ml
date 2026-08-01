@@ -45,12 +45,12 @@ type typed_param = {
 }
 [@@deriving yojson]
 
-type action_param_mode = APIn | APInOut [@@deriving yojson]
+type method_param_mode = MPIn | MPInOut [@@deriving yojson]
 
-type action_param = {
-  action_param_name : ident;
-  action_param_ty : ty;
-  action_param_mode : action_param_mode;
+type method_param = {
+  method_param_name : ident;
+  method_param_ty : ty;
+  method_param_mode : method_param_mode;
 }
 [@@deriving yojson]
 
@@ -86,6 +86,7 @@ and hexpr_desc =
   | SHLitInt of int
   | SHLitBool of bool
   | SHVar of indexed_ref
+  | SHOld of hexpr
   | SHPreK of indexed_ref * nat_expr
   | SHPast of hexpr * nat_expr
   | SHHistoryAlias of ident * indexed_ref
@@ -154,10 +155,10 @@ and stmt_desc =
   | SSAssign of indexed_ref * expr
   | SSIf of expr * stmt list * stmt list
   | SSWhile of expr * hexpr list * expr option * stmt list
-  | SSMatch of expr * (ident * stmt list) list * stmt list
+  | SSMatch of expr * (ident * stmt list) list * stmt list option
   | SSSkip
   | SSCall of ident * expr list * ident list
-  | SSActionCall of ident * expr list
+  | SSMethodCall of ident * expr list
   | SSFor of ident * ident * stmt list
   | SSForRange of ident * nat_expr * nat_expr * stmt list
 [@@deriving yojson]
@@ -169,12 +170,12 @@ and history_expr_desc =
   | SHIf of hexpr * history_expr * history_expr
 [@@deriving yojson]
 
-type action_decl = {
-  action_name : ident;
-  action_params : action_param list;
-  action_requires : hexpr list;
-  action_ensures : hexpr list;
-  action_body : stmt list;
+type method_decl = {
+  method_name : ident;
+  method_params : method_param list;
+  method_requires : hexpr list;
+  method_ensures : hexpr list;
+  method_body : stmt list;
 }
 [@@deriving yojson]
 
@@ -194,8 +195,8 @@ type observer_decl = {
 [@@deriving yojson]
 
 type contract_item =
-  | SCRequires of ltl
-  | SCEnsures of ltl
+  | SCAssume of ident option * ltl
+  | SCGuarantee of ident option * ltl
 [@@deriving yojson]
 
 type state_selector =
@@ -208,13 +209,6 @@ type state_selector =
 type state_invariant = {
   selector : state_selector;
   formula : hexpr;
-}
-[@@deriving yojson]
-
-type derived_output_decl = {
-  derived_output_name : ident;
-  derived_output_true_states : state_selector;
-  derived_output_loc : Kx_loc.loc option;
 }
 [@@deriving yojson]
 
@@ -247,12 +241,11 @@ type node = {
   ghosts : raw_vdecl list;
   observers : observer_decl list;
   predicates : predicate_decl list;
-  actions : action_decl list;
+  methods : method_decl list;
   contracts : contract_item list;
   instances : (ident * ident) list;
   locals : raw_vdecl list;
   state_decls : state_decls;
-  derived_outputs : derived_output_decl list;
   state_invariants : state_invariant list;
   transitions : transition list;
 }

@@ -279,9 +279,13 @@ predicate previousAlarmCondition() =
 predicate previousAlarmClearAllowed() =
   pre(ack) = true and not previousAlarmCondition();
 
-// The target control state determines motorOn, bolusActive, and alarmLatched.
-// Actions only update data that has independent memory.
-action initDisplays() {
+// Methods update data shared by transitions after their explicit mode outputs.
+method initDisplays()
+contracts
+  ensures: totalDose = delivered;
+  ensures: motorOn = true => peakRate = rate;
+  ensures: motorOn = false => peakRate = 0;
+{
   totalDose := delivered;
   if motorOn = true then
     peakRate := rate;
@@ -291,7 +295,13 @@ action initDisplays() {
 }
 
 // Stable-tick dose and peak-rate update shared by all stable transitions.
-action finishTick() {
+method finishTick()
+contracts
+  ensures: totalDose = old(totalDose) + delivered;
+  ensures: motorOn = true and rate > old(peakRate) => peakRate = rate;
+  ensures: not (motorOn = true and rate > old(peakRate)) =>
+    peakRate = old(peakRate);
+{
   totalDose := totalDose + delivered;
   if motorOn = true and rate > peakRate then
     peakRate := rate;
@@ -300,7 +310,13 @@ action finishTick() {
   end;
 }
 
-action clearBolusAndTickLockout() {
+method clearBolusAndTickLockout()
+contracts
+  ensures: bolusRemaining = 0;
+  ensures: old(lockoutRemaining) > 0 =>
+    lockoutRemaining = old(lockoutRemaining) - 1;
+  ensures: old(lockoutRemaining) <= 0 => lockoutRemaining = 0;
+{
   bolusRemaining := 0;
   if lockoutRemaining > 0 then
     lockoutRemaining := lockoutRemaining - 1;
@@ -309,96 +325,128 @@ action clearBolusAndTickLockout() {
   end;
 }
 
-action initializeWithBolus(bolusRemainingNext: int) {
+method initializeWithBolus(bolusRemainingNext: int)
+contracts
+  ensures: bolusRemaining = bolusRemainingNext;
+  ensures: lockoutRemaining = 0;
+  ensures: totalDose = delivered;
+  ensures: motorOn = true => peakRate = rate;
+  ensures: motorOn = false => peakRate = 0;
+{
   bolusRemaining := bolusRemainingNext;
   lockoutRemaining := 0;
   initDisplays();
 }
 
-action finishTickWith(
+method finishTickWith(
   bolusRemainingNext: int, lockoutRemainingNext: int
-) {
+)
+contracts
+  ensures: bolusRemaining = bolusRemainingNext;
+  ensures: lockoutRemaining = lockoutRemainingNext;
+  ensures: totalDose = old(totalDose) + delivered;
+  ensures: motorOn = true and rate > old(peakRate) => peakRate = rate;
+  ensures: not (motorOn = true and rate > old(peakRate)) =>
+    peakRate = old(peakRate);
+{
   bolusRemaining := bolusRemainingNext;
   lockoutRemaining := lockoutRemainingNext;
   finishTick();
 }
 
-action finishSuppressedTick() {
+method finishSuppressedTick()
+contracts
+  ensures: bolusRemaining = 0;
+  ensures: old(lockoutRemaining) > 0 =>
+    lockoutRemaining = old(lockoutRemaining) - 1;
+  ensures: old(lockoutRemaining) <= 0 => lockoutRemaining = 0;
+  ensures: totalDose = old(totalDose) + delivered;
+  ensures: motorOn = true and rate > old(peakRate) => peakRate = rate;
+  ensures: not (motorOn = true and rate > old(peakRate)) =>
+    peakRate = old(peakRate);
+{
   clearBolusAndTickLockout();
   finishTick();
 }
 
 contracts
   // Environmental assumptions on numeric input samples.
-  requires: G(rate >= 0);
-  requires: G(delivered >= 0);
+  assume: G(rate >= 0);
+  assume: G(delivered >= 0);
 
   // Public safety responses.
-  ensures: responds_now_next(
+  guarantee: responds_now_next(
     [hazardActive(occlusion, doorOpen)],
     [alarmLatched = true and motorOn = false]);
-  ensures: responds_now_next(
+  guarantee: responds_now_next(
     [rateUnsafe(rate)], [alarmLatched = true and motorOn = false]);
-  ensures: responds_now_next(
+  guarantee: responds_now_next(
     [doseWouldExceed(pre(totalDose), delivered)],
     [alarmLatched = true and motorOn = false]);
-  ensures: responds_now_next(
+  guarantee: responds_now_next(
     [bolusDeliveryWouldExceed(
       pre(bolusActive), delivered, pre(bolusRemaining)
     )],
     [alarmLatched = true and motorOn = false]);
-  ensures: responds_now_next(
+  guarantee: responds_now_next(
     [stopRequest = true], [motorOn = false and bolusActive = false]);
-  ensures: G(alarmLatched = true => motorOn = false);
-  ensures: holds_until_release(
+  guarantee: G(alarmLatched = true => motorOn = false);
+  guarantee: holds_until_release(
     [alarmLatched = true and ack = false],
     [alarmLatched = true and motorOn = false],
     [alarmClearAllowedAtTickEntry()]);
-  ensures: X G(
+  guarantee: X G(
     pre(alarmLatched) = true and previousAlarmClearAllowed()
     and alarmClearAllowed()
     => alarmLatched = false and motorOn = false
        and bolusActive = false);
-  ensures: G(lockoutRemaining > 0 => bolusActive = false);
-  ensures: X G(
+  guarantee: G(lockoutRemaining > 0 => bolusActive = false);
+  guarantee: X G(
     pre(bolusActive) = true and pre(bolusRemaining) = 0
     and pre(stopRequest) = false and not previousAlarmCondition()
     and not alarmConditionAtTickEntry()
     => lockoutRemaining > 0 and bolusActive = false);
-  ensures: G(motorOn = true => measuredDose <= 1000);
-  ensures: G(motorOn = true => admittedRatePeak <= 120);
-  ensures: G(
+  guarantee: G(motorOn = true => measuredDose <= 1000);
+  guarantee: G(motorOn = true => admittedRatePeak <= 120);
+  guarantee: G(
     freeFlowDose > pre(freeFlowDose)
     => alarmLatched = true and motorOn = false);
 
   // Therapy admission discipline.
-  ensures: G(
+  guarantee: G(
     bolusAdmitted() =>
     motorOn = true and bolusActive = true and alarmLatched = false);
-  ensures: G(
+  guarantee: G(
     basalAdmitted() =>
     motorOn = true and bolusActive = false and alarmLatched = false);
-  ensures: G(
+  guarantee: G(
     noDeliveryAdmitted() =>
     motorOn = false and bolusActive = false and alarmLatched = false);
-  ensures: G(bolusActive = true => motorOn = true);
+  guarantee: G(bolusActive = true => motorOn = true);
 
   // Audit and display consistency.
-  ensures: G(totalDose = measuredDose);
-  ensures: G(measuredDose = basalDose + bolusDose + freeFlowDose);
-  ensures: G(peakRate = admittedRatePeak);
-  ensures: G(motorOn = true => admittedRatePeak >= rate);
+  guarantee: G(totalDose = measuredDose);
+  guarantee: G(measuredDose = basalDose + bolusDose + freeFlowDose);
+  guarantee: G(peakRate = admittedRatePeak);
+  guarantee: G(motorOn = true => admittedRatePeak >= rate);
 states
   Idle, BasalInfusing, BolusDelivering,
   BolusLockoutIdle, BolusLockoutBasal,
   StopHold, AlarmResponse, AlarmLatched;
-derive motorOn =
-  state in {BasalInfusing, BolusDelivering, BolusLockoutBasal};
-derive bolusActive = state in BolusDelivering;
-derive alarmLatched = state in {AlarmResponse, AlarmLatched};
 invariants
-  // State invariants are local proof annotations for independently stored
-  // data. Facts about derived outputs are generated by the frontend.
+  // State invariants record the mode outputs assigned by every transition.
+  in {BasalInfusing, BolusDelivering, BolusLockoutBasal}:
+    motorOn = true;
+  in states except {BasalInfusing, BolusDelivering, BolusLockoutBasal}:
+    motorOn = false;
+  in BolusDelivering:
+    bolusActive = true;
+  in states except {BolusDelivering}:
+    bolusActive = false;
+  in {AlarmResponse, AlarmLatched}:
+    alarmLatched = true;
+  in states except {AlarmResponse, AlarmLatched}:
+    alarmLatched = false;
   in states:
     totalDose = measuredDose; peakRate = admittedRatePeak;
     measuredDose = basalDose + bolusDose + freeFlowDose;
@@ -422,149 +470,208 @@ transitions
   // alarm condition rather than accepted as ordinary delivery.
   init:
     to AlarmResponse when initialAlarmCondition() {
+      motorOn, bolusActive, alarmLatched := false, false, true;
       initializeWithBolus(0);
     }
     to StopHold when stopRequest = true {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       initializeWithBolus(0);
     }
     to BolusDelivering when initiallyBolusCanStart() {
+      motorOn, bolusActive, alarmLatched := true, true, false;
       initializeWithBolus(30 - delivered);
     }
     to BasalInfusing when initiallyBasalCanStart() {
+      motorOn, bolusActive, alarmLatched := true, false, false;
       initializeWithBolus(0);
     }
-    to Idle { initializeWithBolus(0); }
+    to Idle {
+      motorOn, bolusActive, alarmLatched := false, false, false;
+      initializeWithBolus(0);
+    }
 
   // Therapy states use the same priority order: safety alarm, explicit stop,
   // bolus start, basal admission, then idle.
   Idle:
     to AlarmResponse when alarmCondition() {
+      motorOn, bolusActive, alarmLatched := false, false, true;
       finishSuppressedTick();
     }
     to StopHold when stopRequest = true {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishSuppressedTick();
     }
     to BolusDelivering when bolusCanStart() {
+      motorOn, bolusActive, alarmLatched := true, true, false;
       finishTickWith(30 - delivered, 0);
     }
     to BasalInfusing when basalCanRun() {
+      motorOn, bolusActive, alarmLatched := true, false, false;
       finishTickWith(0, 0);
     }
-    to Idle { finishTickWith(0, 0); }
+    to Idle {
+      motorOn, bolusActive, alarmLatched := false, false, false;
+      finishTickWith(0, 0);
+    }
 
   BasalInfusing:
     to AlarmResponse when alarmCondition() {
+      motorOn, bolusActive, alarmLatched := false, false, true;
       finishSuppressedTick();
     }
     to StopHold when stopRequest = true {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishSuppressedTick();
     }
     to BolusDelivering when bolusCanStart() {
+      motorOn, bolusActive, alarmLatched := true, true, false;
       finishTickWith(30 - delivered, 0);
     }
     to BasalInfusing when basalCanRun() {
+      motorOn, bolusActive, alarmLatched := true, false, false;
       finishTickWith(0, 0);
     }
-    to Idle { finishTickWith(0, 0); }
+    to Idle {
+      motorOn, bolusActive, alarmLatched := false, false, false;
+      finishTickWith(0, 0);
+    }
 
   // Bolus delivery has real memory. The sample that consumes the remainder
   // enters lockout immediately, avoiding one extra enabled bolus interval.
   BolusDelivering:
     to AlarmResponse when alarmCondition() {
+      motorOn, bolusActive, alarmLatched := false, false, true;
       finishSuppressedTick();
     }
     to StopHold when stopRequest = true {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishTickWith(0, 3);
     }
     to BolusLockoutBasal
       when bolusRemaining = delivered and requestInfuse = true {
+      motorOn, bolusActive, alarmLatched := true, false, false;
       finishTickWith(0, 3);
     }
     to BolusLockoutIdle when bolusRemaining = delivered {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishTickWith(0, 3);
     }
     to BolusDelivering {
+      motorOn, bolusActive, alarmLatched := true, true, false;
       finishTickWith(bolusRemaining - delivered, 0);
     }
 
   // During lockout, basal therapy may continue but bolus requests are ignored.
   BolusLockoutIdle:
     to AlarmResponse when alarmCondition() {
+      motorOn, bolusActive, alarmLatched := false, false, true;
       finishSuppressedTick();
     }
     to StopHold when stopRequest = true {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishSuppressedTick();
     }
     to BolusLockoutBasal
       when lockoutRemaining > 1 and requestInfuse = true {
+      motorOn, bolusActive, alarmLatched := true, false, false;
       finishTickWith(0, lockoutRemaining - 1);
     }
     to BolusLockoutIdle when lockoutRemaining > 1 {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishTickWith(0, lockoutRemaining - 1);
     }
     to BasalInfusing
       when lockoutRemaining = 1 and requestInfuse = true {
+      motorOn, bolusActive, alarmLatched := true, false, false;
       finishTickWith(0, 0);
     }
-    to Idle { finishTickWith(0, 0); }
+    to Idle {
+      motorOn, bolusActive, alarmLatched := false, false, false;
+      finishTickWith(0, 0);
+    }
 
   BolusLockoutBasal:
     to AlarmResponse when alarmCondition() {
+      motorOn, bolusActive, alarmLatched := false, false, true;
       finishSuppressedTick();
     }
     to StopHold when stopRequest = true {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishSuppressedTick();
     }
     to BolusLockoutBasal
       when lockoutRemaining > 1 and requestInfuse = true {
+      motorOn, bolusActive, alarmLatched := true, false, false;
       finishTickWith(0, lockoutRemaining - 1);
     }
     to BolusLockoutIdle when lockoutRemaining > 1 {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishTickWith(0, lockoutRemaining - 1);
     }
     to BasalInfusing
       when lockoutRemaining = 1 and requestInfuse = true {
+      motorOn, bolusActive, alarmLatched := true, false, false;
       finishTickWith(0, 0);
     }
-    to Idle { finishTickWith(0, 0); }
+    to Idle {
+      motorOn, bolusActive, alarmLatched := false, false, false;
+      finishTickWith(0, 0);
+    }
 
   // StopHold materializes the mandatory stopped tick after stopRequest. It can
   // let an existing bolus lockout continue, but cannot start therapy.
   StopHold:
     to AlarmResponse when alarmCondition() {
+      motorOn, bolusActive, alarmLatched := false, false, true;
       finishSuppressedTick();
     }
     to StopHold when stopRequest = true {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishSuppressedTick();
     }
     to BolusLockoutIdle when lockoutRemaining > 1 {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishTickWith(0, lockoutRemaining - 1);
     }
-    to Idle { finishTickWith(0, 0); }
+    to Idle {
+      motorOn, bolusActive, alarmLatched := false, false, false;
+      finishTickWith(0, 0);
+    }
 
   // AlarmResponse materializes the mandatory alarm response. It cannot clear
   // immediately, even if acknowledgement is already present.
   AlarmResponse:
     to AlarmResponse when alarmCondition() {
+      motorOn, bolusActive, alarmLatched := false, false, true;
       finishSuppressedTick();
     }
-    to AlarmLatched { finishSuppressedTick(); }
+    to AlarmLatched {
+      motorOn, bolusActive, alarmLatched := false, false, true;
+      finishSuppressedTick();
+    }
 
   // AlarmLatched is sticky until acknowledgement and disappearance of causes.
   // Clearing never restarts therapy in the same tick.
   AlarmLatched:
     to AlarmResponse when alarmCondition() {
+      motorOn, bolusActive, alarmLatched := false, false, true;
       finishSuppressedTick();
     }
     to StopHold when alarmClearAllowed() and stopRequest = true {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishSuppressedTick();
     }
     to BolusLockoutIdle
       when alarmClearAllowed() and lockoutRemaining > 1 {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishTickWith(0, lockoutRemaining - 1);
     }
     to Idle when alarmClearAllowed() {
+      motorOn, bolusActive, alarmLatched := false, false, false;
       finishTickWith(0, 0);
     }
-    to AlarmLatched { finishSuppressedTick(); }
+    to AlarmLatched {
+      motorOn, bolusActive, alarmLatched := false, false, true;
+      finishSuppressedTick();
+    }
 end

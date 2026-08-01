@@ -19,6 +19,15 @@ open Kx_core_syntax
 
 type invariant_state_rel = { state : ident; formula : hexpr } [@@deriving yojson]
 
+type method_param_mode = MPIn | MPInOut [@@deriving yojson]
+
+type method_param = {
+  method_param_name : ident;
+  method_param_ty : ty;
+  method_param_mode : method_param_mode;
+}
+[@@deriving yojson]
+
 type stmt = { stmt : stmt_desc; loc : Kx_loc.loc option }
 
 and stmt_desc =
@@ -29,6 +38,18 @@ and stmt_desc =
   | SMatch of expr * (ident * stmt list) list * stmt list
   | SSkip
   | SCall of ident * expr list * ident list
+  | SMethodCall of ident * expr list
+[@@deriving yojson]
+
+type method_decl = {
+  method_name : ident;
+  method_params : method_param list;
+  method_requires : hexpr list;
+  method_ensures : hexpr list;
+  method_body : stmt list;
+  method_reads : ident list;
+  method_writes : ident list;
+}
 [@@deriving yojson]
 
 type transition = {
@@ -48,6 +69,7 @@ type node_semantics = {
   sem_locals : vdecl list;
   sem_ghosts : vdecl list;
   sem_public_ghosts : ident list;
+  sem_methods : method_decl list;
   sem_states : ident list;
   sem_init_state : ident;
   sem_trans : transition list;

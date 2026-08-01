@@ -4,7 +4,7 @@ node action_input_assignment(
   total: int
 )
 
-action invalid(target: int) {
+method invalid(target: int) {
   target := 0;
 }
 
