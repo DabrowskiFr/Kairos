@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Kx_ast
+open Kx_core_ast
 
 let mk_stmt ?loc stmt = { stmt; loc }
 let stmt_desc s = s.stmt

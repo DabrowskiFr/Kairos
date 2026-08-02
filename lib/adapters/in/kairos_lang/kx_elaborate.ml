@@ -16,10 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Kx_surface_syntax
+open Kx_surface_ast
 open Kx_core_syntax
 
-module S = Kx_surface_syntax
+module S = Kx_surface_ast
 module Names = Kx_elaborate_names
 module Delays = Kx_elaborate_delays
 module Observers = Kx_elaborate_observers
@@ -33,7 +33,7 @@ type source = {
   imports : S.import_decl list;
   type_decls : enum_decl list;
   function_decls : pure_function_decl list;
-  nodes : Kx_ast.program;
+  nodes : Kx_core_ast.program;
 }
 
 let indexed_ref_name = Names.indexed_ref_name
@@ -86,13 +86,13 @@ let validate_stmt_match env scrutinee branches default_branch =
            (String.concat ", " missing))
   | [], None | _ :: _, Some _ -> ()
 
-let rec lower_stmt env stack (s : S.stmt) : Kx_ast.stmt list =
+let rec lower_stmt env stack (s : S.stmt) : Kx_core_ast.stmt list =
   match s.sstmt with
   | SSAssign (lhs, rhs) ->
-      [ Kx_ast_builders.mk_stmt ?loc:s.sloc (SAssign (indexed_ref_name lhs, lower_expr env rhs)) ]
+      [ Kx_core_ast_builders.mk_stmt ?loc:s.sloc (SAssign (indexed_ref_name lhs, lower_expr env rhs)) ]
   | SSIf (cond, then_branch, else_branch) ->
       [
-        Kx_ast_builders.mk_stmt ?loc:s.sloc
+        Kx_core_ast_builders.mk_stmt ?loc:s.sloc
           (SIf
              ( lower_expr env cond,
                lower_stmt_list env stack then_branch,
@@ -100,7 +100,7 @@ let rec lower_stmt env stack (s : S.stmt) : Kx_ast.stmt list =
       ]
   | SSWhile (cond, invariants, variant, body) ->
       [
-        Kx_ast_builders.mk_stmt ?loc:s.sloc
+        Kx_core_ast_builders.mk_stmt ?loc:s.sloc
           (SWhile
              ( lower_expr env cond,
                List.map (lower_hexpr env empty_spec_context []) invariants,
@@ -112,19 +112,19 @@ let rec lower_stmt env stack (s : S.stmt) : Kx_ast.stmt list =
       let lowered_default =
         match default_branch with
         | None -> []
-        | Some [] -> [ Kx_ast_builders.mk_stmt ?loc:s.sloc SSkip ]
+        | Some [] -> [ Kx_core_ast_builders.mk_stmt ?loc:s.sloc SSkip ]
         | Some body -> lower_stmt_list env stack body
       in
       [
-        Kx_ast_builders.mk_stmt ?loc:s.sloc
+        Kx_core_ast_builders.mk_stmt ?loc:s.sloc
           (SMatch
                ( lower_expr env scrutinee,
                List.map (fun (ctor, body) -> (ctor, lower_stmt_list env stack body)) branches,
                lowered_default ));
       ]
-  | SSSkip -> [ Kx_ast_builders.mk_stmt ?loc:s.sloc SSkip ]
+  | SSSkip -> [ Kx_core_ast_builders.mk_stmt ?loc:s.sloc SSkip ]
   | SSCall (callee, args, outs) ->
-      [ Kx_ast_builders.mk_stmt ?loc:s.sloc (SCall (callee, List.map (lower_expr env) args, outs)) ]
+      [ Kx_core_ast_builders.mk_stmt ?loc:s.sloc (SCall (callee, List.map (lower_expr env) args, outs)) ]
   | SSMethodCall (callee, args) ->
       let method_decl =
         match List.assoc_opt callee env.methods with
@@ -162,7 +162,7 @@ let rec lower_stmt env stack (s : S.stmt) : Kx_ast.stmt list =
                    param.method_param_name callee))
         method_decl.method_params args;
       [
-        Kx_ast_builders.mk_stmt ?loc:s.sloc
+        Kx_core_ast_builders.mk_stmt ?loc:s.sloc
           (SMethodCall (callee, List.map (lower_expr env) args));
       ]
   | SSFor (param, enum_name, body) ->
@@ -190,19 +190,19 @@ let method_env env (decl : S.method_decl) =
   in
   { env with variables = parameters @ env.variables }
 
-let lower_method ~node_inputs env (decl : S.method_decl) : Kx_ast.method_decl =
+let lower_method ~node_inputs env (decl : S.method_decl) : Kx_core_ast.method_decl =
   let method_env = method_env env decl in
   let lowered =
     {
-    Kx_ast.method_name = decl.method_name;
+    Kx_core_ast.method_name = decl.method_name;
     method_params =
       List.map
         (fun (param : S.method_param) ->
           {
-            Kx_ast.method_param_name = param.method_param_name;
+            Kx_core_ast.method_param_name = param.method_param_name;
             method_param_ty = param.method_param_ty;
             method_param_mode =
-              (match param.method_param_mode with MPIn -> Kx_ast.MPIn | MPInOut -> MPInOut);
+              (match param.method_param_mode with MPIn -> Kx_core_ast.MPIn | MPInOut -> MPInOut);
           })
         decl.method_params;
     method_requires =
@@ -242,7 +242,7 @@ let lower_method ~node_inputs env (decl : S.method_decl) : Kx_ast.method_decl =
           (Printf.sprintf "unknown assignment target '%s' in method '%s'" name
              decl.method_name)
   in
-  let rec validate_stmt (stmt : Kx_ast.stmt) =
+  let rec validate_stmt (stmt : Kx_core_ast.stmt) =
     match stmt.stmt with
     | SAssign (name, rhs) ->
         if List.mem name read_only then
@@ -320,7 +320,7 @@ let rec ast_expr_refs acc (expr : Kx_core_syntax.expr) =
   | EUn (_, inner) -> ast_expr_refs acc inner
 
 let rec direct_method_effects node_variables methods (reads, writes)
-    (stmt : Kx_ast.stmt) =
+    (stmt : Kx_core_ast.stmt) =
   let add_expr reads expr = ast_expr_refs reads expr in
   let add_node_write writes name =
     if StringSet.mem name node_variables then StringSet.add name writes else writes
@@ -350,9 +350,9 @@ let rec direct_method_effects node_variables methods (reads, writes)
       let writes =
         match List.assoc_opt callee methods with
         | None -> writes
-        | Some (decl : Kx_ast.method_decl) ->
+        | Some (decl : Kx_core_ast.method_decl) ->
             List.fold_left2
-              (fun writes (param : Kx_ast.method_param) arg ->
+              (fun writes (param : Kx_core_ast.method_param) arg ->
                 match (param.method_param_mode, arg.expr) with
                 | MPInOut, EVar name -> add_node_write writes name
                 | _ -> writes)
@@ -361,10 +361,10 @@ let rec direct_method_effects node_variables methods (reads, writes)
       (reads, writes)
 
 let infer_method_effects node_variables methods =
-  let lookup = List.map (fun (decl : Kx_ast.method_decl) -> (decl.method_name, decl)) methods in
+  let lookup = List.map (fun (decl : Kx_core_ast.method_decl) -> (decl.method_name, decl)) methods in
   let direct =
     List.map
-      (fun (decl : Kx_ast.method_decl) ->
+      (fun (decl : Kx_core_ast.method_decl) ->
         let reads, writes =
           List.fold_left (direct_method_effects node_variables lookup)
             (StringSet.empty, StringSet.empty) decl.method_body
@@ -372,7 +372,7 @@ let infer_method_effects node_variables methods =
         (decl.method_name, (reads, writes)))
       methods
   in
-  let rec calls_of_stmt acc (stmt : Kx_ast.stmt) =
+  let rec calls_of_stmt acc (stmt : Kx_core_ast.stmt) =
     match stmt.stmt with
     | SMethodCall (name, _) -> StringSet.add name acc
     | SIf (_, left, right) -> List.fold_left calls_of_stmt acc (left @ right)
@@ -384,7 +384,7 @@ let infer_method_effects node_variables methods =
   in
   let calls =
     List.map
-      (fun (decl : Kx_ast.method_decl) ->
+      (fun (decl : Kx_core_ast.method_decl) ->
         (decl.method_name,
          List.fold_left calls_of_stmt StringSet.empty decl.method_body))
       methods
@@ -401,7 +401,7 @@ let infer_method_effects node_variables methods =
         (List.assoc name calls) (reads, writes)
   in
   List.map
-    (fun (decl : Kx_ast.method_decl) ->
+    (fun (decl : Kx_core_ast.method_decl) ->
       let reads, writes = closure decl.method_name StringSet.empty in
       {
         decl with
@@ -438,8 +438,8 @@ let lower_contracts ~hide_init env contracts =
   in
   (List.rev assumes, List.rev guarantees)
 
-let lower_transition env (t : S.transition) : Kx_ast.transition =
-  Kx_ast_builders.mk_transition ~src:t.src ~dst:t.dst
+let lower_transition env (t : S.transition) : Kx_core_ast.transition =
+  Kx_core_ast_builders.mk_transition ~src:t.src ~dst:t.dst
     ~guard:(Option.map (lower_expr env) t.guard)
     ~body:(lower_stmt_list env [] t.body)
     ~ensures:(List.map (lower_hexpr env empty_spec_context []) t.ensures)
@@ -536,7 +536,7 @@ let node_env base_env (n : S.node) =
         n.history_aliases;
   }
 
-let lower_node base_env (n : S.node) : Kx_ast.node =
+let lower_node base_env (n : S.node) : Kx_core_ast.node =
   validate_control_graph n;
   let env = node_env base_env n in
   validate_observers n;
@@ -593,7 +593,7 @@ let lower_node base_env (n : S.node) : Kx_ast.node =
     |> infer_method_effects node_variables
   in
   let node =
-    Kx_ast_builders.mk_node ~nname:n.node_name ~inputs:(lower_raw_vdecls env n.inputs)
+    Kx_core_ast_builders.mk_node ~nname:n.node_name ~inputs:(lower_raw_vdecls env n.inputs)
 	  ~outputs:(lower_raw_vdecls env n.outputs) ~assumes ~guarantees ~instances:n.instances
 	  ~locals:(lower_raw_vdecls env n.locals)
 	  ~ghosts:(lower_raw_vdecls env
@@ -612,7 +612,7 @@ let lower_node base_env (n : S.node) : Kx_ast.node =
         spec_invariants_state_rel =
           List.map
             (fun (state, formula) ->
-              { Kx_ast.state; formula = lower_hexpr env empty_spec_context [] formula })
+              { Kx_core_ast.state; formula = lower_hexpr env empty_spec_context [] formula })
             state_invariants;
       };
   }

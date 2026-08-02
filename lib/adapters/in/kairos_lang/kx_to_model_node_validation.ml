@@ -18,7 +18,7 @@
 
 open Core_syntax
 
-open Kairos_to_model_validation_common
+open Kx_to_model_validation_common
 
 let validate_node (n : Verification_model.node_model) : unit =
   let node_name = n.node_name in

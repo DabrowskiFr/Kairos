@@ -23,37 +23,12 @@
     - [expr]: executable expressions.
     - [hexpr]: historical/logical expressions. *)
 
-(** Identifiers (variables, states, symbols). *)
-type ident = string 
-  [@@deriving yojson]
-
-(** Source types supported by the core. *)
-type ty = TInt | TBool | TReal | TCustom of string 
-  [@@deriving yojson]
-
-(** Finite algebraic type declaration. *)
-type enum_decl = {
-  enum_name : ident;
-  enum_constructors : ident list;
-}
-[@@deriving yojson]
-
-(** Binary operators. *)
-type binop = Add | Sub | Mul | Div | And | Or
-  [@@deriving yojson]
-
-(** Unary operators. *)
-type unop = Neg | Not
-  [@@deriving yojson]
-
-(** Comparison operators. *)
-type relop = REq | RNeq | RLt | RLe | RGt | RGe 
-  [@@deriving yojson]
+include Kx_syntax_common
 
 (** Imperative/executable expression.
 
     Used in transition guards and imperative statements. *)
-type expr = { expr : expr_desc; loc : Kx_loc.loc option }
+type expr = { expr : expr_desc; loc : loc option }
 
 and expr_desc =
   | ELitInt of int
@@ -69,7 +44,7 @@ and expr_desc =
 
     Used in first-order atoms. [HPreK (x, k)] denotes the value of [x]
     [k] steps in the past. *)
-type hexpr = { hexpr : hexpr_desc; loc : Kx_loc.loc option }
+type hexpr = { hexpr : hexpr_desc; loc : loc option }
 
 and hexpr_desc =
   | HLitInt of int
@@ -102,7 +77,7 @@ type ltl =
 [@@deriving yojson]
 
 (** LTL formula tagged with a stable identifier and optional source location *)
-type ltl_o = { value : ltl; oid : int; loc : Kx_loc.loc option } [@@deriving yojson]
+type ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving yojson]
 
 (** Typed variable declaration. *)
 type vdecl = { vname : ident; vty : ty } [@@deriving yojson]

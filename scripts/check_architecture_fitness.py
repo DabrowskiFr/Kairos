@@ -244,7 +244,7 @@ def check_delivery_boundaries(repo: Path) -> list[str]:
         (r"\bPipeline_types\b", "delivery adapter bypasses Kairos_engine.Api"),
         (r"\bApplication_ports\b", "delivery adapter imports removed application ports"),
         (r"\bVerification_model\b|\bCore_syntax\b", "delivery adapter imports the domain"),
-        (r"\bKairos_frontend\b|\bKx_ast\b|\bKx_parse_api\b", "delivery adapter imports frontend internals"),
+        (r"\bKairos_frontend\b|\bKx_core_ast\b|\bKx_parse_api\b", "delivery adapter imports frontend internals"),
         (r"\bWhy_pipeline\b|\bPipeline_build\b", "delivery adapter imports backend internals"),
     ]
     return scan(repo, ["bin/cli", "bin/lsp", "lib/adapters/in/lsp_protocol"], common)

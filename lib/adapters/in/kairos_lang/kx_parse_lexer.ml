@@ -21,7 +21,7 @@
     This module tokenizes source text for Menhir parsing and keeps the latest
     lexeme for diagnostics. *)
 
-open Kx_parser
+open Kx_parse_parser
 
 (** Exception [Lexing_error]. *)
 
@@ -135,7 +135,7 @@ let tok lexbuf t =
 
 (** [expected_tokens] helper value. *)
 
-let expected_tokens : (string * Kx_parser.token) list =
+let expected_tokens : (string * Kx_parse_parser.token) list =
   [
     ("node", NODE);
     ("type", TYPE);

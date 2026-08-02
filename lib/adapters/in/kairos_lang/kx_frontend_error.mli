@@ -28,17 +28,32 @@ type kind =
   | Type
   | Well_formedness
   | Internal
+(** Stage or semantic class of a frontend failure. *)
 
 type t = {
-  kind : kind;
-  message : string;
+  kind : kind; (** Classification preserved at the public API boundary. *)
+  message : string; (** Human-readable diagnostic, including location text when available. *)
 }
+(** Payload carried by internal frontend failures. *)
 
 exception Error of t
+(** Internal control flow used by parsing, elaboration and validation. The
+    public facade converts it to [Kairos_frontend.error]. *)
 
 val raise_error : kind -> string -> 'a
+(** Raise [Error] with an explicit classification. *)
+
 val parse : string -> 'a
+(** Raise a parsing failure. *)
+
 val elaboration : string -> 'a
+(** Raise a surface-to-core elaboration failure. *)
+
 val type_error : string -> 'a
+(** Raise a static type failure. *)
+
 val well_formedness : string -> 'a
+(** Raise a structural well-formedness failure. *)
+
 val internal : string -> 'a
+(** Raise a failure caused by an unexpected frontend invariant violation. *)

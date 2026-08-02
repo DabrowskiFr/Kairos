@@ -16,13 +16,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Expansion of state selectors used by surface state invariants. *)
+(** Expand the selectors attached to surface state invariants.
+
+    Selectors may name one state, a set, all states or a set difference. This
+    module validates those names and produces one invariant occurrence per
+    selected concrete state. *)
 
 val resolve_state_selector :
   node_name:string ->
   states:string list ->
-  Kx_surface_syntax.state_selector ->
+  Kx_surface_ast.state_selector ->
   string list
+(** Resolve one selector in declaration order, rejecting unknown or duplicate
+    state names. *)
 
 val expand_state_invariants :
-  Kx_surface_syntax.node -> (string * Kx_surface_syntax.hexpr) list
+  Kx_surface_ast.node -> (string * Kx_surface_syntax.hexpr) list
+(** Pair every state invariant with each selected state. Empty selections and
+    explicit selection of a visible initial state are rejected. *)

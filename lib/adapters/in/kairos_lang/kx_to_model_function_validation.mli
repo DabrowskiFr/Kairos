@@ -16,7 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Validation of Kairos pure-function declarations. *)
+(** Validate pure functions after their translation to core syntax.
+
+    This checks declaration uniqueness, names, calls and expression types. It
+    also enforces the restricted logical language allowed in function
+    contracts. *)
 
 val validate_function_decls :
   Core_syntax.enum_decl list -> Core_syntax.pure_function_decl list -> unit
+(** Validate all declarations together so calls between functions can be
+    checked. Raises a typed frontend error on failure. *)

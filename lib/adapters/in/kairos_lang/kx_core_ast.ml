@@ -28,7 +28,7 @@ type method_param = {
 }
 [@@deriving yojson]
 
-type stmt = { stmt : stmt_desc; loc : Kx_loc.loc option }
+type stmt = { stmt : stmt_desc; loc : Kx_syntax_common.loc option }
 
 and stmt_desc =
   | SAssign of ident * expr

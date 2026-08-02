@@ -16,14 +16,25 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Semantic-validation facade for the elaborated Kairos model. *)
+(** Final frontend translation from the elaborated Kairos AST to the model used
+    by the verification engine.
 
-let lookup_constructor = Kairos_to_model_validation_common.lookup_constructor
+    Surface constructs have already been eliminated at this point. This module
+    converts the remaining syntax, preserves source locations, validates the
+    result, and applies transition prioritization. *)
 
-let validate_unique_type_decls =
-  Kairos_to_model_validation_common.validate_unique_type_decls
+(** Translate and validate one elaborated node, using the surrounding type and
+    pure-function declarations. *)
+val node :
+  type_decls:Core_syntax.enum_decl list ->
+  function_decls:Core_syntax.pure_function_decl list ->
+  Kx_core_ast.node ->
+  Verification_model.node_model
 
-let validate_function_decls =
-  Kairos_to_model_function_validation.validate_function_decls
-
-let validate_node = Kairos_to_model_node_validation.validate_node
+(** Translate a complete elaborated program and attach the shared declarations
+    to every resulting node model. *)
+val program :
+  ?type_decls:Kx_core_syntax.enum_decl list ->
+  ?function_decls:Kx_core_syntax.pure_function_decl list ->
+  Kx_core_ast.program ->
+  Verification_model.program_model

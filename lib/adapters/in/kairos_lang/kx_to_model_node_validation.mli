@@ -16,14 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Semantic validation for the elaborated Kairos model. *)
+(** Validate a node after translation to the verification model.
 
-val lookup_constructor :
-  Core_syntax.enum_decl list -> Core_syntax.ident -> Core_syntax.ty option
-
-val validate_unique_type_decls : Core_syntax.enum_decl list -> unit
-
-val validate_function_decls :
-  Core_syntax.enum_decl list -> Core_syntax.pure_function_decl list -> unit
+    This is the final semantic boundary before the engine: declarations,
+    expressions, contracts, transitions and ghost-variable usage must all be
+    well typed and mutually consistent. *)
 
 val validate_node : Verification_model.node_model -> unit
+(** Raise a typed frontend error when the node is not a valid verification
+    model. *)

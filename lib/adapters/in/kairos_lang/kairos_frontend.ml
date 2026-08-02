@@ -70,7 +70,7 @@ let parse_input ~(input_file : string) : (output, error) result =
         in
         let parse_info = parse_info_of_kx_info parse_info_kx in
         let verification_model =
-          Kairos_to_model.program ~type_decls:source_kx.type_decls
+          Kx_to_model.program ~type_decls:source_kx.type_decls
             ~function_decls:source_kx.function_decls source_kx.nodes
         in
         Ok { parse_info; verification_model;}

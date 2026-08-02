@@ -25,70 +25,87 @@
 *)
 
 val subst_ident : param:string -> value:string -> string -> string
+(** Replace an identifier when it is exactly the named parameter. *)
+
 val nat_literal_of_ident : string -> int option
+(** Interpret a non-negative decimal identifier as a natural literal. *)
 
 val subst_ref :
   param:string ->
   value:string ->
   Kx_surface_syntax.indexed_ref ->
   Kx_surface_syntax.indexed_ref
+(** Substitute an identifier through a possibly indexed reference. *)
 
 val subst_nat_expr :
   param:string ->
   value:string ->
   Kx_surface_syntax.nat_expr ->
   Kx_surface_syntax.nat_expr
+(** Substitute a natural parameter, turning a numeric value into a literal. *)
 
 val subst_expr :
   param:string ->
   value:string ->
   Kx_surface_syntax.expr ->
   Kx_surface_syntax.expr
+(** Substitute an identifier throughout an executable expression. *)
 
 val subst_hexpr :
   param:string ->
   value:string ->
   Kx_surface_syntax.hexpr ->
   Kx_surface_syntax.hexpr
+(** Substitute an identifier throughout a historical expression. *)
 
 val subst_spec_arg :
   param:string ->
   value:string ->
   Kx_surface_syntax.spec_arg ->
   Kx_surface_syntax.spec_arg
+(** Substitute an identifier throughout a specification argument. *)
 
 val subst_ltl :
   param:string ->
   value:string ->
   Kx_surface_syntax.ltl ->
   Kx_surface_syntax.ltl
+(** Substitute an identifier throughout a temporal formula. *)
 
 val subst_stmt :
   param:string ->
   value:string ->
-  Kx_surface_syntax.stmt ->
-  Kx_surface_syntax.stmt
+  Kx_surface_ast.stmt ->
+  Kx_surface_ast.stmt
+(** Substitute an identifier throughout an executable statement. *)
 
 val subst_expr_actual :
   param:string ->
   actual:Kx_surface_syntax.expr ->
   Kx_surface_syntax.expr ->
   Kx_surface_syntax.expr
+(** Replace free scalar occurrences of a formal parameter with an executable
+    actual expression. *)
 
 val subst_hexpr_actual :
   param:string ->
   actual:Kx_surface_syntax.expr ->
   Kx_surface_syntax.hexpr ->
   Kx_surface_syntax.hexpr
+(** Replace free scalar occurrences of a formal parameter inside a historical
+    expression with an executable actual expression. *)
 
 val subst_stmt_actual :
   param:string ->
   actual:Kx_surface_syntax.expr ->
-  Kx_surface_syntax.stmt ->
-  Kx_surface_syntax.stmt
+  Kx_surface_ast.stmt ->
+  Kx_surface_ast.stmt
+(** Replace free scalar occurrences of a formal parameter throughout a
+    statement. *)
 
 val subst_history_expr :
   param:string ->
   value:string ->
   Kx_surface_syntax.history_expr ->
   Kx_surface_syntax.history_expr
+(** Substitute an identifier throughout a named history declaration. *)

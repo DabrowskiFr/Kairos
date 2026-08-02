@@ -16,9 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Kx_surface_syntax
+open Kx_surface_ast
 
-module S = Kx_surface_syntax
+module S = Kx_surface_ast
 
 let subst_ident ~(param : string) ~(value : string) id =
   if String.equal id param then value else id

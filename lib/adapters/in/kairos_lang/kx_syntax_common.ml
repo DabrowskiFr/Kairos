@@ -16,6 +16,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Validation of elaborated Kairos node models. *)
+type loc = {
+  line : int;
+  col : int;
+  line_end : int;
+  col_end : int;
+}
+[@@deriving yojson]
 
-val validate_node : Verification_model.node_model -> unit
+type ident = string [@@deriving yojson]
+
+type ty = TInt | TBool | TReal | TCustom of string [@@deriving yojson]
+
+type enum_decl = {
+  enum_name : ident;
+  enum_constructors : ident list;
+}
+[@@deriving yojson]
+
+type binop = Add | Sub | Mul | Div | And | Or [@@deriving yojson]
+type unop = Neg | Not [@@deriving yojson]
+type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]

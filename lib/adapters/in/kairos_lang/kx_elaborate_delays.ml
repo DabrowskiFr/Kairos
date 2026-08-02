@@ -2,7 +2,7 @@
  * Executable one-instant delays for observer expressions.
  *--------------------------------------------------------------------------*)
 
-module S = Kx_surface_syntax
+module S = Kx_surface_ast
 module Names = Kx_elaborate_names
 open S
 

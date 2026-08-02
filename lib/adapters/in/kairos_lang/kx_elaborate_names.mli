@@ -23,7 +23,17 @@
 *)
 
 val indexed_ident_many : string -> string list -> string
+(** Flatten a base name and several indices into one core identifier. *)
+
 val indexed_ref_name : Kx_surface_syntax.indexed_ref -> string
+(** Return the flattened core name of a surface reference. *)
+
 val same_indexed_ref : Kx_surface_syntax.indexed_ref -> Kx_surface_syntax.indexed_ref -> bool
+(** Compare two references after applying the flattening convention. *)
+
 val generated_delay_name : Kx_surface_syntax.indexed_ref -> string
+(** Produce the reserved private name used to store [pre] of a reference. *)
+
 val generated_parameter_name : string -> string -> int -> string
+(** Produce a reserved name for a generated parameter, from its role, owner and
+    position. *)

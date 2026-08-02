@@ -1,8 +1,8 @@
 %{
 open Kx_core_syntax
-open Kx_surface_syntax
+open Kx_surface_ast
 
-let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) : Kx_loc.loc =
+let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) : Kx_syntax_common.loc =
   { line = start_pos.pos_lnum;
     col = start_pos.pos_cnum - start_pos.pos_bol;
     line_end = end_pos.pos_lnum;
@@ -11,16 +11,16 @@ let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) : Kx_
 let loc start_pos end_pos = loc_of_positions start_pos end_pos
 
 let mk_expr_loc start_pos end_pos desc =
-  Kx_surface_syntax.mk_expr ~loc:(loc start_pos end_pos) desc
+  Kx_surface_ast.mk_expr ~loc:(loc start_pos end_pos) desc
 
 let mk_stmt_loc start_pos end_pos desc =
-  Kx_surface_syntax.mk_stmt ~loc:(loc start_pos end_pos) desc
+  Kx_surface_ast.mk_stmt ~loc:(loc start_pos end_pos) desc
 
 let mk_hexpr_loc start_pos end_pos desc =
-  Kx_surface_syntax.mk_hexpr ~loc:(loc start_pos end_pos) desc
+  Kx_surface_ast.mk_hexpr ~loc:(loc start_pos end_pos) desc
 
 let mk_history_expr_loc start_pos end_pos desc =
-  Kx_surface_syntax.mk_history_expr ~loc:(loc start_pos end_pos) desc
+  Kx_surface_ast.mk_history_expr ~loc:(loc start_pos end_pos) desc
 
 let split_stmt_match_arms arms =
   let rec loop branches default_branch = function
@@ -125,7 +125,7 @@ let concise_observer_error ~(observer:string) ~(phase:string) (msg:string) : 'a 
     (Printf.sprintf "concise observer '%s' %s expression %s" observer phase msg)
 
 let rec observer_expr_of_hexpr ~(observer:string) ~(phase:string) (h:hexpr) : expr =
-  let mk desc = Kx_surface_syntax.mk_expr ?loc:h.hloc desc in
+  let mk desc = Kx_surface_ast.mk_expr ?loc:h.hloc desc in
   match h.shexpr with
   | SHLitInt n -> mk (SELitInt n)
   | SHLitBool b -> mk (SELitBool b)
@@ -161,10 +161,10 @@ let rec observer_stmts_of_history_expr ~(observer:string) ~(phase:string)
     (h:history_expr) : stmt list =
   match h.shistory_expr with
   | SHValue formula ->
-      [ Kx_surface_syntax.mk_stmt ?loc:h.hvloc
+      [ Kx_surface_ast.mk_stmt ?loc:h.hvloc
           (SSAssign (scalar_ref observer, observer_expr_of_hexpr ~observer ~phase formula)) ]
   | SHIf (cond, then_value, else_value) ->
-      [ Kx_surface_syntax.mk_stmt ?loc:h.hvloc
+      [ Kx_surface_ast.mk_stmt ?loc:h.hvloc
           (SSIf
              ( observer_expr_of_hexpr ~observer ~phase cond,
                observer_stmts_of_history_expr ~observer ~phase then_value,
@@ -256,8 +256,8 @@ let range_strings lo hi =
 %nonassoc IEXPR_ARITH
 %nonassoc RPAREN
 
-%start <Kx_surface_syntax.program> program
-%start <Kx_surface_syntax.source> source_file
+%start <Kx_surface_ast.program> program
+%start <Kx_surface_ast.source> source_file
 
 %%
 

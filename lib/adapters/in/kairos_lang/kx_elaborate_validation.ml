@@ -16,10 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Kx_surface_syntax
+open Kx_surface_ast
 
 module Names = Kx_elaborate_names
-module S = Kx_surface_syntax
+module S = Kx_surface_ast
 module State_selectors = Kx_elaborate_state_selectors
 
 let validate_unique_named_decls kind get_name decls =

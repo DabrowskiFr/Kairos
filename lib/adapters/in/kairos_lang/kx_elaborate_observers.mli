@@ -23,16 +23,26 @@
     in [Kx_elaborate_validation].
 *)
 
-val observer_raw_vdecl : Kx_surface_syntax.observer_decl -> Kx_surface_syntax.raw_vdecl
+val observer_raw_vdecl : Kx_surface_ast.observer_decl -> Kx_surface_syntax.raw_vdecl
+(** Turn an observer declaration into the proof-only variable that stores its
+    value. *)
 
 type schedule
+(** Dependency-respecting execution orders for observer initialization and
+    ordinary steps. *)
 
-val schedule : Kx_surface_syntax.observer_decl list -> schedule
+val schedule :
+  Kx_surface_ast.observer_decl list ->
+  schedule
+(** Compute stable topological orders from direct observer references; reject instantaneous dependency cycles. *)
 
 val observer_updates_for_transition :
   init_state:string ->
   schedule ->
-  Kx_surface_syntax.transition ->
-  Kx_surface_syntax.stmt list
+  Kx_surface_ast.transition ->
+  Kx_surface_ast.stmt list
+(** Select and order observer updates for a transition: initialization updates
+    when leaving the initial state, step updates otherwise. *)
 
-val observer_locals : Kx_surface_syntax.observer_decl list -> Kx_surface_syntax.raw_vdecl list
+val observer_locals : Kx_surface_ast.observer_decl list -> Kx_surface_syntax.raw_vdecl list
+(** Generate the proof-only local declarations associated with observers. *)

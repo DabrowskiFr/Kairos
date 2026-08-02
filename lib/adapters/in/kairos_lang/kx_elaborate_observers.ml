@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module S = Kx_surface_syntax
+module S = Kx_surface_ast
 
 let observer_raw_vdecl (obs : S.observer_decl) : S.raw_vdecl =
   { raw_vname = obs.observer_name; raw_indices = None; raw_vty = obs.observer_ty }

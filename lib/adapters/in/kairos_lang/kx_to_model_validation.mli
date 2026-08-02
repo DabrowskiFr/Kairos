@@ -16,19 +16,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Translation from Kairos source AST to the internal verification model. *)
+(** Facade for semantic validation at the verification-model boundary.
 
-(** Translate one source node to the internal model and apply transition
-    prioritization. *)
-val node :
-  type_decls:Core_syntax.enum_decl list ->
-  function_decls:Core_syntax.pure_function_decl list ->
-  Kx_ast.node ->
-  Verification_model.node_model
+    It groups validation of shared types and functions with validation of each
+    translated node. *)
 
-(** Translate a full source program to the internal model. *)
-val program :
-  ?type_decls:Kx_core_syntax.enum_decl list ->
-  ?function_decls:Kx_core_syntax.pure_function_decl list ->
-  Kx_ast.program ->
-  Verification_model.program_model
+val lookup_constructor :
+  Core_syntax.enum_decl list -> Core_syntax.ident -> Core_syntax.ty option
+(** Return the enum type that owns a constructor, if any. *)
+
+val validate_unique_type_decls : Core_syntax.enum_decl list -> unit
+(** Check enum names, constructors and reserved-name constraints. *)
+
+val validate_function_decls :
+  Core_syntax.enum_decl list -> Core_syntax.pure_function_decl list -> unit
+(** Type-check the complete set of pure-function declarations. *)
+
+val validate_node : Verification_model.node_model -> unit
+(** Check one translated node before it is exposed to the engine. *)

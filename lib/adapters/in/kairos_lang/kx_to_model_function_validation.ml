@@ -18,7 +18,7 @@
 
 open Core_syntax
 
-open Kairos_to_model_validation_common
+open Kx_to_model_validation_common
 
 let validate_function_decls (type_decls : Core_syntax.enum_decl list)
     (function_decls : Core_syntax.pure_function_decl list) : unit =

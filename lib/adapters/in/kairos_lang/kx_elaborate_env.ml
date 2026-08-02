@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 open Kx_core_syntax
-module S = Kx_surface_syntax
+module S = Kx_surface_ast
 module Names = Kx_elaborate_names
 
 type env = {

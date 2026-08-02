@@ -83,7 +83,7 @@ let semantic_symbols ~filename ~text =
       if value <> "" then Hashtbl.replace table value ()
     in
     List.iter
-      (fun (node : Kx_ast.node) ->
+      (fun (node : Kx_core_ast.node) ->
         let semantics = node.semantics in
         add nodes semantics.sem_nname;
         add all semantics.sem_nname;

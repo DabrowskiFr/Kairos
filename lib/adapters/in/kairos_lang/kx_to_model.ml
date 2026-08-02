@@ -18,9 +18,9 @@
 
 open Core_syntax
 
-module Validation = Kairos_to_model_validation
+module Validation = Kx_to_model_validation
 
-let loc (source_loc : Kx_loc.loc) : Loc.loc =
+let loc (source_loc : Kx_syntax_common.loc) : Loc.loc =
   {
     line = source_loc.line;
     col = source_loc.col;
@@ -161,43 +161,43 @@ let lower_function_decl ~(type_decls : Core_syntax.enum_decl list)
   }
 
 let lower_state_invariant ~(type_decls : Core_syntax.enum_decl list)
-    (inv : Kx_ast.invariant_state_rel) : Verification_model.state_invariant =
+    (inv : Kx_core_ast.invariant_state_rel) : Verification_model.state_invariant =
   { Verification_model.state = inv.state; formula = hexpr ~type_decls inv.formula }
 
 let rec stmt ~(type_decls : Core_syntax.enum_decl list)
-    (source_stmt : Kx_ast.stmt) : Core_syntax.stmt =
+    (source_stmt : Kx_core_ast.stmt) : Core_syntax.stmt =
   let lowered =
     match source_stmt.stmt with
-    | Kx_ast.SAssign (id, e) -> Core_syntax.SAssign (id, expr ~type_decls e)
-    | Kx_ast.SAssert h ->
+    | Kx_core_ast.SAssign (id, e) -> Core_syntax.SAssign (id, expr ~type_decls e)
+    | Kx_core_ast.SAssert h ->
         Core_syntax.SAssert (history_free_hexpr ~type_decls h)
-    | Kx_ast.SIf (c, t, e) ->
+    | Kx_core_ast.SIf (c, t, e) ->
         Core_syntax.SIf
           (expr ~type_decls c, List.map (stmt ~type_decls) t,
            List.map (stmt ~type_decls) e)
-    | Kx_ast.SWhile (c, invariants, variant, body) ->
+    | Kx_core_ast.SWhile (c, invariants, variant, body) ->
         Core_syntax.SWhile
           ( expr ~type_decls c,
             List.map (history_free_hexpr ~type_decls) invariants,
             Option.map (expr ~type_decls) variant,
             List.map (stmt ~type_decls) body )
-    | Kx_ast.SMatch (e, branches, dflt) ->
+    | Kx_core_ast.SMatch (e, branches, dflt) ->
         Core_syntax.SMatch
           ( expr ~type_decls e,
             List.map
               (fun (ctor, body) -> (ctor, List.map (stmt ~type_decls) body))
               branches,
             List.map (stmt ~type_decls) dflt )
-    | Kx_ast.SSkip -> Core_syntax.SSkip
-    | Kx_ast.SCall (callee, args, outs) ->
+    | Kx_core_ast.SSkip -> Core_syntax.SSkip
+    | Kx_core_ast.SCall (callee, args, outs) ->
         Core_syntax.SCall (callee, List.map (expr ~type_decls) args, outs)
-    | Kx_ast.SMethodCall (callee, args) ->
+    | Kx_core_ast.SMethodCall (callee, args) ->
         Core_syntax.SMethodCall (callee, List.map (expr ~type_decls) args)
   in
   { Core_syntax.stmt = lowered; loc = Option.map loc source_stmt.loc }
 
 let step ~(type_decls : Core_syntax.enum_decl list)
-    (source_transition : Kx_ast.transition) : Verification_model.program_step =
+    (source_transition : Kx_core_ast.transition) : Verification_model.program_step =
   {
     Verification_model.src_state = source_transition.src;
     dst_state = source_transition.dst;
@@ -207,19 +207,19 @@ let step ~(type_decls : Core_syntax.enum_decl list)
   }
 
 let lower_method ~(type_decls : Core_syntax.enum_decl list)
-    (decl : Kx_ast.method_decl) : Core_syntax.method_decl =
+    (decl : Kx_core_ast.method_decl) : Core_syntax.method_decl =
   {
     method_name = decl.method_name;
     method_params =
       List.map
-        (fun (param : Kx_ast.method_param) ->
+        (fun (param : Kx_core_ast.method_param) ->
           {
             Core_syntax.method_param_name = param.method_param_name;
             method_param_ty = lower_ty param.method_param_ty;
             method_param_mode =
               (match param.method_param_mode with
-              | Kx_ast.MPIn -> Core_syntax.MPIn
-              | Kx_ast.MPInOut -> Core_syntax.MPInOut);
+              | Kx_core_ast.MPIn -> Core_syntax.MPIn
+              | Kx_core_ast.MPInOut -> Core_syntax.MPInOut);
           })
         decl.method_params;
     method_requires =
@@ -232,10 +232,10 @@ let lower_method ~(type_decls : Core_syntax.enum_decl list)
   }
 
 let node ~(type_decls : Core_syntax.enum_decl list)
-    ~(function_decls : Core_syntax.pure_function_decl list) (n : Kx_ast.node) :
+    ~(function_decls : Core_syntax.pure_function_decl list) (n : Kx_core_ast.node) :
     Verification_model.node_model =
-  let sem = Kx_ast.semantics_of_node n in
-  let spec = Kx_ast.specification_of_node n in
+  let sem = Kx_core_ast.semantics_of_node n in
+  let spec = Kx_core_ast.specification_of_node n in
   let lowered =
     {
       Verification_model.node_name = sem.sem_nname;
@@ -262,7 +262,7 @@ let node ~(type_decls : Core_syntax.enum_decl list)
 
 let program ?(type_decls : Kx_core_syntax.enum_decl list = [])
     ?(function_decls : Kx_core_syntax.pure_function_decl list = [])
-    (p : Kx_ast.program) : Verification_model.program_model =
+    (p : Kx_core_ast.program) : Verification_model.program_model =
   let type_decls = List.map lower_enum_decl type_decls in
   let function_decls =
     List.map (lower_function_decl ~type_decls) function_decls

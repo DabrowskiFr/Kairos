@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module S = Kx_surface_syntax
+module S = Kx_surface_ast
 
 let state_mem name states = List.exists (String.equal name) states
 

@@ -9,5 +9,5 @@
   (pps sedlex.ppx ppx_deriving_yojson)))
 
 (menhir
- (modules kx_parser)
+ (modules kx_parse_parser)
  (flags --table --inspection))

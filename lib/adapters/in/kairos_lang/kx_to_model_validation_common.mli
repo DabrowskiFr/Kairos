@@ -16,14 +16,21 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Shared semantic-validation helpers for the elaborated Kairos model. *)
+(** Small operations shared by function and node validation.
+
+    This module centralizes name lookup, type comparison and consistently
+    classified frontend errors; it does not perform a complete validation by
+    itself. *)
 
 val fail_node : string -> string -> 'a
+(** Raise a type error contextualized with the node name. *)
 
 val lookup_constructor :
   Core_syntax.enum_decl list -> Core_syntax.ident -> Core_syntax.ty option
+(** Find the enum type to which a constructor belongs. *)
 
 val validate_unique_type_decls : Core_syntax.enum_decl list -> unit
+(** Reject duplicate or invalid enum declarations and constructors. *)
 
 val validate_identifier_collisions :
   string ->
@@ -31,7 +38,10 @@ val validate_identifier_collisions :
   vars:Core_syntax.vdecl list ->
   states:Core_syntax.ident list ->
   unit
+(** Reject node variables or control states that reuse constructor names. *)
 
 val type_name : Core_syntax.ty -> string
+(** Produce the source-facing name of a type for diagnostics. *)
 
 val same_ty : Core_syntax.ty -> Core_syntax.ty -> bool
+(** Test exact equality of two core types. *)
