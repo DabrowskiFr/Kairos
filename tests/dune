@@ -19,11 +19,10 @@
   check_elaboration_frontier.sh
   check_reference_stability.sh
   check_vstte_medical_examples.sh
+  frontend/observer_implicit_self_loop.kairos
   frontend/spec_past_formula_frontier.kairos
-  (source_tree spec)
   ../examples/medical_infusion_light.kairos
   ../examples/evaluation/case_studies/medical_infusion_controller.kairos
-  (source_tree ../examples/evaluation/case_studies/spec)
   (glob_files ok/*.kairos)
   (glob_files ko/*.kairos)
   ko/expectations.tsv)
@@ -61,7 +60,6 @@
   (glob_files ko/*.kairos)
   ko/expectations.tsv
   ../examples/evaluation/case_studies/medical_infusion_controller.kairos
-  (source_tree ../examples/evaluation/case_studies/spec)
   %{exe:../bin/cli/kairos.exe})
  (action
   (progn
@@ -138,7 +136,6 @@
  (deps
   ../scripts/validate_performance.sh
   ../examples/evaluation/case_studies/medical_infusion_controller.kairos
-  (source_tree ../examples/evaluation/case_studies/spec)
   %{exe:../bin/cli/kairos.exe})
  (action
   (setenv

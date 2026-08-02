@@ -4,19 +4,21 @@ This document is intended for contributors who want to understand or modify
 the Kairos implementation.
 
 It presents the main intermediate representations, component boundaries, and
-the verification pipeline, from the source language to the solver results.
+the verification and executable-code-generation pipelines, from the source
+language to solver results or generated C artifacts.
 
 Its purpose is to help contributors locate responsibilities, understand the
 dependencies between stages, and preserve architectural invariants as the
 project evolves.
 
-
 ## Overview
 
 ```text
-Kairos verification pipeline
+Kairos pipelines
 ├─ A. Entry
-│  └─ A.1. CLI
+│  ├─ A.1. CLI
+│  ├─ A.2. LSP server
+│  └─ A.3. VS Code extension
 ├─ B. Frontend
 │  └─ B.1. Frontend
 ├─ C. Verification-problem preparation
@@ -30,10 +32,55 @@ Kairos verification pipeline
 │  └─ E.3. Canonical obligations
 ├─ F. Proof preparation
 │  └─ F.1. Proof IR and Proof Plan
-└─ G. Why3 backend
-   ├─ G.1. Why3 generation
-   ├─ G.2. Solvers
-   └─ G.3. Results
+├─ G. Why3 backend
+│  ├─ G.1. Why3 generation
+│  ├─ G.2. Solvers
+│  └─ G.3. Results
+├─ H. C code-generation backend
+│  └─ H.1. Portable C99 generation
+├─ I. Runtime integration and auxiliary outputs
+│  ├─ I.1. Engine API and pipeline assembly
+│  ├─ I.2. Artifacts and output projection
+│  └─ I.3. Metrics and cost reports
+├─ J. Package and dependency boundaries
+└─ K. Validation and architectural fitness
+```
+
+Quick navigation: [A. Entry](#a-entry) · [B. Frontend](#b-frontend) ·
+[C. Verification problems](#c-verification-problem-preparation) ·
+[D. Temporal construction](#d-temporal-construction) ·
+[E. Canonical obligations](#e-canonical-obligation-construction) ·
+[F. Proof preparation](#f-proof-preparation) ·
+[G. Why3 backend](#g-why3-backend) ·
+[H. C backend](#h-c-code-generation-backend) ·
+[I. Runtime and outputs](#i-runtime-integration-and-auxiliary-outputs) ·
+[J. Packages](#j-package-and-dependency-boundaries) ·
+[K. Validation](#k-validation-and-architectural-fitness)
+
+The normalized `Verification_model.program_model` produced by B is the common
+boundary of the two main pipelines. Verification continues from C through G. C
+generation branches directly from B to H and does not construct proof cases,
+temporal automata, products or proof obligations.
+
+I is cross-cutting: it assembles the stages, selects requested outputs and
+exposes the public engine facade, but does not define their scientific
+semantics. J records the dependency direction that keeps the domain, external
+tool contracts, runtime and delivery adapters separate. K describes how those
+boundaries are enforced.
+
+```text
+VS Code client --JSON-RPC--> kairos-lsp
+                                  |
+CLI ------------------------------+---> Kairos_engine.Api
+in-process client ----------------'             |
+                                      +---------+---------+
+                                      |                   |
+                                      v                   v
+                           verification B -> ... -> G  C generation B -> H
+                                      |                   |
+                                      `---------+---------'
+                                                v
+                                  typed results and artifacts
 ```
 
 ## A. Entry
@@ -46,16 +93,16 @@ the verification method.
 
 | Input | Output |
 |---|---|
-| Source file path, requested operation and command-line options | Typed invocation of the Kairos engine |
-| Engine result or error | User-facing output, generated artifacts and process exit status |
+| CLI arguments, LSP/JSON-RPC request or in-process API call | Typed invocation of the Kairos engine |
+| Engine result or error | User-facing response and generated artifacts; the CLI additionally selects a process exit status |
 
 ### A.1. CLI
 
 #### Role
 
-The command-line interface is the main executable entry point of Kairos. It
-decodes command-line arguments, invokes the requested engine operation and
-presents its result.
+The command-line interface is the batch delivery adapter of Kairos. It decodes
+command-line arguments, invokes the requested engine operation and presents
+its result.
 
 #### Responsibilities
 
@@ -90,34 +137,273 @@ pipeline components.
 | [`bin/cli/cli_pipeline_service.ml`](bin/cli/cli_pipeline_service.ml) | Access to engine operations |
 | [`bin/cli/cli_output.ml`](bin/cli/cli_output.ml) | User-facing output and artifact writing |
 
+### A.2. LSP server
+
+#### Role
+
+The LSP executable is the second delivery adapter. It exposes editor features
+and Kairos-specific pipeline operations over JSON-RPC on standard input and
+output.
+
+Like the CLI, it routes semantic and pipeline operations through the public
+`Kairos_engine.Api` facade. It maps protocol values to engine configuration
+and maps typed engine results back to JSON, without importing the verification
+domain, frontend internals or Why3 compiler directly. The current
+`kairos/dotPngFromText` utility is a narrow exception: it calls the engine's
+private Graphviz process adapter directly, as noted below.
+
+#### Pipeline contract
+
+| Input | Output |
+|---|---|
+| JSON-RPC/LSP packets on standard input | JSON-RPC responses, errors and notifications on standard output |
+| Open-document text | Diagnostics, symbols, completion, navigation and formatting results |
+| Kairos custom request | Typed engine invocation and protocol-level projection of its result |
+
+The protocol record types and JSON encoders are isolated in
+`kairos-lsp.protocol`. Common JSON helpers and engine-result mappers live in
+`kairos-lsp.app`; route-specific decoders and configuration mapping are split
+between that library and `bin/lsp`. The executable owns transport, lifecycle,
+routing and mutable server state.
+
+#### Request families
+
+The dispatcher separates three request families:
+
+| Family | Responsibility |
+|---|---|
+| Lifecycle | `initialize`, `initialized`, `shutdown`, `exit`, `$/cancelRequest` and request gating |
+| Standard LSP | Document synchronization, diagnostics, hover, definitions, references, symbols, completion and formatting |
+| Kairos extensions | Pipeline passes, graph rendering, outlines, goal trees and complete runs |
+
+Source diagnostics and semantic editor features operate on the current
+in-memory document buffer. They may parse incomplete text and return partial or
+empty editor information without constructing the full verification pipeline.
+
+The custom `kairos/instrumentationPass`, `kairos/whyPass` and
+`kairos/obligationsPass` requests invoke the corresponding engine operations.
+`kairos/run` maps an LSP configuration to `Engine_contract.config` and uses
+`Kairos_engine.Api.run_with_callbacks`.
+
+#### Streaming runs
+
+A complete run can publish three event kinds before its final response:
+
+1. `kairos/outputsReady`, containing the current output record with its
+   `goals` list cleared, but retaining its current proof traces;
+2. `kairos/goalsReady`, containing goal names and ordered VC identifiers;
+3. `kairos/goalDone`, carrying a status update for one indexed goal.
+
+Work-done progress notifications report the same high-level progress to
+clients that advertise support for them.
+
+The exact callback schedule currently depends on the run path. Minimal and
+diagnostic runs complete their batch proof first and then replay all callbacks.
+The rich progressive path first emits one `goalDone` update with the pending
+status of every goal. When proving is enabled and the run is not WP-only, it
+then emits another update for each goal that completes; cancellation can leave
+some goals without a final update. A client must therefore treat `goalDone` as
+an update, not as a once-only completion event.
+
+#### Current implementation boundaries
+
+The server stores open buffers for editor services, but pipeline requests use
+an `inputFile` path and the engine rereads that file from disk. There is no
+shared parsed-program or verification-pipeline cache between requests.
+
+The server loop and `kairos/run` handler are currently synchronous, so the same
+loop cannot dispatch a new `$/cancelRequest` notification while a run is
+blocking. In addition, only the rich progressive proof path polls the
+cancellation function during prover execution. Minimal and diagnostic paths
+check it only after their batch proof has finished. Effective cancellation
+therefore requires both concurrent packet handling and cancellation-aware
+execution on every run path.
+
+Hover, definition and reference lookup are lightweight, document-local
+services rather than a persistent cross-file semantic index. Outline and goal
+tree requests are presentation transformations over source or engine results;
+they neither construct nor discharge proof obligations.
+
+`workspace/symbol` is advertised and routed but currently returns an empty
+result. Formatting only trims the whitespace of each line. Definition and
+reference results are lexical same-buffer projections rather than a semantic
+cross-file index.
+
+The LSP run configuration exposes only a subset of `Engine_contract.config`.
+Complete LSP runs currently disable WhyML output and leave failed-SMT dumping,
+IR metrics, proof-progress output, stop-on-first-nonvalid and proof
+optimizations at engine defaults. The separate `kairos/whyPass` request is the
+current WhyML inspection path.
+
+`lsp_backend_graph` currently bypasses `Kairos_engine.Api` for
+`kairos/dotPngFromText` and calls `Kairos_engine.Graphviz_render` directly.
+This does not bypass verification semantics, but it is a dependency leak
+through a non-facade engine utility. A strict facade would expose this operation
+through `Api` or move the process adapter to an explicitly shared utility
+boundary.
+
+#### Architectural boundary
+
+The LSP server must not:
+
+- depend on `Verification_model`, `Core_syntax`, `Kairos_frontend`,
+  `Pipeline_build` or `Why_pipeline` directly;
+- duplicate pipeline configuration or proof semantics in protocol handlers;
+- treat editor projections such as goal trees as canonical proof objects;
+- make notification order part of the verification semantics;
+- assume that an unsaved in-memory buffer is the file verified by a custom
+  pipeline request.
+
+#### Main implementation
+
+| Module | Purpose |
+|---|---|
+| [`bin/lsp/kairos_lsp.ml`](bin/lsp/kairos_lsp.ml) | LSP executable entry point |
+| [`bin/lsp/lsp_server_loop.ml`](bin/lsp/lsp_server_loop.ml) | Synchronous JSON-RPC server loop |
+| [`bin/lsp/lsp_server_state.ml`](bin/lsp/lsp_server_state.ml) | Lifecycle, document, cancellation and progress state |
+| [`bin/lsp/lsp_method_dispatch.ml`](bin/lsp/lsp_method_dispatch.ml) | Standard, custom and run route dispatch |
+| [`bin/lsp/lsp_standard_method_route.ml`](bin/lsp/lsp_standard_method_route.ml) | Standard document and language-service routes |
+| [`bin/lsp/lsp_kairos_method_route.ml`](bin/lsp/lsp_kairos_method_route.ml) | Non-streaming Kairos routes |
+| [`bin/lsp/lsp_run_execution_handler.ml`](bin/lsp/lsp_run_execution_handler.ml) | Streaming `kairos/run` orchestration |
+| [`bin/lsp/lsp_backend_usecases.ml`](bin/lsp/lsp_backend_usecases.ml) | Access to the public engine facade |
+| [`bin/lsp/lsp_backend_graph.ml`](bin/lsp/lsp_backend_graph.ml) | Current direct Graphviz utility access for `dotPngFromText` |
+| [`lib/adapters/in/lsp_protocol/protocol/lsp_protocol.ml`](lib/adapters/in/lsp_protocol/protocol/lsp_protocol.ml) | Typed JSON protocol payloads |
+| [`lib/adapters/in/lsp_protocol/app/lsp_pipeline_mapper.ml`](lib/adapters/in/lsp_protocol/app/lsp_pipeline_mapper.ml) | Engine-result to protocol-result mapping |
+| [`lib/adapters/in/lsp_protocol/app/lsp_diagnostics.ml`](lib/adapters/in/lsp_protocol/app/lsp_diagnostics.ml) | Buffer diagnostics through the engine facade |
+
+### A.3. VS Code extension
+
+#### Role
+
+The VS Code extension is the graphical delivery client. It starts the
+configured `kairos-lsp` executable through `vscode-languageclient`, sends
+standard and Kairos-specific LSP requests, and projects protocol responses and
+notifications into editor state and views.
+
+Its normal scientific path is:
+
+```text
+VS Code command or document event
+        |
+        v
+kairos-vscode extension state
+        |
+        | JSON-RPC/LSP
+        v
+kairos-lsp
+        |
+        v
+Kairos_engine.Api
+```
+
+The extension does not link with the OCaml engine and must not reproduce
+frontend, canonical or proof semantics in TypeScript.
+
+#### Responsibilities
+
+The extension owns:
+
+- Kairos and `.kir` language registration, grammars and editor contribution
+  points;
+- startup and lifecycle of the LSP client;
+- Build, Prove, Automata, Outline and cancellation commands;
+- consumption of output-ready, goals-ready and goal-done notifications;
+- client-local run history, active-goal and artifact state;
+- outline, goals, artifacts and run-history trees;
+- virtual artifact documents, code lenses, status bars and webview panels;
+- navigation, comparisons and HTML report export;
+- caching server-produced PNG files in the workspace;
+- writing the product-text projection as a `.kir` file.
+
+All grouping, coloring and explanation views are presentation. The server's
+goal identifiers, traces and proof statuses remain authoritative.
+
+#### Current protocol drift
+
+The TypeScript payload interfaces in `vscode/src/types.ts` are handwritten,
+not generated from `Lsp_protocol`, and have already drifted from the server.
+For example, the extension expects legacy `obc_text`, `obcplus_*`,
+`prune_reasons_text`, `stage_meta` and `obc_span` fields, whereas current OCaml
+outputs expose `flow_meta` and omit those fields. Several legacy run settings
+sent by the client are also absent from the current LSP configuration and are
+ignored.
+
+TypeScript compilation cannot detect this cross-language JSON mismatch. Some
+artifact documents and panels consequently read fields that the server no
+longer sends. The OCaml protocol types and active LSP routes are the current
+implementation authority; the protocol markdown and TypeScript mirrors must
+be reconciled before they can serve as a shared contract.
+
+#### Current IR-panel exception
+
+The IR visualization command does not use the LSP path above. It derives a
+`kairos-pipeline` executable name, invokes it with `--dump-ir-dir`, and renders
+the expected DOT files locally with Graphviz. Neither that executable nor that
+option exists in this repository. The command is therefore a stale, currently
+broken bypass and must not be used as evidence for an additional Kairos
+backend or supported integration boundary.
+
+Cancellation also inherits the synchronous-server and path-specific
+limitations described in A.2. An editor cancellation request is not evidence
+that an already running proof has been interrupted.
+
+#### Architectural boundary
+
+The extension must not:
+
+- define independent proof statuses or canonical identifiers;
+- interpret absent legacy fields as semantic results;
+- invoke undocumented compiler executables as an alternative pipeline;
+- treat cached PNGs, `.kir` text or webview groupings as verification data;
+- assume unsaved text is used by file-backed pipeline requests.
+
+#### Main implementation
+
+| Module | Purpose |
+|---|---|
+| [`vscode/package.json`](vscode/package.json) | Extension contributions, commands, views and settings |
+| [`vscode/src/extension.ts`](vscode/src/extension.ts) | LSP client lifecycle, commands, notifications and orchestration |
+| [`vscode/src/types.ts`](vscode/src/types.ts) | Current handwritten protocol mirrors |
+| [`vscode/src/state.ts`](vscode/src/state.ts) | Client-local session and run state |
+| [`vscode/src/documents.ts`](vscode/src/documents.ts) | Virtual artifact documents |
+| [`vscode/src/providers.ts`](vscode/src/providers.ts) | Tree views and editor providers |
+| [`vscode/src/panels.ts`](vscode/src/panels.ts) | Webview dashboards and artifact panels |
+| [`vscode/src/goals.ts`](vscode/src/goals.ts) | Goal projection helpers |
+| [`vscode/syntaxes/kairos.tmLanguage.json`](vscode/syntaxes/kairos.tmLanguage.json) | Kairos TextMate grammar |
+| [`vscode/README.md`](vscode/README.md) | User-facing extension documentation |
+
 ## B. Frontend
 
 The frontend reads Kairos source files and translates them into the internal
-program representation used by the verification code.
+program representation shared by verification and C code generation.
 
 ### Pipeline contract
 
 | Input | Output |
 |---|---|
-| Kairos source file | `Kairos_frontend.input` |
+| Kairos source file | `Kairos_frontend.output` |
 | Invalid or unreadable source file | Structured frontend error |
 
 ### Data passed to later stages
 
-The frontend returns a `Kairos_frontend.input` value containing:
+The frontend returns a `Kairos_frontend.output` value containing:
 
 | Field | Content | Consumer |
 |---|---|---|
-| `imports` | Imported paths, in source order | Import handling and diagnostics |
-| `parse_info` | Source path, source hash, parse errors and warnings | CLI, LSP and diagnostic reporting |
-| `verification_model` | Checked and normalized program representation | Proof-case construction and subsequent verification stages |
+| `parse_info` | Source path, source hash and warnings | Runtime flow metadata and CLI/LSP pipeline-result projection |
+| `verification_model` | Checked and normalized program representation | Proof-case construction, subsequent verification stages and C code generation |
 
 The complete output record and frontend error types are defined in
 [`lib/adapters/in/kairos_lang/kairos_frontend.mli`](lib/adapters/in/kairos_lang/kairos_frontend.mli).
 
-Only `verification_model` describes the program to be verified. Source
-diagnostics and import information are carried separately and do not affect
-the verification semantics.
+The current parser does not recover from lexical or syntactic errors: it
+returns a structured frontend error and does not produce a
+`Kairos_frontend.output`. Diagnostics over incomplete source text belong to
+`Kairos_source_services` rather than to this successful semantic payload.
+
+Only `verification_model` describes the program supplied to semantic
+backends. Source diagnostics are carried separately and do not affect either
+verification semantics or executable C generation.
 
 ### B.1. Frontend
 
@@ -134,25 +420,79 @@ data.
 
 - read the source file;
 - lex and parse the source language;
-- elaborate names, declarations, observers, state selectors and historical
-  expressions;
-- check types and source-level well-formedness constraints;
+- elaborate names, declarations, predicates, specification definitions,
+  methods, observers, state selectors and historical expressions;
+- check types and source-level well-formedness constraints, including method
+  call graphs and observer causality;
+- expand source-only predicates and specification definitions;
+- lower observers and their executable `pre` expressions into generated
+  executable state;
+- complete observer control flow before instrumenting transitions with
+  observer updates and delay-cell commits;
 - translate the elaborated source AST into
   `Verification_model.program_model`;
+- validate the translated core model, including declarations, types, calls,
+  ghost-use restrictions and historical availability;
 - apply source-order transition priority;
-- add the implicit default-skip transitions required by the language
-  semantics;
-- report imports, warnings and frontend errors.
+- add any remaining implicit default-skip transitions required by the
+  language semantics;
+- report warnings and frontend errors.
+
+#### Transformation sequence
+
+The frontend crosses two distinct validation boundaries. Source-AST
+validation is part of elaboration and checks source-language rules such as the
+control graph, observer causality, method call graphs and loop restrictions.
+After translation, model validation checks the core-owned representation
+before semantic transition normalization adds generated guards or default
+steps.
+
+```text
+source text
+    |
+    v
+Parse.Api.parse_source_text_with_info
+    |
+    v
+Surface.Ast.source
+    |
+    | Elaborate.Api.elaborate_source
+    | - source typing and name resolution
+    | - source-AST well-formedness validation
+    | - source-only expansion and observer instrumentation
+    v
+Core.Ast.program
+    |
+    | To_model.Api.program
+    v
+unnormalized Verification_model.program_model
+    |
+    | To_model.Validation
+    | - core-model semantic validation
+    v
+Verification_model.normalize_node_semantics
+    | - source-order priority
+    | - remaining implicit default steps
+    v
+normalized Verification_model.program_model
+```
+
+Consequently, `To_model.Validation` sees the transitions produced by
+source elaboration, including observer instrumentation, but not the effective
+priority guards or default steps generated by
+`Verification_model.normalize_node_semantics`.
 
 #### Output model
 
 `Verification_model.program_model` is a list of `node_model` values. Each node
 contains:
 
-- type and pure-function declarations;
-- inputs, outputs, local variables and ghost variables;
+- its node name;
+- type, pure-function and method declarations;
+- inputs, outputs, local variables and ghost variables, together with the
+  names of public ghosts;
 - control states and the initial state;
-- normalized executable program steps;
+- normalized executable program steps, including observer instrumentation;
 - temporal assumptions and guarantees;
 - state invariants.
 
@@ -173,20 +513,116 @@ The expressions, statements, temporal formulas, declarations and typed
 historical formulas referenced by the model are defined in
 [`lib/domain/core/core_syntax.mli`](lib/domain/core/core_syntax.mli).
 
+#### Expression and formula boundary
+
+Function application is an ordinary expression constructor. Arguments may be
+arbitrary expressions and the result may participate in a larger expression;
+for example, `f(x) + 1` is one executable expression tree rather than a
+special top-level call form. The elaborator resolves the syntactic call as a
+pure function or expands it as a predicate/specification definition according
+to its context.
+
+First-order and temporal formula positions accept boolean expressions
+directly. This includes `true`, `false`, a boolean variable, a boolean pure
+function call and boolean combinations; users do not need to write
+`b = true`. The type checker still requires the resulting expression to have
+type `bool`, so accepting an expression syntactically does not turn an integer
+or enumeration into a proposition.
+
+This general expression rule does not make executable `pre` general.
+`pre(reference)` remains confined to observer step expressions, while
+historical `pre`/`pre_k` in specifications is represented by `HPreK` and
+follows the separate temporal-lowering path described below.
+
+#### Observer elaboration and the two forms of `pre`
+
+An observer declaration is source-level proof instrumentation represented by
+executable ghost state. Observer values cannot be read or assigned by the
+functional transition and method code, so they cannot drive source behaviour.
+The declaration does not survive as a distinct construct in
+`Verification_model`.
+
+The frontend computes separate stable topological orders for observer
+initialization and observer step updates. Instantaneous references to another
+observer create scheduling dependencies. References captured by a local
+predicate are included in the same analysis. An instantaneous dependency
+cycle is rejected.
+
+Executable `pre(reference)` belongs only to the observer expression language.
+It is unavailable in ordinary transition expressions, guards, methods, pure
+function bodies and loop expressions. It is also rejected in an observer
+initialization block, where there is no previous instant. For every reference
+read through this operator in an observer step, the frontend:
+
+1. creates an internal ghost delay cell;
+2. rewrites `pre(reference)` into a read of that cell;
+3. appends a commit of the current reference value after the observer updates
+   on every transition;
+4. adds the state invariants needed to relate the cell to the corresponding
+   previous-tick value used by verification.
+
+Observer variables themselves become ghosts and their names are recorded in
+`public_ghosts`; generated delay cells remain internal ghosts. `public_ghosts`
+is validation metadata, not a source-level public/private declaration
+mechanism. It permits the generated observer state in the verification
+contexts that may refer to it, notably guarantees and elaboration checks, and
+is discarded when the model is projected into the canonical verification IR.
+Neither the observer declaration nor the executable `pre` constructor reaches
+the core executable statement language.
+
+This mechanism is distinct from historical `pre` in specifications.
+Specification occurrences remain typed `HPreK` expressions in
+`Verification_model` and the historical IR. They are materialized only by
+`Temporal_lower` in E.2.
+
+#### Observer control-flow completion
+
+Observer updates and delay-cell commits must execute on every tick, including
+when no explicit guarded transition is selected. For a node with observers,
+the frontend therefore completes the source control graph before performing
+observer instrumentation:
+
+1. every non-initial state without a catch-all transition receives an
+   unguarded self-loop;
+2. every explicit transition and generated self-loop receives the appropriate
+   observer update sequence followed by delay-cell commits;
+3. after translation, `Verification_model.normalize_node_semantics` applies
+   source-order priority and adds only the empty default steps still missing.
+
+The initial state is deliberately different. A node with observers must
+provide a catch-all transition from that state; otherwise the frontend rejects
+the program. Generating an implicit self-loop there would re-enter the
+observer initialization phase and would not implement an ordinary observer
+step. For the same reason, transitions in an observer node may not return to
+the initial state.
+
+#### Constructs eliminated at the frontend boundary
+
+Local predicates and specification definitions are expanded before
+`Verification_model` is built. Observer declarations are converted into
+ghost variables and executable statements as described above.
+
+The current source language is flat: it has no source imports, node-instance
+declarations or inter-node calls. A `program_model` may contain several
+independent nodes, but it contains no node-composition relation. Expression
+calls to pure functions and statement calls to node-local methods are separate
+constructs and remain in the model.
+
 The frontend therefore depends on a core-owned output format:
 
 ```text
-Kairos source syntax
+Kairos surface AST (`Surface.Ast.source`)
         |
         v
-Elaborated source AST
+Elaborated source AST (`Core.Ast.program`)
         |
         v
 Verification_model.program_model
         |
         +--> Proof_case_program
         +--> Temporal-automata preparation
-        `--> Product and IR construction
+        +--> Product and IR construction
+        `--> C99 code generation
 ```
 
 #### Architectural boundary
@@ -201,7 +637,7 @@ The frontend does not:
 - invoke Spot or construct temporal automata;
 - construct the product, summaries or proof obligations;
 - apply proof optimizations;
-- generate Why3 data.
+- generate Why3 data or C artifacts.
 
 Conversely, the `Verification_model` format belongs to the core rather than
 the Kairos input adapter. This allows another frontend to produce the same
@@ -211,12 +647,23 @@ verification input without depending on the Kairos parser or AST.
 
 | Module | Purpose |
 |---|---|
-| [`lib/adapters/in/kairos_lang/kairos_frontend.ml`](lib/adapters/in/kairos_lang/kairos_frontend.ml) | Reads a source file and returns `Kairos_frontend.input` |
-| [`lib/adapters/in/kairos_lang/kx_lexer.ml`](lib/adapters/in/kairos_lang/kx_lexer.ml) | Lexer |
-| [`lib/adapters/in/kairos_lang/kx_parser.mly`](lib/adapters/in/kairos_lang/kx_parser.mly) | Parser |
-| [`lib/adapters/in/kairos_lang/kx_parse_api.ml`](lib/adapters/in/kairos_lang/kx_parse_api.ml) | Parsing and elaboration entry points |
-| [`lib/adapters/in/kairos_lang/kx_elaborate.ml`](lib/adapters/in/kairos_lang/kx_elaborate.ml) | Source-language elaboration |
-| [`lib/adapters/in/kairos_lang/kairos_to_model.ml`](lib/adapters/in/kairos_lang/kairos_to_model.ml) | Translation to `program_model` |
+| [`lib/adapters/in/kairos_lang/kairos_frontend.ml`](lib/adapters/in/kairos_lang/kairos_frontend.ml) | Reads a source file and returns `Kairos_frontend.output` |
+| [`lib/adapters/in/kairos_lang/shared/syntax.ml`](lib/adapters/in/kairos_lang/shared/syntax.ml) | Syntax shared unchanged across elaboration |
+| [`lib/adapters/in/kairos_lang/surface/ast.ml`](lib/adapters/in/kairos_lang/surface/ast.ml) | Complete parser output |
+| [`lib/adapters/in/kairos_lang/core/ast.ml`](lib/adapters/in/kairos_lang/core/ast.ml) | Complete elaborated program |
+| [`lib/adapters/in/kairos_lang/parse/lexer.ml`](lib/adapters/in/kairos_lang/parse/lexer.ml) | Lexer |
+| [`lib/adapters/in/kairos_lang/parse/parser.mly`](lib/adapters/in/kairos_lang/parse/parser.mly) | Parser |
+| [`lib/adapters/in/kairos_lang/parse/api.ml`](lib/adapters/in/kairos_lang/parse/api.ml) | Parsing and elaboration entry points |
+| [`lib/adapters/in/kairos_lang/elaborate/api.ml`](lib/adapters/in/kairos_lang/elaborate/api.ml) | Source-language elaboration |
+| [`lib/adapters/in/kairos_lang/elaborate/logic.ml`](lib/adapters/in/kairos_lang/elaborate/logic.ml) | Expression typing, call resolution and formula lowering |
+| [`lib/adapters/in/kairos_lang/elaborate/observers.ml`](lib/adapters/in/kairos_lang/elaborate/observers.ml) | Observer dependency analysis and scheduling |
+| [`lib/adapters/in/kairos_lang/elaborate/delays.ml`](lib/adapters/in/kairos_lang/elaborate/delays.ml) | Elimination of executable observer `pre` expressions |
+| [`lib/adapters/in/kairos_lang/elaborate/validation.ml`](lib/adapters/in/kairos_lang/elaborate/validation.ml) | Source-AST validation for control flow, observers, methods and loops |
+| [`lib/adapters/in/kairos_lang/to_model/api.ml`](lib/adapters/in/kairos_lang/to_model/api.ml) | Translation to `program_model` |
+| [`lib/adapters/in/kairos_lang/to_model/validation.ml`](lib/adapters/in/kairos_lang/to_model/validation.ml) | Facade for semantic validation of the translated core model |
+| [`lib/adapters/in/kairos_lang/to_model/validation_common.ml`](lib/adapters/in/kairos_lang/to_model/validation_common.ml) | Shared declaration, identifier and type-validation helpers |
+| [`lib/adapters/in/kairos_lang/to_model/function_validation.ml`](lib/adapters/in/kairos_lang/to_model/function_validation.ml) | Pure-function declaration and contract validation |
+| [`lib/adapters/in/kairos_lang/to_model/node_validation.ml`](lib/adapters/in/kairos_lang/to_model/node_validation.ml) | Node, transition, method, ghost and historical-availability validation |
 | [`lib/domain/core/verification_model.ml`](lib/domain/core/verification_model.ml) | Program model and transition normalization |
 | [`lib/domain/core/core_syntax.ml`](lib/domain/core/core_syntax.ml) | Shared syntax used by the model |
 
@@ -255,8 +702,8 @@ A proof case identifies one temporal verification problem associated with a
 source node.
 
 `Proof_case_program.minimal` initially creates one proof case per source node,
-containing all its guarantee occurrences. This monolithic construction is the
-default.
+containing all its guarantee occurrences. This is the neutral reference
+representation, not the ordinary runtime default.
 
 An optional decomposition strategy may then produce smaller proof cases before
 the temporal automata are constructed.
@@ -266,11 +713,29 @@ the temporal automata are constructed.
 | Strategy | Behaviour |
 |---|---|
 | `Monolithic` | Preserves the initial case unchanged |
-| `Separate_guarantees` | Creates one proof case per guarantee occurrence |
+| `Separate_guarantees` | When a node has several guarantees, creates one proof case per occurrence; zero- and one-guarantee nodes retain their identity case |
 | `Split_multiple_weak_until` | Splits distinct weak-until guarantee occurrences when at least two are present; the remaining guarantees stay grouped |
 
 The last two strategies are optional proof optimizations. They change the
 shape and number of verification problems, but not the source program.
+
+#### Reference configuration and runtime defaults
+
+Kairos keeps one fully neutral configuration for architectural checks and one
+optimized default for normal executions:
+
+| Dimension | Neutral reference configuration | Ordinary runtime default |
+|---|---|---|
+| Proof-case decomposition | `Monolithic` | `Separate_guarantees` |
+| Product reachability | `Trivial` | `Contradiction_closure` |
+| Proof Plan | `Direct` | `Planned { steps = Group_steps; conditions = Deduplicate; formulas = Share_repeated; postconditions = Bundle_repeated }` |
+
+The reference configuration makes every optional transformation observable by
+comparison with a literal path through the canonical data. The runtime default
+changes proof partitioning, inferred auxiliary facts and backend
+representation. Canonical-obligation inventories and contracts are therefore
+configuration-dependent; what must be preserved is the source-program
+semantics and the intended collective verification claim.
 
 #### Structural guarantees
 
@@ -342,12 +807,19 @@ For each proof-case node, Kairos:
 
 - conjoins its selected guarantees into one guarantee formula;
 - conjoins its assumptions into one assumption formula;
+- represents an empty guarantee conjunction as `true`;
 - replaces an absent assumption with a one-state monitor whose `true`
   transition loops on itself;
 - checks that the formulas belong to the supported safety fragment;
 - rejects weak-until operators occurring in a negative position;
 - collects the temporal atoms appearing in each formula;
 - assigns stable opaque names to these atoms.
+
+The trivial guarantee formula is still sent through the normal monitor
+boundary. A node with no source guarantee does not necessarily produce no
+proof obligations: assertions, loop contracts, method contracts, elaboration
+checks and state or product invariants may still create local verification
+conditions.
 
 The external automaton producer receives only the temporal structure and the
 opaque atom names. It does not receive Kairos expressions, program
@@ -366,13 +838,16 @@ A request contains:
 | `atoms` | Ordered atom domain used by the formula |
 | `protocol_version` | Version of the exchange format |
 
-A response contains a partial monitor:
+A response contains its version and atom domain together with a partial
+monitor:
 
 | Field | Meaning |
 |---|---|
-| `initial_state` | Initial monitor-state index |
-| `state_count` | Number of monitor states |
-| `transitions` | Guarded edges `(source, guard, destination)` |
+| `protocol_version` | Version of the exchange format |
+| `atoms` | Ordered atom domain returned by the producer |
+| `monitor.initial_state` | Initial monitor-state index |
+| `monitor.state_count` | Number of monitor states |
+| `monitor.transitions` | Guarded edges `(source, guard, destination)` |
 
 The current producer is Spot. The Spot package checks that the formula is a
 safety property and produces a deterministic partial all-accepting monitor.
@@ -394,16 +869,20 @@ type deterministic_partial_monitor = {
 }
 ```
 
-The opaque atoms appearing in the response guards are replaced with their
-original typed historical expressions.
+The response is validated before substitution. Its protocol version must be
+supported, its atom list must exactly equal the ordered request domain, and
+every guard atom must belong to that domain. Only then are opaque atoms in the
+guards replaced with their original typed historical expressions.
 
 An `Automaton_types.automata_spec` associates:
 
 - one guarantee monitor;
 - one assumption monitor.
 
-These monitor states and transitions are passed unchanged to the reference
-product construction.
+The original monitors remain attached unchanged to the product analysis.
+Reference-product indexing preserves their state indices and edge topology,
+but stores semantically equivalent guards simplified by the core first-order
+simplifier in its successor records.
 
 #### Structural and semantic requirements
 
@@ -440,12 +919,13 @@ contract.
 
 | Module | Purpose |
 |---|---|
-| `lib/domain/verification/automata_preparation.ml` | Validates and prepares temporal formulas and atom mappings |
-| `packages/automata-contract/automata_exchange.ml` | Defines the versioned tool-neutral exchange format |
-| `lib/adapters/out/runtime/orchestration/automata/automata_exchange_adapter.ml` | Converts between core formulas and the neutral contract |
-| `lib/adapters/out/runtime/orchestration/automata/automata_generation.ml` | Produces the assumption/guarantee pair for every proof case |
-| `packages/spot/spot_automaton_builder.ml` | Implements the neutral producer contract using Spot |
-| `lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml` | Connects the pipeline to the Spot producer |
+| [`lib/domain/verification/automata_preparation.ml`](lib/domain/verification/automata_preparation.ml) | Validates and prepares temporal formulas and atom mappings |
+| [`lib/domain/verification/automaton_types.ml`](lib/domain/verification/automaton_types.ml) | Core deterministic-partial-monitor representation |
+| [`packages/automata-contract/automata_exchange.ml`](packages/automata-contract/automata_exchange.ml) | Defines the versioned tool-neutral exchange format |
+| [`lib/adapters/out/runtime/orchestration/automata/automata_exchange_adapter.ml`](lib/adapters/out/runtime/orchestration/automata/automata_exchange_adapter.ml) | Converts between core formulas and the neutral contract |
+| [`lib/adapters/out/runtime/orchestration/automata/automata_generation.ml`](lib/adapters/out/runtime/orchestration/automata/automata_generation.ml) | Produces the assumption/guarantee pair for every proof case |
+| [`packages/spot/spot_automaton_builder.ml`](packages/spot/spot_automaton_builder.ml) | Implements the neutral producer contract using Spot |
+| [`lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml`](lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml) | Connects the pipeline to the Spot producer |
 
 ### D.2. Reference product
 
@@ -633,12 +1113,19 @@ the already constructed product:
 | `Trivial` | Associates `true` with every known product state |
 | `Contradiction_closure` | Propagates reachability from the initial state while ignoring edges whose program, assumption and guarantee guards are recognized as contradictory |
 
-`Contradiction_closure` is conservative and incomplete. It only recognizes
-contradictions handled by the core first-order simplifier.
+`Contradiction_closure` is a syntactic candidate generator, not a semantic
+reachability decision procedure. It only recognizes contradictions handled by
+the core first-order simplifier. Moreover, its edge test currently conjoins
+the entry-frame program and assumption guards directly with the post-frame
+guarantee guard, without applying `Fo_time` transport or the program-body
+effect. It can therefore propose `false` for a destination that is
+semantically feasible across the tick boundary.
 
 The resulting `false` values are not trusted without justification. Later
 passes generate entry facts and preservation conditions proving that the
-corresponding states cannot be reached.
+corresponding states cannot be reached. An over-strong candidate can make a
+valid program unprovable, but it cannot by itself make an invalid program
+valid: the preservation condition still has to be discharged.
 
 A reachability strategy never removes a product prefix, product case or
 obligation. `Trivial` is the neutral implementation, while
@@ -707,12 +1194,13 @@ Reference-product construction does not:
 
 | Module | Purpose |
 |---|---|
-| `lib/domain/verification/product_types.ml` | Product states, prefixes and derived destinations |
-| `lib/domain/verification/product_build.ml` | Monitor validation and structural product exploration |
-| `lib/domain/verification/temporal_automata.ml` | Per-node product-analysis result |
-| `lib/domain/verification/product_reachability.ml` | Optional reachability candidates |
-| `lib/domain/verification/from_model.ml` | Bridge from product prefixes to minimal IR summaries |
-| `lib/domain/verification/orchestration.ml` | Proof-case association and reference-product assembly |
+| [`lib/domain/verification/product_types.ml`](lib/domain/verification/product_types.ml) | Product states, prefixes and derived destinations |
+| [`lib/domain/verification/product_build.ml`](lib/domain/verification/product_build.ml) | Monitor validation and structural product exploration |
+| [`lib/domain/core/historical_initialization.ml`](lib/domain/core/historical_initialization.ml) | Minimum-age and available-history validation |
+| [`lib/domain/verification/temporal_automata.ml`](lib/domain/verification/temporal_automata.ml) | Per-node product-analysis result |
+| [`lib/domain/verification/product_reachability.ml`](lib/domain/verification/product_reachability.ml) | Optional reachability candidates |
+| [`lib/domain/verification/from_model.ml`](lib/domain/verification/from_model.ml) | Bridge from product prefixes to minimal IR summaries |
+| [`lib/domain/verification/orchestration.ml`](lib/domain/verification/orchestration.ml) | Proof-case association and reference-product assembly |
 
 ## E. Canonical-obligation construction
 
@@ -735,10 +1223,35 @@ boundary.
 
 | Input | Output |
 |---|---|
-| `Proof_case_program.t` and its `Orchestration.reference_product` | One `Verification_obligations.t` family per source node |
+| Aggregate boundary: `Proof_case_program.t`, supplied automata and reachability strategy | Private `Canonical_verification.t` retaining product, lowered IR and obligations |
+| Internal E.1--E.3 path: `Orchestration.reference_product` | One `Verification_obligations.t` family per source node |
 
-The intermediate representation is indexed by the kind of expressions it may
-contain:
+### Aggregate canonical boundary
+
+`Canonical_verification.build` is the scientific aggregate boundary of this
+block. It receives the core-owned proof cases, the automata supplied for those
+cases and the selected reachability strategy. It then performs, in order:
+
+1. reference-product construction;
+2. historical IR projection and enrichment;
+3. temporal lowering;
+4. projection to individual canonical obligations.
+
+Its private result retains the proof cases, the reference product, the
+instrumented nodes whose summary formulas are history-free, and the obligation
+families. Consumers may inspect these values but cannot manufacture a partially initialized
+`Canonical_verification.t` through its public interface.
+
+Optional stage, pass and fact-family callbacks are read-only observation
+points for metrics and diagnostics. They cannot replace or modify a stage
+result. This boundary neither constructs a Proof Plan nor invokes a backend;
+both happen after the canonical obligations exist.
+
+The aggregate is implemented by
+[`lib/domain/verification_obligations/canonical_verification.ml`](lib/domain/verification_obligations/canonical_verification.ml).
+
+The intermediate representation is indexed by the kind of expressions its
+summary and product-case fields may contain:
 
 ```text
 historical Ir.node_ir
@@ -756,8 +1269,13 @@ history_free Ir.node_ir
 Verification_obligations.t
 ```
 
-The type change at `Temporal_lower` prevents a backend from consuming an IR
-that still contains unresolved historical expressions.
+The type change at `Temporal_lower` prevents canonical projection from
+consuming summary contracts that still contain unresolved historical reads.
+The phase parameter does not cover traceability data in `source_info`:
+assumptions and guarantees remain LTL, and state invariants retain their
+historical expression type even in a `history_free Ir.node_ir`. E.3 projects
+only the lowered summary contracts into `Verification_obligations.t`; F then
+constructs the backend-facing Proof IR from those canonical obligations.
 
 ### E.1. IR and summaries
 
@@ -802,8 +1320,18 @@ The signature contains:
 
 - the proof-case node name;
 - type and pure-function declarations;
-- inputs, outputs, locals and ghosts;
+- method declarations;
+- inputs and outputs;
+- one `sem_locals` collection containing both the source locals and the ghost
+  variables from `Verification_model`;
 - program control states and the initial control state.
+
+The canonical verification IR no longer distinguishes source locals from
+ghosts, and it does not retain the `public_ghosts` classification. Both kinds
+of persistent internal variable are represented uniformly in `sem_locals`.
+Methods remain distinct declarations in `sem_methods` because their contracts,
+bodies and effect summaries are required both by product-characteristic
+analysis and by proof generation.
 
 It does not contain a standalone list of program transitions. A program
 transition is present only inside the summaries that refer to it.
@@ -949,9 +1477,11 @@ Core_syntax.historical Ir.node_ir
 Consequently, assumption guards, guarantee guards and elaboration checks may
 contain `HPreK`.
 
-The IR cannot be treated as history-free by a cast or a convention. Only
-`Temporal_lower` can construct the corresponding
-`Core_syntax.history_free Ir.node_ir`.
+The summary fields cannot be treated as history-free by a cast or convention.
+Only `Temporal_lower` can construct the corresponding
+`Core_syntax.history_free Ir.node_ir`. The phase marker applies to those
+summary fields, not to the source-level LTL and state-invariant traceability
+retained in `source_info`.
 
 #### Information kept outside the IR
 
@@ -1026,10 +1556,10 @@ E.1 does not:
 
 | Module | Purpose |
 |---|---|
-| `lib/domain/verification/ir.ml` | IR nodes, summaries, derived product states and formula metadata |
-| `lib/domain/verification/ir_formula.ml` | Construction of formula occurrences |
-| `lib/domain/verification/from_model.ml` | Projection from product prefixes to minimal summaries |
-| `lib/domain/verification/orchestration.ml` | Proof-case provenance and structural validation |
+| [`lib/domain/verification/ir.ml`](lib/domain/verification/ir.ml) | IR nodes, summaries, derived product states and formula metadata |
+| [`lib/domain/verification/ir_formula.ml`](lib/domain/verification/ir_formula.ml) | Construction of formula occurrences |
+| [`lib/domain/verification/from_model.ml`](lib/domain/verification/from_model.ml) | Projection from product prefixes to minimal summaries |
+| [`lib/domain/verification/orchestration.ml`](lib/domain/verification/orchestration.ml) | Proof-case provenance and structural validation |
 
 ### E.2. Enrichment and temporal lowering
 
@@ -1060,6 +1590,25 @@ history-free IR
 structure. `Temporal_lower` replaces historical references with explicit
 history slots and changes the static IR phase from `historical` to
 `history_free`.
+
+#### Temporal coordinate systems
+
+The local contracts cross three related coordinates: tick entry, the
+completed post-state of the current transition, and entry to the next tick.
+`Fo_time` performs the only legal rewrites between them. For a variable `x`,
+the rewrites are:
+
+| Transport | Current input `x` | Current non-input `x` | Existing `pre_k(x)` |
+|---|---|---|---|
+| Current tick entry to current post-state | `x` | `pre_1(x)` | `pre_k(x)` |
+| Current post-state to next tick entry | `pre_1(x)` | `x` | `pre_(k+1)(x)` |
+| Destination tick entry to predecessor post-state | rejected | `x` | `x` when `k = 1`, otherwise `pre_(k-1)(x)` |
+
+The last transformation is defined only for persistent state formulas. A
+current destination input has no corresponding value at the predecessor
+post-state and is therefore rejected instead of being approximated. E.1
+enforces that state invariants do not read current inputs, and `Pre` enforces
+the same rule on propagated entry facts.
 
 #### Pipeline contract
 
@@ -1145,8 +1694,10 @@ The incoming contributions are transported to the next tick-entry frame and
 combined by disjunction.
 
 The body analysis retains effects of simple assignments. For compound
-statements such as conditionals, loops, matches and calls, it forgets values
-that may have been modified when it cannot retain them safely.
+statements such as conditionals, loops and matches, it forgets values assigned
+by the compound body when it cannot retain them safely. For a method call, it
+uses the method's inferred write set and its `inout` arguments to forget the
+values that the call may modify.
 
 `Pre` adds the resulting characteristic to the source-state entry facts.
 `Post` adds the corresponding preservation condition to each incoming product
@@ -1202,6 +1753,13 @@ semantics available to the local proof.
 Inputs are excluded because their values are supplied independently at every
 tick.
 
+Ordinary state invariants are deliberately forbidden on the program's initial
+control state. Kairos has no separate initialization VC that would establish
+such an invariant before the first transition. For every non-initial state,
+the invariant discipline is instead local and inductive: `Pre` assumes the
+invariant on summaries leaving that state, while `Post` requires every
+incoming product case to establish the invariant of its destination state.
+
 `Pre` may introduce new historical references, but it does not compute the
 temporal layout. The layout remains unchanged until `Temporal_lower` has seen
 all facts introduced by both `Pre` and `Post`.
@@ -1233,7 +1791,8 @@ destination program-control state.
 
 Each invariant is:
 
-- transported into post-state coordinates;
+- transported backward from destination-entry coordinates to the current
+  predecessor post-state using the third `Fo_time` rule above;
 - guarded by the corresponding guarantee-transition guard;
 - added under `guarded_destination_invariant_ensures`.
 
@@ -1277,8 +1836,16 @@ __pre_k1_x
 __pre_kn_x
 ```
 
-Every occurrence of `pre_k(x, k)` is then replaced with the corresponding
-history-slot variable.
+Every occurrence of `pre_k(x, k)` in the scanned summary fields is then
+replaced with the corresponding history-slot variable.
+
+These slots are logical parameters of the local obligation, not executable
+memory cells. `Temporal_lower` does not insert assignments that update them,
+and it does not instrument the program body. The Why3 backend later declares
+the slots as explicit binders in the generated proof context. Their relation
+to current program values is supplied by the `Pre`/`Post` contract, including
+the state-stability equalities, rather than by a runtime history list or a
+hidden transition statement.
 
 The transformation:
 
@@ -1296,7 +1863,7 @@ Core_syntax.history_free Ir.node_ir
 ```
 
 Failure to resolve a historical reference is reported instead of leaving a
-partially lowered formula in the output.
+partially lowered summary formula in the output.
 
 #### Structural validation
 
@@ -1340,13 +1907,14 @@ the optional proof-plan transformations in F.
 
 | Module | Purpose |
 |---|---|
-| `lib/domain/verification/product_invariant.ml` | Uniform interface for auxiliary product-state facts |
-| `lib/domain/verification/product_reachability.ml` | Reachability candidates and preservation conditions |
-| `lib/domain/verification/product_characteristics.ml` | Symbolic product-state characteristics |
-| `lib/domain/verification/pre.ml` | Entry requirements and propagated facts |
-| `lib/domain/verification/post.ml` | Guarantee progress, destination invariants and preservation facts |
-| `lib/domain/verification/temporal_lower.ml` | Temporal-layout construction and typed historical lowering |
-| `lib/domain/verification/orchestration.ml` | Pass ordering and structural validation |
+| [`lib/domain/verification/fo_time.ml`](lib/domain/verification/fo_time.ml) | Formula transport between entry, post-state and next-entry coordinates |
+| [`lib/domain/verification/product_invariant.ml`](lib/domain/verification/product_invariant.ml) | Uniform interface for auxiliary product-state facts |
+| [`lib/domain/verification/product_reachability.ml`](lib/domain/verification/product_reachability.ml) | Reachability candidates and preservation conditions |
+| [`lib/domain/verification/product_characteristics.ml`](lib/domain/verification/product_characteristics.ml) | Symbolic product-state characteristics |
+| [`lib/domain/verification/pre.ml`](lib/domain/verification/pre.ml) | Entry requirements and propagated facts |
+| [`lib/domain/verification/post.ml`](lib/domain/verification/post.ml) | Guarantee progress, destination invariants and preservation facts |
+| [`lib/domain/verification/temporal_lower.ml`](lib/domain/verification/temporal_lower.ml) | Temporal-layout construction and typed historical lowering |
+| [`lib/domain/verification/orchestration.ml`](lib/domain/verification/orchestration.ml) | Pass ordering and structural validation |
 
 ### E.3. Canonical obligations
 
@@ -1379,8 +1947,10 @@ assumption monitor produces no product prefix and therefore no summary.
 |---|---|
 | `Proof_case_program.t` and the lowered `Orchestration.instrumented_product_node` values | One `Verification_obligations.t` family per source node |
 
-The input IR is statically history-free. No unresolved `pre_k` expression may
-cross this boundary.
+The input IR has statically history-free summary fields. No unresolved
+`pre_k` expression in a step contract may cross this boundary; historical
+source traceability retained elsewhere in the node is not projected into a
+canonical step obligation.
 
 #### Step-contract projection
 
@@ -1601,9 +2171,9 @@ obligations.
 
 | Module | Purpose |
 |---|---|
-| `lib/domain/verification_obligations/step_contract_projection.ml` | Projection of summaries into local step contracts |
-| `lib/domain/verification_obligations/verification_obligations.ml` | Canonical individual obligations and source-node reassembly |
-| `lib/domain/verification_obligations/canonical_verification.ml` | Orchestration of the complete canonical construction |
+| [`lib/domain/verification_obligations/step_contract_projection.ml`](lib/domain/verification_obligations/step_contract_projection.ml) | Projection of summaries into local step contracts |
+| [`lib/domain/verification_obligations/verification_obligations.ml`](lib/domain/verification_obligations/verification_obligations.ml) | Canonical individual obligations and source-node reassembly |
+| [`lib/domain/verification_obligations/canonical_verification.ml`](lib/domain/verification_obligations/canonical_verification.ml) | Orchestration of the complete canonical construction |
 
 ## F. Proof preparation
 
@@ -1735,6 +2305,13 @@ optimization is requested.
 `Deduplicate` removes structurally repeated conditions inside the entry and
 exit conjunctions used by proof units.
 
+Here and in the following proof-plan transformations, *structurally equal*
+means equality of the exact formula syntax tree after ignoring source
+locations and occurrence metadata. It does not quotient formulas by
+commutativity, associativity, arithmetic normalization, propositional
+equivalence or solver reasoning. For example, `a /\ b` and `b /\ a` remain
+different keys.
+
 For a grouped unit, deduplication is applied before common preconditions and
 conditional postconditions are computed.
 
@@ -1805,7 +2382,10 @@ The reconstruction rejects a representation that:
   formula;
 - assigns one formula occurrence to several shared definitions;
 - refers to an unknown or semantically different postcondition bundle;
-- declares a formula or postcondition definition that is not actually reused.
+- declares a shared formula with fewer than two distinct canonical occurrence
+  identifiers;
+- declares a postcondition bundle that is not referenced by at least two
+  individual units.
 
 These checks make optimization passes constrained transformations over a
 core-owned type rather than alternative sources of proof semantics.
@@ -1884,10 +2464,10 @@ F does not:
 
 | Module | Purpose |
 |---|---|
-| `lib/domain/verification_obligations/verification_proof_ir.ml` | Core-owned proof-compilation representation and validation |
-| `lib/domain/verification_optimization/proof_plan.ml` | Optional grouping, deduplication and sharing strategies |
-| `lib/domain/verification_optimization/contract_formula_index.ml` | Index of structurally repeated shareable formulas |
-| `lib/adapters/out/runtime/orchestration/core/pipeline_config.ml` | Reference and optimized strategy configurations |
+| [`lib/domain/verification_obligations/verification_proof_ir.ml`](lib/domain/verification_obligations/verification_proof_ir.ml) | Core-owned proof-compilation representation and validation |
+| [`lib/domain/verification_optimization/proof_plan.ml`](lib/domain/verification_optimization/proof_plan.ml) | Optional grouping, deduplication and sharing strategies |
+| [`lib/domain/verification_optimization/contract_formula_index.ml`](lib/domain/verification_optimization/contract_formula_index.ml) | Index of structurally repeated shareable formulas |
+| [`lib/adapters/out/runtime/orchestration/core/pipeline_config.ml`](lib/adapters/out/runtime/orchestration/core/pipeline_config.ml) | Reference and optimized strategy configurations |
 
 ## G. Why3 backend
 
@@ -1964,10 +2544,11 @@ The common module defines the Why3 representation of:
 
 - imported theories;
 - user enumeration types;
-- pure functions;
+- verified pure functions;
 - the program control-state type;
-- the mutable record containing the control state, local variables and
-  outputs.
+- the mutable record containing the control state, persistent internal
+  variables and outputs;
+- node-local methods, including their contracts, bodies and write effects.
 
 Current inputs and materialized historical values are explicit parameters of
 the generated helpers. They are not reconstructed by the backend from a
@@ -1975,19 +2556,41 @@ monitor state or from additional execution instrumentation.
 
 #### Expression and statement translation
 
-Core expressions and history-free formulas are translated into
-`Why3.Ptree.term` values.
+History-free logical formulas are translated into `Why3.Ptree.term` values.
+Executable expressions and statements are translated into
+`Why3.Ptree.expr` values.
 
 The executable `program_step` is translated into `Why3.Ptree.expr`:
 
 - assignments update the corresponding program variable;
 - conditionals, matches and loops preserve their executable structure;
+- method-call statements remain calls to the corresponding WhyML procedure;
 - assertions remain assertions;
 - the destination control state is assigned after the transition body.
 
 The backend does not reinterpret the temporal semantics. Historical
 expressions have already been lowered in E.2, and the contracts supplied by F
 already contain the facts that must be proved.
+
+#### Method declarations and calls
+
+Methods are compiled into the common module in dependency order. Each WhyML
+procedure receives the node state and current node inputs in addition to its
+explicit `in` and `inout` parameters. Its generated contract contains the
+source `requires` and `ensures` clauses and a write clause derived from the
+method's inferred node-variable effects and explicit `inout` parameters.
+
+The method body is verified once as a common declaration. A transition helper
+that contains `SMethodCall` invokes that declaration; Kairos does not copy the
+method body into every transition helper. Persistent node variables supplied
+as `inout` arguments are passed through temporary WhyML references and
+committed after the call.
+
+Consequently, method-body correctness contributes auxiliary Why3 goals, while
+proof-unit helpers reason about calls through the generated method contracts.
+Those auxiliary goals do not correspond to canonical product obligations, but
+they must also be valid for the complete generated verification environment to
+be established.
 
 #### Individual helpers
 
@@ -2064,9 +2667,13 @@ type compiled_proof_unit = {
 The generated symbol is the key later used to associate Why3 goals with their
 compiled proof unit. Helper symbols use the internal `__kairos_proof_unit_`
 namespace, which the source frontend reserves against user declarations, and
-include the source-node name. They therefore cannot collide with a
-user-function VC or with a helper from another node. Manifest indexing rejects
-a duplicate symbol instead of silently selecting one entry.
+include a normalized source-node name. The reserved namespace prevents a
+collision with a user function or method VC. Two distinct node names can still
+normalize to the same Why3 symbol. There is no early normalized-name
+uniqueness check: Why3 typing may reject duplicate module names, while proof
+trace construction rejects duplicate helper symbols when it builds the
+manifest index. A frontend or compiler check would provide earlier,
+deterministic diagnostics.
 
 `canonical_obligation_ids` is derived directly from the canonical members
 stored in the Proof IR:
@@ -2099,7 +2706,9 @@ Why3 generation must not:
 - construct or alter the scientific product;
 - infer temporal facts or monitor semantics;
 - add assumptions or postconditions absent from the Proof IR;
-- introduce `__pre_k` or automaton-state updates;
+- create new temporal slots or introduce assignments/ghost updates for
+  `__pre_k*` or automaton state; it may only declare the binders already
+  supplied by `temporal_layout`;
 - reorder or filter program execution;
 - choose proof-plan optimizations;
 - use generated helpers as the definition of Kairos semantics.
@@ -2111,16 +2720,16 @@ Why3 helpers are compilation artifacts.
 
 | Module | Purpose |
 |---|---|
-| `lib/adapters/out/provers/why3/compile/why_compile.ml` | Proof-IR compiler and manifest construction |
-| `lib/adapters/out/provers/why3/compile/why_compile_node_common.ml` | Common declarations and node compilation context |
-| `lib/adapters/out/provers/why3/compile/why_compile_expr.ml` | Expression and formula translation |
-| `lib/adapters/out/provers/why3/compile/why_compile_step.ml` | Executable transition-body translation |
-| `lib/adapters/out/provers/why3/compile/why_compile_product_specs.ml` | Individual and grouped WhyML contracts |
-| `lib/adapters/out/provers/why3/compile/why_compile_product_helpers.ml` | Helper construction |
-| `lib/adapters/out/provers/why3/compile/why_compile_formula_sharing.ml` | Emission of shared-formula definitions |
-| `lib/adapters/out/provers/why3/compile/why_compile_bundles.ml` | Emission of shared-postcondition predicates |
-| `lib/adapters/out/provers/why3/compile/why_compile_modules.ml` | Assembly of generated modules |
-| `lib/adapters/out/provers/why3/why_pipeline.ml` | Compilation facade and optional WhyML rendering |
+| [`lib/adapters/out/provers/why3/compile/why_compile.ml`](lib/adapters/out/provers/why3/compile/why_compile.ml) | Proof-IR compiler and manifest construction |
+| [`lib/adapters/out/provers/why3/compile/why_compile_node_common.ml`](lib/adapters/out/provers/why3/compile/why_compile_node_common.ml) | Common declarations and node compilation context |
+| [`lib/adapters/out/provers/why3/compile/why_compile_expr.ml`](lib/adapters/out/provers/why3/compile/why_compile_expr.ml) | Expression and formula translation |
+| [`lib/adapters/out/provers/why3/compile/why_compile_step.ml`](lib/adapters/out/provers/why3/compile/why_compile_step.ml) | Executable transition-body translation |
+| [`lib/adapters/out/provers/why3/compile/why_compile_product_specs.ml`](lib/adapters/out/provers/why3/compile/why_compile_product_specs.ml) | Individual and grouped WhyML contracts |
+| [`lib/adapters/out/provers/why3/compile/why_compile_product_helpers.ml`](lib/adapters/out/provers/why3/compile/why_compile_product_helpers.ml) | Helper construction |
+| [`lib/adapters/out/provers/why3/compile/why_compile_formula_sharing.ml`](lib/adapters/out/provers/why3/compile/why_compile_formula_sharing.ml) | Emission of shared-formula definitions |
+| [`lib/adapters/out/provers/why3/compile/why_compile_bundles.ml`](lib/adapters/out/provers/why3/compile/why_compile_bundles.ml) | Emission of shared-postcondition predicates |
+| [`lib/adapters/out/provers/why3/compile/why_compile_modules.ml`](lib/adapters/out/provers/why3/compile/why_compile_modules.ml) | Assembly of generated modules |
+| [`lib/adapters/out/provers/why3/why_pipeline.ml`](lib/adapters/out/provers/why3/why_pipeline.ml) | Compilation facade and optional WhyML rendering |
 
 ### G.2. Solvers
 
@@ -2156,8 +2765,8 @@ proof-unit VCs + auxiliary VCs = V
 ```
 
 One generated helper may produce several Why3 goals. Common declarations,
-notably verified pure-function declarations, may also produce auxiliary goals
-that do not originate from a proof unit.
+notably verified pure-function and method declarations, may also produce
+auxiliary goals that do not originate from a proof unit.
 
 `split_vc` is a backend-level decomposition of compiled Why3 declarations; it
 does not create, remove or redefine canonical Kairos obligations.
@@ -2211,7 +2820,7 @@ be observed between goals.
 After Why3 driver preparation, the execution layer computes a normalized
 fingerprint of each SMT task.
 
-Within one worker, an already solved fingerprint reuses its previous result
+Within one worker, an already processed fingerprint reuses its previous result
 instead of invoking the solver again. This is an execution optimization and is
 distinct from the prover-independent formula sharing performed in F.
 
@@ -2227,7 +2836,7 @@ The adapter returns a typed `execution_response` containing:
 - optional VC and SMT text blocks;
 - global and per-worker timing metrics.
 
-Solver statuses distinguish:
+Result statuses distinguish:
 
 ```text
 Pending
@@ -2238,6 +2847,10 @@ Unknown
 Out_of_memory
 Failure
 ```
+
+`Pending` is synthesized when a goal has been extracted but no completed
+solver result is available, for example when proving is disabled or execution
+is cancelled. It is not a status returned by a prover.
 
 #### Architectural boundary
 
@@ -2251,13 +2864,13 @@ Solver execution does not:
 
 | Module | Purpose |
 |---|---|
-| `packages/why3/why_execution.ml` | Structured-AST execution entry point |
-| `packages/why3/why_task_support.ml` | Why3 environment, type checking, task extraction and `split_vc` |
-| `packages/why3/why_contract_prove.ml` | Task proving and sequential execution |
-| `packages/why3/why_contract_prover_call.ml` | Primary and fallback prover calls |
-| `packages/why3/why_contract_persistent_z3.ml` | Persistent Z3 process |
-| `packages/why3/why_contract_workers.ml` | Multi-process worker execution |
-| `packages/why3-contract/why3_contract.ml` | Typed execution options, results and metrics |
+| [`packages/why3/why_execution.ml`](packages/why3/why_execution.ml) | Structured-AST execution entry point |
+| [`packages/why3/why_task_support.ml`](packages/why3/why_task_support.ml) | Why3 environment, type checking, task extraction and `split_vc` |
+| [`packages/why3/why_contract_prove.ml`](packages/why3/why_contract_prove.ml) | Task proving and sequential execution |
+| [`packages/why3/why_contract_prover_call.ml`](packages/why3/why_contract_prover_call.ml) | Primary and fallback prover calls |
+| [`packages/why3/why_contract_persistent_z3.ml`](packages/why3/why_contract_persistent_z3.ml) | Persistent Z3 process |
+| [`packages/why3/why_contract_workers.ml`](packages/why3/why_contract_workers.ml) | Multi-process worker execution |
+| [`packages/why3-contract/why3_contract.ml`](packages/why3-contract/why3_contract.ml) | Typed execution options, results and metrics |
 
 ### G.3. Results
 
@@ -2320,8 +2933,10 @@ If one goal is non-valid, times out or is not completed, the grouped proof unit
 is not established. The result layer must not report each member as
 individually invalid without a more precise decomposition.
 
-Auxiliary or otherwise unmatched goals have no canonical member set. Their
-`canonical_obligation_ids` field remains empty.
+Auxiliary or otherwise unmatched goals have no canonical member set. In
+particular, VCs generated while verifying pure-function or method declarations
+have no compilation-manifest entry. Their `canonical_obligation_ids` field
+remains empty.
 
 #### Public result views
 
@@ -2381,8 +2996,630 @@ proof obligations.
 
 | Module | Purpose |
 |---|---|
-| `lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml` | Compilation, execution and artifact orchestration |
-| `lib/adapters/out/runtime/orchestration/outputs/proof_goal_results.ml` | Conversion of Why3 execution responses |
-| `lib/adapters/out/runtime/orchestration/outputs/proof_traces.ml` | Manifest attribution and public trace construction |
-| `lib/adapters/out/runtime/orchestration/outputs/proof_trace_diagnostics.ml` | Diagnostics for non-valid goals |
-| `lib/adapters/out/runtime/orchestration/core/pipeline_proof_types.ml` | Public goal and proof-trace types |
+| [`lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml`](lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml) | Compilation, execution and artifact orchestration |
+| [`lib/adapters/out/runtime/orchestration/outputs/proof_goal_results.ml`](lib/adapters/out/runtime/orchestration/outputs/proof_goal_results.ml) | Conversion of Why3 execution responses |
+| [`lib/adapters/out/runtime/orchestration/outputs/proof_traces.ml`](lib/adapters/out/runtime/orchestration/outputs/proof_traces.ml) | Manifest attribution and public trace construction |
+| [`lib/adapters/out/runtime/orchestration/outputs/proof_trace_diagnostics.ml`](lib/adapters/out/runtime/orchestration/outputs/proof_trace_diagnostics.ml) | Diagnostics for non-valid goals |
+| [`lib/adapters/out/runtime/orchestration/core/pipeline_proof_types.ml`](lib/adapters/out/runtime/orchestration/core/pipeline_proof_types.ml) | Public goal and proof-trace types |
+
+## H. C code-generation backend
+
+This block translates the normalized executable part of
+`Verification_model.program_model` into portable C99 artifacts. It is a
+sibling of the verification pipeline, not a continuation of it.
+
+### Pipeline contract
+
+| Input | Output |
+|---|---|
+| Normalized `Verification_model.program_model` | Generated-file bundle containing a C header, C implementation and versioned JSON interface manifest |
+
+```text
+Kairos source
+     |
+     v
+Frontend
+     |
+     v
+Verification_model.program_model
+     |\
+     | `--> verification path C -> ... -> G
+     `----> C_codegen.emit_program
+                  |
+                  +--> kairos_generated.h
+                  +--> kairos_generated.c
+                  `--> kairos_generated_interface.json
+```
+
+### H.1. Portable C99 generation
+
+#### Role
+
+`C_codegen.emit_program` mechanically emits a board-independent C99 execution
+interface for every node in the normalized frontend model.
+`Kairos_engine.Api.generate_c` invokes this backend directly after
+`Kairos_frontend.parse_input`; it does not construct proof cases, automata,
+products, canonical obligations, a Proof Plan or Why3 tasks.
+
+#### Executable input boundary
+
+The backend relies on the semantic normalization already performed by the
+frontend. Source-order transition priority, implicit fallback steps, observer
+updates and executable observer-delay commits are already present in
+`node_model.steps`. The C backend translates those steps; it must not
+reconstruct their source-language semantics.
+
+The executable projection contains control states, inputs, outputs, persistent
+locals and ghosts, pure-function bodies, node-local method bodies and
+transition statements. This includes the frontend-generated observer and
+delay ghosts, although they are proof-only state and are not advertised as
+node inputs or outputs in the interface manifest.
+
+Specifications are not runtime code. Assumptions, guarantees, state
+invariants, transition `elaboration_checks`, pure-function and method
+contracts, and loop invariants and variants do not become C checks. Explicit
+executable `SAssert` statements are emitted as C `assert` calls.
+
+#### Generated header and implementation
+
+By default the backend emits one whole-program header and one implementation.
+
+The header contains:
+
+- translated enumeration types;
+- one control-state enumeration per node;
+- one state structure per node, containing its control state, outputs, locals
+  and ghosts;
+- one public initialization function and one public step function per node.
+
+The implementation contains the pure-function definitions selected by
+`C_codegen_program`, all declared node-local methods, and each node's
+initialization and step functions. Methods are emitted as `static`
+implementation details and are not part of the public node API. Inputs are
+passed to a step by value; outputs are returned through pointer parameters and
+are also retained in the node state.
+
+The generated code is portable C99. Board configuration, pin mapping, sensor
+drivers, Arduino or PlatformIO integration and upload logic belong to an
+external embedded packaging layer.
+
+#### C interface manifest
+
+The third artifact is a versioned JSON interface manifest. Its default name is
+`kairos_generated_interface.json`, and its current format identifier is
+`kairos-c-interface`, version 1.
+
+For each program the manifest records:
+
+- the generated header name;
+- translated enumeration types and constructors;
+- every node's typed source inputs and outputs;
+- value-versus-pointer parameter passing;
+- the exact generated C names of the state type, initialization function and
+  step function.
+
+External project generators should consume this manifest instead of parsing
+the generated header. This interface manifest is unrelated to the Why3
+compilation manifest: it describes the executable C ABI and carries no
+proof-unit or canonical-obligation provenance.
+
+#### Independence from verification
+
+C generation and verification share the same normalized frontend model but
+execute independently. Generating C neither invokes the provers nor requires a
+successful proof, and a solver result is not embedded in the generated
+artifacts. Conversely, the Why3 backend does not compile or inspect the
+emitted C.
+
+#### Current implementation boundary
+
+Executable pure functions are selected from calls found in normalized program
+steps and then closed transitively through pure-function bodies. The current
+selection does not traverse method bodies. A pure function referenced only
+from a method may therefore be omitted from the emitted C; this is a known
+code-generation limitation rather than an intended semantic boundary.
+
+#### Architectural boundary
+
+The C backend must not:
+
+- parse or elaborate Kairos source syntax;
+- apply transition priority or observer scheduling itself;
+- interpret temporal contracts as runtime monitors;
+- construct proof or solver representations;
+- own hardware- or board-specific integration;
+- treat the C interface manifest as proof provenance.
+
+#### Main implementation
+
+| Module | Purpose |
+|---|---|
+| [`lib/engine/api.ml`](lib/engine/api.ml) | Direct `generate_c` engine operation |
+| [`lib/adapters/out/codegen/c/c_codegen.ml`](lib/adapters/out/codegen/c/c_codegen.ml) | Public C-backend facade |
+| [`lib/adapters/out/codegen/c/c_codegen_program.ml`](lib/adapters/out/codegen/c/c_codegen_program.ml) | Whole-program header, source and artifact assembly |
+| [`lib/adapters/out/codegen/c/c_codegen_node.ml`](lib/adapters/out/codegen/c/c_codegen_node.ml) | Node state, initialization, methods and step functions |
+| [`lib/adapters/out/codegen/c/c_codegen_expr.ml`](lib/adapters/out/codegen/c/c_codegen_expr.ml) | C expression translation |
+| [`lib/adapters/out/codegen/c/c_codegen_stmt.ml`](lib/adapters/out/codegen/c/c_codegen_stmt.ml) | C statement and method-call translation |
+| [`lib/adapters/out/codegen/c/c_codegen_functions.ml`](lib/adapters/out/codegen/c/c_codegen_functions.ml) | Pure-function generation |
+| [`lib/adapters/out/codegen/c/c_codegen_manifest.ml`](lib/adapters/out/codegen/c/c_codegen_manifest.ml) | Versioned JSON ABI manifest |
+| [`bin/cli/cli_runtime.ml`](bin/cli/cli_runtime.ml) | `--emit-c` operation dispatch |
+| [`bin/cli/cli_output.ml`](bin/cli/cli_output.ml) | Generated-file writing |
+
+## I. Runtime integration and auxiliary outputs
+
+The runtime layer is the concrete composition root of Kairos. It orders the
+frontend, automata producer, canonical construction, proof preparation and
+backends, then projects their typed results into the outputs requested by a
+delivery adapter.
+
+It may select a use case and collect observations, but it must not redefine a
+source-language transformation, canonical obligation or backend translation.
+
+### I.1. Engine API and pipeline assembly
+
+#### Public in-process facade
+
+`Kairos_engine.Api` is the supported boundary for the CLI, LSP and embedded
+OCaml clients. These consumers depend on the facade instead of importing the
+frontend, verification domain, runtime orchestration or prover modules
+directly.
+
+`Engine_contract` assembles focused public configuration, error and result
+types from `Pipeline_config`, `Pipeline_proof_types` and `Pipeline_artifacts`.
+The API operations fall into four families:
+
+| Family | Operations and data path |
+|---|---|
+| Editor services | Buffer-based diagnostics and lightweight semantic symbols |
+| Frontend and verification inspection | Surface and elaborated dumps, frontend summary, instrumentation, WhyML, VC/SMT obligations, normalized and proof-oriented IR views, and cost report |
+| Complete verification | Batch `run` or event-producing `run_with_callbacks` |
+| Executable generation | Direct portable-C generation |
+
+The public error sum declares parse, elaboration, type, well-formedness, flow,
+Why3, proof, I/O and internal categories. Frontend and I/O failures are mapped
+into that type, but end-to-end categorization is not yet complete: current
+backend and proof failures are generally collapsed into `Flow_error`, and the
+LSP immediately maps an engine error to a string. Consumers must not assume
+that the declared `Why3_error` and `Prove_error` cases are currently produced
+reliably.
+
+#### Concrete verification flow
+
+`Engine_flow` performs the ordinary verification assembly:
+
+```text
+input file
+    |
+    v
+Kairos_frontend.parse_input
+    |
+    v
+Pipeline_build.prepare_program
+    |  - proof-case construction
+    |
+    +----> Runtime_automata_source.produce_with_spot
+    |                 |
+    |                 `---- supplied automata and automata metadata
+    v
+Pipeline_build.build_from_supplied_automata
+    |  - Canonical_verification.build
+    |  - Proof_plan construction
+    |
+    +----> Canonical_verification.t
+    +----> Verification_proof_ir.t list
+    `----> Flow_info.pipeline_info
+                    |
+                    v
+          Pipeline_outputs / focused projector
+                    |
+                    +----> proofs and traces
+                    +----> optional text and graph artifacts
+                    `----> runtime metadata
+```
+
+The split around automata is intentional. `Pipeline_build` accepts an
+explicit automata bundle and never invokes Spot. `Engine_flow` is the concrete
+caller that currently selects the Spot adapter. A test or another runtime can
+therefore supply a contract-compatible producer without changing canonical
+construction.
+
+The pipeline builder returns three separate components:
+
+| Component | Meaning |
+|---|---|
+| `verification` | Private aggregate result of canonical construction |
+| `proof_plans` | Backend-facing proof representation derived from the canonical obligations |
+| `infos` | Runtime metadata used for output projection |
+
+These components must be projected explicitly. The metadata record is not an
+input to the canonical or proof-plan semantics.
+
+#### Focused paths
+
+Not every engine operation runs the entire diagram:
+
+- surface and elaborated dumps and the frontend summary stop after their
+  required frontend phase;
+- `generate_c` follows the direct B-to-H path;
+- instrumentation, WhyML, obligations, normalized-IR, proof-IR and cost-report
+  operations build the verification pipeline but select their own final
+  projector;
+- a complete run delegates proof and artifact selection to
+  `Pipeline_outputs`.
+
+Every file-based frontend or pipeline operation currently reparses its input
+and reconstructs the required stages. There is no shared frontend snapshot,
+automata cache or canonical pipeline cache between two API calls. Buffer-based
+editor services parse caller-supplied text instead, and graph conversion does
+not parse Kairos source.
+
+`run_with_callbacks` uses the same proof cases, canonical obligations and
+Proof IR as a batch run, but its execution path is not currently equivalent.
+Minimal and diagnostic paths run the batch proof before replaying callbacks.
+The rich progressive path uses a dedicated execution loop with one Why3
+worker, ignores `proof_jobs` and `stop_on_first_nonvalid`, and does not write
+final results to the configured proof-progress CSV. It is also the only path
+that polls `should_cancel` while proving. Callback ordering and execution
+options are therefore runtime limitations, not part of proof semantics.
+
+#### Configuration boundary
+
+The configuration separates proof choices from execution and presentation
+choices:
+
+| Kind | Examples | May affect |
+|---|---|---|
+| Verification and proof representation | Proof-case decomposition, reachability strategy, Proof Plan strategy | Number and shape of proof cases, auxiliary facts and backend proof units |
+| Proof execution | Timeout, worker count, stop-on-first-nonvalid, diagnostics | Scheduling and amount of solver work |
+| Output selection | WhyML, VC, SMT, PNG and failed-SMT dumps | Returned or written artifacts |
+| Measurement | IR metrics and progress path | Observational data only |
+
+Execution and output options must not change the normalized program,
+reference product, canonical obligations or proof meaning. The focused
+reference-stability test described in K checks proof-plan stability of the
+contributor-facing normalized and proof-IR views; it is not a complete
+equivalence test between batch and callback execution.
+
+#### Architectural boundary
+
+The engine is deliberately concrete. There is no parallel abstract engine
+contract package, application-port hierarchy or functor-based composition
+layer. The facade owns use-case selection and component ordering, but it must
+not duplicate frontend elaboration, canonical construction, proof planning or
+backend compilation.
+
+#### Main implementation
+
+| Module | Purpose |
+|---|---|
+| [`lib/engine/api.mli`](lib/engine/api.mli) | Public in-process operations |
+| [`lib/engine/engine_contract.ml`](lib/engine/engine_contract.ml) | Public configuration, result and error assembly |
+| [`lib/engine/engine_flow.ml`](lib/engine/engine_flow.ml) | Concrete use-case orchestration |
+| [`lib/adapters/out/runtime/orchestration/core/pipeline_build.ml`](lib/adapters/out/runtime/orchestration/core/pipeline_build.ml) | Parametric preparation and construction from supplied automata |
+| [`lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml`](lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml) | Current Spot selection at the runtime boundary |
+| [`lib/engine/pipeline_outputs.ml`](lib/engine/pipeline_outputs.ml) | Complete-run proof and artifact selection |
+
+### I.2. Artifacts and output projection
+
+Artifacts are read-only views of already constructed program, product, proof
+or solver data. They help users inspect a run; they are not intermediate
+representations consumed by the verification method.
+
+#### Graph and text views
+
+The graph renderers produce a pair `{ dot; labels }` for:
+
+- the normalized program control automaton;
+- the assumption monitor;
+- the guarantee monitor;
+- the synchronized reference product.
+
+They are deterministic, solver-free projections of domain values. In
+particular, graph rendering cannot simplify guards, change reachability or
+establish an obligation.
+
+Two separate IR text renderers are provided:
+
+| View | Purpose |
+|---|---|
+| Normalized program view | Executable-looking signature, contracts and transitions |
+| Proof view | Formula population, summaries and exact product cases |
+
+The difference is presentation only; both consume the same built pipeline.
+Because their source-program argument is currently
+`Proof_case_program.program`, the views can reflect proof-case decomposition
+rather than being an invariant dump of the original source program.
+
+On the rich output path, the engine currently invokes the external Graphviz
+`dot` process for the program, assumption, guarantee and product graphs
+whenever their DOT text is non-empty, even when `generate_dot_png` is false.
+That flag gates only the additional legacy `dot_png` product field; when it is
+true, the product may be rendered twice. Successful conversions return paths
+to temporary PNG files, while failures return diagnostics and delete failed
+outputs. The engine does not delete successful PNGs after returning their
+paths. This eager rendering and temporary-file lifetime are current
+output-layer limitations and do not alter the verification result.
+
+#### Bundle and projection
+
+`Pipeline_artifact_bundle` first collects textual monitor/product labels and
+DOT graphs. `Pipeline_outputs` combines this bundle with the proof-run result,
+and `Output_mapper` projects both into the public result records. The mapping
+may add PNG paths, spans and flow metadata, but it cannot modify proof statuses
+or canonical identifiers.
+
+A prove-only run with no requested VC, SMT, PNG, proof-progress or proof
+diagnostics uses an explicit minimal path. It invokes the proof runner without
+building the graph artifact bundle and leaves graph, label, VC, SMT and PNG
+fields empty. It may still retain requested WhyML, goals, traces and metadata,
+and failed-SMT dumping or IR metrics do not disqualify the minimal path. The
+architectural fitness check enforces separation of artifact construction, not
+that every presentation field is empty.
+
+The minimal-run predicate is duplicated in `Engine_flow` and
+`Pipeline_outputs`. The definitions currently agree, but the fitness check
+guards only the output branch, not equivalence of the two predicates; they
+must be changed together.
+
+#### Current multi-node limitation
+
+The artifact aggregation is not fully symmetric for several independent
+nodes or proof cases:
+
+- assumption, guarantee and product label text is concatenated for all
+  product nodes;
+- the corresponding singular DOT fields retain only the first non-empty
+  graph;
+- the program-control DOT and label view is generated only for the first
+  proof-case model, which may be renamed and guarantee-sliced by decomposition.
+
+This is a limitation of the current public artifact shape, whose graph fields
+are singular. It does not mean that verification ignores later nodes.
+
+#### Main implementation
+
+| Module | Purpose |
+|---|---|
+| [`lib/adapters/out/artifacts/graph_render/automata_graph_render.ml`](lib/adapters/out/artifacts/graph_render/automata_graph_render.ml) | Solver-free DOT and label views |
+| [`lib/adapters/out/artifacts/text_render/ir_text_program_view_render.ml`](lib/adapters/out/artifacts/text_render/ir_text_program_view_render.ml) | Normalized-program text view |
+| [`lib/adapters/out/artifacts/text_render/ir_text_proof_view_render.ml`](lib/adapters/out/artifacts/text_render/ir_text_proof_view_render.ml) | Proof-oriented IR text view |
+| [`lib/adapters/out/runtime/orchestration/outputs/pipeline_artifact_bundle.ml`](lib/adapters/out/runtime/orchestration/outputs/pipeline_artifact_bundle.ml) | Cross-node artifact collection |
+| [`lib/engine/pipeline_outputs.ml`](lib/engine/pipeline_outputs.ml) | Minimal and rich output paths |
+| [`lib/engine/output_mapper.ml`](lib/engine/output_mapper.ml) | Public output projection |
+| [`lib/engine/graphviz_render.ml`](lib/engine/graphviz_render.ml) | External DOT-to-PNG process adapter |
+
+### I.3. Metrics and cost reports
+
+Kairos exposes two complementary kinds of observation.
+
+`Flow_info.pipeline_info` has optional fields for frontend, automata, summaries
+and canonical instrumentation metadata. Rich, inspection or explicitly
+measured paths can populate automata/product sizes and canonical summary and
+product-case counts; a minimal run without instrumentation collection projects
+zeros for those fields. Warning lists exist at each stage, but current
+automata, summary and instrumentation producers initialize them empty, and
+public `flow_meta` projects only the frontend and summary warning counts.
+
+`Runtime_metrics` records process-local counters for:
+
+- frontend, decomposition, automata, product, canonical and proof-planning
+  timings;
+- `Pre`, `Post` and `Temporal_lower` timings;
+- output, WhyML and VC/SMT phases;
+- Spot calls and the currently unused `z3_s`/`z3_calls` counter fields;
+- Why3 task preparation and per-worker execution data;
+- IR sizes before and after passes;
+- candidate and inserted facts by pass and fact family.
+
+The batch `Engine_flow.run` path takes a snapshot before a run, computes a
+non-negative delta afterwards and appends it to public timing metadata.
+Ordinary `run_with_callbacks` does not currently apply this timing projection,
+except when its diagnostic branch delegates back to `run`. The underlying
+store uses mutable process-global counters. Sequential CLI and current LSP
+executions do not overlap them, but concurrent embedded calls could mix
+measurements; the store is not a per-request isolation mechanism.
+
+The public output type also retains four legacy top-level timing fields:
+`why_time_s`, `automata_generation_time_s`, `automata_build_time_s` and
+`why3_prep_time_s`. Current output mappers set all four to `0.0`; real batch
+measurements are exposed only through `flow_meta.timings`.
+
+The JSON cost report has format identifier `kairos-cost-report-v1`. It combines
+source-program sizes, temporal-formula statistics, canonical formula
+population, selected proof optimizations, flow metadata, WhyML size and helper
+profiles, and WhyML-generation time. It measures the pipeline before VC/SMT
+solving and explicitly remains observational.
+
+Metrics callbacks attached to canonical stages and fact generation may read
+events only. Enabling metrics, a cost report or an artifact must not replace a
+stage result or change proof cases, obligations, solver tasks or statuses.
+
+#### Main implementation
+
+| Module | Purpose |
+|---|---|
+| [`lib/adapters/out/runtime/orchestration/core/flow_info.ml`](lib/adapters/out/runtime/orchestration/core/flow_info.ml) | Per-run structural metadata |
+| [`lib/adapters/out/runtime/telemetry/runtime_metrics.ml`](lib/adapters/out/runtime/telemetry/runtime_metrics.ml) | Runtime counter API and snapshots |
+| [`lib/adapters/out/runtime/telemetry/runtime_metrics_store.ml`](lib/adapters/out/runtime/telemetry/runtime_metrics_store.ml) | Process-local mutable store |
+| [`lib/engine/engine_timing_meta.ml`](lib/engine/engine_timing_meta.ml) | Snapshot delta and public timing projection |
+| [`lib/adapters/out/runtime/orchestration/outputs/pipeline_cost_report.ml`](lib/adapters/out/runtime/orchestration/outputs/pipeline_cost_report.ml) | Versioned cost-report composition |
+
+## J. Package and dependency boundaries
+
+The installable packages encode the direction from neutral contracts and the
+scientific core toward concrete tools, runtime assembly and delivery
+adapters:
+
+```text
+kairos-spot-adapter --------> kairos-automata-contract
+kairos-why3-adapter --------> kairos-why3-contract
+
+kairos-engine-runtime ------> kairos
+                         |---> kairos-automata-contract
+                         |---> kairos-spot-adapter
+                         |---> kairos-why3-contract
+                         `---> kairos-why3-adapter
+
+kairos-cli -----------------> kairos-engine-runtime
+kairos-lsp -----------------> kairos-engine-runtime
+```
+
+Arrows denote dependencies. The diagram shows Kairos package-to-package edges;
+ordinary external dependencies such as Why3, LSP libraries and JSON support
+are omitted.
+
+The npm-distributed VS Code client lies outside this OCaml package graph. Its
+operational dependency is:
+
+```text
+kairos-vscode -- JSON-RPC/LSP --> kairos-lsp --> kairos-engine-runtime
+```
+
+It does not import an engine library directly.
+
+The principal boundary rules are:
+
+1. `kairos` contains the core syntax, normalized program model, frontend and
+   verification-domain transformations. It does not depend on Why3, the
+   concrete engine runtime, CLI, LSP or their protocol libraries.
+2. `kairos-automata-contract` and `kairos-why3-contract` contain only the
+   versioned neutral exchange values and JSON support required at their tool
+   boundaries. They do not depend on the Kairos domain, runtime or tool
+   implementation.
+3. The service-facing Spot adapter accepts the neutral automata-producer
+   contract and does not receive program models or canonical obligations. The
+   installed library also exposes lower-level Spot/HOA utility modules; these
+   are tool-adapter APIs, not Kairos verification-domain inputs.
+4. `kairos-why3-adapter` depends on the neutral Why3 contract and Why3 itself,
+   but not on Kairos domain values, runtime orchestration or telemetry.
+5. `kairos-engine-runtime` is the concrete composition root. It may depend on
+   the core and both tool sides in order to assemble complete use cases.
+6. `kairos-cli` and semantic `kairos-lsp` operations use the public engine
+   facade and must not import domain, frontend, pipeline-builder or Why3
+   modules. The LSP's direct `Graphviz_render` utility call is the current
+   non-semantic exception to an otherwise strict facade.
+
+Additional code-level boundaries refine that package graph:
+
+- runtime core construction consumes supplied automata and cannot call Spot;
+- graph and text renderers cannot call a solver;
+- the Why3 backend consumes history-free proof data and cannot reintroduce
+  monitor-state or `__pre_k*` ghost-update instrumentation;
+- the minimal prove path cannot build presentation artifacts;
+- removed object, composition, application-port and duplicate engine-contract
+  APIs must not reappear alongside the concrete flow.
+
+These are package-level dependency and ownership constraints, not a complete
+library graph. Each package contains several Dune libraries, including public
+names such as `kairos.domain_*`, `kairos-lsp.protocol` and
+`kairos-engine-runtime.internal.*`. The `.internal` libraries are installed so
+that package assembly works, but are unsupported implementation details; the
+facades and neutral contracts above remain the intended integration points.
+
+## K. Validation and architectural fitness
+
+Architecture is protected by executable checks as well as by this document.
+
+### Default test suite
+
+`dune runtest` runs the OCaml unit tests and the repository-level validation
+rule. The latter includes:
+
+- architectural fitness and Why3-backend guardrails;
+- surface/elaborated frontend-boundary checks;
+- generated-C compilation, manifest validation and runtime harnesses;
+- normalized/proof-IR reference stability;
+- frontend classification of the `ok` and `ko` corpus;
+- frontend validation of the light and full medical examples.
+
+The C tests compile generated artifacts with
+`-std=c99 -Wall -Wextra -pedantic -Werror`, execute representative harnesses
+and validate the versioned `kairos-c-interface` manifest.
+
+The reference-stability test genuinely compares normalized-program and
+proof-IR dumps with step grouping disabled. It also passes worker-count and
+timeout flags to the focused dump commands, where those execution flags are
+intentionally not forwarded to the API. It therefore checks proof-plan
+stability and confirms that focused dumps ignore irrelevant execution flags;
+it does not compare complete runs under different backend schedules.
+
+### Solver and performance suites
+
+The more expensive aliases are separate from the default test suite:
+
+| Alias | Purpose |
+|---|---|
+| `proof-regression` | Runs the full staged corpus classification, solver-backed proof cases and the full medical case |
+| `performance-regression` | Checks proof and structural stability on the ordinary performance corpus and reports timing medians |
+| `strategy-regression` | Compares the configured proof-strategy matrix on selected programs |
+| `performance-full-regression` | Repeats the full medical case with its dedicated timeout and reports timing medians |
+
+The performance script has no wall-clock pass/fail threshold. It requires
+proof success and exact structural/goal-manifest stability across runs, then
+reports median timings as observational cost data. These suites do not
+redefine correctness of an individual transformation.
+
+### Architecture and package CI
+
+`scripts/check_architecture_fitness.py` checks durable source-level
+boundaries, including the concrete engine shape, supplied-automata boundary,
+forbidden delivery-adapter imports, neutral external contracts, minimal proof
+path and absence of legacy APIs. Its identifier scan does not by itself enforce
+that every utility call passes through `Kairos_engine.Api`, which is why the
+current LSP Graphviz exception remains possible.
+
+`scripts/check_why_backend_guardrail.py` rejects backend-side monitor or
+history-slot ghost-assignment patterns. This preserves the E.2/G boundary:
+temporal lowering creates logical binders before the backend, not executable
+Why3 instrumentation inside it.
+
+`scripts/check_package_boundaries.sh` builds four targets in isolation:
+`core`, `runtime`, `cli` and `lsp`. It first installs only the declared
+prerequisite packages into a temporary prefix, then builds the target against
+that prefix. This detects undeclared monorepository dependencies that a normal
+whole-tree build could hide.
+
+The GitHub workflows
+[`architecture.yml`](.github/workflows/architecture.yml) and
+[`package-boundaries.yml`](.github/workflows/package-boundaries.yml) execute
+the architecture guardrails, opam lint and the isolated-build matrix on pushes
+and pull requests.
+
+### VS Code validation
+
+`npm run compile` in `vscode/` runs TypeScript compilation and is also the npm
+prepublish check. It currently succeeds, but there are no automated extension
+or client/server contract tests, and the GitHub workflows above do not compile
+the TypeScript client. `dune runtest` lists the VS Code sources as inputs to
+the repository rule, but the architecture fitness script only scans them for
+removed object/API terminology; it does not validate JSON compatibility with
+the OCaml LSP protocol.
+
+### Current validation gaps
+
+There are currently no integration tests for:
+
+- batch versus callback result equivalence;
+- `outputsReady`/`goalsReady`/`goalDone` ordering and updates;
+- LSP cancellation during a running proof;
+- PNG flag gating and temporary-file ownership;
+- timing projection on callback runs;
+- multi-node or multi-proof-case artifact aggregation;
+- TypeScript/OCaml protocol-schema compatibility.
+
+These gaps explain why the implementation limitations recorded in A and I are
+not rejected by the current green architecture checks.
+
+### Main implementation
+
+| Check | Location |
+|---|---|
+| Default and regression aliases | [`tests/dune`](tests/dune) |
+| Architecture fitness | [`scripts/check_architecture_fitness.py`](scripts/check_architecture_fitness.py) |
+| Why3 backend guardrail | [`scripts/check_why_backend_guardrail.py`](scripts/check_why_backend_guardrail.py) |
+| Isolated package builds | [`scripts/check_package_boundaries.sh`](scripts/check_package_boundaries.sh) |
+| Frontend corpus validation | [`scripts/validate_ok_ko.sh`](scripts/validate_ok_ko.sh) |
+| Performance validation | [`scripts/validate_performance.sh`](scripts/validate_performance.sh) |
+| C generation checks | [`tests/check_c_codegen.sh`](tests/check_c_codegen.sh) |
+| Reference stability | [`tests/check_reference_stability.sh`](tests/check_reference_stability.sh) |
+| VS Code compilation entry point | [`vscode/package.json`](vscode/package.json) |

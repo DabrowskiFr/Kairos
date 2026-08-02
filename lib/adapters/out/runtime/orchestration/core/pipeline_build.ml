@@ -30,36 +30,6 @@ module Proof_plan =
 
 let ( let* ) = Result.bind
 
-let rec stmt_contains_call (s : Core_syntax.stmt) : bool =
-  match s.stmt with
-  | SCall _ -> true
-  | SMethodCall _ -> false
-  | SIf (_, then_branch, else_branch) ->
-      List.exists stmt_contains_call then_branch || List.exists stmt_contains_call else_branch
-  | SWhile (_, _, _, body) -> List.exists stmt_contains_call body
-  | SMatch (_, branches, default_branch) ->
-      List.exists
-        (fun (_ctor, body) -> List.exists stmt_contains_call body)
-        branches
-      || List.exists stmt_contains_call default_branch
-  | SAssign _ | SAssert _ | SSkip -> false
-
-let transition_contains_call (t : Verification_model.program_step) : bool =
-  List.exists stmt_contains_call t.body_stmts
-
-let node_uses_calls (n : Verification_model.node_model) : bool =
-  List.exists transition_contains_call n.steps
-
-let reject_calls (program : Verification_model.program_model) : (unit, Pipeline_error.t) result =
-  match List.find_opt node_uses_calls program with
-  | None -> Ok ()
-  | Some n ->
-      Error
-        (Pipeline_error.Flow_error
-           (Printf.sprintf
-              "Calls are not supported in this Kairos version (node '%s')."
-              n.node_name))
-
 let ir_size_metrics :
     type phase.
     phase Ir.node_ir list ->
@@ -151,9 +121,6 @@ let prepare_program
     (prepared_program, Pipeline_error.t) result =
   try
     let p_model = verification_model in
-    match reject_calls p_model with
-    | Error _ as err -> err
-    | Ok () ->
     let t_decomposition = Unix.gettimeofday () in
     let decomposition_result =
       p_model

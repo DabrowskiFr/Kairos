@@ -160,7 +160,7 @@ let method_calls (decl : method_decl) =
     | SMatch (_, branches, default_branch) ->
         List.fold_left calls_of_stmt acc
           (List.concat_map snd branches @ default_branch)
-    | SAssign _ | SAssert _ | SSkip | SCall _ -> acc
+    | SAssign _ | SAssert _ | SSkip -> acc
   in
   List.fold_left calls_of_stmt [] decl.method_body
 

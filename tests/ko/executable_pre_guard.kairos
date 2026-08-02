@@ -1,0 +1,14 @@
+node executable_pre_guard(x: int) returns (
+  out: int
+)
+
+contracts
+
+states Run(init);
+
+transitions
+  Run:
+    to Run when pre(x) > 0 {
+      out := x;
+    }
+end

@@ -30,35 +30,35 @@ let source_diagnostic ~severity ~source ~message =
   { line; column; severity; source; message }
 
 let frontend_error_source = function
-  | Kx_frontend_error.Parse -> "kairos-parse"
-  | Kx_frontend_error.Elaboration -> "kairos-elaboration"
-  | Kx_frontend_error.Type -> "kairos-type"
-  | Kx_frontend_error.Well_formedness -> "kairos-well-formedness"
-  | Kx_frontend_error.Internal -> "kairos-internal"
+  | Shared.Error.Parse -> "kairos-parse"
+  | Shared.Error.Elaboration -> "kairos-elaboration"
+  | Shared.Error.Type -> "kairos-type"
+  | Shared.Error.Well_formedness -> "kairos-well-formedness"
+  | Shared.Error.Internal -> "kairos-internal"
 
 let diagnostics ~filename ~text =
   try
     let _source, info =
-      Kx_parse_api.parse_source_text_with_info ~filename ~text
+      Parse.Api.parse_source_text_with_info ~filename ~text
     in
     let diagnostics = ref [] in
     List.iter
       (fun error ->
         diagnostics :=
           source_diagnostic ~severity:1 ~source:"kairos-parse"
-            ~message:error.Kx_parse_api.message
+            ~message:error.Parse.Api.message
           :: !diagnostics)
-      info.Kx_parse_api.parse_errors;
+      info.Parse.Api.parse_errors;
     List.iter
       (fun warning ->
         diagnostics :=
           source_diagnostic ~severity:2 ~source:"kairos-parse"
             ~message:warning
           :: !diagnostics)
-      info.Kx_parse_api.warnings;
+      info.Parse.Api.warnings;
     List.rev !diagnostics
   with
-  | Kx_frontend_error.Error error ->
+  | Shared.Error.Error error ->
       [
         source_diagnostic ~severity:1
           ~source:(frontend_error_source error.kind)
@@ -73,7 +73,7 @@ let diagnostics ~filename ~text =
 let semantic_symbols ~filename ~text =
   try
     let source, _info =
-      Kx_parse_api.parse_source_text_with_info ~filename ~text
+      Parse.Api.parse_source_text_with_info ~filename ~text
     in
     let all = Hashtbl.create 256 in
     let nodes = Hashtbl.create 64 in
@@ -83,7 +83,7 @@ let semantic_symbols ~filename ~text =
       if value <> "" then Hashtbl.replace table value ()
     in
     List.iter
-      (fun (node : Kx_core_ast.node) ->
+      (fun (node : Core.Ast.node) ->
         let semantics = node.semantics in
         add nodes semantics.sem_nname;
         add all semantics.sem_nname;
@@ -94,8 +94,8 @@ let semantic_symbols ~filename ~text =
           semantics.sem_states;
         List.iter
           (fun variable ->
-            add variables variable.Kx_core_syntax.vname;
-            add all variable.Kx_core_syntax.vname)
+            add variables variable.Core.Syntax.vname;
+            add all variable.Core.Syntax.vname)
           (semantics.sem_inputs @ semantics.sem_outputs
          @ semantics.sem_locals))
       source.nodes;
@@ -112,15 +112,15 @@ let semantic_symbols ~filename ~text =
       }
   with _ -> None
 
-let frontend_error (error : Kx_frontend_error.t) =
+let frontend_error (error : Shared.Error.t) =
   match error.kind with
-  | Kx_frontend_error.Parse -> Kairos_frontend.Parse_error error.message
-  | Kx_frontend_error.Elaboration ->
+  | Shared.Error.Parse -> Kairos_frontend.Parse_error error.message
+  | Shared.Error.Elaboration ->
       Kairos_frontend.Elaboration_error error.message
-  | Kx_frontend_error.Type -> Kairos_frontend.Type_error error.message
-  | Kx_frontend_error.Well_formedness ->
+  | Shared.Error.Type -> Kairos_frontend.Type_error error.message
+  | Shared.Error.Well_formedness ->
       Kairos_frontend.Well_formedness_error error.message
-  | Kx_frontend_error.Internal -> Kairos_frontend.Internal_error error.message
+  | Shared.Error.Internal -> Kairos_frontend.Internal_error error.message
 
 let read_text input_file =
   try
@@ -132,14 +132,14 @@ let dump parse render ~input_file =
   | Error _ as error -> error
   | Ok text -> (
       try Ok (render (parse ~filename:input_file ~text |> fst)) with
-      | Kx_frontend_error.Error error -> Error (frontend_error error)
+      | Shared.Error.Error error -> Error (frontend_error error)
       | exn ->
           Error (Kairos_frontend.Internal_error (Printexc.to_string exn)))
 
 let surface_dump ~input_file =
-  dump Kx_parse_api.parse_surface_text_with_info
-    Kx_parse_api.surface_source_to_json ~input_file
+  dump Parse.Api.parse_surface_text_with_info
+    Parse.Api.surface_source_to_json ~input_file
 
 let elaborated_dump ~input_file =
-  dump Kx_parse_api.parse_source_text_with_info Kx_parse_api.source_to_json
+  dump Parse.Api.parse_source_text_with_info Parse.Api.source_to_json
     ~input_file

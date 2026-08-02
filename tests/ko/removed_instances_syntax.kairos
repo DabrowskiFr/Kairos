@@ -1,0 +1,17 @@
+node removed_instances_syntax(x: int) returns (
+  out: int
+)
+
+contracts
+
+instances
+  instance child : delay;
+
+states Run(init);
+
+transitions
+  Run:
+    to Run {
+      out := x;
+    }
+end

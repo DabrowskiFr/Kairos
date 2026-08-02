@@ -1,0 +1,299 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
+(** Sedlex lexer for Kairos source files.
+
+    This module tokenizes source text for Menhir parsing and keeps the latest
+    lexeme for diagnostics. *)
+
+open Parser
+
+(** Exception [Lexing_error]. *)
+
+exception Lexing_error of string
+
+(** [kw_table] helper value. *)
+
+let kw_table = Hashtbl.create 64
+
+(** Helper value. *)
+
+let () =
+  List.iter
+    (fun (k, t) -> Hashtbl.add kw_table k t)
+    [
+      ("node", NODE);
+      ("type", TYPE);
+      ("function", FUNCTION);
+      ("predicate", PREDICATE);
+      ("method", METHOD);
+      ("spec", SPEC);
+      ("def", DEF);
+      ("returns", RETURNS);
+      ("locals", LOCALS);
+	      ("ghost", GHOSTS);
+	      ("ghosts", GHOSTS);
+	      ("observers", OBSERVERS);
+	      ("states", STATES);
+      ("init", INIT);
+      ("step", STEP);
+      ("trans", TRANS);
+      ("transitions", TRANS);
+      ("end", END);
+      ("requires", REQUIRES);
+      ("ensures", ENSURES);
+      ("assume", ASSUME);
+      ("guarantee", GUARANTEE);
+      ("invariant", INVARIANT);
+      ("invariants", INVARIANTS);
+      ("in", IN);
+      ("inout", INOUT);
+      ("except", EXCEPT);
+      ("contracts", CONTRACTS);
+      ("let", LET);
+      ("if", IF);
+      ("then", THEN);
+      ("else", ELSE);
+      ("while", WHILE);
+      ("do", DO);
+      ("variant", VARIANT);
+      ("for", FOR);
+      ("forall", FORALL);
+      ("exists", EXISTS);
+      ("match", MATCH);
+      ("with", WITH);
+      ("when", WHEN);
+      ("from", FROM);
+      ("to", TO);
+      ("skip", SKIP);
+      ("true", TRUE);
+      ("false", FALSE);
+      ("int", TINT);
+      ("bool", TBOOL);
+      ("real", TREAL);
+      ("Formula", FORMULA);
+      ("formula", FORMULA);
+      ("HExpr", HEXPR);
+      ("hexpr", HEXPR);
+      ("Nat", NAT);
+      ("nat", NAT);
+      ("pre", PRE);
+      ("old", OLD);
+      ("pre_k", PREK);
+      ("past", PAST);
+      ("and", AND);
+      ("or", OR);
+      ("not", NOT);
+      ("always", G);
+      ("next", X);
+      ("weakuntil", W);
+      ("release", R);
+      ("G", G);
+      ("X", X);
+      ("W", W);
+      ("R", R);
+    ]
+
+(** [last_lexeme_ref] helper value. *)
+
+let last_lexeme_ref = ref ""
+(** [last_lexeme] helper value. *)
+
+let last_lexeme () = !last_lexeme_ref
+
+(** [set_lexeme] helper value. *)
+
+let set_lexeme lexbuf =
+  let s = Sedlexing.Utf8.lexeme lexbuf in
+  last_lexeme_ref := s;
+  s
+
+(** [tok] helper value. *)
+
+let tok lexbuf t =
+  ignore (set_lexeme lexbuf);
+  t
+
+(** [expected_tokens] helper value. *)
+
+let expected_tokens : (string * Parser.token) list =
+  [
+    ("node", NODE);
+    ("type", TYPE);
+    ("function", FUNCTION);
+    ("predicate", PREDICATE);
+    ("method", METHOD);
+    ("spec", SPEC);
+    ("def", DEF);
+    ("returns", RETURNS);
+    ("locals", LOCALS);
+    ("ghost", GHOSTS);
+    ("ghosts", GHOSTS);
+    ("observers", OBSERVERS);
+    ("states", STATES);
+    ("init", INIT);
+    ("step", STEP);
+    ("trans", TRANS);
+    ("transitions", TRANS);
+    ("end", END);
+    ("requires", REQUIRES);
+    ("ensures", ENSURES);
+    ("assume", ASSUME);
+    ("guarantee", GUARANTEE);
+    ("invariant", INVARIANT);
+    ("invariants", INVARIANTS);
+    ("in", IN);
+    ("inout", INOUT);
+    ("except", EXCEPT);
+    ("contracts", CONTRACTS);
+    ("let", LET);
+    ("if", IF);
+    ("then", THEN);
+    ("else", ELSE);
+    ("while", WHILE);
+    ("do", DO);
+    ("variant", VARIANT);
+    ("for", FOR);
+    ("forall", FORALL);
+    ("exists", EXISTS);
+    ("match", MATCH);
+    ("with", WITH);
+    ("_", UNDERSCORE);
+    ("when", WHEN);
+    ("from", FROM);
+    ("to", TO);
+    ("skip", SKIP);
+    ("true", TRUE);
+    ("false", FALSE);
+    ("int", TINT);
+    ("bool", TBOOL);
+    ("real", TREAL);
+    ("Formula", FORMULA);
+    ("formula", FORMULA);
+    ("HExpr", HEXPR);
+    ("hexpr", HEXPR);
+    ("Nat", NAT);
+    ("nat", NAT);
+    ("pre", PRE);
+    ("old", OLD);
+    ("pre_k", PREK);
+    ("past", PAST);
+    ("and", AND);
+    ("or", OR);
+    ("not", NOT);
+    ("always", G);
+    ("next", X);
+    ("weakuntil", W);
+    ("release", R);
+    ("G", G);
+    ("X", X);
+    ("W", W);
+    ("R", R);
+    (":=", ASSIGN);
+    ("->", ARROW);
+    ("=>", IMPL);
+    (">=", GE);
+    ("<=", LE);
+    ("!=", NEQ);
+    ("=", EQ);
+    (">", GT);
+    ("<", LT);
+    ("+", PLUS);
+    ("-", MINUS);
+    ("*", STAR);
+    ("/", SLASH);
+    ("(", LPAREN);
+    (")", RPAREN);
+    ("{", LBRACE);
+    ("}", RBRACE);
+    ("[", LBRACK);
+    ("]", RBRACK);
+    (",", COMMA);
+    (";", SEMI);
+    (":", COLON);
+    (".", DOT);
+    ("$", DOLLAR);
+    ("int-literal", INT 0);
+    ("identifier", IDENT "");
+    ("<eof>", EOF);
+  ]
+
+(** [token] helper value. *)
+
+let rec token lexbuf =
+  match%sedlex lexbuf with
+  | Plus (Chars " \t\r\n") ->
+      let s = Sedlexing.Utf8.lexeme lexbuf in
+      String.iter (fun c -> if c = '\n' then Sedlexing.new_line lexbuf) s;
+      token lexbuf
+  | "//", Star (Compl '\n') ->
+      ignore (set_lexeme lexbuf);
+      token lexbuf
+  | "(*" ->
+      comment 1 lexbuf;
+      token lexbuf
+  | ":=" -> tok lexbuf ASSIGN
+  | "->" -> tok lexbuf ARROW
+  | "=>" -> tok lexbuf IMPL
+  | ">=" -> tok lexbuf GE
+  | "<=" -> tok lexbuf LE
+  | "!=" -> tok lexbuf NEQ
+  | "=" -> tok lexbuf EQ
+  | ">" -> tok lexbuf GT
+  | "<" -> tok lexbuf LT
+  | "+" -> tok lexbuf PLUS
+  | "-" -> tok lexbuf MINUS
+  | "*" -> tok lexbuf STAR
+  | "/" -> tok lexbuf SLASH
+  | "(" -> tok lexbuf LPAREN
+  | ")" -> tok lexbuf RPAREN
+  | "{" -> tok lexbuf LBRACE
+  | "}" -> tok lexbuf RBRACE
+  | "[" -> tok lexbuf LBRACK
+  | "]" -> tok lexbuf RBRACK
+  | "," -> tok lexbuf COMMA
+  | ";" -> tok lexbuf SEMI
+  | ":" -> tok lexbuf COLON
+  | "." -> tok lexbuf DOT
+  | "$" -> tok lexbuf DOLLAR
+  | "|" -> tok lexbuf BAR
+  | "_" -> tok lexbuf UNDERSCORE
+  | Plus '0' .. '9' ->
+      let s = set_lexeme lexbuf in
+      INT (int_of_string s)
+  | ('A' .. 'Z' | 'a' .. 'z' | '_'), Star ('A' .. 'Z' | 'a' .. 'z' | '0' .. '9' | '_' | '\'') -> (
+      let s = set_lexeme lexbuf in
+      match Hashtbl.find_opt kw_table s with
+      | Some t -> t
+      | None -> IDENT s)
+  | eof -> tok lexbuf EOF
+  | _ ->
+      let s = set_lexeme lexbuf in
+      raise (Lexing_error (Printf.sprintf "Unexpected char: %s" s))
+
+and comment depth lexbuf =
+  match%sedlex lexbuf with
+  | "(*" -> comment (depth + 1) lexbuf
+  | "*)" ->
+      if depth = 1 then () else comment (depth - 1) lexbuf
+  | eof -> raise (Lexing_error "Unterminated comment")
+  | '\n' ->
+      Sedlexing.new_line lexbuf;
+      comment depth lexbuf
+  | any -> comment depth lexbuf
+  | _ -> raise (Lexing_error "Invalid comment")

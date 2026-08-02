@@ -174,7 +174,6 @@ and stmt_desc =
   | SWhile of expr * history_free hexpr list * expr option * stmt list
   | SMatch of expr * (ident * stmt list) list * stmt list
   | SSkip
-  | SCall of ident * expr list * ident list
   | SMethodCall of ident * expr list
 
 val stmt_to_yojson : stmt -> Yojson.Safe.t

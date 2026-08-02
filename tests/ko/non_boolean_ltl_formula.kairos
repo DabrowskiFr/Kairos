@@ -1,0 +1,15 @@
+node non_boolean_ltl_formula(count: int) returns (
+  output: bool
+)
+
+contracts
+  guarantee: count + 1;
+
+states Init(init);
+
+transitions
+  Init:
+    to Init {
+      output := true;
+    }
+end

@@ -1,0 +1,36 @@
+function inc(x: int): int = x + 1;
+
+function addTwo(x: int): int = inc(x) + 1;
+
+function positive(x: int): bool = x > 0;
+
+node function_call_expressions(
+  call: int,
+  instance: int,
+  instances: int
+) returns (
+  out: int
+)
+
+observers
+  seen : int = inc(call) -> inc(pre(seen)) + 1;
+
+contracts
+  guarantee: G(inc(call) + 1 = inc(call) + 1);
+  guarantee: G(addTwo(call) = addTwo(call));
+
+states Run;
+
+transitions
+  init:
+    to Run {
+      out := addTwo(call) + inc(instance);
+    }
+  Run:
+    to Run when positive(inc(call) + instances) {
+      out := addTwo(call) + inc(instance);
+    }
+    to Run when not positive(inc(call) + instances) {
+      out := addTwo(call) + inc(instance);
+    }
+end

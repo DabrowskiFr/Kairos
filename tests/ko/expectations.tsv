@@ -40,12 +40,16 @@ independent_alarm_acknowledgement__bad_code.kairos	proof	independent-weak-until
 init_state_invariant.kairos	frontend	state-selector
 duplicate_initialization.kairos	frontend	initialization is declared twice
 internal_prefix_reserved.kairos	frontend	reserved-name
-imported_spec_contains_node.kairos	frontend	spec-import
+executable_pre_assignment.kairos	frontend	executable-pre-scope
+executable_pre_function.kairos	frontend	executable-pre-scope
+executable_pre_guard.kairos	frontend	executable-pre-scope
 multiple_assignment_arity.kairos	frontend	parallel-assignment
 multiple_assignment_rhs_depends.kairos	frontend	parallel-assignment
-node_call_writes_input.kairos	frontend	call-output-ownership
 node_requires_output.kairos	frontend	contract-observability
+non_boolean_fo_formula.kairos	frontend	formula-typing
+non_boolean_ltl_formula.kairos	frontend	formula-typing
 observer_drives_output.kairos	frontend	observer-separation
+observer_non_total_init.kairos	frontend	observer-initialization
 platform_door_badge__bad_assumption.kairos	proof	assumption-boundary
 platform_door_badge__bad_code.kairos	proof	implementation
 predicate_parameter_type_mismatch.kairos	frontend	predicate-parameter-typing
@@ -62,6 +66,9 @@ require_always_one__bad_code.kairos	proof	implementation
 require_always_one__bad_spec.kairos	proof	contract
 require_delay_bool__bad_invariant.kairos	proof	invariant
 require_delay_bool__bad_spec.kairos	proof	contract
+removed_import_syntax.kairos	frontend	removed-import-syntax
+removed_instances_syntax.kairos	frontend	removed-instance-syntax
+removed_node_call_syntax.kairos	frontend	removed-node-call-syntax
 resettable_delay__bad_invariant.kairos	proof	invariant
 resettable_delay__bad_spec.kairos	proof	contract
 sensor_index_out_of_domain.kairos	frontend	index-domain
@@ -95,4 +102,3 @@ w_sticky_ack_latch__bad_invariant.kairos	proof	invariant
 w_sticky_ack_latch__bad_spec.kairos	proof	contract
 wr_input_output__bad_invariant.kairos	proof	invariant
 wr_input_output__bad_spec.kairos	proof	contract
-cyclic_spec_import.kairos	frontend	spec-import-cycle

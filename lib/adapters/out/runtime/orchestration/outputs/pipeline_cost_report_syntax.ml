@@ -54,7 +54,6 @@ let rec stmt_size (s : stmt) =
              branches)
       + sum_int (List.map stmt_size default_branch)
   | SSkip -> 1
-  | SCall (_, args, outs) -> 1 + List.length outs + sum_int (List.map expr_size args)
   | SMethodCall (_, args) -> 1 + sum_int (List.map expr_size args)
 
 let rec hexpr_max_pre_depth : type phase. phase hexpr -> int =

@@ -1,0 +1,18 @@
+spec def responds_next(trigger: Formula, response: Formula) =
+  G($trigger => X($response));
+
+spec def stable_after_init(prop: Formula) =
+  X G($prop);
+
+node spec_definition_multiple(trigger: bool) returns (response: bool)
+contracts
+  guarantee: responds_next([trigger = true], [response = true]);
+  guarantee: stable_after_init([response = trigger]);
+states
+  Run(init);
+transitions
+  Run:
+    to Run {
+      response := trigger;
+    }
+end

@@ -4,13 +4,10 @@
   "scopeName": "source.kairos",
   "patterns": [
     { "include": "#comments" },
-    { "include": "#strings" },
-    { "include": "#imports" },
     { "include": "#typeDeclarations" },
     { "include": "#callableDeclarations" },
     { "include": "#specDeclarations" },
     { "include": "#nodeHeaders" },
-    { "include": "#instanceDeclarations" },
     { "include": "#sectionKeywords" },
     { "include": "#stateLabels" },
     { "include": "#transitionTargets" },
@@ -44,39 +41,6 @@
           "patterns": [
             { "include": "#comments" }
           ]
-        }
-      ]
-    },
-    "strings": {
-      "patterns": [
-        {
-          "name": "string.quoted.double.kairos",
-          "begin": "\"",
-          "end": "\"",
-          "patterns": [
-            {
-              "name": "constant.character.escape.kairos",
-              "match": "\\\\(?:[\"\\\\nt])"
-            },
-            {
-              "name": "invalid.illegal.escape.kairos",
-              "match": "\\\\."
-            }
-          ]
-        }
-      ]
-    },
-    "imports": {
-      "patterns": [
-        {
-          "name": "meta.import.kairos",
-          "match": "^\\s*(import)\\s+(?:(spec)\\s+)?(\"(?:[^\"\\\\]|\\\\.)*\")\\s*(;)",
-          "captures": {
-            "1": { "name": "keyword.control.import.kairos" },
-            "2": { "name": "keyword.declaration.spec.kairos" },
-            "3": { "name": "string.quoted.double.kairos" },
-            "4": { "name": "punctuation.terminator.statement.kairos" }
-          }
         }
       ]
     },
@@ -130,25 +94,11 @@
         }
       ]
     },
-    "instanceDeclarations": {
-      "patterns": [
-        {
-          "name": "meta.instance.declaration.kairos",
-          "match": "^\\s*(instance)\\s+([A-Za-z_][A-Za-z0-9_']*)\\s*(:)\\s*([A-Za-z_][A-Za-z0-9_']*)",
-          "captures": {
-            "1": { "name": "keyword.declaration.instance.kairos" },
-            "2": { "name": "variable.other.definition.kairos" },
-            "3": { "name": "punctuation.separator.type.kairos" },
-            "4": { "name": "entity.name.type.node.kairos" }
-          }
-        }
-      ]
-    },
     "sectionKeywords": {
       "patterns": [
         {
           "name": "keyword.control.section.kairos",
-          "match": "^\\s*(?:contracts|instances|locals|ghost|ghosts|observers|states|invariants|trans|transitions)\\b"
+          "match": "^\\s*(?:contracts|locals|ghost|ghosts|observers|states|invariants|trans|transitions)\\b"
         },
         {
           "name": "keyword.control.contract.kairos",
@@ -265,7 +215,7 @@
         },
         {
           "name": "keyword.control.transition.kairos",
-          "match": "\\b(?:from|to|skip|call)\\b"
+          "match": "\\b(?:from|to|skip)\\b"
         },
         {
           "name": "keyword.control.block.kairos",
@@ -285,7 +235,7 @@
       "patterns": [
         {
           "name": "keyword.declaration.kairos",
-          "match": "\\b(?:node|type|function|predicate|method|spec|def|import|let|instance|instances|locals|ghost|ghosts|observers|states|trans|transitions|contracts|returns)\\b"
+          "match": "\\b(?:node|type|function|predicate|method|spec|def|let|locals|ghost|ghosts|observers|states|trans|transitions|contracts|returns)\\b"
         }
       ]
     },

@@ -1,0 +1,24 @@
+node observer_implicit_self_loop() returns (
+  out: int
+)
+
+observers
+  dependent : bool = false -> counterIsPositive(false);
+  counter : int = 0 -> pre(counter) + 1;
+
+predicate readsCounter() =
+  past(counter > 0, 0);
+
+predicate counterIsPositive(counter: bool) =
+  readsCounter();
+
+contracts
+
+states Run;
+
+transitions
+  init:
+    to Run {
+      out := 0;
+    }
+end

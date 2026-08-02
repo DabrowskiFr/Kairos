@@ -1,5 +1,0 @@
-spec def responds_next(trigger: Formula, response: Formula) =
-  G($trigger => X($response));
-
-spec def stable_after_init(prop: Formula) =
-  X G($prop);

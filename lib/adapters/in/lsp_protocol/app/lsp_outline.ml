@@ -34,7 +34,7 @@ let outline_sections_of_text (text : string) : outline_sections =
   let transitions_header_re = Str.regexp "^[ \t]*transitions\\b" in
   let section_header_re =
     Str.regexp
-      "^[ \t]*\\(states\\|contracts\\|locals\\|invariants\\|instances\\|transitions\\|end\\)\\b"
+      "^[ \t]*\\(states\\|contracts\\|locals\\|invariants\\|transitions\\|end\\)\\b"
   in
   let src_state_re =
     Str.regexp "^[ \t]*\\([A-Za-z0-9_']+\\)[ \t]*:[ \t]*\\({\\)?[ \t]*$"

@@ -72,7 +72,15 @@
 // - bolusRequest has priority over basal infusion in this abstraction [S4].
 // - requestInfuse admits basal infusion only under safe conditions [S4,S5].
 
-import spec "spec/temporal_patterns.kairos";
+// If a trigger holds now, the response must hold on the next state.
+spec def responds_now_next(trigger: Formula, response: Formula) =
+  G($trigger => X($response));
+
+// Once triggered, hold weak-until a release condition.
+spec def holds_until_release(
+  trigger: Formula, hold: Formula, clear: Formula
+) =
+  G($trigger => ($hold W $clear));
 
 // Abstract drug-library checks. These functions name prescription bounds used
 // by predicates and contracts; the constants are model units, not clinical
@@ -252,8 +260,11 @@ predicate therapyAdmissionAllowed() =
   pre(alarmLatched) = false and pre(stopRequest) = false;
 
 predicate bolusAdmitted() =
-  bolusCanStart() and therapyAdmissionAllowed()
-  and pre(lockoutRemaining) = 0;
+  not alarmConditionAtTickEntry()
+  and stopRequest = false
+  and pre(alarmLatched) = false and pre(stopRequest) = false
+  and bolusRequest = true and pre(bolusActive) = false
+  and pre(lockoutRemaining) = 0 and delivered <= 30;
 predicate basalAdmitted() =
   basalCanRun() and therapyAdmissionAllowed();
 predicate noDeliveryAdmitted() =
@@ -275,9 +286,6 @@ predicate previousAlarmCondition() =
     pre(bolusActive), pre(delivered), pre(bolusRemaining)
   )
   or (pre(delivered) > 0 and pre(motorOn) = false);
-
-predicate previousAlarmClearAllowed() =
-  pre(ack) = true and not previousAlarmCondition();
 
 // Methods update data shared by transitions after their explicit mode outputs.
 method initDisplays()
@@ -396,14 +404,14 @@ contracts
     [alarmLatched = true and motorOn = false],
     [alarmClearAllowedAtTickEntry()]);
   guarantee: X G(
-    pre(alarmLatched) = true and previousAlarmClearAllowed()
-    and alarmClearAllowed()
+    pre(alarmLatched) = true and not previousAlarmCondition()
+    and alarmClearAllowedAtTickEntry()
     => alarmLatched = false and motorOn = false
        and bolusActive = false);
   guarantee: G(lockoutRemaining > 0 => bolusActive = false);
   guarantee: X G(
-    pre(bolusActive) = true and pre(bolusRemaining) = 0
-    and pre(stopRequest) = false and not previousAlarmCondition()
+    pre(bolusActive) = true and pre(bolusRemaining) > 0
+    and delivered = pre(bolusRemaining)
     and not alarmConditionAtTickEntry()
     => lockoutRemaining > 0 and bolusActive = false);
   guarantee: G(motorOn = true => measuredDose <= 1000);

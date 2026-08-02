@@ -35,11 +35,27 @@ require_not_contains() {
   fi
 }
 
+require_before() {
+  local file="$1"
+  local first_pattern="$2"
+  local second_pattern="$3"
+  local label="$4"
+  local first_line second_line
+  first_line="$(rg -n -m 1 "$first_pattern" "$file" | cut -d: -f1)"
+  second_line="$(rg -n -m 1 "$second_pattern" "$file" | cut -d: -f1)"
+  if [[ -z "$first_line" || -z "$second_line" || "$first_line" -ge "$second_line" ]]; then
+    echo "Expected $label to place '$first_pattern' before '$second_pattern'" >&2
+    echo "--- $label ---" >&2
+    sed -n '1,120p' "$file" >&2
+    exit 1
+  fi
+}
+
 require_structured_frontend_failure() {
   local file="$1"
   local label="$2"
   require_not_contains "$file" "Failure\\(" "$label"
-  require_not_contains "$file" "Kx_frontend_error" "$label"
+  require_not_contains "$file" "Shared.Error" "$label"
 }
 
 tmpdir="$(mktemp -d)"
@@ -56,6 +72,7 @@ specdef="$test_root/ok/spec_definition_past.kairos"
 state_selector="$test_root/ok/state_selector_invariants.kairos"
 explicit_init="$test_root/ok/explicit_initial_transition.kairos"
 past_formula="$test_root/frontend/spec_past_formula_frontier.kairos"
+observer_implicit_self_loop="$test_root/frontend/observer_implicit_self_loop.kairos"
 unknown_pred="$test_root/ko/unknown_predicate_fallback.kairos"
 observer_pre_other="$test_root/ok/observer_pre_other.kairos"
 observer_current_dependency="$test_root/ok/observer_current_dependency.kairos"
@@ -90,6 +107,7 @@ surface_explicit_init="$tmpdir/explicit-init.surface.json"
 elaborated_explicit_init="$tmpdir/explicit-init.elaborated.json"
 surface_past_formula="$tmpdir/past-formula.surface.json"
 elaborated_past_formula="$tmpdir/past-formula.elaborated.json"
+normalized_observer_self_loop="$tmpdir/observer-implicit-self-loop.normalized.kairos"
 enum_frontend="$tmpdir/enum.frontend.txt"
 unknown_out="$tmpdir/unknown.out"
 unknown_err="$tmpdir/unknown.err"
@@ -147,6 +165,7 @@ uninitialized_pre_k_invariant_combined="$tmpdir/uninitialized-pre-k-invariant.co
 "$cli" --dump-elaborated="$elaborated_explicit_init" "$explicit_init"
 "$cli" --dump-surface="$surface_past_formula" "$past_formula"
 "$cli" --dump-elaborated="$elaborated_past_formula" "$past_formula"
+"$cli" --dump-normalized-program="$normalized_observer_self_loop" "$observer_implicit_self_loop"
 "$cli" --check-frontend "$enum_quantified" > "$enum_frontend"
 "$cli" --check-frontend "$public_observer_contract" > "$tmpdir/public-observer.frontend.txt"
 "$cli" --check-frontend "$specdef" > "$tmpdir/specdef.frontend.txt"
@@ -234,6 +253,23 @@ require_not_contains "$elaborated_explicit_init" "\"state\": \"KairosInternalIni
 require_contains "$surface_past_formula" "SHPast" "surface formula-past dump"
 require_contains "$elaborated_past_formula" "HPreK" "elaborated formula-past dump"
 require_not_contains "$elaborated_past_formula" "SHPast" "elaborated formula-past dump"
+
+require_contains "$normalized_observer_self_loop" \
+  "transition Run -> Run" \
+  "normalized implicit observer self-loop"
+require_contains "$normalized_observer_self_loop" \
+  "counter := __kairos_observer_pre_counter [+] 1;" \
+  "normalized implicit observer self-loop"
+require_contains "$normalized_observer_self_loop" \
+  "__kairos_observer_pre_counter := counter;" \
+  "normalized implicit observer self-loop"
+require_contains "$normalized_observer_self_loop" \
+  "dependent := counter > 0;" \
+  "normalized predicate-aware observer schedule"
+require_before "$normalized_observer_self_loop" \
+  "counter := __kairos_observer_pre_counter [+] 1;" \
+  "dependent := counter > 0;" \
+  "normalized predicate-aware observer schedule"
 
 if "$cli" --dump-elaborated="$tmpdir/unknown.json" "$unknown_pred" >"$unknown_out" 2>"$unknown_err"; then
   echo "Expected unknown predicate fallback test to fail during elaboration" >&2

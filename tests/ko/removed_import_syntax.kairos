@@ -1,0 +1,11 @@
+import spec "obsolete_spec_library.kairos";
+
+node removed_import_syntax(x: bool) returns (y: bool)
+states
+  Run;
+transitions
+  init:
+    to Run { y := x; }
+  Run:
+    to Run { y := x; }
+end

@@ -1,0 +1,14 @@
+node non_boolean_fo_formula(count: int) returns (
+  output: bool
+)
+
+contracts
+
+states Init(init);
+
+transitions
+  Init:
+    to Init when count + 1 {
+      output := true;
+    }
+end

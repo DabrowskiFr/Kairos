@@ -87,7 +87,6 @@ let rec stmt_function_calls acc (s : C.stmt) =
       in
       List.fold_left stmt_function_calls acc default_branch
   | C.SSkip -> acc
-  | C.SCall (_, args, _) -> List.fold_left expr_function_calls acc args
   | C.SMethodCall (_, args) -> List.fold_left expr_function_calls acc args
 
 let step_function_calls acc (step : Verification_model.program_step) =

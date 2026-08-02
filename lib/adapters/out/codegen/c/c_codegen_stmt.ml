@@ -71,8 +71,6 @@ let rec emit_stmt env level (s : C.stmt) =
         @ default_block
         @ [ Common.line level "}" ])
   | C.SSkip -> Ok []
-  | C.SCall (callee, _, _) ->
-      Common.errorf "node call '%s' is not supported by the C backend yet" callee
   | C.SMethodCall (callee, args) -> (
       match
         List.find_opt

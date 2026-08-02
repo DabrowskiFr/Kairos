@@ -56,7 +56,6 @@ let render_stmt (s : Core_syntax.stmt) : string =
   | SIf (c, _t, _e) -> "if " ^ Pretty.string_of_expr c ^ " then { ... } else { ... }"
   | SWhile (c, _invariants, _variant, _body) ->
       "while " ^ Pretty.string_of_expr c ^ " { ... }"
-  | SCall _ -> failwith "calls are not supported outside parser/AST"
   | SMethodCall (name, _) -> name ^ "(...)"
   | SSkip -> "skip"
   | SMatch (e, _branches, _default) ->

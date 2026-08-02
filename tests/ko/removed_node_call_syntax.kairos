@@ -1,0 +1,14 @@
+node removed_node_call_syntax(x: int) returns (
+  out: int
+)
+
+contracts
+
+states Run(init);
+
+transitions
+  Run:
+    to Run {
+      call child(x) returns (out);
+    }
+end

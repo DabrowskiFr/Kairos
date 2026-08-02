@@ -402,7 +402,6 @@ and stmt_desc =
   | SWhile of expr * history_free hexpr list * expr option * stmt list
   | SMatch of expr * (ident * stmt list) list * stmt list
   | SSkip
-  | SCall of ident * expr list * ident list
   | SMethodCall of ident * expr list
 
 let rec stmt_to_yojson statement =
@@ -459,17 +458,6 @@ let rec stmt_to_yojson statement =
               ];
           ]
     | SSkip -> `String "SSkip"
-    | SCall (name, arguments, results) ->
-        `List
-          [
-            `String "SCall";
-            `List
-              [
-                `String name;
-                `List (List.map expr_to_yojson arguments);
-                `List (List.map (fun result -> `String result) results);
-              ];
-          ]
     | SMethodCall (name, arguments) ->
         `List
           [
@@ -522,14 +510,6 @@ let stmt_of_yojson json =
   and decode_exprs = function
     | `List expressions -> decode_json_list expr_of_yojson expressions
     | _ -> Error "stmt: expected expression list"
-  and decode_names = function
-    | `List names ->
-        decode_json_list
-          (function
-            | `String name -> Ok name
-            | _ -> Error "stmt: expected identifier")
-          names
-    | _ -> Error "stmt: expected identifier list"
   and decode_formula json =
     history_free_hexpr_of_yojson json
   and decode_formulas = function
@@ -586,14 +566,6 @@ let stmt_of_yojson json =
         let* default = decode_statements default_json in
         Ok (SMatch (scrutinee, branches, default))
     | `String "SSkip" -> Ok SSkip
-    | `List
-        [
-          `String "SCall";
-          `List [ `String name; arguments_json; results_json ];
-        ] ->
-        let* arguments = decode_exprs arguments_json in
-        let* results = decode_names results_json in
-        Ok (SCall (name, arguments, results))
     | `List
         [ `String "SMethodCall"; `List [ `String name; arguments_json ] ] ->
         let* arguments = decode_exprs arguments_json in

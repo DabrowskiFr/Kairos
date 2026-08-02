@@ -1,0 +1,14 @@
+node executable_pre_assignment(x: int) returns (
+  out: int
+)
+
+contracts
+
+states Run(init);
+
+transitions
+  Run:
+    to Run {
+      out := pre(x);
+    }
+end

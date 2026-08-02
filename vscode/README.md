@@ -11,7 +11,7 @@ Kairos LSP server.
 - Typed predicate parameters and typed method parameters, including the
   writable `inout` mode
 - Exhaustive enum `match` statements, including the final `_` branch
-- Declaration-only specification libraries with `import spec "path";`
+- Local temporal schemes declared with `spec def`
 - Build, Prove, Automata, Eval, Reset and Cancel Run commands
 - Outline, Goals, Artifacts and Runs side views
 - Proof dashboard with live goal grouping and quick navigation to Why

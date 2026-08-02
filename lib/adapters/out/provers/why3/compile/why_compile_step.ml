@@ -118,7 +118,6 @@ let rec compile_seq (env : env) (lst : Core_syntax.stmt list) : Ptree.expr =
             branches @ [ ({ pat_desc = Pwild; pat_loc = loc }, compile_seq env default) ]
         in
         mk_expr (Ematch (scrut, branches, []))
-    | SCall _ -> failwith "instance calls are not supported"
     | SMethodCall (callee, args) ->
         let decl =
           match

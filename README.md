@@ -80,6 +80,23 @@ doseWouldExceed(totalDose, delivered)
 doseWouldExceed(pre(totalDose), delivered)
 ```
 
+Pure-function calls are regular expression atoms. They can be nested and used
+as operands in executable expressions as well as in historical formulas:
+
+```kairos
+function inc(x: int): int = x + 1;
+
+// Executable expression
+out := inc(inc(input)) + 1;
+
+// Historical formula
+guarantee: G(out = inc(input) + 1);
+```
+
+The frontend resolves a call according to its context and declaration, then
+checks its arity, argument types, and result type. A boolean function or
+predicate call can therefore be used directly as a condition or formula.
+
 Method parameters are read-only by default. Declare a parameter `inout` when
 the method may assign it; an `inout` argument must be a variable reference:
 
@@ -95,6 +112,11 @@ Predicates are expanded by the frontend. Methods remain private modular
 procedures through Why3: their bodies are proved once, while call sites use
 their `requires`, `ensures`, and inferred write frame. Methods return no value
 and recursive method-call cycles are rejected.
+
+Nodes are deliberately flat: the source language has no `instances` section
+and no `call child(...) returns (...)` statement. An expression call denotes a
+pure function or predicate; a standalone `name(...);` statement denotes a
+method call. Node composition is not part of the current language.
 
 Inside a method `ensures`, `old(expression)` denotes the value at method-call
 entry. It is distinct from `pre(variable)`, which denotes the preceding
@@ -128,27 +150,53 @@ describe traces of synchronous reactions:
 ```kairos
 contracts
   assume valid_samples: G(delivered >= 0);
-  guarantee: G(alarmLatched = true => motorOn = false);
+  guarantee: G(alarmLatched => not motorOn);
 ```
 
 The contract name is optional. Temporal and history operators are accepted in
 node assumptions and guarantees, but remain forbidden in method contracts.
 `old` remains specific to method postconditions.
 
-## Reusable specification definitions
+Executable `pre(reference)` is restricted to observer expressions. It is not
+accepted in function bodies, transition guards or bodies, methods, loop
+conditions, or variants. Specifications still have their distinct historical
+`pre(reference)` operator.
 
-Program-independent `spec def` declarations can live in a declaration-only
-file and be imported relative to the importing source:
+For a node with observers, the frontend makes every missing state fallback
+explicit before observer instrumentation and later transition normalization.
+The generated self-loop then receives the same observer updates and delay-cell
+commits as a written transition, so observers advance even when no source
+transition guard matches. The initial state is deliberately excluded from this
+completion: it must already have an unguarded transition or one explicitly
+guarded by `true`, and the frontend rejects the node instead of generating an
+`init -> init` fallback.
+
+Observer scheduling also follows free references captured by called local
+predicates, recursively through nested predicate calls. A dependency hidden in
+a predicate body therefore orders observer updates exactly like a direct
+reference; an induced instantaneous cycle is rejected.
+
+A boolean expression is itself a formula: `true`, `false`, a boolean variable,
+`pre(flag)`, a boolean predicate call, and a boolean pure-function call do not
+need to be written as `... = true`. The frontend accepts the general expression
+syntax first, then rejects non-boolean formulas during typing.
+
+## Specification definitions
+
+Repeated temporal schemes can be named with local `spec def` declarations:
 
 ```kairos
-import spec "spec/temporal_patterns.kairos";
+spec def responds_next(trigger: Formula, response: Formula) =
+  G($trigger => X($response));
+
+node controller(trigger: bool) returns (response: bool)
+contracts
+  guarantee: responds_next([trigger], [response]);
+// ...
 ```
 
-An imported specification file may recursively import other specification
-files, but may contain only `spec def` declarations and no nodes. The frontend
-detects cyclic imports and duplicate definitions, then expands the imported
-definitions before elaborating the program. This is compile-time reuse only:
-it introduces neither node composition nor a modular proof boundary.
+These definitions are expanded before elaboration. They introduce neither
+node composition nor a modular proof boundary.
 
 `init:` is an initialization pseudo-source, not a control state. It therefore
 cannot receive an invariant and is not selected by `in states`. The frontend

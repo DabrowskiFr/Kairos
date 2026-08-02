@@ -35,7 +35,7 @@ type output = {
   verification_model : Verification_model.program_model;
 }
 
-let parse_info_of_kx_info (info : Kx_parse_api.parse_info) : parse_info =
+let parse_info_of_kx_info (info : Parse.Api.parse_info) : parse_info =
   {
     source_path = info.source_path;
     text_hash = info.text_hash;
@@ -51,14 +51,14 @@ let read_all_text (path : string) : (string, error) result =
         (Printf.sprintf "cannot read %S: %s"
           path (Printexc.to_string exn)))
 
-let error_of_kx_error (err : Kx_frontend_error.t) : error =
+let error_of_kx_error (err : Shared.Error.t) : error =
   match err.kind with
-  | Kx_frontend_error.Parse -> Parse_error err.message
-  | Kx_frontend_error.Elaboration -> Elaboration_error err.message
-  | Kx_frontend_error.Type -> Type_error err.message
-  | Kx_frontend_error.Well_formedness ->
+  | Shared.Error.Parse -> Parse_error err.message
+  | Shared.Error.Elaboration -> Elaboration_error err.message
+  | Shared.Error.Type -> Type_error err.message
+  | Shared.Error.Well_formedness ->
       Well_formedness_error err.message
-  | Kx_frontend_error.Internal -> Internal_error err.message
+  | Shared.Error.Internal -> Internal_error err.message
 
 let parse_input ~(input_file : string) : (output, error) result =
   match read_all_text input_file with
@@ -66,16 +66,16 @@ let parse_input ~(input_file : string) : (output, error) result =
   | Ok source_text -> (
       try
         let source_kx, parse_info_kx =
-          Kx_parse_api.parse_source_text_with_info ~filename:input_file ~text:source_text
+          Parse.Api.parse_source_text_with_info ~filename:input_file ~text:source_text
         in
         let parse_info = parse_info_of_kx_info parse_info_kx in
         let verification_model =
-          Kx_to_model.program ~type_decls:source_kx.type_decls
+          To_model.Api.program ~type_decls:source_kx.type_decls
             ~function_decls:source_kx.function_decls source_kx.nodes
         in
         Ok { parse_info; verification_model;}
       with
-      | Kx_frontend_error.Error err -> Error (error_of_kx_error err)
+      | Shared.Error.Error err -> Error (error_of_kx_error err)
       | exn ->
           let backtrace = Printexc.get_raw_backtrace () in
           Error

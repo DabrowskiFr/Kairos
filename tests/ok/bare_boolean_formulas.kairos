@@ -1,0 +1,43 @@
+spec def never() = false;
+
+function requires_true(value: bool): bool
+  requires: value;
+  ensures: result;
+= value;
+
+node bare_boolean_formulas(input: bool) returns (
+  output: bool
+)
+
+predicate holds(value: bool) =
+  value;
+
+contracts
+  assume: true;
+  guarantee: true;
+  guarantee: G(output);
+  guarantee: G(not false);
+  guarantee: not never();
+  guarantee: G(holds(output));
+  guarantee: G(requires_true(output));
+  guarantee: X G(pre(output));
+
+states Init(init), Run;
+
+invariants
+  in {Run}:
+    output;
+
+transitions
+  Init:
+    to Run {
+      output := true;
+    }
+  Run:
+    to Run when input {
+      output := true;
+    }
+    to Run when not input {
+      output := true;
+    }
+end

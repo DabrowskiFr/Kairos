@@ -54,10 +54,6 @@ let rec assigned_vars_of_stmt methods (stmt : Core_syntax.stmt) : StringSet.t =
         (fun assigned (_, body) ->
           StringSet.union assigned (assigned_vars_of_stmts methods body))
         (assigned_vars_of_stmts methods default_branch) branches
-  | SCall (_, _, destinations) ->
-      List.fold_left
-        (fun assigned name -> StringSet.add name assigned)
-        StringSet.empty destinations
   | SMethodCall (name, args) -> (
       match List.find_opt (fun (decl : method_decl) -> String.equal decl.method_name name) methods with
       | None -> StringSet.empty
@@ -179,10 +175,6 @@ let rec symbolic_execute_statement methods env (statement : Core_syntax.stmt) =
       bind_symbolic_value env name (post_expr_of_expr env rhs)
   | SAssert _ | SSkip -> env
   | SIf _ | SWhile _ | SMatch _ -> forget_assigned methods env [ statement ]
-  | SCall (_, _, destinations) ->
-      List.fold_left
-        (fun env name -> bind_symbolic_value env name None)
-        env destinations
   | SMethodCall _ -> forget_assigned methods env [ statement ]
 
 let symbolic_execute_statements methods env statements =

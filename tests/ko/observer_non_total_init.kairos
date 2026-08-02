@@ -1,0 +1,21 @@
+node observer_non_total_init(start: bool) returns (
+  out: bool
+)
+
+observers
+  seen : bool = false -> true;
+
+contracts
+
+states Init(init), Run;
+
+transitions
+  Init:
+    to Run when start {
+      out := true;
+    }
+  Run:
+    to Run {
+      out := true;
+    }
+end
