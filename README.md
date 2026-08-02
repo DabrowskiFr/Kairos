@@ -6,7 +6,7 @@ an intermediate verification representation, and generates local proof
 obligations checked with a standard verification backend.
 
 Contributor documentation: [conventions](CONTRIBUTING.md) and
-[architecture](Architecture.md).
+[architecture](ARCHITECTURE.md).
 
 ## Run the validation campaign
 
