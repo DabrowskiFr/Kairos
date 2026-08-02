@@ -261,4 +261,6 @@ let cmd =
 
 let run () = exit (Cmd.eval cmd)
 
-let () = run ()
+let () =
+  Printexc.record_backtrace true;
+  run ()

@@ -33,27 +33,17 @@ type error =
       (** An unexpected frontend failure. *)
 (** Frontend failure categories. *)
 
-type parse_error = {
-  loc : Loc.loc option;
-      (** Optional source location. *)
-  message : string;
-      (** Diagnostic text. *)
-}
-(** Located parse diagnostic. *)
-
 type parse_info = {
   source_path : string option;
       (** Source origin. *)
   text_hash : string option;
       (** Source-content digest. *)
-  parse_errors : parse_error list;
-      (** Collected parse diagnostics. *)
   warnings : string list;
       (** Non-fatal warnings. *)
 }
 (** Metadata associated with the parsed source. *)
 
-type input = {
+type output = {
   parse_info : parse_info;
       (** Source metadata and diagnostics. *)
   verification_model : Verification_model.program_model;
@@ -63,5 +53,5 @@ type input = {
 
 val parse_input :
   input_file:string ->
-  (input, error) result
+  (output, error) result
 (** Read and translate one source file. *)

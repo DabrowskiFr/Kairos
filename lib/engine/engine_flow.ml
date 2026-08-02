@@ -36,11 +36,7 @@ let flow_parse_info (info : Frontend.parse_info) : Flow_info.parse_info =
   {
     source_path = info.source_path;
     text_hash = info.text_hash;
-    parse_errors =
-      List.map
-        (fun (error : Frontend.parse_error) ->
-          ({ loc = error.loc; message = error.message } : Flow_info.parse_error))
-        info.parse_errors;
+    parse_errors = [];
     warnings = info.warnings;
   }
 
@@ -54,7 +50,7 @@ let () =
 
 let build_pipeline ~collect_instrumentation_info ~collect_ir_metrics
     ~proof_optimizations
-    ~(frontend : Frontend.input) =
+    ~(frontend : Frontend.output) =
   let* prepared =
     Pipeline_build.prepare_program ~proof_optimizations
       ~parse_info:(flow_parse_info frontend.parse_info)

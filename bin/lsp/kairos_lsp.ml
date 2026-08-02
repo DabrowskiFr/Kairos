@@ -8,4 +8,6 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
-let () = Lsp_server_loop.run ~input:stdin ~output:stdout
+let () =
+  Printexc.record_backtrace true;
+  Lsp_server_loop.run ~input:stdin ~output:stdout

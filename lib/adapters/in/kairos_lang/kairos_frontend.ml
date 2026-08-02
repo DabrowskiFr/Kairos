@@ -24,37 +24,21 @@ type error =
   | Io_error of string
   | Internal_error of string
 
-type parse_error = { loc : Loc.loc option; message : string }
-
 type parse_info = {
   source_path : string option;
   text_hash : string option;
-  parse_errors : parse_error list;
   warnings : string list;
 }
 
-type input = {
+type output = {
   parse_info : parse_info;
   verification_model : Verification_model.program_model;
 }
 
-let parse_info_of_frontend (info : Kx_parse_api.parse_info) : parse_info =
+let parse_info_of_kx_info (info : Kx_parse_api.parse_info) : parse_info =
   {
     source_path = info.source_path;
     text_hash = info.text_hash;
-    parse_errors =
-      List.map
-        (fun (e : Kx_parse_api.parse_error) ->
-          ({
-             loc =
-               Option.map
-                 (fun (l : Kx_loc.loc) ->
-                   { Loc.line = l.line; col = l.col; line_end = l.line_end; col_end = l.col_end })
-                 e.loc;
-             message = e.message;
-           }
-            : parse_error))
-        info.parse_errors;
     warnings = info.warnings;
   }
 
@@ -67,9 +51,12 @@ let read_all_text (path : string) : (string, error) result =
         let s = really_input_string ic len in
         Ok s)
   with exn ->
-    Error (Io_error (Printexc.to_string exn))
+    Error
+      (Io_error
+        (Printf.sprintf "cannot read %S: %s"
+          path (Printexc.to_string exn)))
 
-let structured_frontend_error (err : Kx_frontend_error.t) : error =
+let error_of_kx_error (err : Kx_frontend_error.t) : error =
   match err.kind with
   | Kx_frontend_error.Parse -> Parse_error err.message
   | Kx_frontend_error.Elaboration -> Elaboration_error err.message
@@ -78,7 +65,7 @@ let structured_frontend_error (err : Kx_frontend_error.t) : error =
       Well_formedness_error err.message
   | Kx_frontend_error.Internal -> Internal_error err.message
 
-let parse_input ~(input_file : string) : (input, error) result =
+let parse_input ~(input_file : string) : (output, error) result =
   match read_all_text input_file with
   | Error _ as err -> err
   | Ok source_text -> (
@@ -86,7 +73,7 @@ let parse_input ~(input_file : string) : (input, error) result =
         let source_kx, parse_info_kx =
           Kx_parse_api.parse_source_text_with_info ~filename:input_file ~text:source_text
         in
-        let parse_info = parse_info_of_frontend parse_info_kx in
+        let parse_info = parse_info_of_kx_info parse_info_kx in
         let verification_model =
           Kairos_to_model.program ~type_decls:source_kx.type_decls
             ~function_decls:source_kx.function_decls source_kx.nodes
@@ -97,5 +84,10 @@ let parse_input ~(input_file : string) : (input, error) result =
             verification_model;
           }
       with
-      | Kx_frontend_error.Error err -> Error (structured_frontend_error err)
-      | exn -> Error (Internal_error (Printexc.to_string exn)))
+      | Kx_frontend_error.Error err -> Error (error_of_kx_error err)
+      | exn ->
+          let backtrace = Printexc.get_raw_backtrace () in
+          Error
+            (Internal_error
+               (Printf.sprintf "%s\n%s" (Printexc.to_string exn)
+                  (Printexc.raw_backtrace_to_string backtrace))))
