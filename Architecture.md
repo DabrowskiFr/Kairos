@@ -246,7 +246,7 @@ boundary.
 
 The LSP server must not:
 
-- depend on `Verification_model`, `Core_syntax`, `Kairos_frontend`,
+- depend on `Verification_model`, `Core_syntax`, `Kairos_lang.Frontend`,
   `Pipeline_build` or `Why_pipeline` directly;
 - duplicate pipeline configuration or proof semantics in protocol handlers;
 - treat editor projections such as goal trees as canonical proof objects;
@@ -321,7 +321,7 @@ goal identifiers, traces and proof statuses remain authoritative.
 #### Current protocol drift
 
 The TypeScript payload interfaces in `vscode/src/types.ts` are handwritten,
-not generated from `Lsp_protocol`, and have already drifted from the server.
+not generated from `Kairos_lsp_protocol`, and have already drifted from the server.
 For example, the extension expects legacy `obc_text`, `obcplus_*`,
 `prune_reasons_text`, `stage_meta` and `obc_span` fields, whereas current OCaml
 outputs expose `flow_meta` and omit those fields. Several legacy run settings
@@ -381,12 +381,12 @@ program representation shared by verification and C code generation.
 
 | Input | Output |
 |---|---|
-| Kairos source file | `Kairos_frontend.output` |
+| Kairos source file | `Kairos_lang.Frontend.output` |
 | Invalid or unreadable source file | Structured frontend error |
 
 ### Data passed to later stages
 
-The frontend returns a `Kairos_frontend.output` value containing:
+The frontend returns a `Kairos_lang.Frontend.output` value containing:
 
 | Field | Content | Consumer |
 |---|---|---|
@@ -394,12 +394,12 @@ The frontend returns a `Kairos_frontend.output` value containing:
 | `verification_model` | Checked and normalized program representation | Proof-case construction, subsequent verification stages and C code generation |
 
 The complete output record and frontend error types are defined in
-[`lib/adapters/in/kairos_lang/kairos_frontend.mli`](lib/adapters/in/kairos_lang/kairos_frontend.mli).
+[`lib/adapters/in/kairos_lang/frontend.mli`](lib/adapters/in/kairos_lang/frontend.mli).
 
 The current parser does not recover from lexical or syntactic errors: it
 returns a structured frontend error and does not produce a
-`Kairos_frontend.output`. Diagnostics over incomplete source text belong to
-`Kairos_source_services` rather than to this successful semantic payload.
+`Kairos_lang.Frontend.output`. Diagnostics over incomplete source text belong to
+`Kairos_lang.Source_services` rather than to this successful semantic payload.
 
 Only `verification_model` describes the program supplied to semantic
 backends. Source diagnostics are carried separately and do not affect either
@@ -647,7 +647,7 @@ verification input without depending on the Kairos parser or AST.
 
 | Module | Purpose |
 |---|---|
-| [`lib/adapters/in/kairos_lang/kairos_frontend.ml`](lib/adapters/in/kairos_lang/kairos_frontend.ml) | Reads a source file and returns `Kairos_frontend.output` |
+| [`lib/adapters/in/kairos_lang/frontend.ml`](lib/adapters/in/kairos_lang/frontend.ml) | Reads a source file and returns `Kairos_lang.Frontend.output` |
 | [`lib/adapters/in/kairos_lang/shared/syntax.ml`](lib/adapters/in/kairos_lang/shared/syntax.ml) | Syntax shared unchanged across elaboration |
 | [`lib/adapters/in/kairos_lang/surface/ast.ml`](lib/adapters/in/kairos_lang/surface/ast.ml) | Complete parser output |
 | [`lib/adapters/in/kairos_lang/core/ast.ml`](lib/adapters/in/kairos_lang/core/ast.ml) | Complete elaborated program |
@@ -3038,7 +3038,7 @@ Verification_model.program_model
 `C_codegen.emit_program` mechanically emits a board-independent C99 execution
 interface for every node in the normalized frontend model.
 `Kairos_engine.Api.generate_c` invokes this backend directly after
-`Kairos_frontend.parse_input`; it does not construct proof cases, automata,
+`Kairos_lang.Frontend.parse_input`; it does not construct proof cases, automata,
 products, canonical obligations, a Proof Plan or Why3 tasks.
 
 #### Executable input boundary
@@ -3191,7 +3191,7 @@ reliably.
 input file
     |
     v
-Kairos_frontend.parse_input
+Kairos_lang.Frontend.parse_input
     |
     v
 Pipeline_build.prepare_program

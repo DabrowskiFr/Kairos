@@ -28,7 +28,7 @@
  (libraries
   bos
   fpath
-  kairos_input_lang
+  kairos_lang
   kairos_domain_core
   kairos_why3_contract
   kairos_runtime_core

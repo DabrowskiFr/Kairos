@@ -18,7 +18,7 @@
 
 module Contract = Kairos_engine.Api.Contract
 
-let loc_of_engine (location : Contract.source_location) : Lsp_protocol.loc =
+let loc_of_engine (location : Contract.source_location) : Kairos_lsp_protocol.loc =
   {
     line = location.line;
     col = location.col;
@@ -27,12 +27,12 @@ let loc_of_engine (location : Contract.source_location) : Lsp_protocol.loc =
   }
 
 let text_span_of_pipeline (span : Contract.text_span) :
-    Lsp_protocol.text_span =
+    Kairos_lsp_protocol.text_span =
   { start_offset = span.start_offset; end_offset = span.end_offset }
 
 let proof_diagnostic_of_pipeline
     (diag : Contract.proof_diagnostic) :
-    Lsp_protocol.proof_diagnostic =
+    Kairos_lsp_protocol.proof_diagnostic =
   {
     category = diag.category;
     summary = diag.summary;
@@ -57,7 +57,7 @@ let proof_diagnostic_of_pipeline
 
 let proof_trace_of_pipeline
     (trace : Contract.proof_trace) :
-    Lsp_protocol.proof_trace =
+    Kairos_lsp_protocol.proof_trace =
   {
     goal_index = trace.goal_index;
     stable_id = trace.stable_id;
@@ -81,7 +81,7 @@ let proof_trace_of_pipeline
     diagnostic = proof_diagnostic_of_pipeline trace.diagnostic;
   }
 
-let map_outputs (o : Contract.outputs) : Lsp_protocol.outputs =
+let map_outputs (o : Contract.outputs) : Kairos_lsp_protocol.outputs =
   {
     why_text = o.why_text;
     vc_text = o.vc_text;
@@ -126,7 +126,7 @@ let map_outputs (o : Contract.outputs) : Lsp_protocol.outputs =
 
 let map_automata
     (o : Contract.automata_outputs) :
-    Lsp_protocol.automata_outputs =
+    Kairos_lsp_protocol.automata_outputs =
   {
     dot_text = o.dot_text;
     labels_text = o.labels_text;
@@ -151,10 +151,10 @@ let map_automata
     flow_meta = o.flow_meta;
   }
 
-let map_why (o : Contract.why_outputs) : Lsp_protocol.why_outputs =
+let map_why (o : Contract.why_outputs) : Kairos_lsp_protocol.why_outputs =
   { why_text = o.why_text; flow_meta = o.flow_meta }
 
 let map_oblig
     (o : Contract.obligations_outputs) :
-    Lsp_protocol.obligations_outputs =
+    Kairos_lsp_protocol.obligations_outputs =
   { vc_text = o.vc_text; smt_text = o.smt_text }

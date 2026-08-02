@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 (** Concrete orchestration of the Kairos engine. *)
-module Frontend = Kairos_input_lang.Kairos_frontend
+module Frontend = Kairos_lang.Frontend
 
 let ( let* ) = Result.bind
 

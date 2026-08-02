@@ -1,11 +1,11 @@
 (include_subdirs qualified)
 
 (library
- (name kairos_input_lang)
+ (name kairos_lang)
  (public_name kairos.internal.input_lang)
  (wrapped true)
  (private_modules
-  (:standard \ kairos_frontend kairos_source_services))
+  (:standard \ frontend source_services))
  (libraries kairos_domain_core menhirLib sedlex yojson str)
  (preprocess
   (pps sedlex.ppx ppx_deriving_yojson)))

@@ -38,7 +38,7 @@ type t = {
 
 exception Error of t
 (** Internal control flow used by parsing, elaboration and validation. The
-    public facade converts it to [Kairos_frontend.error]. *)
+    public facade converts it to [Frontend.error]. *)
 
 val raise_error : kind -> string -> 'a
 (** Raise [Error] with an explicit classification. *)

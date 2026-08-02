@@ -26,12 +26,12 @@ Return outline sections for source and abstract program.
 Compute the final goal tree with proof results.
 
 **Params**
-- `goals`: array of `goal_info` (same shape as `Lsp_protocol.goal_info` JSON).
+- `goals`: array of `goal_info` (same shape as `Kairos_lsp_protocol.goal_info` JSON).
 - `vcSources`: array of `[int, string]` pairs.
 - `vcText`: string
 
 **Result**
-Tree of nodes (see `Lsp_protocol.goal_tree_node` JSON).
+Tree of nodes (see `Kairos_lsp_protocol.goal_tree_node` JSON).
 
 ## kairos/goalsTreePending
 
@@ -43,7 +43,7 @@ Compute the pending goal tree (no results yet).
 - `vcSources`: array of `[int, string]` pairs
 
 **Result**
-Tree of nodes (see `Lsp_protocol.goal_tree_node` JSON).
+Tree of nodes (see `Kairos_lsp_protocol.goal_tree_node` JSON).
 
 ## kairos/instrumentationPass
 
@@ -54,7 +54,7 @@ Run instrumentation pass to build automata and product.
 - `generatePng` (bool, default true)
 
 **Result**
-`automata_outputs` JSON (`Lsp_protocol`).
+`automata_outputs` JSON (`Kairos_lsp_protocol`).
 
 ## kairos/obcPass
 
@@ -64,7 +64,7 @@ Run OBC pass.
 - `inputFile` (string)
 
 **Result**
-`obc_outputs` JSON (`Lsp_protocol`).
+`obc_outputs` JSON (`Kairos_lsp_protocol`).
 
 ## kairos/whyPass
 
@@ -75,7 +75,7 @@ Run Why3 pass.
 - `prefixFields` (bool, default false)
 
 **Result**
-`why_outputs` JSON (`Lsp_protocol`).
+`why_outputs` JSON (`Kairos_lsp_protocol`).
 
 ## kairos/obligationsPass
 
@@ -86,7 +86,7 @@ Generate obligations.
 - `prefixFields` (bool, default false)
 
 **Result**
-`obligations_outputs` JSON (`Lsp_protocol`).
+`obligations_outputs` JSON (`Kairos_lsp_protocol`).
 
 ## kairos/dotPngFromText
 
@@ -115,7 +115,7 @@ Full pipeline run with optional proof.
 - `generateDotPng` (bool, default false)
 
 **Result**
-`outputs` JSON (`Lsp_protocol`).
+`outputs` JSON (`Kairos_lsp_protocol`).
 
 ## Notifications
 

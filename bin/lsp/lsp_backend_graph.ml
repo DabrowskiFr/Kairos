@@ -8,5 +8,5 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
-let dot_png_from_text (req : Lsp_protocol.dot_png_from_text_request) =
+let dot_png_from_text (req : Kairos_lsp_protocol.dot_png_from_text_request) =
   Kairos_engine.Graphviz_render.dot_png_from_text req.dot_text

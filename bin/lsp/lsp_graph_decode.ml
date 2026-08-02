@@ -11,6 +11,6 @@
 open Lsp_request_helpers
 
 let dot_text params =
-  match decode_or_none Lsp_protocol.dot_png_from_text_request_of_yojson params with
+  match decode_or_none Kairos_lsp_protocol.dot_png_from_text_request_of_yojson params with
   | Some req -> Some req.dot_text
   | None -> Lsp_request_decode.get_param_string params "dotText"

@@ -1,7 +1,7 @@
 module Contract = Engine_contract
 module Flow = Engine_flow
-module Frontend = Kairos_input_lang.Kairos_frontend
-module Source_services = Kairos_input_lang.Kairos_source_services
+module Frontend = Kairos_lang.Frontend
+module Source_services = Kairos_lang.Source_services
 
 type config = Contract.config
 type error = Contract.error

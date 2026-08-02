@@ -35,10 +35,10 @@ val semantic_symbols :
 
 val surface_dump :
   input_file:string ->
-  (string, Kairos_frontend.error) result
+  (string, Frontend.error) result
 (** Render the parsed surface syntax as JSON. *)
 
 val elaborated_dump :
   input_file:string ->
-  (string, Kairos_frontend.error) result
+  (string, Frontend.error) result
 (** Render the elaborated syntax as JSON. *)

@@ -12,12 +12,12 @@
 
 val instrumentation_pass :
   Yojson.Safe.t ->
-  Lsp_protocol.instrumentation_pass_request option
+  Kairos_lsp_protocol.instrumentation_pass_request option
 
 val why_pass :
   Yojson.Safe.t ->
-  Lsp_protocol.why_pass_request option
+  Kairos_lsp_protocol.why_pass_request option
 
 val obligations_pass :
   Yojson.Safe.t ->
-  Lsp_protocol.obligations_pass_request option
+  Kairos_lsp_protocol.obligations_pass_request option

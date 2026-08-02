@@ -23,4 +23,4 @@ let send_backend_error out_channel ~id message =
 
 let send_outputs out_channel ~id out =
   send_result out_channel ~id_json:id
-    ~result_json:(Lsp_protocol.yojson_of_outputs out)
+    ~result_json:(Kairos_lsp_protocol.yojson_of_outputs out)

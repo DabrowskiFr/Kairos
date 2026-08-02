@@ -11,7 +11,7 @@
 open Lsp_request_helpers
 
 type final_request = {
-  goals : Lsp_protocol.goal_info list;
+  goals : Kairos_lsp_protocol.goal_info list;
   vc_text : string;
 }
 
@@ -21,7 +21,7 @@ type pending_request = {
 }
 
 let final params =
-  match decode_or_none Lsp_protocol.goals_tree_final_request_of_yojson params with
+  match decode_or_none Kairos_lsp_protocol.goals_tree_final_request_of_yojson params with
   | Some req -> { goals = req.goals; vc_text = req.vc_text }
   | None ->
       let goals_json =
@@ -35,7 +35,7 @@ let final params =
       let goals =
         List.filter_map
           (fun json ->
-            match Lsp_protocol.goal_info_of_yojson json with
+            match Kairos_lsp_protocol.goal_info_of_yojson json with
             | Ok value -> Some value
             | Error _ -> None)
           goals_json
@@ -43,7 +43,7 @@ let final params =
       { goals; vc_text }
 
 let pending params =
-  match decode_or_none Lsp_protocol.goals_tree_pending_request_of_yojson params with
+  match decode_or_none Kairos_lsp_protocol.goals_tree_pending_request_of_yojson params with
   | Some req -> { goal_names = req.goal_names; vc_ids = req.vc_ids }
   | None ->
       let goal_names =

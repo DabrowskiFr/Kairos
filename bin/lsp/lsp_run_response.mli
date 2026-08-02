@@ -13,4 +13,4 @@
 val send_canceled : out_channel -> id:Jsonrpc.Id.t -> unit
 val send_invalid_input : out_channel -> id:Jsonrpc.Id.t -> unit
 val send_backend_error : out_channel -> id:Jsonrpc.Id.t -> string -> unit
-val send_outputs : out_channel -> id:Jsonrpc.Id.t -> Lsp_protocol.outputs -> unit
+val send_outputs : out_channel -> id:Jsonrpc.Id.t -> Kairos_lsp_protocol.outputs -> unit

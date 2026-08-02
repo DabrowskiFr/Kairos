@@ -114,18 +114,18 @@ let semantic_symbols ~filename ~text =
 
 let frontend_error (error : Shared.Error.t) =
   match error.kind with
-  | Shared.Error.Parse -> Kairos_frontend.Parse_error error.message
+  | Shared.Error.Parse -> Frontend.Parse_error error.message
   | Shared.Error.Elaboration ->
-      Kairos_frontend.Elaboration_error error.message
-  | Shared.Error.Type -> Kairos_frontend.Type_error error.message
+      Frontend.Elaboration_error error.message
+  | Shared.Error.Type -> Frontend.Type_error error.message
   | Shared.Error.Well_formedness ->
-      Kairos_frontend.Well_formedness_error error.message
-  | Shared.Error.Internal -> Kairos_frontend.Internal_error error.message
+      Frontend.Well_formedness_error error.message
+  | Shared.Error.Internal -> Frontend.Internal_error error.message
 
 let read_text input_file =
   try
     Ok (In_channel.with_open_bin input_file In_channel.input_all)
-  with exn -> Error (Kairos_frontend.Io_error (Printexc.to_string exn))
+  with exn -> Error (Frontend.Io_error (Printexc.to_string exn))
 
 let dump parse render ~input_file =
   match read_text input_file with
@@ -134,7 +134,7 @@ let dump parse render ~input_file =
       try Ok (render (parse ~filename:input_file ~text |> fst)) with
       | Shared.Error.Error error -> Error (frontend_error error)
       | exn ->
-          Error (Kairos_frontend.Internal_error (Printexc.to_string exn)))
+          Error (Frontend.Internal_error (Printexc.to_string exn)))
 
 let surface_dump ~input_file =
   dump Parse.Api.parse_surface_text_with_info

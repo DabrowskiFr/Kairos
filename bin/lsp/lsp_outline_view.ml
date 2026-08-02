@@ -9,7 +9,7 @@
  *---------------------------------------------------------------------------*)
 
 let section_payload (sections : Lsp_outline.outline_sections) :
-    Lsp_protocol.outline_sections =
+    Kairos_lsp_protocol.outline_sections =
   {
     nodes = sections.nodes;
     transitions = sections.transitions;
@@ -23,7 +23,7 @@ let yojson_of_texts (texts : Lsp_outline_texts.t) =
   let abstract_sections =
     Lsp_outline.outline_sections_of_text texts.abstract_text
   in
-  Lsp_protocol.yojson_of_outline_payload
+  Kairos_lsp_protocol.yojson_of_outline_payload
     {
       source = section_payload source_sections;
       abstract_program = section_payload abstract_sections;

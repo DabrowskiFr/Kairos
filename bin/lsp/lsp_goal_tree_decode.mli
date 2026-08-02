@@ -11,7 +11,7 @@
 (** Decode proof-goal tree requests, including compatibility JSON payloads. *)
 
 type final_request = {
-  goals : Lsp_protocol.goal_info list;
+  goals : Kairos_lsp_protocol.goal_info list;
   vc_text : string;
 }
 

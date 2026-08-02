@@ -12,7 +12,7 @@ open Lsp_request_helpers
 
 let instrumentation_pass params =
   match
-    decode_or_none Lsp_protocol.instrumentation_pass_request_of_yojson params
+    decode_or_none Kairos_lsp_protocol.instrumentation_pass_request_of_yojson params
   with
   | Some req -> Some req
   | None -> (
@@ -20,7 +20,7 @@ let instrumentation_pass params =
       | Some input_file ->
           Some
             {
-              Lsp_protocol.input_file;
+              Kairos_lsp_protocol.input_file;
               generate_png =
                 Lsp_request_decode.get_param_bool params "generatePng" true;
               engine = Engine_service.string_of_engine (get_engine params);
@@ -28,27 +28,27 @@ let instrumentation_pass params =
       | None -> None)
 
 let why_pass params =
-  match decode_or_none Lsp_protocol.why_pass_request_of_yojson params with
+  match decode_or_none Kairos_lsp_protocol.why_pass_request_of_yojson params with
   | Some req -> Some req
   | None -> (
       match Lsp_request_decode.get_param_string params "inputFile" with
       | Some input_file ->
           Some
             {
-              Lsp_protocol.input_file;
+              Kairos_lsp_protocol.input_file;
               engine = Engine_service.string_of_engine (get_engine params);
             }
       | None -> None)
 
 let obligations_pass params =
-  match decode_or_none Lsp_protocol.obligations_pass_request_of_yojson params with
+  match decode_or_none Kairos_lsp_protocol.obligations_pass_request_of_yojson params with
   | Some req -> Some req
   | None -> (
       match Lsp_request_decode.get_param_string params "inputFile" with
       | Some input_file ->
           Some
             {
-              Lsp_protocol.input_file;
+              Kairos_lsp_protocol.input_file;
               engine = Engine_service.string_of_engine (get_engine params);
             }
       | _ -> None)

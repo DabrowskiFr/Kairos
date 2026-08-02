@@ -18,7 +18,7 @@ let base_config_json =
 
 let () =
   let decoded =
-    match Lsp_protocol.config_of_yojson base_config_json with
+    match Kairos_lsp_protocol.config_of_yojson base_config_json with
     | Ok config -> config
     | Error message -> fail ("could not decode config: " ^ message)
   in
@@ -26,14 +26,14 @@ let () =
     fail "an omitted proof_jobs field must remain absent for the engine default";
   let configured = { decoded with proof_jobs = Some 3 } in
   match
-    Lsp_protocol.config_of_yojson
-      (Lsp_protocol.yojson_of_config configured)
+    Kairos_lsp_protocol.config_of_yojson
+      (Kairos_lsp_protocol.yojson_of_config configured)
   with
   | Ok roundtrip when roundtrip.proof_jobs = Some 3 -> ()
   | Ok _ -> fail "proof_jobs was not preserved by the JSON round trip"
   | Error message -> fail ("round-trip decode failed: " ^ message)
 
-let empty_diagnostic : Lsp_protocol.proof_diagnostic =
+let empty_diagnostic : Kairos_lsp_protocol.proof_diagnostic =
   {
     category = "";
     summary = "";
@@ -57,7 +57,7 @@ let empty_diagnostic : Lsp_protocol.proof_diagnostic =
   }
 
 let () =
-  let trace : Lsp_protocol.proof_trace =
+  let trace : Kairos_lsp_protocol.proof_trace =
     {
       goal_index = 0;
       stable_id = "vc-001";
@@ -81,7 +81,7 @@ let () =
       diagnostic = empty_diagnostic;
     }
   in
-  let json = Lsp_protocol.yojson_of_proof_trace trace in
+  let json = Kairos_lsp_protocol.yojson_of_proof_trace trace in
   let encoded_ids =
     match json with
     | `Assoc fields ->
@@ -90,7 +90,7 @@ let () =
   in
   if encoded_ids <> Some (`List [ `Int 2; `Int 7 ]) then
     fail "canonical obligation ids were not encoded as a JSON array";
-  match Lsp_protocol.proof_trace_of_yojson json with
+  match Kairos_lsp_protocol.proof_trace_of_yojson json with
   | Ok decoded
     when decoded.canonical_obligation_ids = trace.canonical_obligation_ids ->
       ()

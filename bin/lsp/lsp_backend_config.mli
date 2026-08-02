@@ -19,4 +19,4 @@
 (** Translate public LSP run configuration to the application pipeline config. *)
 
 val pipeline_config_of_protocol :
-  Lsp_protocol.config -> Kairos_engine.Api.config
+  Kairos_lsp_protocol.config -> Kairos_engine.Api.config

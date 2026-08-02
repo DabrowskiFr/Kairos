@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-let pipeline_config_of_protocol (cfg : Lsp_protocol.config) =
+let pipeline_config_of_protocol (cfg : Kairos_lsp_protocol.config) =
   Kairos_engine.Api.make_config ~input_file:cfg.input_file
     ~wp_only:cfg.wp_only ~timeout_s:cfg.timeout_s
     ~compute_proof_diagnostics:cfg.compute_proof_diagnostics ~prove:cfg.prove
