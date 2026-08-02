@@ -124,10 +124,7 @@ let frontend_error (error : Kx_frontend_error.t) =
 
 let read_text input_file =
   try
-    let channel = open_in_bin input_file in
-    Fun.protect ~finally:(fun () -> close_in_noerr channel) (fun () ->
-        let length = in_channel_length channel in
-        Ok (really_input_string channel length))
+    Ok (In_channel.with_open_bin input_file In_channel.input_all)
   with exn -> Error (Kairos_frontend.Io_error (Printexc.to_string exn))
 
 let dump parse render ~input_file =

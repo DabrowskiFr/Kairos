@@ -84,12 +84,8 @@ let validate_node (n : Verification_model.node_model) : unit =
     | Some decl -> decl
     | None -> fail_node node_name (Printf.sprintf "unknown method '%s'" called)
   in
-  let has_prefix ~(prefix : string) (s : string) : bool =
-    let plen = String.length prefix in
-    String.length s >= plen && String.equal (String.sub s 0 plen) prefix
-  in
   let is_generated_frontend_ghost x =
-    has_prefix ~prefix:"__kairos_observer_pre_" x
+    String.starts_with ~prefix:"__kairos_observer_pre_" x
   in
   let reject_ghost_use ?(allow_generated_frontend = false)
       ?(allow_public_ghosts = false) context vars =

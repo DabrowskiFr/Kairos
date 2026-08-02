@@ -43,12 +43,7 @@ let average_int xs =
   | _ -> float_of_int (sum_int xs) /. float_of_int (List.length xs)
 
 let top_values limit xs =
-  let rec take n = function
-    | _ when n <= 0 -> []
-    | [] -> []
-    | x :: tl -> x :: take (n - 1) tl
-  in
-  take limit xs
+  List.take (max 0 limit) xs
 
 let top_string_values limit xs = top_values limit xs
 
@@ -56,9 +51,7 @@ let truncate_string max_len s =
   if String.length s <= max_len then s
   else String.sub s 0 max_len ^ "..."
 
-let starts_with ~prefix s =
-  let lp = String.length prefix in
-  String.length s >= lp && String.sub s 0 lp = prefix
+let starts_with = String.starts_with
 
 let contains_substring s sub =
   let len_s = String.length s in

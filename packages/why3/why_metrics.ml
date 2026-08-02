@@ -85,9 +85,7 @@ let snapshot () =
     why3_smt_fingerprints = List.rev !why3_smt_fingerprints;
   }
 
-let rec drop_prefix count values =
-  if count <= 0 then values
-  else match values with [] -> [] | _ :: rest -> drop_prefix (count - 1) rest
+let drop_prefix count values = List.drop (max 0 count) values
 
 let diff ~before ~after_ =
   {

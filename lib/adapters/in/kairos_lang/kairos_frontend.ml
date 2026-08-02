@@ -44,12 +44,7 @@ let parse_info_of_kx_info (info : Kx_parse_api.parse_info) : parse_info =
 
 let read_all_text (path : string) : (string, error) result =
   try
-    let ic = open_in_bin path in
-    Fun.protect ~finally:(fun () -> close_in_noerr ic)
-      (fun () ->
-        let len = in_channel_length ic in
-        let s = really_input_string ic len in
-        Ok s)
+    Ok (In_channel.with_open_bin path In_channel.input_all)
   with exn ->
     Error
       (Io_error
@@ -78,11 +73,7 @@ let parse_input ~(input_file : string) : (output, error) result =
           Kairos_to_model.program ~type_decls:source_kx.type_decls
             ~function_decls:source_kx.function_decls source_kx.nodes
         in
-        Ok
-          {
-            parse_info;
-            verification_model;
-          }
+        Ok { parse_info; verification_model;}
       with
       | Kx_frontend_error.Error err -> Error (error_of_kx_error err)
       | exn ->

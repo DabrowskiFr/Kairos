@@ -112,8 +112,7 @@ let percent_decode text =
 let filename_of_uri uri =
   let prefix = "file://" in
   let prefix_len = String.length prefix in
-  if String.length uri >= prefix_len
-     && String.sub uri 0 prefix_len = prefix
+  if String.starts_with ~prefix uri
   then percent_decode (String.sub uri prefix_len (String.length uri - prefix_len))
   else "<client-buffer>"
 

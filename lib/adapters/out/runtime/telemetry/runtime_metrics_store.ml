@@ -142,9 +142,7 @@ let snapshot () : snapshot =
     ir_fact_families = List.rev !ir_fact_families;
   }
 
-let rec drop_prefix n xs =
-  if n <= 0 then xs
-  else match xs with [] -> [] | _ :: rest -> drop_prefix (n - 1) rest
+let drop_prefix n xs = List.drop (max 0 n) xs
 
 let diff ~before ~(after_ : snapshot) : snapshot =
   {

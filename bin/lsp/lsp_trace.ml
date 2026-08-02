@@ -20,10 +20,10 @@ let file =
     ~default:"/tmp/kairos-lsp-trace.log"
 
 let line (who : string) (msg : string) : unit =
-  if enabled then (
-    let oc = open_out_gen [ Open_creat; Open_text; Open_append ] 0o644 file in
-    let tm = Unix.localtime (Unix.gettimeofday ()) in
-    Printf.fprintf oc "%04d-%02d-%02d %02d:%02d:%02d [%s] %s\n"
-      (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday tm.tm_hour tm.tm_min
-      tm.tm_sec who msg;
-    close_out_noerr oc)
+  if enabled then
+    Out_channel.with_open_gen [ Open_creat; Open_text; Open_append ] 0o644 file
+      (fun oc ->
+        let tm = Unix.localtime (Unix.gettimeofday ()) in
+        Printf.fprintf oc "%04d-%02d-%02d %02d:%02d:%02d [%s] %s\n"
+          (tm.tm_year + 1900) (tm.tm_mon + 1) tm.tm_mday tm.tm_hour tm.tm_min
+          tm.tm_sec who msg)

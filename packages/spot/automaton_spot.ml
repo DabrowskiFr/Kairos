@@ -60,10 +60,6 @@ let run_command (cmd : string) : process_result =
   let status = Unix.close_process_full (ic, oc, ec) in
   { status; stdout; stderr }
 
-let starts_with ~(prefix : string) (s : string) : bool =
-  let plen = String.length prefix in
-  String.length s >= plen && String.sub s 0 plen = prefix
-
 let command_ok (r : process_result) : bool =
   match r.status with Unix.WEXITED 0 -> true | _ -> false
 
@@ -248,20 +244,21 @@ let parse_hoa (text : string) : hoa_automaton =
         loop start ap_count ap_names acceptance states current true rest
     | line :: rest when line = "--END--" ->
         loop start ap_count ap_names acceptance states current in_body []
-    | line :: rest when (not in_body) && starts_with ~prefix:"Start:" line ->
+    | line :: rest when (not in_body) && String.starts_with ~prefix:"Start:" line ->
         loop
           (Some (parse_int_after_prefix ~prefix:"Start:" line))
           ap_count ap_names acceptance states current in_body rest
-    | line :: rest when (not in_body) && starts_with ~prefix:"AP:" line ->
+    | line :: rest when (not in_body) && String.starts_with ~prefix:"AP:" line ->
         let count = parse_ap_count line in
         let names = parse_ap_names line in
         loop start (Some count) (Some names) acceptance states current in_body rest
-    | line :: rest when (not in_body) && starts_with ~prefix:"Acceptance:" line ->
+    | line :: rest
+      when (not in_body) && String.starts_with ~prefix:"Acceptance:" line ->
         let acc =
           if String.equal line "Acceptance: 0 t" then Acceptance_all else Acceptance_buchi
         in
         loop start ap_count ap_names (Some acc) states current in_body rest
-    | line :: rest when in_body && starts_with ~prefix:"State:" line ->
+    | line :: rest when in_body && String.starts_with ~prefix:"State:" line ->
         let states = match current with None -> states | Some st -> st :: states in
         let id, accepting =
           let id, accepting = parse_state_line line in
@@ -269,7 +266,7 @@ let parse_hoa (text : string) : hoa_automaton =
         in
         let current = Some { id; accepting; transitions = [] } in
         loop start ap_count ap_names acceptance states current in_body rest
-    | line :: rest when in_body && starts_with ~prefix:"[" line ->
+    | line :: rest when in_body && String.starts_with ~prefix:"[" line ->
         let current =
           match current with
           | None -> failwith ("HOA transition without state: " ^ line)
@@ -314,7 +311,7 @@ let normalize_cube (cube : (int * bool) list) : (int * bool) list option =
 let kairos_idx_of_hoa_ap_name (name : string) : int =
   let prefix = "__kairos_ap_" in
   let plen = String.length prefix in
-  if String.length name > plen && String.sub name 0 plen = prefix then
+  if String.length name > plen && String.starts_with ~prefix name then
     int_of_string (String.sub name plen (String.length name - plen))
   else failwith (Printf.sprintf "Unexpected HOA AP name %S (expected __kairos_ap_N)" name)
 

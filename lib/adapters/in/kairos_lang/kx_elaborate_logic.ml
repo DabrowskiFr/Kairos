@@ -246,7 +246,7 @@ let implicit_history_alias_k (alias : string) : int option =
   let prefix = "prev" in
   let plen = String.length prefix in
   if String.length alias < plen then None
-  else if not (String.equal (String.sub alias 0 plen) prefix) then None
+  else if not (String.starts_with ~prefix alias) then None
   else
     let suffix = String.sub alias plen (String.length alias - plen) in
     if String.length suffix = 0 then Some 1

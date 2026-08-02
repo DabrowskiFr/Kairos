@@ -103,14 +103,7 @@ let formula_population_json_of_facts facts =
   in
   let repeated_node_cost = sum_int (List.map fact_repeated_cost facts) in
   let top =
-    facts |> List.sort compare_fact_hotness
-    |> fun xs ->
-    let rec take n = function
-      | _ when n <= 0 -> []
-      | [] -> []
-      | x :: tl -> x :: take (n - 1) tl
-    in
-    take 30 xs
+    facts |> List.sort compare_fact_hotness |> List.take 30
   in
   json_assoc
     [
