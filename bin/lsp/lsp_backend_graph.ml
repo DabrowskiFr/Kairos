@@ -9,4 +9,4 @@
  *---------------------------------------------------------------------------*)
 
 let dot_png_from_text (req : Kairos_lsp_protocol.dot_png_from_text_request) =
-  Kairos_engine.Graphviz_render.dot_png_from_text req.dot_text
+  Kairos_graphviz_render.Graphviz_render.dot_png_from_text req.dot_text

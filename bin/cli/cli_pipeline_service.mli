@@ -33,7 +33,7 @@ type run_dump_data = {
   smt_text : string;
   flow_meta : flow_meta;
   goals : goal_info list;
-  proof_traces : Kairos_engine.Api.Contract.proof_trace list;
+  proof_traces : Kairos_composition.Api.Contract.proof_trace list;
 }
 
 type frontend_check_data = {
@@ -42,55 +42,55 @@ type frontend_check_data = {
   guarantee_count : int;
 }
 
-type c_generation_data = Kairos_engine.Api.generated_file list
+type c_generation_data = Kairos_composition.Api.generated_file list
 
 val proof_optimizations_of_args :
-  Cli_types.cli_args -> Kairos_engine.Api.Contract.proof_optimizations
+  Cli_types.cli_args -> Kairos_composition.Api.Contract.proof_optimizations
 
 val automata_dump_data :
   input_file:string ->
-  (automata_dump_data, Kairos_engine.Api.error) result
+  (automata_dump_data, Kairos_composition.Api.error) result
 
 val why_text_dump :
   input_file:string ->
-  proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
-  (string, Kairos_engine.Api.error) result
+  proof_optimizations:Kairos_composition.Api.Contract.proof_optimizations ->
+  (string, Kairos_composition.Api.error) result
 
 val obligations_dump_data :
   input_file:string ->
-  proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
-  (obligations_dump_data, Kairos_engine.Api.error) result
+  proof_optimizations:Kairos_composition.Api.Contract.proof_optimizations ->
+  (obligations_dump_data, Kairos_composition.Api.error) result
 
 val cost_report_dump :
   input_file:string ->
-  proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
-  (string, Kairos_engine.Api.error) result
+  proof_optimizations:Kairos_composition.Api.Contract.proof_optimizations ->
+  (string, Kairos_composition.Api.error) result
 
 val normalized_program :
-  proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
+  proof_optimizations:Kairos_composition.Api.Contract.proof_optimizations ->
   input_file:string ->
-  (string, Kairos_engine.Api.error) result
+  (string, Kairos_composition.Api.error) result
 
 val ir_pretty_dump :
-  proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
+  proof_optimizations:Kairos_composition.Api.Contract.proof_optimizations ->
   input_file:string ->
-  (string, Kairos_engine.Api.error) result
+  (string, Kairos_composition.Api.error) result
 
 val surface_dump :
   input_file:string ->
-  (string, Kairos_engine.Api.error) result
+  (string, Kairos_composition.Api.error) result
 
 val elaborated_dump :
   input_file:string ->
-  (string, Kairos_engine.Api.error) result
+  (string, Kairos_composition.Api.error) result
 
 val frontend_check :
   input_file:string ->
-  (frontend_check_data, Kairos_engine.Api.error) result
+  (frontend_check_data, Kairos_composition.Api.error) result
 
 val c_generation :
   input_file:string ->
-  (c_generation_data, Kairos_engine.Api.error) result
+  (c_generation_data, Kairos_composition.Api.error) result
 
 val run_dump_data :
   input_file:string ->
@@ -104,5 +104,5 @@ val run_dump_data :
   collect_ir_metrics:bool ->
   stop_on_first_nonvalid:bool ->
   proof_jobs:int ->
-  proof_optimizations:Kairos_engine.Api.Contract.proof_optimizations ->
-  (run_dump_data, Kairos_engine.Api.error) result
+  proof_optimizations:Kairos_composition.Api.Contract.proof_optimizations ->
+  (run_dump_data, Kairos_composition.Api.error) result

@@ -3,6 +3,9 @@
 This document is intended for contributors who want to understand or modify
 the Kairos implementation.
 
+The mandatory repository conventions are recorded in
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 It presents the main intermediate representations, component boundaries, and
 the verification and executable-code-generation pipelines, from the source
 language to solver results or generated C artifacts.
@@ -145,12 +148,11 @@ The LSP executable is the second delivery adapter. It exposes editor features
 and Kairos-specific pipeline operations over JSON-RPC on standard input and
 output.
 
-Like the CLI, it routes semantic and pipeline operations through the public
-`Kairos_engine.Api` facade. It maps protocol values to engine configuration
+Like the CLI, it routes pipeline operations through the default
+`Kairos_composition.Api` service assembled from the engine ports. It maps protocol values to engine configuration
 and maps typed engine results back to JSON, without importing the verification
 domain, frontend internals or Why3 compiler directly. The current
-`kairos/dotPngFromText` utility is a narrow exception: it calls the engine's
-private Graphviz process adapter directly, as noted below.
+`kairos/dotPngFromText` utility calls the dedicated Graphviz outgoing adapter.
 
 #### Pipeline contract
 
@@ -183,7 +185,7 @@ empty editor information without constructing the full verification pipeline.
 The custom `kairos/instrumentationPass`, `kairos/whyPass` and
 `kairos/obligationsPass` requests invoke the corresponding engine operations.
 `kairos/run` maps an LSP configuration to `Engine_contract.config` and uses
-`Kairos_engine.Api.run_with_callbacks`.
+`Kairos_composition.Api.run_with_callbacks`.
 
 #### Streaming runs
 
@@ -235,12 +237,9 @@ IR metrics, proof-progress output, stop-on-first-nonvalid and proof
 optimizations at engine defaults. The separate `kairos/whyPass` request is the
 current WhyML inspection path.
 
-`lsp_backend_graph` currently bypasses `Kairos_engine.Api` for
-`kairos/dotPngFromText` and calls `Kairos_engine.Graphviz_render` directly.
-This does not bypass verification semantics, but it is a dependency leak
-through a non-facade engine utility. A strict facade would expose this operation
-through `Api` or move the process adapter to an explicitly shared utility
-boundary.
+`lsp_backend_graph` invokes the explicitly separate
+`kairos_graphviz_render` outgoing adapter for `kairos/dotPngFromText`. This
+utility does not cross the verification-engine boundary.
 
 #### Architectural boundary
 
@@ -267,9 +266,9 @@ The LSP server must not:
 | [`bin/lsp/lsp_run_execution_handler.ml`](bin/lsp/lsp_run_execution_handler.ml) | Streaming `kairos/run` orchestration |
 | [`bin/lsp/lsp_backend_usecases.ml`](bin/lsp/lsp_backend_usecases.ml) | Access to the public engine facade |
 | [`bin/lsp/lsp_backend_graph.ml`](bin/lsp/lsp_backend_graph.ml) | Current direct Graphviz utility access for `dotPngFromText` |
-| [`lib/adapters/in/lsp_protocol/protocol/lsp_protocol.ml`](lib/adapters/in/lsp_protocol/protocol/lsp_protocol.ml) | Typed JSON protocol payloads |
-| [`lib/adapters/in/lsp_protocol/app/lsp_pipeline_mapper.ml`](lib/adapters/in/lsp_protocol/app/lsp_pipeline_mapper.ml) | Engine-result to protocol-result mapping |
-| [`lib/adapters/in/lsp_protocol/app/lsp_diagnostics.ml`](lib/adapters/in/lsp_protocol/app/lsp_diagnostics.ml) | Buffer diagnostics through the engine facade |
+| [`lib/adapters/in/kairos_lsp_protocol/kairos_lsp_protocol.ml`](lib/adapters/in/kairos_lsp_protocol/kairos_lsp_protocol.ml) | Typed JSON protocol payloads |
+| [`lib/adapters/in/kairos_lsp_app/lsp_pipeline_mapper.ml`](lib/adapters/in/kairos_lsp_app/lsp_pipeline_mapper.ml) | Engine-result to protocol-result mapping |
+| [`lib/adapters/in/kairos_lsp_app/lsp_diagnostics.ml`](lib/adapters/in/kairos_lsp_app/lsp_diagnostics.ml) | Buffer diagnostics through the engine facade |
 
 ### A.3. VS Code extension
 
@@ -507,11 +506,11 @@ A `program_step` contains:
 | `elaboration_checks` | Historical conditions introduced while elaborating the source program |
 
 The model is defined in
-[`lib/domain/core/verification_model.mli`](lib/domain/core/verification_model.mli).
+[`lib/domain/kairos_domain_core/verification_model.mli`](lib/domain/kairos_domain_core/verification_model.mli).
 
 The expressions, statements, temporal formulas, declarations and typed
 historical formulas referenced by the model are defined in
-[`lib/domain/core/core_syntax.mli`](lib/domain/core/core_syntax.mli).
+[`lib/domain/kairos_domain_core/core_syntax.mli`](lib/domain/kairos_domain_core/core_syntax.mli).
 
 #### Expression and formula boundary
 
@@ -664,8 +663,8 @@ verification input without depending on the Kairos parser or AST.
 | [`lib/adapters/in/kairos_lang/to_model/validation_common.ml`](lib/adapters/in/kairos_lang/to_model/validation_common.ml) | Shared declaration, identifier and type-validation helpers |
 | [`lib/adapters/in/kairos_lang/to_model/function_validation.ml`](lib/adapters/in/kairos_lang/to_model/function_validation.ml) | Pure-function declaration and contract validation |
 | [`lib/adapters/in/kairos_lang/to_model/node_validation.ml`](lib/adapters/in/kairos_lang/to_model/node_validation.ml) | Node, transition, method, ghost and historical-availability validation |
-| [`lib/domain/core/verification_model.ml`](lib/domain/core/verification_model.ml) | Program model and transition normalization |
-| [`lib/domain/core/core_syntax.ml`](lib/domain/core/core_syntax.ml) | Shared syntax used by the model |
+| [`lib/domain/kairos_domain_core/verification_model.ml`](lib/domain/kairos_domain_core/verification_model.ml) | Program model and transition normalization |
+| [`lib/domain/kairos_domain_core/core_syntax.ml`](lib/domain/kairos_domain_core/core_syntax.ml) | Shared syntax used by the model |
 
 ## C. Verification-problem preparation
 
@@ -770,9 +769,9 @@ obligations.
 
 | Module | Purpose |
 |---|---|
-| [`lib/domain/verification/proof_case_program.ml`](lib/domain/verification/proof_case_program.ml) | Core representation, reconstruction and validation of proof cases |
-| [`lib/domain/verification_optimization/proof_case_decomposition.ml`](lib/domain/verification_optimization/proof_case_decomposition.ml) | Optional decomposition strategies |
-| [`lib/adapters/out/runtime/orchestration/core/pipeline_build.ml`](lib/adapters/out/runtime/orchestration/core/pipeline_build.ml) | Invocation of proof-case preparation in the pipeline |
+| [`lib/domain/kairos_domain_verification/proof_case_program.ml`](lib/domain/kairos_domain_verification/proof_case_program.ml) | Core representation, reconstruction and validation of proof cases |
+| [`lib/domain/kairos_verification_optimization/proof_case_decomposition.ml`](lib/domain/kairos_verification_optimization/proof_case_decomposition.ml) | Optional decomposition strategies |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_build.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_build.ml) | Invocation of proof-case preparation in the pipeline |
 
 ## D. Temporal construction
 
@@ -919,13 +918,13 @@ contract.
 
 | Module | Purpose |
 |---|---|
-| [`lib/domain/verification/automata_preparation.ml`](lib/domain/verification/automata_preparation.ml) | Validates and prepares temporal formulas and atom mappings |
-| [`lib/domain/verification/automaton_types.ml`](lib/domain/verification/automaton_types.ml) | Core deterministic-partial-monitor representation |
-| [`packages/automata-contract/automata_exchange.ml`](packages/automata-contract/automata_exchange.ml) | Defines the versioned tool-neutral exchange format |
-| [`lib/adapters/out/runtime/orchestration/automata/automata_exchange_adapter.ml`](lib/adapters/out/runtime/orchestration/automata/automata_exchange_adapter.ml) | Converts between core formulas and the neutral contract |
-| [`lib/adapters/out/runtime/orchestration/automata/automata_generation.ml`](lib/adapters/out/runtime/orchestration/automata/automata_generation.ml) | Produces the assumption/guarantee pair for every proof case |
-| [`packages/spot/spot_automaton_builder.ml`](packages/spot/spot_automaton_builder.ml) | Implements the neutral producer contract using Spot |
-| [`lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml`](lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml) | Connects the pipeline to the Spot producer |
+| [`lib/domain/kairos_domain_verification/automata_preparation.ml`](lib/domain/kairos_domain_verification/automata_preparation.ml) | Validates and prepares temporal formulas and atom mappings |
+| [`lib/domain/kairos_domain_verification/automaton_types.ml`](lib/domain/kairos_domain_verification/automaton_types.ml) | Core deterministic-partial-monitor representation |
+| [`packages/kairos_automata_contract/automata_exchange.ml`](packages/kairos_automata_contract/automata_exchange.ml) | Defines the versioned tool-neutral exchange format |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_automata/automata_exchange_adapter.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_automata/automata_exchange_adapter.ml) | Converts between core formulas and the neutral contract |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_automata/automata_generation.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_automata/automata_generation.ml) | Produces the assumption/guarantee pair for every proof case |
+| [`packages/kairos_spot_adapter/spot_automaton_builder.ml`](packages/kairos_spot_adapter/spot_automaton_builder.ml) | Implements the neutral producer contract using Spot |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_automata/runtime_automata_source.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_automata/runtime_automata_source.ml) | Connects the pipeline to the Spot producer |
 
 ### D.2. Reference product
 
@@ -1194,13 +1193,13 @@ Reference-product construction does not:
 
 | Module | Purpose |
 |---|---|
-| [`lib/domain/verification/product_types.ml`](lib/domain/verification/product_types.ml) | Product states, prefixes and derived destinations |
-| [`lib/domain/verification/product_build.ml`](lib/domain/verification/product_build.ml) | Monitor validation and structural product exploration |
-| [`lib/domain/core/historical_initialization.ml`](lib/domain/core/historical_initialization.ml) | Minimum-age and available-history validation |
-| [`lib/domain/verification/temporal_automata.ml`](lib/domain/verification/temporal_automata.ml) | Per-node product-analysis result |
-| [`lib/domain/verification/product_reachability.ml`](lib/domain/verification/product_reachability.ml) | Optional reachability candidates |
-| [`lib/domain/verification/from_model.ml`](lib/domain/verification/from_model.ml) | Bridge from product prefixes to minimal IR summaries |
-| [`lib/domain/verification/orchestration.ml`](lib/domain/verification/orchestration.ml) | Proof-case association and reference-product assembly |
+| [`lib/domain/kairos_domain_verification/product_types.ml`](lib/domain/kairos_domain_verification/product_types.ml) | Product states, prefixes and derived destinations |
+| [`lib/domain/kairos_domain_verification/product_build.ml`](lib/domain/kairos_domain_verification/product_build.ml) | Monitor validation and structural product exploration |
+| [`lib/domain/kairos_domain_core/historical_initialization.ml`](lib/domain/kairos_domain_core/historical_initialization.ml) | Minimum-age and available-history validation |
+| [`lib/domain/kairos_domain_verification/temporal_automata.ml`](lib/domain/kairos_domain_verification/temporal_automata.ml) | Per-node product-analysis result |
+| [`lib/domain/kairos_domain_verification/product_reachability.ml`](lib/domain/kairos_domain_verification/product_reachability.ml) | Optional reachability candidates |
+| [`lib/domain/kairos_domain_verification/from_model.ml`](lib/domain/kairos_domain_verification/from_model.ml) | Bridge from product prefixes to minimal IR summaries |
+| [`lib/domain/kairos_domain_verification/orchestration.ml`](lib/domain/kairos_domain_verification/orchestration.ml) | Proof-case association and reference-product assembly |
 
 ## E. Canonical-obligation construction
 
@@ -1248,7 +1247,7 @@ result. This boundary neither constructs a Proof Plan nor invokes a backend;
 both happen after the canonical obligations exist.
 
 The aggregate is implemented by
-[`lib/domain/verification_obligations/canonical_verification.ml`](lib/domain/verification_obligations/canonical_verification.ml).
+[`lib/domain/kairos_verification_obligations/canonical_verification.ml`](lib/domain/kairos_verification_obligations/canonical_verification.ml).
 
 The intermediate representation is indexed by the kind of expressions its
 summary and product-case fields may contain:
@@ -1556,10 +1555,10 @@ E.1 does not:
 
 | Module | Purpose |
 |---|---|
-| [`lib/domain/verification/ir.ml`](lib/domain/verification/ir.ml) | IR nodes, summaries, derived product states and formula metadata |
-| [`lib/domain/verification/ir_formula.ml`](lib/domain/verification/ir_formula.ml) | Construction of formula occurrences |
-| [`lib/domain/verification/from_model.ml`](lib/domain/verification/from_model.ml) | Projection from product prefixes to minimal summaries |
-| [`lib/domain/verification/orchestration.ml`](lib/domain/verification/orchestration.ml) | Proof-case provenance and structural validation |
+| [`lib/domain/kairos_domain_verification/ir.ml`](lib/domain/kairos_domain_verification/ir.ml) | IR nodes, summaries, derived product states and formula metadata |
+| [`lib/domain/kairos_domain_verification/ir_formula.ml`](lib/domain/kairos_domain_verification/ir_formula.ml) | Construction of formula occurrences |
+| [`lib/domain/kairos_domain_verification/from_model.ml`](lib/domain/kairos_domain_verification/from_model.ml) | Projection from product prefixes to minimal summaries |
+| [`lib/domain/kairos_domain_verification/orchestration.ml`](lib/domain/kairos_domain_verification/orchestration.ml) | Proof-case provenance and structural validation |
 
 ### E.2. Enrichment and temporal lowering
 
@@ -1907,14 +1906,14 @@ the optional proof-plan transformations in F.
 
 | Module | Purpose |
 |---|---|
-| [`lib/domain/verification/fo_time.ml`](lib/domain/verification/fo_time.ml) | Formula transport between entry, post-state and next-entry coordinates |
-| [`lib/domain/verification/product_invariant.ml`](lib/domain/verification/product_invariant.ml) | Uniform interface for auxiliary product-state facts |
-| [`lib/domain/verification/product_reachability.ml`](lib/domain/verification/product_reachability.ml) | Reachability candidates and preservation conditions |
-| [`lib/domain/verification/product_characteristics.ml`](lib/domain/verification/product_characteristics.ml) | Symbolic product-state characteristics |
-| [`lib/domain/verification/pre.ml`](lib/domain/verification/pre.ml) | Entry requirements and propagated facts |
-| [`lib/domain/verification/post.ml`](lib/domain/verification/post.ml) | Guarantee progress, destination invariants and preservation facts |
-| [`lib/domain/verification/temporal_lower.ml`](lib/domain/verification/temporal_lower.ml) | Temporal-layout construction and typed historical lowering |
-| [`lib/domain/verification/orchestration.ml`](lib/domain/verification/orchestration.ml) | Pass ordering and structural validation |
+| [`lib/domain/kairos_domain_verification/fo_time.ml`](lib/domain/kairos_domain_verification/fo_time.ml) | Formula transport between entry, post-state and next-entry coordinates |
+| [`lib/domain/kairos_domain_verification/product_invariant.ml`](lib/domain/kairos_domain_verification/product_invariant.ml) | Uniform interface for auxiliary product-state facts |
+| [`lib/domain/kairos_domain_verification/product_reachability.ml`](lib/domain/kairos_domain_verification/product_reachability.ml) | Reachability candidates and preservation conditions |
+| [`lib/domain/kairos_domain_verification/product_characteristics.ml`](lib/domain/kairos_domain_verification/product_characteristics.ml) | Symbolic product-state characteristics |
+| [`lib/domain/kairos_domain_verification/pre.ml`](lib/domain/kairos_domain_verification/pre.ml) | Entry requirements and propagated facts |
+| [`lib/domain/kairos_domain_verification/post.ml`](lib/domain/kairos_domain_verification/post.ml) | Guarantee progress, destination invariants and preservation facts |
+| [`lib/domain/kairos_domain_verification/temporal_lower.ml`](lib/domain/kairos_domain_verification/temporal_lower.ml) | Temporal-layout construction and typed historical lowering |
+| [`lib/domain/kairos_domain_verification/orchestration.ml`](lib/domain/kairos_domain_verification/orchestration.ml) | Pass ordering and structural validation |
 
 ### E.3. Canonical obligations
 
@@ -2171,9 +2170,9 @@ obligations.
 
 | Module | Purpose |
 |---|---|
-| [`lib/domain/verification_obligations/step_contract_projection.ml`](lib/domain/verification_obligations/step_contract_projection.ml) | Projection of summaries into local step contracts |
-| [`lib/domain/verification_obligations/verification_obligations.ml`](lib/domain/verification_obligations/verification_obligations.ml) | Canonical individual obligations and source-node reassembly |
-| [`lib/domain/verification_obligations/canonical_verification.ml`](lib/domain/verification_obligations/canonical_verification.ml) | Orchestration of the complete canonical construction |
+| [`lib/domain/kairos_verification_obligations/step_contract_projection.ml`](lib/domain/kairos_verification_obligations/step_contract_projection.ml) | Projection of summaries into local step contracts |
+| [`lib/domain/kairos_verification_obligations/verification_obligations.ml`](lib/domain/kairos_verification_obligations/verification_obligations.ml) | Canonical individual obligations and source-node reassembly |
+| [`lib/domain/kairos_verification_obligations/canonical_verification.ml`](lib/domain/kairos_verification_obligations/canonical_verification.ml) | Orchestration of the complete canonical construction |
 
 ## F. Proof preparation
 
@@ -2464,10 +2463,10 @@ F does not:
 
 | Module | Purpose |
 |---|---|
-| [`lib/domain/verification_obligations/verification_proof_ir.ml`](lib/domain/verification_obligations/verification_proof_ir.ml) | Core-owned proof-compilation representation and validation |
-| [`lib/domain/verification_optimization/proof_plan.ml`](lib/domain/verification_optimization/proof_plan.ml) | Optional grouping, deduplication and sharing strategies |
-| [`lib/domain/verification_optimization/contract_formula_index.ml`](lib/domain/verification_optimization/contract_formula_index.ml) | Index of structurally repeated shareable formulas |
-| [`lib/adapters/out/runtime/orchestration/core/pipeline_config.ml`](lib/adapters/out/runtime/orchestration/core/pipeline_config.ml) | Reference and optimized strategy configurations |
+| [`lib/domain/kairos_verification_obligations/verification_proof_ir.ml`](lib/domain/kairos_verification_obligations/verification_proof_ir.ml) | Core-owned proof-compilation representation and validation |
+| [`lib/domain/kairos_verification_optimization/proof_plan.ml`](lib/domain/kairos_verification_optimization/proof_plan.ml) | Optional grouping, deduplication and sharing strategies |
+| [`lib/domain/kairos_verification_optimization/contract_formula_index.ml`](lib/domain/kairos_verification_optimization/contract_formula_index.ml) | Index of structurally repeated shareable formulas |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_config.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_config.ml) | Reference and optimized strategy configurations |
 
 ## G. Why3 backend
 
@@ -2720,16 +2719,16 @@ Why3 helpers are compilation artifacts.
 
 | Module | Purpose |
 |---|---|
-| [`lib/adapters/out/provers/why3/compile/why_compile.ml`](lib/adapters/out/provers/why3/compile/why_compile.ml) | Proof-IR compiler and manifest construction |
-| [`lib/adapters/out/provers/why3/compile/why_compile_node_common.ml`](lib/adapters/out/provers/why3/compile/why_compile_node_common.ml) | Common declarations and node compilation context |
-| [`lib/adapters/out/provers/why3/compile/why_compile_expr.ml`](lib/adapters/out/provers/why3/compile/why_compile_expr.ml) | Expression and formula translation |
-| [`lib/adapters/out/provers/why3/compile/why_compile_step.ml`](lib/adapters/out/provers/why3/compile/why_compile_step.ml) | Executable transition-body translation |
-| [`lib/adapters/out/provers/why3/compile/why_compile_product_specs.ml`](lib/adapters/out/provers/why3/compile/why_compile_product_specs.ml) | Individual and grouped WhyML contracts |
-| [`lib/adapters/out/provers/why3/compile/why_compile_product_helpers.ml`](lib/adapters/out/provers/why3/compile/why_compile_product_helpers.ml) | Helper construction |
-| [`lib/adapters/out/provers/why3/compile/why_compile_formula_sharing.ml`](lib/adapters/out/provers/why3/compile/why_compile_formula_sharing.ml) | Emission of shared-formula definitions |
-| [`lib/adapters/out/provers/why3/compile/why_compile_bundles.ml`](lib/adapters/out/provers/why3/compile/why_compile_bundles.ml) | Emission of shared-postcondition predicates |
-| [`lib/adapters/out/provers/why3/compile/why_compile_modules.ml`](lib/adapters/out/provers/why3/compile/why_compile_modules.ml) | Assembly of generated modules |
-| [`lib/adapters/out/provers/why3/why_pipeline.ml`](lib/adapters/out/provers/why3/why_pipeline.ml) | Compilation facade and optional WhyML rendering |
+| [`lib/adapters/out/provers/kairos_why3_compile/why_compile.ml`](lib/adapters/out/provers/kairos_why3_compile/why_compile.ml) | Proof-IR compiler and manifest construction |
+| [`lib/adapters/out/provers/kairos_why3_compile/why_compile_node_common.ml`](lib/adapters/out/provers/kairos_why3_compile/why_compile_node_common.ml) | Common declarations and node compilation context |
+| [`lib/adapters/out/provers/kairos_why3_compile/why_compile_expr.ml`](lib/adapters/out/provers/kairos_why3_compile/why_compile_expr.ml) | Expression and formula translation |
+| [`lib/adapters/out/provers/kairos_why3_compile/why_compile_step.ml`](lib/adapters/out/provers/kairos_why3_compile/why_compile_step.ml) | Executable transition-body translation |
+| [`lib/adapters/out/provers/kairos_why3_compile/why_compile_product_specs.ml`](lib/adapters/out/provers/kairos_why3_compile/why_compile_product_specs.ml) | Individual and grouped WhyML contracts |
+| [`lib/adapters/out/provers/kairos_why3_compile/why_compile_product_helpers.ml`](lib/adapters/out/provers/kairos_why3_compile/why_compile_product_helpers.ml) | Helper construction |
+| [`lib/adapters/out/provers/kairos_why3_compile/why_compile_formula_sharing.ml`](lib/adapters/out/provers/kairos_why3_compile/why_compile_formula_sharing.ml) | Emission of shared-formula definitions |
+| [`lib/adapters/out/provers/kairos_why3_compile/why_compile_bundles.ml`](lib/adapters/out/provers/kairos_why3_compile/why_compile_bundles.ml) | Emission of shared-postcondition predicates |
+| [`lib/adapters/out/provers/kairos_why3_compile/why_compile_modules.ml`](lib/adapters/out/provers/kairos_why3_compile/why_compile_modules.ml) | Assembly of generated modules |
+| [`lib/adapters/out/provers/kairos_why3/why_pipeline.ml`](lib/adapters/out/provers/kairos_why3/why_pipeline.ml) | Compilation facade and optional WhyML rendering |
 
 ### G.2. Solvers
 
@@ -2864,13 +2863,13 @@ Solver execution does not:
 
 | Module | Purpose |
 |---|---|
-| [`packages/why3/why_execution.ml`](packages/why3/why_execution.ml) | Structured-AST execution entry point |
-| [`packages/why3/why_task_support.ml`](packages/why3/why_task_support.ml) | Why3 environment, type checking, task extraction and `split_vc` |
-| [`packages/why3/why_contract_prove.ml`](packages/why3/why_contract_prove.ml) | Task proving and sequential execution |
-| [`packages/why3/why_contract_prover_call.ml`](packages/why3/why_contract_prover_call.ml) | Primary and fallback prover calls |
-| [`packages/why3/why_contract_persistent_z3.ml`](packages/why3/why_contract_persistent_z3.ml) | Persistent Z3 process |
-| [`packages/why3/why_contract_workers.ml`](packages/why3/why_contract_workers.ml) | Multi-process worker execution |
-| [`packages/why3-contract/why3_contract.ml`](packages/why3-contract/why3_contract.ml) | Typed execution options, results and metrics |
+| [`packages/kairos_external_why3/why_execution.ml`](packages/kairos_external_why3/why_execution.ml) | Structured-AST execution entry point |
+| [`packages/kairos_external_why3/why_task_support.ml`](packages/kairos_external_why3/why_task_support.ml) | Why3 environment, type checking, task extraction and `split_vc` |
+| [`packages/kairos_external_why3/why_contract_prove.ml`](packages/kairos_external_why3/why_contract_prove.ml) | Task proving and sequential execution |
+| [`packages/kairos_external_why3/why_contract_prover_call.ml`](packages/kairos_external_why3/why_contract_prover_call.ml) | Primary and fallback prover calls |
+| [`packages/kairos_external_why3/why_contract_persistent_z3.ml`](packages/kairos_external_why3/why_contract_persistent_z3.ml) | Persistent Z3 process |
+| [`packages/kairos_external_why3/why_contract_workers.ml`](packages/kairos_external_why3/why_contract_workers.ml) | Multi-process worker execution |
+| [`packages/kairos_why3_contract/why3_contract.ml`](packages/kairos_why3_contract/why3_contract.ml) | Typed execution options, results and metrics |
 
 ### G.3. Results
 
@@ -2996,11 +2995,11 @@ proof obligations.
 
 | Module | Purpose |
 |---|---|
-| [`lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml`](lib/adapters/out/runtime/orchestration/outputs/proof_runner.ml) | Compilation, execution and artifact orchestration |
-| [`lib/adapters/out/runtime/orchestration/outputs/proof_goal_results.ml`](lib/adapters/out/runtime/orchestration/outputs/proof_goal_results.ml) | Conversion of Why3 execution responses |
-| [`lib/adapters/out/runtime/orchestration/outputs/proof_traces.ml`](lib/adapters/out/runtime/orchestration/outputs/proof_traces.ml) | Manifest attribution and public trace construction |
-| [`lib/adapters/out/runtime/orchestration/outputs/proof_trace_diagnostics.ml`](lib/adapters/out/runtime/orchestration/outputs/proof_trace_diagnostics.ml) | Diagnostics for non-valid goals |
-| [`lib/adapters/out/runtime/orchestration/core/pipeline_proof_types.ml`](lib/adapters/out/runtime/orchestration/core/pipeline_proof_types.ml) | Public goal and proof-trace types |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_runner.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_runner.ml) | Compilation, execution and artifact orchestration |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_goal_results.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_goal_results.ml) | Conversion of Why3 execution responses |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_traces.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_traces.ml) | Manifest attribution and public trace construction |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_trace_diagnostics.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_trace_diagnostics.ml) | Diagnostics for non-valid goals |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_proof_types.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_proof_types.ml) | Public goal and proof-trace types |
 
 ## H. C code-generation backend
 
@@ -3037,8 +3036,9 @@ Verification_model.program_model
 
 `C_codegen.emit_program` mechanically emits a board-independent C99 execution
 interface for every node in the normalized frontend model.
-`Kairos_engine.Api.generate_c` invokes this backend directly after
-`Kairos_lang.Frontend.parse_input`; it does not construct proof cases, automata,
+The default composition maps the result of
+`Kairos_lang.Frontend.parse_input` to the neutral engine input, then invokes
+the C-generation outbound port. It does not construct proof cases, automata,
 products, canonical obligations, a Proof Plan or Why3 tasks.
 
 #### Executable input boundary
@@ -3134,23 +3134,23 @@ The C backend must not:
 
 | Module | Purpose |
 |---|---|
-| [`lib/engine/api.ml`](lib/engine/api.ml) | Direct `generate_c` engine operation |
-| [`lib/adapters/out/codegen/c/c_codegen.ml`](lib/adapters/out/codegen/c/c_codegen.ml) | Public C-backend facade |
-| [`lib/adapters/out/codegen/c/c_codegen_program.ml`](lib/adapters/out/codegen/c/c_codegen_program.ml) | Whole-program header, source and artifact assembly |
-| [`lib/adapters/out/codegen/c/c_codegen_node.ml`](lib/adapters/out/codegen/c/c_codegen_node.ml) | Node state, initialization, methods and step functions |
-| [`lib/adapters/out/codegen/c/c_codegen_expr.ml`](lib/adapters/out/codegen/c/c_codegen_expr.ml) | C expression translation |
-| [`lib/adapters/out/codegen/c/c_codegen_stmt.ml`](lib/adapters/out/codegen/c/c_codegen_stmt.ml) | C statement and method-call translation |
-| [`lib/adapters/out/codegen/c/c_codegen_functions.ml`](lib/adapters/out/codegen/c/c_codegen_functions.ml) | Pure-function generation |
-| [`lib/adapters/out/codegen/c/c_codegen_manifest.ml`](lib/adapters/out/codegen/c/c_codegen_manifest.ml) | Versioned JSON ABI manifest |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_ports/kairos_runtime_ports.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_ports/kairos_runtime_ports.ml) | C-generation port implementation |
+| [`lib/adapters/out/codegen/kairos_c_codegen/c_codegen.ml`](lib/adapters/out/codegen/kairos_c_codegen/c_codegen.ml) | Public C-backend facade |
+| [`lib/adapters/out/codegen/kairos_c_codegen/c_codegen_program.ml`](lib/adapters/out/codegen/kairos_c_codegen/c_codegen_program.ml) | Whole-program header, source and artifact assembly |
+| [`lib/adapters/out/codegen/kairos_c_codegen/c_codegen_node.ml`](lib/adapters/out/codegen/kairos_c_codegen/c_codegen_node.ml) | Node state, initialization, methods and step functions |
+| [`lib/adapters/out/codegen/kairos_c_codegen/c_codegen_expr.ml`](lib/adapters/out/codegen/kairos_c_codegen/c_codegen_expr.ml) | C expression translation |
+| [`lib/adapters/out/codegen/kairos_c_codegen/c_codegen_stmt.ml`](lib/adapters/out/codegen/kairos_c_codegen/c_codegen_stmt.ml) | C statement and method-call translation |
+| [`lib/adapters/out/codegen/kairos_c_codegen/c_codegen_functions.ml`](lib/adapters/out/codegen/kairos_c_codegen/c_codegen_functions.ml) | Pure-function generation |
+| [`lib/adapters/out/codegen/kairos_c_codegen/c_codegen_manifest.ml`](lib/adapters/out/codegen/kairos_c_codegen/c_codegen_manifest.ml) | Versioned JSON ABI manifest |
 | [`bin/cli/cli_runtime.ml`](bin/cli/cli_runtime.ml) | `--emit-c` operation dispatch |
 | [`bin/cli/cli_output.ml`](bin/cli/cli_output.ml) | Generated-file writing |
 
 ## I. Runtime integration and auxiliary outputs
 
-The runtime layer is the concrete composition root of Kairos. It orders the
-frontend, automata producer, canonical construction, proof preparation and
-backends, then projects their typed results into the outputs requested by a
-delivery adapter.
+The runtime layer implements the engine's driven ports. The distinct
+`kairos_composition` library is the concrete composition root: it connects the
+Kairos-language incoming adapter, the engine use cases and the outgoing
+runtime adapters.
 
 It may select a use case and collect observations, but it must not redefine a
 source-language transformation, canonical obligation or backend translation.
@@ -3159,10 +3159,11 @@ source-language transformation, canonical obligation or backend translation.
 
 #### Public in-process facade
 
-`Kairos_engine.Api` is the supported boundary for the CLI, LSP and embedded
-OCaml clients. These consumers depend on the facade instead of importing the
-frontend, verification domain, runtime orchestration or prover modules
-directly.
+`Kairos_engine.Api` owns the canonical contract of the inbound port.
+`Kairos_engine.Inbound` implements the use-case surface against
+`Kairos_engine.Outbound_ports`; it does not select concrete adapters. CLI and
+LSP executables use `Kairos_composition.Api`, the default assembled service,
+without importing runtime or prover modules directly.
 
 `Engine_contract` assembles focused public configuration, error and result
 types from `Pipeline_config`, `Pipeline_proof_types` and `Pipeline_artifacts`.
@@ -3170,8 +3171,8 @@ The API operations fall into four families:
 
 | Family | Operations and data path |
 |---|---|
-| Editor services | Buffer-based diagnostics and lightweight semantic symbols |
-| Frontend and verification inspection | Surface and elaborated dumps, frontend summary, instrumentation, WhyML, VC/SMT obligations, normalized and proof-oriented IR views, and cost report |
+| Editor services | Buffer-based diagnostics and lightweight semantic symbols provided directly by `Kairos_lang.Source_services` |
+| Frontend and verification inspection | Frontend-owned surface/elaborated views, then engine instrumentation, WhyML, VC/SMT obligations, normalized and proof-oriented IR views, and cost report |
 | Complete verification | Batch `run` or event-producing `run_with_callbacks` |
 | Executable generation | Direct portable-C generation |
 
@@ -3185,13 +3186,10 @@ reliably.
 
 #### Concrete verification flow
 
-`Engine_flow` performs the ordinary verification assembly:
+`Runtime_flow` implements the ordinary verification pipeline port:
 
 ```text
-input file
-    |
-    v
-Kairos_lang.Frontend.parse_input
+Kairos_engine.Outbound_ports.verification_input
     |
     v
 Pipeline_build.prepare_program
@@ -3218,7 +3216,7 @@ Pipeline_build.build_from_supplied_automata
 ```
 
 The split around automata is intentional. `Pipeline_build` accepts an
-explicit automata bundle and never invokes Spot. `Engine_flow` is the concrete
+explicit automata bundle and never invokes Spot. `Runtime_flow` is the concrete
 caller that currently selects the Spot adapter. A test or another runtime can
 therefore supply a contract-compatible producer without changing canonical
 construction.
@@ -3247,8 +3245,9 @@ Not every engine operation runs the entire diagram:
 - a complete run delegates proof and artifact selection to
   `Pipeline_outputs`.
 
-Every file-based frontend or pipeline operation currently reparses its input
-and reconstructs the required stages. There is no shared frontend snapshot,
+The composition root asks `Kairos_lang.Frontend` to produce a neutral
+`verification_input` before invoking an inbound engine use case. Every
+file-based operation currently reparses its input and reconstructs the required stages. There is no shared frontend snapshot,
 automata cache or canonical pipeline cache between two API calls. Buffer-based
 editor services parse caller-supplied text instead, and graph conversion does
 not parse Kairos source.
@@ -3282,22 +3281,27 @@ equivalence test between batch and callback execution.
 
 #### Architectural boundary
 
-The engine is deliberately concrete. There is no parallel abstract engine
-contract package, application-port hierarchy or functor-based composition
-layer. The facade owns use-case selection and component ordering, but it must
-not duplicate frontend elaboration, canonical construction, proof planning or
-backend compilation.
+The engine is strictly hexagonal. It owns one canonical contract, explicit
+inbound use cases and explicit outbound port signatures. Incoming and outgoing
+adapters depend inward on those contracts; `kairos_engine` must never depend
+on `kairos_lang`, runtime, prover, renderer or code-generation libraries.
+`kairos_composition` is the only library that selects the default concrete
+implementations. No duplicate engine DTO or field-by-field contract mapping is
+introduced.
 
 #### Main implementation
 
 | Module | Purpose |
 |---|---|
-| [`lib/engine/api.mli`](lib/engine/api.mli) | Public in-process operations |
-| [`lib/engine/engine_contract.ml`](lib/engine/engine_contract.ml) | Public configuration, result and error assembly |
-| [`lib/engine/engine_flow.ml`](lib/engine/engine_flow.ml) | Concrete use-case orchestration |
-| [`lib/adapters/out/runtime/orchestration/core/pipeline_build.ml`](lib/adapters/out/runtime/orchestration/core/pipeline_build.ml) | Parametric preparation and construction from supplied automata |
-| [`lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml`](lib/adapters/out/runtime/orchestration/automata/runtime_automata_source.ml) | Current Spot selection at the runtime boundary |
-| [`lib/engine/pipeline_outputs.ml`](lib/engine/pipeline_outputs.ml) | Complete-run proof and artifact selection |
+| [`lib/engine/kairos_engine/api.mli`](lib/engine/kairos_engine/api.mli) | Canonical inbound-port contract |
+| [`lib/engine/kairos_engine/inbound.mli`](lib/engine/kairos_engine/inbound.mli) | Use cases offered to driving adapters |
+| [`lib/engine/kairos_engine/outbound_ports.mli`](lib/engine/kairos_engine/outbound_ports.mli) | Services required from driven adapters |
+| [`lib/engine/kairos_engine/engine_contract.ml`](lib/engine/kairos_engine/engine_contract.ml) | Public configuration, result and error assembly |
+| [`lib/composition/kairos_composition/wiring.ml`](lib/composition/kairos_composition/wiring.ml) | Concrete port assembly |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_ports/runtime_flow.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_ports/runtime_flow.ml) | Concrete pipeline-port implementation |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_build.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_build.ml) | Parametric preparation and construction from supplied automata |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_automata/runtime_automata_source.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_automata/runtime_automata_source.ml) | Current Spot selection at the runtime boundary |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_ports/pipeline_outputs.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_ports/pipeline_outputs.ml) | Complete-run proof and artifact selection |
 
 ### I.2. Artifacts and output projection
 
@@ -3356,7 +3360,7 @@ and failed-SMT dumping or IR metrics do not disqualify the minimal path. The
 architectural fitness check enforces separation of artifact construction, not
 that every presentation field is empty.
 
-The minimal-run predicate is duplicated in `Engine_flow` and
+The minimal-run predicate is duplicated in `Runtime_flow` and
 `Pipeline_outputs`. The definitions currently agree, but the fitness check
 guards only the output branch, not equivalence of the two predicates; they
 must be changed together.
@@ -3380,13 +3384,13 @@ are singular. It does not mean that verification ignores later nodes.
 
 | Module | Purpose |
 |---|---|
-| [`lib/adapters/out/artifacts/graph_render/automata_graph_render.ml`](lib/adapters/out/artifacts/graph_render/automata_graph_render.ml) | Solver-free DOT and label views |
-| [`lib/adapters/out/artifacts/text_render/ir_text_program_view_render.ml`](lib/adapters/out/artifacts/text_render/ir_text_program_view_render.ml) | Normalized-program text view |
-| [`lib/adapters/out/artifacts/text_render/ir_text_proof_view_render.ml`](lib/adapters/out/artifacts/text_render/ir_text_proof_view_render.ml) | Proof-oriented IR text view |
-| [`lib/adapters/out/runtime/orchestration/outputs/pipeline_artifact_bundle.ml`](lib/adapters/out/runtime/orchestration/outputs/pipeline_artifact_bundle.ml) | Cross-node artifact collection |
-| [`lib/engine/pipeline_outputs.ml`](lib/engine/pipeline_outputs.ml) | Minimal and rich output paths |
-| [`lib/engine/output_mapper.ml`](lib/engine/output_mapper.ml) | Public output projection |
-| [`lib/engine/graphviz_render.ml`](lib/engine/graphviz_render.ml) | External DOT-to-PNG process adapter |
+| [`lib/adapters/out/artifacts/kairos_artifact_graph_render/automata_graph_render.ml`](lib/adapters/out/artifacts/kairos_artifact_graph_render/automata_graph_render.ml) | Solver-free DOT and label views |
+| [`lib/adapters/out/artifacts/kairos_artifact_text_render/ir_text_program_view_render.ml`](lib/adapters/out/artifacts/kairos_artifact_text_render/ir_text_program_view_render.ml) | Normalized-program text view |
+| [`lib/adapters/out/artifacts/kairos_artifact_text_render/ir_text_proof_view_render.ml`](lib/adapters/out/artifacts/kairos_artifact_text_render/ir_text_proof_view_render.ml) | Proof-oriented IR text view |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_diagnostics/pipeline_artifact_bundle.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_diagnostics/pipeline_artifact_bundle.ml) | Cross-node artifact collection |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_ports/pipeline_outputs.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_ports/pipeline_outputs.ml) | Minimal and rich output paths |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_ports/output_mapper.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_ports/output_mapper.ml) | Public output projection |
+| [`lib/adapters/out/artifacts/kairos_graphviz_render/graphviz_render.ml`](lib/adapters/out/artifacts/kairos_graphviz_render/graphviz_render.ml) | External DOT-to-PNG process adapter |
 
 ### I.3. Metrics and cost reports
 
@@ -3411,7 +3415,7 @@ public `flow_meta` projects only the frontend and summary warning counts.
 - IR sizes before and after passes;
 - candidate and inserted facts by pass and fact family.
 
-The batch `Engine_flow.run` path takes a snapshot before a run, computes a
+The batch `Runtime_flow.run` path takes a snapshot before a run, computes a
 non-negative delta afterwards and appends it to public timing metadata.
 Ordinary `run_with_callbacks` does not currently apply this timing projection,
 except when its diagnostic branch delegates back to `run`. The underlying
@@ -3438,11 +3442,11 @@ stage result or change proof cases, obligations, solver tasks or statuses.
 
 | Module | Purpose |
 |---|---|
-| [`lib/adapters/out/runtime/orchestration/core/flow_info.ml`](lib/adapters/out/runtime/orchestration/core/flow_info.ml) | Per-run structural metadata |
-| [`lib/adapters/out/runtime/telemetry/runtime_metrics.ml`](lib/adapters/out/runtime/telemetry/runtime_metrics.ml) | Runtime counter API and snapshots |
-| [`lib/adapters/out/runtime/telemetry/runtime_metrics_store.ml`](lib/adapters/out/runtime/telemetry/runtime_metrics_store.ml) | Process-local mutable store |
-| [`lib/engine/engine_timing_meta.ml`](lib/engine/engine_timing_meta.ml) | Snapshot delta and public timing projection |
-| [`lib/adapters/out/runtime/orchestration/outputs/pipeline_cost_report.ml`](lib/adapters/out/runtime/orchestration/outputs/pipeline_cost_report.ml) | Versioned cost-report composition |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_core/flow_info.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_core/flow_info.ml) | Per-run structural metadata |
+| [`lib/adapters/out/runtime/kairos_runtime_telemetry/runtime_metrics.ml`](lib/adapters/out/runtime/kairos_runtime_telemetry/runtime_metrics.ml) | Runtime counter API and snapshots |
+| [`lib/adapters/out/runtime/kairos_runtime_telemetry/runtime_metrics_store.ml`](lib/adapters/out/runtime/kairos_runtime_telemetry/runtime_metrics_store.ml) | Process-local mutable store |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_ports/engine_timing_meta.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_ports/engine_timing_meta.ml) | Snapshot delta and public timing projection |
+| [`lib/adapters/out/runtime/orchestration/kairos_runtime_diagnostics/pipeline_cost_report.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_diagnostics/pipeline_cost_report.ml) | Versioned cost-report composition |
 
 ## J. Package and dependency boundaries
 
@@ -3492,12 +3496,14 @@ The principal boundary rules are:
    are tool-adapter APIs, not Kairos verification-domain inputs.
 4. `kairos-why3-adapter` depends on the neutral Why3 contract and Why3 itself,
    but not on Kairos domain values, runtime orchestration or telemetry.
-5. `kairos-engine-runtime` is the concrete composition root. It may depend on
-   the core and both tool sides in order to assemble complete use cases.
-6. `kairos-cli` and semantic `kairos-lsp` operations use the public engine
-   facade and must not import domain, frontend, pipeline-builder or Why3
-   modules. The LSP's direct `Graphviz_render` utility call is the current
-   non-semantic exception to an otherwise strict facade.
+5. `kairos_engine` owns inbound and outbound port contracts and depends only
+   on domain libraries. Outgoing adapters implement its outbound ports and
+   depend inward on the engine.
+6. `kairos_composition` is the concrete composition root. It alone selects the
+   default language and runtime adapters used by the executable services.
+7. `kairos-cli` and semantic `kairos-lsp` operations use the assembled
+   composition facade and must not import domain, pipeline-builder or Why3
+   modules.
 
 Additional code-level boundaries refine that package graph:
 
@@ -3506,8 +3512,8 @@ Additional code-level boundaries refine that package graph:
 - the Why3 backend consumes history-free proof data and cannot reintroduce
   monitor-state or `__pre_k*` ghost-update instrumentation;
 - the minimal prove path cannot build presentation artifacts;
-- removed object, composition, application-port and duplicate engine-contract
-  APIs must not reappear alongside the concrete flow.
+- removed object and duplicate engine-contract APIs must not reappear; the
+  canonical engine contract must not be mirrored by adapter DTOs.
 
 These are package-level dependency and ownership constraints, not a complete
 library graph. Each package contains several Dune libraries, including public

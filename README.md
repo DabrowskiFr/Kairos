@@ -5,6 +5,9 @@ It takes a program and its temporal contracts (`assume`/`guarantee`), builds
 an intermediate verification representation, and generates local proof
 obligations checked with a standard verification backend.
 
+Contributor documentation: [conventions](CONTRIBUTING.md) and
+[architecture](Architecture.md).
+
 ## Run the validation campaign
 
 Full campaign (15 jobs, 1s timeout per VC, 15s timeout per file):

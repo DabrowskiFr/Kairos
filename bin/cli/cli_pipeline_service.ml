@@ -18,8 +18,8 @@
 
 open Cli_types
 
-module Engine = Kairos_engine.Api
-module Pipeline = Kairos_engine.Api.Contract
+module Engine = Kairos_composition.Api
+module Pipeline = Kairos_composition.Api.Contract
 
 let proof_optimizations_of_args args =
   let base =
@@ -85,7 +85,7 @@ let proof_optimizations_of_args args =
     guarantee_count : int;
   }
 
-  type c_generation_data = Kairos_engine.Api.generated_file list
+  type c_generation_data = Kairos_composition.Api.generated_file list
 
   let instrumentation_pass = Engine.instrumentation_pass
   let why_pass = Engine.why_pass_with_options

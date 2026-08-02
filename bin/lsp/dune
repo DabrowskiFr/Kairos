@@ -82,7 +82,8 @@
   lsp_graph_decode
   engine_service)
  (libraries
-  kairos_engine
+  kairos_composition
+  kairos_graphviz_render
   kairos_lsp_protocol
   kairos_lsp_app
   yojson

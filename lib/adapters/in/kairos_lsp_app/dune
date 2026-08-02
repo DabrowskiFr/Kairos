@@ -1,0 +1,14 @@
+(library
+ (name kairos_lsp_app)
+ (public_name kairos-lsp.app)
+ (wrapped false)
+ (modules
+  lsp_request_decode
+  lsp_pipeline_mapper
+  lsp_diagnostics
+  lsp_outline
+  lsp_goal_tree
+  lsp_symbols
+  lsp_completion
+  lsp_formatting)
+ (libraries kairos_engine kairos_lang kairos_lsp_protocol yojson str))

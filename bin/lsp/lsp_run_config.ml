@@ -31,7 +31,7 @@ let config_from_compat_params ~input_file params =
     proof_jobs =
       Some
         (Lsp_request_decode.get_param_int params "proofJobs"
-           (Kairos_engine.Api.default_proof_jobs ()));
+           (Kairos_composition.Api.default_proof_jobs ()));
     generate_vc_text =
       Lsp_request_decode.get_param_bool params "generateVcText" false;
     generate_smt_text =

@@ -1,0 +1,38 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
+type diagnostic = {
+  line : int;
+  col : int;
+  severity : int;
+  source : string;
+  message : string;
+}
+
+let diagnostics_for_text ~uri ~(text : string) : diagnostic list =
+  let filename = Lsp_symbols.filename_of_uri uri in
+  Kairos_lang.Source_services.diagnostics ~filename ~text
+  |> List.map
+       (fun (item : Kairos_lang.Source_services.source_diagnostic) ->
+         {
+           line = item.line;
+           col = item.column;
+           severity = item.severity;
+           source = item.source;
+           message = item.message;
+         })

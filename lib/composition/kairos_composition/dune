@@ -1,0 +1,11 @@
+(library
+ (name kairos_composition)
+ (public_name kairos-engine-runtime.internal.composition)
+ (wrapped true)
+ (modules wiring api)
+ (private_modules wiring)
+ (libraries
+  kairos_engine
+  kairos_lang
+  kairos_domain_core
+  kairos_runtime_ports))

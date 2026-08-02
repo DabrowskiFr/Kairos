@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Engine = Kairos_engine.Api
+module Engine = Kairos_composition.Api
 
 let map_error = Engine.error_to_string
 

@@ -1,0 +1,16 @@
+(library
+ (name kairos_runtime_core)
+ (public_name kairos-engine-runtime.internal.runtime_core)
+ (wrapped false)
+ (modules
+  result_utils
+  instrumentation_info_helpers
+  instrumentation_info_builder
+  pipeline_build)
+ (libraries
+  kairos_engine
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_verification_obligations
+  kairos_verification_optimization
+  kairos_runtime_telemetry))

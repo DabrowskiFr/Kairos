@@ -11,7 +11,7 @@
 (** Parsed CLI command model. *)
 
 type proof_case_strategy =
-  Kairos_engine.Api.Contract.proof_case_decomposition_strategy =
+  Kairos_composition.Api.Contract.proof_case_decomposition_strategy =
   | Monolithic
   | Separate_guarantees
   | Split_multiple_weak_until

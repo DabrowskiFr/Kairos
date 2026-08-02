@@ -1,0 +1,6 @@
+(library
+ (name kairos_graphviz_render)
+ (public_name kairos-engine-runtime.internal.graphviz_render)
+ (wrapped true)
+ (modules graphviz_render)
+ (libraries bos fpath))

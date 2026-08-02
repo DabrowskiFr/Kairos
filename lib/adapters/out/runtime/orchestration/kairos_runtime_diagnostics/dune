@@ -1,0 +1,20 @@
+(library
+ (name kairos_runtime_diagnostics)
+ (public_name kairos-engine-runtime.internal.runtime_diagnostics)
+ (wrapped false)
+ (modules
+  pipeline_outputs_helpers
+  pipeline_artifact_bundle_text
+  pipeline_artifact_bundle
+  pipeline_cost_report_common
+  pipeline_cost_report_syntax
+  pipeline_cost_report_source
+  pipeline_cost_report_why3
+  pipeline_cost_report_facts
+  pipeline_cost_report)
+ (libraries
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_runtime_core
+  kairos_artifact_graph_render
+  yojson))

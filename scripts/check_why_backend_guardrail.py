@@ -53,7 +53,10 @@ def scan_dir(repo: Path, roots: list[Path], patterns: list[tuple[re.Pattern[str]
 def main() -> int:
     repo = Path(__file__).resolve().parents[1]
 
-    backend_roots = [repo / "lib" / "adapters" / "out" / "provers" / "why3"]
+    backend_roots = [
+        repo / "lib" / "adapters" / "out" / "provers" / "kairos_why3",
+        repo / "lib" / "adapters" / "out" / "provers" / "kairos_why3_compile",
+    ]
     violations = []
     violations.extend(scan_dir(repo, backend_roots, FORBIDDEN_BACKEND))
 

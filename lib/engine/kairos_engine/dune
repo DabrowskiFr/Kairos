@@ -1,0 +1,18 @@
+(library
+ (name kairos_engine)
+ (public_name kairos-engine-runtime)
+ (wrapped true)
+ (modules
+  flow_info
+  pipeline_config
+  pipeline_error
+  pipeline_proof_types
+  pipeline_artifacts
+  engine_contract
+  outbound_ports
+  inbound
+  api)
+ (libraries
+  kairos_domain_core
+  kairos_domain_verification
+  kairos_verification_optimization))
