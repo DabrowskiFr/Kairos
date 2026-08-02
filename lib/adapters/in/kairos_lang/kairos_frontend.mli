@@ -16,31 +16,52 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-(** Kairos input adapter: parse source text and produce a runtime payload. *)
+(** Parse and elaborate a Kairos source file into the core program model. *)
 
 type error =
   | Parse_error of string
+      (** Invalid source syntax. *)
   | Elaboration_error of string
+      (** A source construct could not be elaborated. *)
   | Type_error of string
+      (** A typing rule was violated. *)
   | Well_formedness_error of string
+      (** A structural frontend rule was violated. *)
   | Io_error of string
+      (** The source file could not be read. *)
   | Internal_error of string
+      (** An unexpected frontend failure. *)
+(** Frontend failure categories. *)
 
-type parse_error = { loc : Loc.loc option; message : string }
+type parse_error = {
+  loc : Loc.loc option;
+      (** Optional source location. *)
+  message : string;
+      (** Diagnostic text. *)
+}
+(** Located parse diagnostic. *)
 
 type parse_info = {
   source_path : string option;
+      (** Source origin. *)
   text_hash : string option;
+      (** Source-content digest. *)
   parse_errors : parse_error list;
+      (** Collected parse diagnostics. *)
   warnings : string list;
+      (** Non-fatal warnings. *)
 }
+(** Metadata associated with the parsed source. *)
 
 type input = {
-  imports : string list;
   parse_info : parse_info;
+      (** Source metadata and diagnostics. *)
   verification_model : Verification_model.program_model;
+      (** Checked and normalized core program. *)
 }
+(** Successful frontend output. *)
 
 val parse_input :
   input_file:string ->
   (input, error) result
+(** Read and translate one source file. *)

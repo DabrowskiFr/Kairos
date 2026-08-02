@@ -17,33 +17,35 @@
  *---------------------------------------------------------------------------*)
 
 (** Concrete orchestration of the Kairos engine. *)
+module Frontend = Kairos_input_lang.Kairos_frontend
+
 let ( let* ) = Result.bind
 
 let error_of_frontend = function
-  | Kairos_frontend.Parse_error message -> Pipeline_error.Parse_error message
-  | Kairos_frontend.Elaboration_error message ->
+  | Frontend.Parse_error message -> Pipeline_error.Parse_error message
+  | Frontend.Elaboration_error message ->
       Pipeline_error.Elaboration_error message
-  | Kairos_frontend.Type_error message -> Pipeline_error.Type_error message
-  | Kairos_frontend.Well_formedness_error message ->
+  | Frontend.Type_error message -> Pipeline_error.Type_error message
+  | Frontend.Well_formedness_error message ->
       Pipeline_error.Well_formedness_error message
-  | Kairos_frontend.Io_error message -> Pipeline_error.Io_error message
-  | Kairos_frontend.Internal_error message ->
+  | Frontend.Io_error message -> Pipeline_error.Io_error message
+  | Frontend.Internal_error message ->
       Pipeline_error.Internal_error message
 
-let flow_parse_info (info : Kairos_frontend.parse_info) : Flow_info.parse_info =
+let flow_parse_info (info : Frontend.parse_info) : Flow_info.parse_info =
   {
     source_path = info.source_path;
     text_hash = info.text_hash;
     parse_errors =
       List.map
-        (fun (error : Kairos_frontend.parse_error) ->
+        (fun (error : Frontend.parse_error) ->
           ({ loc = error.loc; message = error.message } : Flow_info.parse_error))
         info.parse_errors;
     warnings = info.warnings;
   }
 
 let parse_input ~input_file =
-  Kairos_frontend.parse_input ~input_file |> Result.map_error error_of_frontend
+  Frontend.parse_input ~input_file |> Result.map_error error_of_frontend
 
 let () =
   Why_adapter_log.set_handlers
@@ -52,7 +54,7 @@ let () =
 
 let build_pipeline ~collect_instrumentation_info ~collect_ir_metrics
     ~proof_optimizations
-    ~(frontend : Kairos_frontend.input) =
+    ~(frontend : Frontend.input) =
   let* prepared =
     Pipeline_build.prepare_program ~proof_optimizations
       ~parse_info:(flow_parse_info frontend.parse_info)

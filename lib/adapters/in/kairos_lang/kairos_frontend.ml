@@ -34,7 +34,6 @@ type parse_info = {
 }
 
 type input = {
-  imports : string list;
   parse_info : parse_info;
   verification_model : Verification_model.program_model;
 }
@@ -62,11 +61,13 @@ let parse_info_of_frontend (info : Kx_parse_api.parse_info) : parse_info =
 let read_all_text (path : string) : (string, error) result =
   try
     let ic = open_in_bin path in
-    let len = in_channel_length ic in
-    let s = really_input_string ic len in
-    close_in ic;
-    Ok s
-  with exn -> Error (Io_error (Printexc.to_string exn))
+    Fun.protect ~finally:(fun () -> close_in_noerr ic)
+      (fun () ->
+        let len = in_channel_length ic in
+        let s = really_input_string ic len in
+        Ok s)
+  with exn ->
+    Error (Io_error (Printexc.to_string exn))
 
 let structured_frontend_error (err : Kx_frontend_error.t) : error =
   match err.kind with
@@ -92,7 +93,6 @@ let parse_input ~(input_file : string) : (input, error) result =
         in
         Ok
           {
-            imports = Kx_parse_api.imported_paths source_kx;
             parse_info;
             verification_model;
           }
