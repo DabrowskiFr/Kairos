@@ -10,7 +10,7 @@ dev-repo: "git+https://github.com/DabrowskiFr/Kairos.git"
 synopsis: "Versioned execution contract for the Kairos Why3 adapter"
 depends: [
   "dune" {>= "3.10"}
-  "ocaml"
+  "ocaml" {>= "5.4"}
   "yojson"
   "ppx_deriving"
   "ppx_deriving_yojson"

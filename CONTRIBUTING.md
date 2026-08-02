@@ -4,24 +4,40 @@ Read [ARCHITECTURE.md](ARCHITECTURE.md) before changing component boundaries or
 pipeline stages. That document explains the design; this file records the
 conventions contributors must preserve.
 
-## Toolchain and validation
+## Setup
 
-Kairos supports OCaml 5.4 and newer. Before submitting a change, run:
+Kairos supports OCaml 5.4 and newer. A local switch keeps the development
+environment reproducible without depending on a contributor's named switch:
 
 ```sh
-opam exec --switch=5.4.1+options -- dune build
-opam exec --switch=5.4.1+options -- dune runtest
-opam exec --switch=5.4.1+options -- dune build @fmt
+opam switch create . 5.4.1
+opam install . --deps-only --with-test
 ```
 
-Keep OCaml files formatted with the repository's `ocamlformat` configuration.
-Do not commit generated build artifacts.
+Use another compiler version only if it is at least 5.4.
+
+## Validation
+
+Every contribution runs the standard checks:
+
+```sh
+opam exec -- dune build @fmt
+opam exec -- dune build
+opam exec -- dune runtest
+```
+
+Changes to frontend classification should also run the explicit corpus
+campaign documented by `./scripts/validate_ok_ko.sh --help`. Performance work
+should run the relevant scenario documented by the performance validation
+script (`./scripts/validate_performance.sh --help`) and report before/after
+measurements. Keep OCaml files formatted with the repository's `ocamlformat`
+configuration.
 
 ## Architecture and dependencies
 
 Top-level source directories express architectural layers: domain, engine,
-incoming adapters and outgoing adapters. Place a responsibility in the layer
-that owns it, and preserve the dependency direction described in
+incoming adapters, outgoing adapters and composition. Place a responsibility
+in the layer that owns it, and preserve the dependency direction described in
 [ARCHITECTURE.md](ARCHITECTURE.md#j-package-and-dependency-boundaries).
 
 In particular:
@@ -82,7 +98,8 @@ Every Dune library follows these structural rules:
 - architectural directories may contain library directories, but not library
   modules directly;
 - `wrapped true` is the default; use `wrapped false` only for a deliberate
-  compatibility or integration constraint;
+  compatibility or integration constraint, explained by a comment next to the
+  Dune stanza;
 - expose a small explicit facade and keep implementation modules private when
   consumers do not need them;
 - declare every direct dependency in the library's `dune` stanza; do not rely
@@ -173,11 +190,12 @@ correspondence and rejects multiple libraries in one `dune` file.
 - Public interfaces and externally visible behavior are documented in the
   same change that introduces them. Update examples when their expected use
   changes.
-- Call out public API breaks explicitly. Do not hide a compatibility break in
-  an unrelated refactoring.
-- Version persisted or exchanged JSON formats. Preserve backward
-  compatibility when consumers may outlive the producing process, or document
-  and test the migration.
+- A public API or JSON compatibility break is acceptable during development,
+  but it must be called out explicitly, documented for affected consumers and
+  covered by updated tests. Do not hide it in an unrelated refactoring.
+- Version persisted or exchanged JSON formats. When a format changes, update
+  its version or migration rule and the corresponding producer and consumer
+  tests in the same contribution.
 - Comments explain intent, invariants and non-obvious tradeoffs; they do not
   paraphrase the implementation.
 
@@ -193,3 +211,9 @@ Never commit secrets, local configuration, solver dumps, generated artifacts
 or files from `_build/`. Review staged changes before committing, especially
 after moving directories, so Git records renames rather than accidental
 deletions.
+
+Kairos does not require signed commits or a prescribed commit-message format.
+Messages should nevertheless state the change clearly. A proposed change must
+summarize its intent, identify compatibility breaks, list the checks that were
+run and report relevant performance measurements. Keep unrelated changes in
+separate commits.

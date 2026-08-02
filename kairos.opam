@@ -15,7 +15,7 @@ depends: [
   "menhir"
   "ppx_deriving"
   "ppx_deriving_yojson"
-  "ocaml"
+  "ocaml" {>= "5.4"}
   "yojson"
   "fmt"
   "logs"

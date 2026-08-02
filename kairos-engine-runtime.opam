@@ -11,7 +11,7 @@ synopsis: "Concrete execution engine for Kairos verification"
 description: "Kairos engine API and canonical contract, concrete runtime orchestration, Kairos-specific backend projections, Graphviz rendering, and code generation."
 depends: [
   "dune" {>= "3.10"}
-  "ocaml"
+  "ocaml" {>= "5.4"}
   "kairos" {= version}
   "kairos-automata-contract" {= version}
   "kairos-spot-adapter" {= version}

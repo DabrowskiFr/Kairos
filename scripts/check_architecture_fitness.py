@@ -94,10 +94,12 @@ def check_library_layout(repo: Path) -> list[str]:
         path
         for root in (repo / "lib", repo / "packages")
         for path in root.rglob("dune")
+        if ".formatted" not in path.parts
     )
     for dune_file in dune_files:
+        dune_source = text(dune_file)
         library_names = re.findall(
-            r"\(library\s+\(name\s+([^\s()]+)\)", text(dune_file)
+            r"\(library\s+\(name\s+([^\s()]+)\)", dune_source
         )
         relative = dune_file.relative_to(repo)
         if len(library_names) > 1:
@@ -113,6 +115,12 @@ def check_library_layout(repo: Path) -> list[str]:
                     f"{relative}: directory {directory_name!r} must match "
                     f"library name {library_name!r}"
                 )
+        if "(wrapped false)" in dune_source and not re.search(
+            r";[^\n]+\n\s*\(wrapped false\)", dune_source
+        ):
+            violations.append(
+                f"{relative}: wrapped false requires an adjacent justification"
+            )
     return violations
 
 
@@ -344,6 +352,11 @@ def check_package_boundaries(repo: Path) -> list[str]:
         path.stem: quoted_dependencies(text(path))
         for path in sorted(repo.glob("*.opam"))
     }
+    for opam_file in sorted(repo.glob("*.opam")):
+        if not re.search(r'"ocaml"\s*\{>=\s*"5\.4"\}', text(opam_file)):
+            violations.append(
+                f"{opam_file.name} must require OCaml 5.4 or newer"
+            )
     if "kairos-engine-contract" in packages:
         violations.append("the duplicate kairos-engine-contract package still exists")
 

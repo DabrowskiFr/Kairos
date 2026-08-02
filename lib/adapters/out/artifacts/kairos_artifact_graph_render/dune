@@ -1,6 +1,7 @@
 (library
  (name kairos_artifact_graph_render)
  (public_name kairos-engine-runtime.internal.artifact_graph_render)
+ ; Flat module names are retained for the existing cross-library API.
  (wrapped false)
  (modules
   automata_graph_dot

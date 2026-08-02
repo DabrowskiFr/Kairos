@@ -92,6 +92,8 @@ val prove_ptree_with_events :
   ?split_vc:bool ->
   ?dump_failed_smt:bool ->
   ?should_cancel:(unit -> bool) ->
+  ?on_progress:(string -> unit) ->
+  ?on_warning:(string -> unit) ->
   ?on_goal_start:(goal_start_event -> unit) ->
   ?on_goal_done:(goal_done_event -> unit) ->
   Why3.Ptree.mlw_file ->
@@ -106,6 +108,8 @@ val prove_tasks_with_events :
   ?jobs:int ->
   ?dump_failed_smt:bool ->
   ?should_cancel:(unit -> bool) ->
+  ?on_progress:(string -> unit) ->
+  ?on_warning:(string -> unit) ->
   ?on_goal_start:(goal_start_event -> unit) ->
   ?on_goal_done:(goal_done_event -> unit) ->
   Why3.Task.task list ->
@@ -120,6 +124,8 @@ val prove_ptrees_with_events :
   ?split_vc:bool ->
   ?dump_failed_smt:bool ->
   ?should_cancel:(unit -> bool) ->
+  ?on_progress:(string -> unit) ->
+  ?on_warning:(string -> unit) ->
   ?on_goal_start:(goal_start_event -> unit) ->
   ?on_goal_done:(goal_done_event -> unit) ->
   Why3.Ptree.mlw_file list ->

@@ -20,11 +20,6 @@
 
 let ( let* ) = Result.bind
 
-let () =
-  Why_adapter_log.set_handlers
-    ~progress:(fun message -> Log.flow_info (Some "prove") message [])
-    ~warning:(fun message -> Log.warning ~stage:"prove" message)
-
 let build_pipeline ~collect_instrumentation_info ~collect_ir_metrics
     ~proof_optimizations
     ~(input : Kairos_engine.Outbound_ports.verification_input) =
@@ -154,6 +149,8 @@ let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
   let finished = ref [] in
   let response =
     Why_execution.execute_ptree ~should_cancel
+      ~on_progress:(fun message -> Log.flow_info (Some "prove") message [])
+      ~on_warning:(fun message -> Log.warning ~stage:"prove" message)
       ~on_goal_start:(fun _ -> ())
       ~on_goal_done:(fun result ->
         let idx = result.Contract.goal_index in

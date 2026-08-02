@@ -1,6 +1,7 @@
 (library
  (name kairos_domain_core)
  (public_name kairos.domain_core)
+ ; Flat module names are retained for the existing cross-library API.
  (wrapped false)
  (modules
   loc

@@ -11,7 +11,7 @@ synopsis: "Command-line adapter for the Kairos verification engine"
 description: "Optional command-line delivery adapter embedding the public Kairos engine facade."
 depends: [
   "dune" {>= "3.10"}
-  "ocaml"
+  "ocaml" {>= "5.4"}
   "kairos-engine-runtime" {= version}
   "bos"
   "fpath"

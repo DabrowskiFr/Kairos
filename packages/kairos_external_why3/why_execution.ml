@@ -93,7 +93,8 @@ let attach_probe ~timeout_s ~ptree (result : Contract.goal_result) =
     in
     { result with probe }
 
-let execute_ptree_core ~should_cancel ~on_goal_start ~on_goal_done
+let execute_ptree_core ~should_cancel ~on_progress ~on_warning ~on_goal_start
+    ~on_goal_done
     ~(options : Contract.execution_options) (ptree : Why3.Ptree.mlw_file) =
   let module_ptrees = Why_task_support.module_ptrees_of_ptree ptree in
   let _config, _main, env, _datadir = Why_task_support.setup_env () in
@@ -116,6 +117,7 @@ let execute_ptree_core ~should_cancel ~on_goal_start ~on_goal_done
       let _ =
         Why_contract_prove.prove_tasks_with_events ~timeout:options.timeout_s ~jobs:options.jobs
           ~dump_failed_smt:options.dump_failed_smt ~should_cancel
+          ~on_progress ~on_warning
           ~on_goal_start:(fun event ->
             on_goal_start { Contract.goal_index = event.goal_index; goal_name = event.goal_name })
           ~on_goal_done:(fun event ->
@@ -135,6 +137,8 @@ let execute_ptree_core ~should_cancel ~on_goal_start ~on_goal_done
   Contract.make_execution_response ~goals ~results ~vc_blocks ~smt_blocks ~metrics
 
 let execute_ptree ?(should_cancel = fun () -> false)
+    ?(on_progress = fun (_ : string) -> ())
+    ?(on_warning = fun (_ : string) -> ())
     ?(on_goal_start = fun (_ : Contract.goal_descriptor) -> ())
     ?(on_goal_done = fun (_ : Contract.goal_result) -> ()) ~(options : Contract.execution_options)
     (ptree : Why3.Ptree.mlw_file) =
@@ -142,4 +146,5 @@ let execute_ptree ?(should_cancel = fun () -> false)
   | Ok () -> ()
   | Error message -> invalid_arg message);
   Why_metrics.reset ();
-  execute_ptree_core ~should_cancel ~on_goal_start ~on_goal_done ~options ptree
+  execute_ptree_core ~should_cancel ~on_progress ~on_warning ~on_goal_start
+    ~on_goal_done ~options ptree

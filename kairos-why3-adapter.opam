@@ -10,7 +10,7 @@ dev-repo: "git+https://github.com/DabrowskiFr/Kairos.git"
 synopsis: "Standalone in-process Why3 proof adapter"
 depends: [
   "dune" {>= "3.10"}
-  "ocaml"
+  "ocaml" {>= "5.4"}
   "why3"
   "kairos-why3-contract" {= version}
 ]

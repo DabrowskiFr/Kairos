@@ -1,6 +1,7 @@
 (library
  (name kairos_why3)
  (public_name kairos-engine-runtime.internal.why3)
+ ; Flat module names are retained for the existing cross-library API.
  (wrapped false)
  (modules why_pipeline)
  (libraries

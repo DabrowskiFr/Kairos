@@ -25,16 +25,15 @@ include Why_contract_proof_types
 include Why_contract_prover_call
 include Why_contract_workers
 
-let log_progress ~pos ~total =
+let log_progress ~emit ~pos ~total =
   let should_log_progress ~pos ~total =
     pos = 0 || pos = total - 1 || (pos + 1) mod 10 = 0
   in
   if should_log_progress ~pos ~total then
-    Why_adapter_log.progress
-      (Printf.sprintf "proving goal %d/%d" (pos + 1) total)
+    emit (Printf.sprintf "proving goal %d/%d" (pos + 1) total)
 
-let log_failed_goal ~pos ~total ~answer ~dump_path =
-  Why_adapter_log.warning
+let log_failed_goal ~emit ~pos ~total ~answer ~dump_path =
+  emit
     (Printf.sprintf "goal %d/%d failed (%s); dumped to %s" (pos + 1) total
        (Smt_utils.answer_status answer)
        dump_path)
@@ -60,6 +59,8 @@ let prove_tasks_with_details
     ~(jobs : int)
     ~(dump_failed_smt : bool)
     ~(should_cancel : unit -> bool)
+    ~(on_progress : string -> unit)
+    ~(on_warning : string -> unit)
     ~(on_goal_start : goal_start_event -> unit) 
     ~(on_goal_done : goal_done_event -> unit)
   (tasks : Task.task list) :
@@ -77,7 +78,8 @@ let prove_tasks_with_details
     (if log_failure then
       match (detail.prover_result.pr_answer, detail.dump_path) with
       | answer, Some dump_path when answer <> Call_provers.Valid ->
-          log_failed_goal ~pos ~total:total_tasks ~answer ~dump_path
+          log_failed_goal ~emit:on_warning ~pos ~total:total_tasks ~answer
+            ~dump_path
       | _ -> ());
     detail
   in
@@ -113,7 +115,7 @@ let prove_tasks_with_details
     | [] -> List.rev details
     | _ when should_cancel () -> List.rev details
     | (task_index, task) :: rest -> (
-        log_progress ~pos ~total:total_tasks;
+        log_progress ~emit:on_progress ~pos ~total:total_tasks;
         let t_prepare = Unix.gettimeofday () in
         let prepared = prepare_task task in
         let prepare_s = Unix.gettimeofday () -. t_prepare in
@@ -160,7 +162,7 @@ let prove_tasks_with_details
         let pos = !started_count in
         incr started_count;
         Hashtbl.replace positions_by_task task_index pos;
-        log_progress ~pos ~total:total_tasks;
+        log_progress ~emit:on_progress ~pos ~total:total_tasks;
         on_goal_start { goal_index = task_index; goal_name }
       in
       let finish_worker_result ~task_index ~(detail : goal_proof_result) =
@@ -266,6 +268,8 @@ let prove_tasks_with_events_in_env
     ~(jobs : int)
     ~(dump_failed_smt : bool)
     ~(should_cancel : unit -> bool)
+    ~(on_progress : string -> unit)
+    ~(on_warning : string -> unit)
     ~(on_goal_start : goal_start_event -> unit)
     ~(on_goal_done : goal_done_event -> unit)
     (tasks : Task.task list) : goal_proof_result list =
@@ -292,20 +296,23 @@ let prove_tasks_with_events_in_env
       { driver; command = Whyconf.get_complete_command prover_cfg ~with_steps:false }
     in
     prove_tasks_with_details ~why3_main ~limits ~primary ~fallback ~jobs
-      ~dump_failed_smt ~should_cancel ~on_goal_start ~on_goal_done tasks
+      ~dump_failed_smt ~should_cancel ~on_progress ~on_warning ~on_goal_start
+      ~on_goal_done tasks
 
 let prove_tasks_with_events
   ?(timeout = 30)
   ?(jobs = 1)
   ?(dump_failed_smt = false)
   ?(should_cancel = fun () -> false)
+  ?(on_progress = fun (_ : string) -> ())
+  ?(on_warning = fun (_ : string) -> ())
   ?(on_goal_start = fun (_ : goal_start_event) -> ())
   ?(on_goal_done = fun (_ : goal_done_event) -> ())
   (tasks : Task.task list) : goal_proof_result list =
     let why3_config, why3_main, env, datadir_opt = setup_env () in
     prove_tasks_with_events_in_env ~why3_config ~why3_main ~env ~datadir_opt
       ~timeout ~jobs ~dump_failed_smt ~should_cancel ~on_goal_start
-      ~on_goal_done tasks
+      ~on_goal_done ~on_progress ~on_warning tasks
 
 let prove_ptrees_with_events
   ?(timeout = 30)
@@ -313,6 +320,8 @@ let prove_ptrees_with_events
   ?(split_vc = true)
   ?(dump_failed_smt = false)
   ?(should_cancel = fun () -> false)
+  ?(on_progress = fun (_ : string) -> ())
+  ?(on_warning = fun (_ : string) -> ())
   ?(on_goal_start = fun (_ : goal_start_event) -> ())
   ?(on_goal_done = fun (_ : goal_done_event) -> ())
   (ptrees : Ptree.mlw_file list) : goal_proof_result list =
@@ -323,7 +332,7 @@ let prove_ptrees_with_events
     in
     prove_tasks_with_events_in_env ~why3_config ~why3_main ~env ~datadir_opt
       ~timeout ~jobs ~dump_failed_smt ~should_cancel ~on_goal_start
-      ~on_goal_done tasks
+      ~on_goal_done ~on_progress ~on_warning tasks
 
 (* Public entry point:
    build normalized tasks from a ptree and run the proof loop. *)
@@ -333,8 +342,11 @@ let prove_ptree_with_events
   ?(split_vc = true)
   ?(dump_failed_smt = false)
   ?(should_cancel = fun () -> false)
+  ?(on_progress = fun (_ : string) -> ())
+  ?(on_warning = fun (_ : string) -> ())
   ?(on_goal_start = fun (_ : goal_start_event) -> ())
   ?(on_goal_done = fun (_ : goal_done_event) -> ())
   (ptree : Ptree.mlw_file) : goal_proof_result list =
     prove_ptrees_with_events ~timeout ~jobs ~split_vc ~dump_failed_smt
-      ~should_cancel ~on_goal_start ~on_goal_done [ ptree ]
+      ~should_cancel ~on_progress ~on_warning ~on_goal_start ~on_goal_done
+      [ ptree ]

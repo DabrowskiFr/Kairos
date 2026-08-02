@@ -4,6 +4,8 @@ module Contract = Kairos_why3_contract.Why3_contract
 
 val execute_ptree :
   ?should_cancel:(unit -> bool) ->
+  ?on_progress:(string -> unit) ->
+  ?on_warning:(string -> unit) ->
   ?on_goal_start:(Contract.goal_descriptor -> unit) ->
   ?on_goal_done:(Contract.goal_result -> unit) ->
   options:Contract.execution_options ->

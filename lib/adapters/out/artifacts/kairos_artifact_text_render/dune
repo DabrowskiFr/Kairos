@@ -1,6 +1,7 @@
 (library
  (name kairos_artifact_text_render)
  (public_name kairos-engine-runtime.internal.artifact_text_render)
+ ; Flat module names are retained for the existing cross-library API.
  (wrapped false)
  (modules ir_text_proof_view_render ir_text_program_view_render)
  (libraries kairos_domain_core kairos_domain_verification))

@@ -1,12 +1,12 @@
 (library
  (name kairos_external_why3)
  (public_name kairos-why3-adapter.runtime)
+ ; Flat module names are retained for the existing cross-library API.
  (wrapped false)
  (modules
   why_metrics
   why_task_support
   why_task_dump_render
-  why_adapter_log
   why_contract_unix_io
   why_contract_proof_types
   why_contract_smt_utils
