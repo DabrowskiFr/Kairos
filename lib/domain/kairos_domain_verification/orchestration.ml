@@ -269,16 +269,7 @@ let build_reference_product
                proof_case_name
            with
            | Some proof_case ->
-               let initial = node.analysis.exploration.initial_state in
-               let initial_state : Ir.product_state =
-                 {
-                   prog_state = initial.prog_state;
-                   assume_state_index =
-                     initial.assume_state_index;
-                   guarantee_state_index =
-                     initial.guarantee_state_index;
-                 }
-               in
+               let initial_state = node.analysis.exploration.initial_state in
                let reachability =
                  Product_reachability.build
                    ~strategy:reachability_strategy ~initial_state
@@ -347,17 +338,8 @@ let build_instrumented_ir
           Product_invariant.of_reachability
             product_node.reachability;
           Product_invariant.of_characteristics
-            (let initial =
+            (let initial_state =
                product_node.analysis.exploration.initial_state
-             in
-             let initial_state : Ir.product_state =
-               {
-                 prog_state = initial.prog_state;
-                 assume_state_index =
-                   initial.assume_state_index;
-                 guarantee_state_index =
-                   initial.guarantee_state_index;
-               }
              in
              Product_characteristics.build ~initial_state ~node);
         ])

@@ -46,15 +46,6 @@ let status_of_answer = function
   | Why3.Call_provers.Failure message | Why3.Call_provers.HighFailure message ->
       Contract.Failure (Some message)
 
-let timing_of_backend (timing : Why_contract_prove.goal_timing) : Contract.goal_timing =
-  {
-    prepare_s = timing.prepare_s;
-    print_s = timing.print_s;
-    spawn_s = timing.spawn_s;
-    wait_s = timing.wait_s;
-    solver_s = timing.solver_s;
-  }
-
 let result_of_backend ~goal_index (result : Why_contract_prove.goal_proof_result) :
     Contract.goal_result =
   {
@@ -62,7 +53,7 @@ let result_of_backend ~goal_index (result : Why_contract_prove.goal_proof_result
     goal_name = result.goal_name;
     status = status_of_answer result.prover_result.pr_answer;
     prover_time_s = result.prover_result.pr_time;
-    timing = timing_of_backend result.timing;
+    timing = result.timing;
     dump_path = result.dump_path;
     probe = None;
   }
@@ -118,8 +109,7 @@ let execute_ptree_core ~should_cancel ~on_progress ~on_warning ~on_goal_start
         Why_contract_prove.prove_tasks_with_events ~timeout:options.timeout_s ~jobs:options.jobs
           ~dump_failed_smt:options.dump_failed_smt ~should_cancel
           ~on_progress ~on_warning
-          ~on_goal_start:(fun event ->
-            on_goal_start { Contract.goal_index = event.goal_index; goal_name = event.goal_name })
+          ~on_goal_start
           ~on_goal_done:(fun event ->
             let result = result_of_backend ~goal_index:event.goal_index event.result in
             finished := result :: !finished;

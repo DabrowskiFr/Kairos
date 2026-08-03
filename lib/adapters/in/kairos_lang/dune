@@ -6,6 +6,6 @@
  (wrapped true)
  (private_modules
   (:standard \ frontend source_services))
- (libraries kairos_domain_core menhirLib sedlex yojson str)
+ (libraries kairos_domain_core menhirLib sedlex yojson)
  (preprocess
   (pps sedlex.ppx ppx_deriving_yojson)))

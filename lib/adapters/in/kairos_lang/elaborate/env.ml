@@ -18,7 +18,6 @@
 
 open Core.Syntax
 module S = Surface.Ast
-module Names = Names
 
 type env = {
   enum_sets : (ident * ident list) list;

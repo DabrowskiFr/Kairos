@@ -53,7 +53,7 @@ let proof_optimizations_of_args args =
       };
   }
 
-  type goal_info = string * string * float * string option * string option
+  type goal_info = Pipeline.goal_info
   type flow_meta = (string * (string * string) list) list
 
   type automata_dump_data = {

@@ -32,7 +32,7 @@ type 'phase summary_formula = {
 
 type temporal_layout = Pre_k_layout.pre_k_info list
 
-type product_state = {
+type product_state = Product_types.product_state = {
   prog_state : ident;
   assume_state_index : automaton_state_index;
   guarantee_state_index : automaton_state_index;
@@ -104,7 +104,7 @@ type node_signature = {
   sem_init_state : ident;
 }
 
-type state_invariant = {
+type state_invariant = Verification_model.state_invariant = {
   state : ident;
   formula : Core_syntax.historical Core_syntax.hexpr;
 }

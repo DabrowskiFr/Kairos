@@ -8,8 +8,7 @@ type generated_file = { file_name : string; contents : string }
 let make_verification_input ~source_path ~text_hash ~warnings
     ~verification_model =
   {
-    parse_info =
-      { Flow_info.source_path; text_hash; parse_errors = []; warnings };
+    parse_info = { Flow_info.source_path; text_hash; warnings };
     verification_model;
   }
 

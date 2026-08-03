@@ -9,6 +9,8 @@ type error = Contract.error
 type source_diagnostic = Source_services.source_diagnostic = {
   line : int;
   column : int;
+  line_end : int;
+  column_end : int;
   severity : int;
   source : string;
   message : string;

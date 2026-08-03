@@ -13,10 +13,11 @@ type invariant_state_rel = {
 [@@deriving yojson]
 (** Invariant required whenever the node occupies one control state. *)
 
-type method_param_mode = MPIn | MPInOut [@@deriving yojson]
+type method_param_mode = Core_syntax.method_param_mode = MPIn | MPInOut
+[@@deriving yojson]
 (** Whether a method parameter is read-only or may also be updated. *)
 
-type method_param = {
+type method_param = Core_syntax.method_param = {
   method_param_name : ident;
   method_param_ty : ty;
   method_param_mode : method_param_mode;

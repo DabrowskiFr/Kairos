@@ -10,7 +10,7 @@
 
 (** CLI-facing service facade over application use-cases. *)
 
-type goal_info = string * string * float * string option * string option
+type goal_info = Kairos_composition.Api.Contract.goal_info
 type flow_meta = (string * (string * string) list) list
 
 type automata_dump_data = {

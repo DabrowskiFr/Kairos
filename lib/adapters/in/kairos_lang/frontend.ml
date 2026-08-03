@@ -16,11 +16,23 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
+type location = Loc.loc = {
+  line : int;
+  col : int;
+  line_end : int;
+  col_end : int;
+}
+
+type diagnostic = {
+  loc : location option;
+  message : string;
+}
+
 type error =
-  | Parse_error of string
-  | Elaboration_error of string
-  | Type_error of string
-  | Well_formedness_error of string
+  | Parse_error of diagnostic
+  | Elaboration_error of diagnostic
+  | Type_error of diagnostic
+  | Well_formedness_error of diagnostic
   | Io_error of string
   | Internal_error of string
 
@@ -52,12 +64,13 @@ let read_all_text (path : string) : (string, error) result =
           path (Printexc.to_string exn)))
 
 let error_of_kx_error (err : Shared.Error.t) : error =
+  let diagnostic = { loc = err.loc; message = err.message } in
   match err.kind with
-  | Shared.Error.Parse -> Parse_error err.message
-  | Shared.Error.Elaboration -> Elaboration_error err.message
-  | Shared.Error.Type -> Type_error err.message
+  | Shared.Error.Parse -> Parse_error diagnostic
+  | Shared.Error.Elaboration -> Elaboration_error diagnostic
+  | Shared.Error.Type -> Type_error diagnostic
   | Shared.Error.Well_formedness ->
-      Well_formedness_error err.message
+      Well_formedness_error diagnostic
   | Shared.Error.Internal -> Internal_error err.message
 
 let parse_input ~(input_file : string) : (output, error) result =
@@ -66,7 +79,8 @@ let parse_input ~(input_file : string) : (output, error) result =
   | Ok source_text -> (
       try
         let source_kx, parse_info_kx =
-          Parse.Api.parse_source_text_with_info ~filename:input_file ~text:source_text
+          Parse.Api.elaborate_source_text_with_info ~filename:input_file
+            ~text:source_text
         in
         let parse_info = parse_info_of_kx_info parse_info_kx in
         let verification_model =

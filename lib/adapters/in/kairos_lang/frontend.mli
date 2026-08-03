@@ -18,14 +18,29 @@
 
 (** Parse and elaborate a Kairos source file into the core program model. *)
 
+type location = Loc.loc = {
+  line : int;
+  col : int;
+  line_end : int;
+  col_end : int;
+}
+(** Source span using one-based lines and zero-based Unicode-code-point
+    columns. *)
+
+type diagnostic = {
+  loc : location option;
+  message : string;
+}
+(** Structured frontend diagnostic. *)
+
 type error =
-  | Parse_error of string
+  | Parse_error of diagnostic
       (** Invalid source syntax. *)
-  | Elaboration_error of string
+  | Elaboration_error of diagnostic
       (** A source construct could not be elaborated. *)
-  | Type_error of string
+  | Type_error of diagnostic
       (** A typing rule was violated. *)
-  | Well_formedness_error of string
+  | Well_formedness_error of diagnostic
       (** A structural frontend rule was violated. *)
   | Io_error of string
       (** The source file could not be read. *)

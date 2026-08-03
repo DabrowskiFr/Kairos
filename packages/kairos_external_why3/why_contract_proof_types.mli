@@ -25,7 +25,7 @@
 (** Per-goal backend timing.  The solver time is the prover-reported CPU time;
     the other fields are wall-clock time observed by Kairos around the Why3
     driver/prover calls. *)
-type goal_timing = {
+type goal_timing = Kairos_why3_contract.Why3_contract.goal_timing = {
   prepare_s : float;
   print_s : float;
   spawn_s : float;
@@ -51,7 +51,7 @@ type goal_proof_result = {
     Fields:
     - [goal_index]: zero-based index in normalized goal order.
     - [goal_name]: Why3 goal identifier. *)
-type goal_start_event = {
+type goal_start_event = Kairos_why3_contract.Why3_contract.goal_descriptor = {
   goal_index : int;
   goal_name : string;
 }

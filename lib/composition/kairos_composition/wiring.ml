@@ -4,15 +4,22 @@ module Usecases =
 
 let ( let* ) = Result.bind
 
+let engine_diagnostic (diagnostic : Frontend.diagnostic) =
+  { Kairos_engine.Pipeline_error.loc = diagnostic.loc; message = diagnostic.message }
+
 let error_of_frontend = function
-  | Frontend.Parse_error message ->
-      Kairos_engine.Api.Contract.Parse_error message
-  | Frontend.Elaboration_error message ->
-      Kairos_engine.Api.Contract.Elaboration_error message
-  | Frontend.Type_error message ->
-      Kairos_engine.Api.Contract.Type_error message
-  | Frontend.Well_formedness_error message ->
-      Kairos_engine.Api.Contract.Well_formedness_error message
+  | Frontend.Parse_error diagnostic ->
+      Kairos_engine.Api.Contract.Parse_error
+        (engine_diagnostic diagnostic)
+  | Frontend.Elaboration_error diagnostic ->
+      Kairos_engine.Api.Contract.Elaboration_error
+        (engine_diagnostic diagnostic)
+  | Frontend.Type_error diagnostic ->
+      Kairos_engine.Api.Contract.Type_error
+        (engine_diagnostic diagnostic)
+  | Frontend.Well_formedness_error diagnostic ->
+      Kairos_engine.Api.Contract.Well_formedness_error
+        (engine_diagnostic diagnostic)
   | Frontend.Io_error message -> Kairos_engine.Api.Contract.Io_error message
   | Frontend.Internal_error message ->
       Kairos_engine.Api.Contract.Internal_error message

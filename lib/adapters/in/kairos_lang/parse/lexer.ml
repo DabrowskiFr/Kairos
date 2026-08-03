@@ -25,7 +25,12 @@ open Parser
 
 (** Exception [Lexing_error]. *)
 
-exception Lexing_error of string
+exception Lexing_error of Shared.Syntax.loc * string
+
+let lexing_error lexbuf message =
+  let start_pos, end_pos = Sedlexing.lexing_positions lexbuf in
+  let loc = Shared.Syntax.loc_of_positions start_pos end_pos in
+  raise (Lexing_error (loc, message))
 
 (** [kw_table] helper value. *)
 
@@ -282,18 +287,19 @@ let rec token lexbuf =
       | Some t -> t
       | None -> IDENT s)
   | eof -> tok lexbuf EOF
-  | _ ->
+  | any ->
       let s = set_lexeme lexbuf in
-      raise (Lexing_error (Printf.sprintf "Unexpected char: %s" s))
+      lexing_error lexbuf (Printf.sprintf "Unexpected char: %s" s)
+  | _ -> lexing_error lexbuf "Invalid UTF-8 input"
 
 and comment depth lexbuf =
   match%sedlex lexbuf with
   | "(*" -> comment (depth + 1) lexbuf
   | "*)" ->
       if depth = 1 then () else comment (depth - 1) lexbuf
-  | eof -> raise (Lexing_error "Unterminated comment")
+  | eof -> lexing_error lexbuf "Unterminated comment"
   | '\n' ->
       Sedlexing.new_line lexbuf;
       comment depth lexbuf
   | any -> comment depth lexbuf
-  | _ -> raise (Lexing_error "Invalid comment")
+  | _ -> lexing_error lexbuf "Invalid comment"

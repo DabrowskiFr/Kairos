@@ -518,7 +518,7 @@ steps.
 source text
     |
     v
-Parse.Api.parse_source_text_with_info
+Parse.Api.elaborate_source_text_with_info
     |
     v
 Surface.Ast.source

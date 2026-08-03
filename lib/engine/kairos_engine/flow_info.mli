@@ -17,17 +17,12 @@
  *---------------------------------------------------------------------------*)
 
 (** Runtime metadata produced by frontend and instrumentation stages. *)
-open Core_syntax
 (** {1 Per-pass Metadata} *)
-
-(** Parser error payload. *)
-type parse_error = { loc : Loc.loc option; message : string }
 
 (** Parsing metadata reported by the frontend. *)
 type parse_info = {
   source_path : string option;
   text_hash : string option;
-  parse_errors : parse_error list;
   warnings : string list;
 }
 

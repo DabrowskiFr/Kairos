@@ -2,13 +2,7 @@
 open Core.Syntax
 open Surface.Ast
 
-let loc_of_positions (start_pos:Lexing.position) (end_pos:Lexing.position) : Shared.Syntax.loc =
-  { line = start_pos.pos_lnum;
-    col = start_pos.pos_cnum - start_pos.pos_bol;
-    line_end = end_pos.pos_lnum;
-    col_end = end_pos.pos_cnum - end_pos.pos_bol; }
-
-let loc start_pos end_pos = loc_of_positions start_pos end_pos
+let loc start_pos end_pos = Shared.Syntax.loc_of_positions start_pos end_pos
 
 let mk_expr_loc start_pos end_pos desc =
   Surface.Ast.mk_expr ~loc:(loc start_pos end_pos) desc

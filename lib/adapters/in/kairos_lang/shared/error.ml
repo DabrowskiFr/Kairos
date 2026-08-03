@@ -25,14 +25,15 @@ type kind =
 
 type t = {
   kind : kind;
+  loc : Syntax.loc option;
   message : string;
 }
 
 exception Error of t
 
-let raise_error kind message = Stdlib.raise (Error { kind; message })
-let parse message = raise_error Parse message
-let elaboration message = raise_error Elaboration message
-let type_error message = raise_error Type message
-let well_formedness message = raise_error Well_formedness message
-let internal message = raise_error Internal message
+let raise_error ?loc kind message = Stdlib.raise (Error { kind; loc; message })
+let parse ?loc message = raise_error ?loc Parse message
+let elaboration ?loc message = raise_error ?loc Elaboration message
+let type_error ?loc message = raise_error ?loc Type message
+let well_formedness ?loc message = raise_error ?loc Well_formedness message
+let internal ?loc message = raise_error ?loc Internal message

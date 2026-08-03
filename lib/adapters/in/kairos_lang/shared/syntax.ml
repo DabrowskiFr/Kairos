@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type loc = {
+type loc = Loc.loc = {
   line : int;
   col : int;
   line_end : int;
@@ -24,16 +24,30 @@ type loc = {
 }
 [@@deriving yojson]
 
-type ident = string [@@deriving yojson]
+let loc_of_positions (start_pos : Lexing.position)
+    (end_pos : Lexing.position) =
+  {
+    line = start_pos.Lexing.pos_lnum;
+    col = start_pos.pos_cnum - start_pos.pos_bol;
+    line_end = end_pos.pos_lnum;
+    col_end = end_pos.pos_cnum - end_pos.pos_bol;
+  }
 
-type ty = TInt | TBool | TReal | TCustom of string [@@deriving yojson]
+type ident = Core_syntax.ident [@@deriving yojson]
 
-type enum_decl = {
+type ty = Core_syntax.ty = TInt | TBool | TReal | TCustom of string
+[@@deriving yojson]
+
+type enum_decl = Core_syntax.enum_decl = {
   enum_name : ident;
   enum_constructors : ident list;
 }
 [@@deriving yojson]
 
-type binop = Add | Sub | Mul | Div | And | Or [@@deriving yojson]
-type unop = Neg | Not [@@deriving yojson]
-type relop = REq | RNeq | RLt | RLe | RGt | RGe [@@deriving yojson]
+type binop = Core_syntax.binop = Add | Sub | Mul | Div | And | Or
+[@@deriving yojson]
+
+type unop = Core_syntax.unop = Neg | Not [@@deriving yojson]
+
+type relop = Core_syntax.relop = REq | RNeq | RLt | RLe | RGt | RGe
+[@@deriving yojson]

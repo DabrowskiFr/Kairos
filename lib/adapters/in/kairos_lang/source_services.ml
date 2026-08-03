@@ -1,6 +1,8 @@
 type source_diagnostic = {
   line : int;
   column : int;
+  line_end : int;
+  column_end : int;
   severity : int;
   source : string;
   message : string;
@@ -13,21 +15,14 @@ type semantic_symbols = {
   variables : string list;
 }
 
-let parse_line_column message =
-  let pattern = Str.regexp ".*:\\([0-9]+\\):\\([0-9]+\\)" in
-  if Str.string_match pattern message 0 then
-    Some
-      ( int_of_string (Str.matched_group 1 message),
-        int_of_string (Str.matched_group 2 message) )
-  else None
-
-let source_diagnostic ~severity ~source ~message =
-  let line, column =
-    match parse_line_column message with
-    | Some (line, column) -> (max 0 (line - 1), max 0 (column - 1))
-    | None -> (0, 0)
+let source_diagnostic ~loc ~severity ~source ~message =
+  let line, column, line_end, column_end =
+    match loc with
+    | Some (loc : Shared.Syntax.loc) ->
+        (max 0 (loc.line - 1), loc.col, max 0 (loc.line_end - 1), loc.col_end)
+    | None -> (0, 0, 0, 0)
   in
-  { line; column; severity; source; message }
+  { line; column; line_end; column_end; severity; source; message }
 
 let frontend_error_source = function
   | Shared.Error.Parse -> "kairos-parse"
@@ -39,20 +34,13 @@ let frontend_error_source = function
 let diagnostics ~filename ~text =
   try
     let _source, info =
-      Parse.Api.parse_source_text_with_info ~filename ~text
+      Parse.Api.elaborate_source_text_with_info ~filename ~text
     in
     let diagnostics = ref [] in
     List.iter
-      (fun error ->
-        diagnostics :=
-          source_diagnostic ~severity:1 ~source:"kairos-parse"
-            ~message:error.Parse.Api.message
-          :: !diagnostics)
-      info.Parse.Api.parse_errors;
-    List.iter
       (fun warning ->
         diagnostics :=
-          source_diagnostic ~severity:2 ~source:"kairos-parse"
+          source_diagnostic ~loc:None ~severity:2 ~source:"kairos-parse"
             ~message:warning
           :: !diagnostics)
       info.Parse.Api.warnings;
@@ -60,21 +48,19 @@ let diagnostics ~filename ~text =
   with
   | Shared.Error.Error error ->
       [
-        source_diagnostic ~severity:1
+        source_diagnostic ~loc:error.loc ~severity:1
           ~source:(frontend_error_source error.kind)
           ~message:error.message;
       ]
   | exn ->
       [
-        source_diagnostic ~severity:1 ~source:"kairos-internal"
+        source_diagnostic ~loc:None ~severity:1 ~source:"kairos-internal"
           ~message:(Printexc.to_string exn);
       ]
 
 let semantic_symbols ~filename ~text =
   try
-    let source, _info =
-      Parse.Api.parse_source_text_with_info ~filename ~text
-    in
+    let source = Parse.Api.elaborate_source_text ~filename ~text in
     let all = Hashtbl.create 256 in
     let nodes = Hashtbl.create 64 in
     let states = Hashtbl.create 128 in
@@ -113,13 +99,14 @@ let semantic_symbols ~filename ~text =
   with _ -> None
 
 let frontend_error (error : Shared.Error.t) =
+  let diagnostic = { Frontend.loc = error.loc; message = error.message } in
   match error.kind with
-  | Shared.Error.Parse -> Frontend.Parse_error error.message
+  | Shared.Error.Parse -> Frontend.Parse_error diagnostic
   | Shared.Error.Elaboration ->
-      Frontend.Elaboration_error error.message
-  | Shared.Error.Type -> Frontend.Type_error error.message
+      Frontend.Elaboration_error diagnostic
+  | Shared.Error.Type -> Frontend.Type_error diagnostic
   | Shared.Error.Well_formedness ->
-      Frontend.Well_formedness_error error.message
+      Frontend.Well_formedness_error diagnostic
   | Shared.Error.Internal -> Frontend.Internal_error error.message
 
 let read_text input_file =
@@ -131,15 +118,15 @@ let dump parse render ~input_file =
   match read_text input_file with
   | Error _ as error -> error
   | Ok text -> (
-      try Ok (render (parse ~filename:input_file ~text |> fst)) with
+      try Ok (render (parse ~filename:input_file ~text)) with
       | Shared.Error.Error error -> Error (frontend_error error)
       | exn ->
           Error (Frontend.Internal_error (Printexc.to_string exn)))
 
 let surface_dump ~input_file =
-  dump Parse.Api.parse_surface_text_with_info
+  dump Parse.Api.parse_surface_text
     Parse.Api.surface_source_to_json ~input_file
 
 let elaborated_dump ~input_file =
-  dump Parse.Api.parse_source_text_with_info Parse.Api.source_to_json
+  dump Parse.Api.elaborate_source_text Parse.Api.source_to_json
     ~input_file

@@ -16,23 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type source = {
-  type_decls : Core.Syntax.enum_decl list;
-  function_decls : Core.Syntax.pure_function_decl list;
-  nodes : Core.Ast.program;
-}
+type source = Elaborate.Api.source
 
 type surface_source = Surface.Ast.source
-
-type parse_error = {
-  loc : Shared.Syntax.loc option;
-  message : string;
-}
 
 type parse_info = {
   source_path : string option;
   text_hash : string option;
-  parse_errors : parse_error list;
   warnings : string list;
 }
 
@@ -40,24 +30,37 @@ let make_parse_info filename file_hash =
   {
     source_path = Some filename;
     text_hash = Some file_hash;
-    parse_errors = [];
     warnings = [];
   }
 
+let quote_lexeme lexeme = Printf.sprintf "%S" lexeme
+
+type error_lexeme = End_of_file | Lexeme of string
+
+let error_lexeme = function "" -> End_of_file | lexeme -> Lexeme lexeme
+
+let display_error_lexeme = function
+  | End_of_file -> "end of file"
+  | Lexeme lexeme -> quote_lexeme lexeme
+
+let max_expected_tokens = 8
+
 let parse_surface_text_with_info ~(filename : string) ~(text : string) :
     surface_source * parse_info =
-  let file_text = text in
-  let file_hash = Digest.to_hex (Digest.string file_text) in
-  let lb = Sedlexing.Utf8.from_string file_text in
+  let file_hash = Digest.to_hex (Digest.string text) in
+  let lb = Sedlexing.Utf8.from_string text in
   Sedlexing.set_filename lb filename;
   try
-    let last_two = ref [] in
+    let previous_lexeme = ref None in
+    let current_lexeme = ref None in
     let start_pos = { Lexing.pos_fname = filename; pos_lnum = 1; pos_bol = 0; pos_cnum = 0 } in
     let module I = Parser.MenhirInterpreter in
-    let push_lexeme s =
-      if s <> "" then
-        last_two :=
-          match !last_two with [] -> [ s ] | [ a ] -> [ a; s ] | [ _; b ] -> [ b; s ] | _ -> [ s ]
+    let push_lexeme lexeme =
+      previous_lexeme := !current_lexeme;
+      current_lexeme :=
+        (match error_lexeme lexeme with
+        | End_of_file -> None
+        | Lexeme lexeme -> Some lexeme)
     in
     let supplier () =
       let tok = Lexer.token lb in
@@ -65,56 +68,55 @@ let parse_surface_text_with_info ~(filename : string) ~(text : string) :
       let startp, endp = Sedlexing.lexing_positions lb in
       (tok, startp, endp)
     in
-    let handle_error checkpoint_input _checkpoint_error =
-      let pos, _ = Sedlexing.lexing_positions lb in
-      let col = pos.pos_cnum - pos.pos_bol + 1 in
-      let lexeme =
-        let s = Lexer.last_lexeme () in
-        if s = "" then "<eof>" else s
-      in
-      let expected =
-        let tokens =
-          List.filter
-            (fun (_name, tok) -> I.acceptable checkpoint_input tok pos)
-            Lexer.expected_tokens
-          |> List.map fst
+    let handle_error checkpoint_before_token _checkpoint_at_error =
+      let start_pos, end_pos = Sedlexing.lexing_positions lb in
+      let loc = Shared.Syntax.loc_of_positions start_pos end_pos in
+      let lexeme = error_lexeme (Lexer.last_lexeme ()) in
+      let expected_message =
+        (* Use the checkpoint before the failing token so that [acceptable]
+           reports tokens valid at the error location. *)
+        let rec accepted_names remaining names = function
+          | _ when remaining = 0 -> List.rev names
+          | [] -> List.rev names
+          | (name, token) :: rest ->
+              if I.acceptable checkpoint_before_token token start_pos then
+                accepted_names (remaining - 1) (name :: names) rest
+              else accepted_names remaining names rest
         in
-        if tokens = [] then "" else " Expected: " ^ String.concat ", " tokens
+        match
+          accepted_names max_expected_tokens [] Lexer.expected_tokens
+        with
+        | [] -> ""
+        | tokens -> "; expected " ^ String.concat ", " tokens
       in
       let context =
-        match !last_two with
-        | [ a; b ] -> Printf.sprintf " after '%s' before '%s'" a b
-        | [ a ] -> Printf.sprintf " after '%s'" a
-        | _ -> ""
+        match !previous_lexeme with
+        | Some previous ->
+            Printf.sprintf " after %s" (quote_lexeme previous)
+        | None -> ""
       in
-      Shared.Error.parse
-        (Printf.sprintf "Parse error at %s:%d:%d near '%s'%s.%s" pos.pos_fname
-           pos.pos_lnum col lexeme context expected)
+      Shared.Error.parse ~loc
+        (Printf.sprintf "Unexpected token %s%s%s"
+           (display_error_lexeme lexeme) context expected_message)
     in
     let checkpoint = Parser.Incremental.source_file start_pos in
     let surface_source = I.loop_handle_undo (fun v -> v) handle_error supplier checkpoint in
     (surface_source, make_parse_info filename file_hash)
   with
-  | Lexer.Lexing_error msg ->
-      let pos, _ = Sedlexing.lexing_positions lb in
-      let col = pos.pos_cnum - pos.pos_bol + 1 in
-      Shared.Error.parse
-        (Printf.sprintf "Lexing error at %s:%d:%d: %s" pos.pos_fname
-           pos.pos_lnum col msg)
-  | e ->
-      raise e
+  | Lexer.Lexing_error (loc, msg) ->
+      Shared.Error.parse ~loc (Printf.sprintf "Lexing error: %s" msg)
 
-let parse_source_text_with_info ~(filename : string) ~(text : string) : source * parse_info =
+let elaborate_source_text_with_info ~(filename : string) ~(text : string) :
+    source * parse_info =
   let surface_source, info = parse_surface_text_with_info ~filename ~text in
-  let elaborated_source = Elaborate.Api.elaborate_source surface_source in
-  let parsed_source =
-    {
-      type_decls = elaborated_source.type_decls;
-      function_decls = elaborated_source.function_decls;
-      nodes = elaborated_source.nodes;
-    }
-  in
-  (parsed_source, info)
+  let source = Elaborate.Api.elaborate_source surface_source in
+  (source, info)
+
+let elaborate_source_text ~filename ~text =
+  elaborate_source_text_with_info ~filename ~text |> fst
+
+let parse_surface_text ~filename ~text =
+  parse_surface_text_with_info ~filename ~text |> fst
 
 let source_to_yojson (source : source) : Yojson.Safe.t =
   `Assoc
@@ -125,10 +127,10 @@ let source_to_yojson (source : source) : Yojson.Safe.t =
       ("nodes", Core.Ast.program_to_yojson source.nodes);
     ]
 
-let json_to_string json = Yojson.Safe.pretty_to_string json ^ "\n"
+let pretty_json_to_string json = Yojson.Safe.pretty_to_string json ^ "\n"
 
 let surface_source_to_json (source : surface_source) : string =
-  json_to_string (Surface.Ast.source_to_yojson source)
+  pretty_json_to_string (Surface.Ast.source_to_yojson source)
 
 let source_to_json (source : source) : string =
-  json_to_string (source_to_yojson source)
+  pretty_json_to_string (source_to_yojson source)

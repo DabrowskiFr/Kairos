@@ -16,53 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Core_syntax
-
-module Validation = Validation
-
-let loc (source_loc : Shared.Syntax.loc) : Loc.loc =
-  {
-    line = source_loc.line;
-    col = source_loc.col;
-    line_end = source_loc.line_end;
-    col_end = source_loc.col_end;
-  }
-
-let lower_ty (ty : Core.Syntax.ty) : Core_syntax.ty =
-  match ty with
-  | Core.Syntax.TInt -> Core_syntax.TInt
-  | Core.Syntax.TBool -> Core_syntax.TBool
-  | Core.Syntax.TReal -> Core_syntax.TReal
-  | Core.Syntax.TCustom name -> Core_syntax.TCustom name
-
-let lower_enum_decl (decl : Core.Syntax.enum_decl) : Core_syntax.enum_decl =
-  {
-    Core_syntax.enum_name = decl.enum_name;
-    enum_constructors = decl.enum_constructors;
-  }
-
-let lower_binop (op : Core.Syntax.binop) : Core_syntax.binop =
-  match op with
-  | Core.Syntax.Add -> Core_syntax.Add
-  | Core.Syntax.Sub -> Core_syntax.Sub
-  | Core.Syntax.Mul -> Core_syntax.Mul
-  | Core.Syntax.Div -> Core_syntax.Div
-  | Core.Syntax.And -> Core_syntax.And
-  | Core.Syntax.Or -> Core_syntax.Or
-
-let lower_unop (op : Core.Syntax.unop) : Core_syntax.unop =
-  match op with
-  | Core.Syntax.Neg -> Core_syntax.Neg
-  | Core.Syntax.Not -> Core_syntax.Not
-
-let lower_relop (op : Core.Syntax.relop) : Core_syntax.relop =
-  match op with
-  | Core.Syntax.REq -> Core_syntax.REq
-  | Core.Syntax.RNeq -> Core_syntax.RNeq
-  | Core.Syntax.RLt -> Core_syntax.RLt
-  | Core.Syntax.RLe -> Core_syntax.RLe
-  | Core.Syntax.RGt -> Core_syntax.RGt
-  | Core.Syntax.RGe -> Core_syntax.RGe
 
 let rec expr ~(type_decls : Core_syntax.enum_decl list)
     (source_expr : Core.Syntax.expr) : Core_syntax.expr =
@@ -78,14 +31,14 @@ let rec expr ~(type_decls : Core_syntax.enum_decl list)
         Core_syntax.EFunCall (fn, List.map (expr ~type_decls) args)
     | Core.Syntax.EBin (op, a, b) ->
         Core_syntax.EBin
-          (lower_binop op, expr ~type_decls a, expr ~type_decls b)
+          (op, expr ~type_decls a, expr ~type_decls b)
     | Core.Syntax.ECmp (op, a, b) ->
         Core_syntax.ECmp
-          (lower_relop op, expr ~type_decls a, expr ~type_decls b)
+          (op, expr ~type_decls a, expr ~type_decls b)
     | Core.Syntax.EUn (op, inner) ->
-        Core_syntax.EUn (lower_unop op, expr ~type_decls inner)
+        Core_syntax.EUn (op, expr ~type_decls inner)
   in
-  { Core_syntax.expr = lowered; loc = Option.map loc source_expr.loc }
+  { Core_syntax.expr = lowered; loc = source_expr.loc }
 
 let rec hexpr ~(type_decls : Core_syntax.enum_decl list)
     (source_hexpr : Core.Syntax.hexpr) :
@@ -107,14 +60,14 @@ let rec hexpr ~(type_decls : Core_syntax.enum_decl list)
         Core_syntax.HFunCall (fn, List.map (hexpr ~type_decls) hs)
     | Core.Syntax.HBin (op, a, b) ->
         Core_syntax.HBin
-          (lower_binop op, hexpr ~type_decls a, hexpr ~type_decls b)
+          (op, hexpr ~type_decls a, hexpr ~type_decls b)
     | Core.Syntax.HCmp (op, a, b) ->
         Core_syntax.HCmp
-          (lower_relop op, hexpr ~type_decls a, hexpr ~type_decls b)
+          (op, hexpr ~type_decls a, hexpr ~type_decls b)
     | Core.Syntax.HUn (op, inner) ->
-        Core_syntax.HUn (lower_unop op, hexpr ~type_decls inner)
+        Core_syntax.HUn (op, hexpr ~type_decls inner)
   in
-  { Core_syntax.hexpr = lowered; loc = Option.map loc source_hexpr.loc }
+  { Core_syntax.hexpr = lowered; loc = source_hexpr.loc }
 
 let history_free_hexpr ~type_decls source_hexpr =
   match
@@ -131,7 +84,7 @@ let rec ltl ~(type_decls : Core_syntax.enum_decl list)
   | Core.Syntax.LTrue -> Core_syntax.LTrue
   | Core.Syntax.LFalse -> Core_syntax.LFalse
   | Core.Syntax.LAtom (h1, r, h2) ->
-      Core_syntax.LAtom (hexpr ~type_decls h1, lower_relop r, hexpr ~type_decls h2)
+      Core_syntax.LAtom (hexpr ~type_decls h1, r, hexpr ~type_decls h2)
   | Core.Syntax.LNot a -> Core_syntax.LNot (ltl ~type_decls a)
   | Core.Syntax.LAnd (a, b) ->
       Core_syntax.LAnd (ltl ~type_decls a, ltl ~type_decls b)
@@ -144,15 +97,12 @@ let rec ltl ~(type_decls : Core_syntax.enum_decl list)
   | Core.Syntax.LW (a, b) ->
       Core_syntax.LW (ltl ~type_decls a, ltl ~type_decls b)
 
-let lower_vdecl (v : Core.Syntax.vdecl) : Core_syntax.vdecl =
-  { vname = v.vname; vty = lower_ty v.vty }
-
 let lower_function_decl ~(type_decls : Core_syntax.enum_decl list)
     (f : Core.Syntax.pure_function_decl) : Core_syntax.pure_function_decl =
   {
     function_name = f.function_name;
-    function_params = List.map lower_vdecl f.function_params;
-    function_return = lower_ty f.function_return;
+    function_params = f.function_params;
+    function_return = f.function_return;
     function_requires =
       List.map (history_free_hexpr ~type_decls) f.function_requires;
     function_ensures =
@@ -192,7 +142,7 @@ let rec stmt ~(type_decls : Core_syntax.enum_decl list)
     | Core.Ast.SMethodCall (callee, args) ->
         Core_syntax.SMethodCall (callee, List.map (expr ~type_decls) args)
   in
-  { Core_syntax.stmt = lowered; loc = Option.map loc source_stmt.loc }
+  { Core_syntax.stmt = lowered; loc = source_stmt.loc }
 
 let step ~(type_decls : Core_syntax.enum_decl list)
     (source_transition : Core.Ast.transition) : Verification_model.program_step =
@@ -208,18 +158,7 @@ let lower_method ~(type_decls : Core_syntax.enum_decl list)
     (decl : Core.Ast.method_decl) : Core_syntax.method_decl =
   {
     method_name = decl.method_name;
-    method_params =
-      List.map
-        (fun (param : Core.Ast.method_param) ->
-          {
-            Core_syntax.method_param_name = param.method_param_name;
-            method_param_ty = lower_ty param.method_param_ty;
-            method_param_mode =
-              (match param.method_param_mode with
-              | Core.Ast.MPIn -> Core_syntax.MPIn
-              | Core.Ast.MPInOut -> Core_syntax.MPInOut);
-          })
-        decl.method_params;
+    method_params = decl.method_params;
     method_requires =
       List.map (history_free_hexpr ~type_decls) decl.method_requires;
     method_ensures =
@@ -240,10 +179,10 @@ let node ~(type_decls : Core_syntax.enum_decl list)
       type_decls;
       function_decls;
       methods = List.map (lower_method ~type_decls) sem.sem_methods;
-      inputs = List.map lower_vdecl sem.sem_inputs;
-      outputs = List.map lower_vdecl sem.sem_outputs;
-      locals = List.map lower_vdecl sem.sem_locals;
-      ghosts = List.map lower_vdecl sem.sem_ghosts;
+      inputs = sem.sem_inputs;
+      outputs = sem.sem_outputs;
+      locals = sem.sem_locals;
+      ghosts = sem.sem_ghosts;
       public_ghosts = sem.sem_public_ghosts;
       states = sem.sem_states;
       init_state = sem.sem_init_state;
@@ -261,7 +200,6 @@ let node ~(type_decls : Core_syntax.enum_decl list)
 let program ?(type_decls : Core.Syntax.enum_decl list = [])
     ?(function_decls : Core.Syntax.pure_function_decl list = [])
     (p : Core.Ast.program) : Verification_model.program_model =
-  let type_decls = List.map lower_enum_decl type_decls in
   let function_decls =
     List.map (lower_function_decl ~type_decls) function_decls
   in

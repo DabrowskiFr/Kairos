@@ -80,7 +80,8 @@ type ltl =
 type ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving yojson]
 
 (** Typed variable declaration. *)
-type vdecl = { vname : ident; vty : ty } [@@deriving yojson]
+type vdecl = Core_syntax.vdecl = { vname : ident; vty : ty }
+[@@deriving yojson]
 
 (** Pure first-order function declaration.
 

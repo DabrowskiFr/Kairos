@@ -32,7 +32,8 @@ type kind =
 
 type t = {
   kind : kind; (** Classification preserved at the public API boundary. *)
-  message : string; (** Human-readable diagnostic, including location text when available. *)
+  loc : Syntax.loc option; (** Structured source span when available. *)
+  message : string; (** Human-readable explanation without encoded location. *)
 }
 (** Payload carried by internal frontend failures. *)
 
@@ -40,20 +41,20 @@ exception Error of t
 (** Internal control flow used by parsing, elaboration and validation. The
     public facade converts it to [Frontend.error]. *)
 
-val raise_error : kind -> string -> 'a
+val raise_error : ?loc:Syntax.loc -> kind -> string -> 'a
 (** Raise [Error] with an explicit classification. *)
 
-val parse : string -> 'a
+val parse : ?loc:Syntax.loc -> string -> 'a
 (** Raise a parsing failure. *)
 
-val elaboration : string -> 'a
+val elaboration : ?loc:Syntax.loc -> string -> 'a
 (** Raise a surface-to-core elaboration failure. *)
 
-val type_error : string -> 'a
+val type_error : ?loc:Syntax.loc -> string -> 'a
 (** Raise a static type failure. *)
 
-val well_formedness : string -> 'a
+val well_formedness : ?loc:Syntax.loc -> string -> 'a
 (** Raise a structural well-formedness failure. *)
 
-val internal : string -> 'a
+val internal : ?loc:Syntax.loc -> string -> 'a
 (** Raise a failure caused by an unexpected frontend invariant violation. *)

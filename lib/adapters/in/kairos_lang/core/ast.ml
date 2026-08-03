@@ -19,9 +19,10 @@ open Syntax
 
 type invariant_state_rel = { state : ident; formula : hexpr } [@@deriving yojson]
 
-type method_param_mode = MPIn | MPInOut [@@deriving yojson]
+type method_param_mode = Core_syntax.method_param_mode = MPIn | MPInOut
+[@@deriving yojson]
 
-type method_param = {
+type method_param = Core_syntax.method_param = {
   method_param_name : ident;
   method_param_ty : ty;
   method_param_mode : method_param_mode;

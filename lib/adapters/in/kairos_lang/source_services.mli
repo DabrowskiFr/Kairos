@@ -4,7 +4,9 @@
 
 type source_diagnostic = {
   line : int; (** Zero-based line. *)
-  column : int; (** Zero-based column. *)
+  column : int; (** Zero-based column, in Unicode code points. *)
+  line_end : int; (** Zero-based end line. *)
+  column_end : int; (** Zero-based end column, in Unicode code points. *)
   severity : int; (** LSP-compatible severity. *)
   source : string; (** Frontend stage that emitted the diagnostic. *)
   message : string; (** Human-readable explanation. *)

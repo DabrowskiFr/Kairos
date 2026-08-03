@@ -13,3 +13,8 @@
   lsp_completion
   lsp_formatting)
  (libraries kairos_engine kairos_lang kairos_lsp_protocol yojson str))
+
+(test
+ (name lsp_diagnostics_tests)
+ (modules lsp_diagnostics_tests)
+ (libraries kairos_lsp_app))

@@ -3,8 +3,7 @@
  *--------------------------------------------------------------------------*)
 
 module S = Surface.Ast
-module Names = Names
-open S
+open Surface.Ast
 
 type delay = {
   source : S.indexed_ref;

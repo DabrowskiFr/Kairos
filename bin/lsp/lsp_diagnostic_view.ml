@@ -24,7 +24,7 @@ let diagnostic_to_json (d : Lsp_diagnostics.diagnostic) : Yojson.Safe.t =
   let range =
     let start = Lsp_location_view.lsp_position ~line:d.line ~character:d.col in
     let end_ =
-      Lsp_location_view.lsp_position ~line:d.line ~character:(d.col + 1)
+      Lsp_location_view.lsp_position ~line:d.line_end ~character:d.col_end
     in
     Lsp_types.Range.create ~start ~end_
   in

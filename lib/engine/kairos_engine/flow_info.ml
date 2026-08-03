@@ -16,13 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 (** Runtime metadata produced by frontend and instrumentation stages. *)
-open Core_syntax
-type parse_error = { loc : Loc.loc option; message : string }
-
 type parse_info = {
   source_path : string option;
   text_hash : string option;
-  parse_errors : parse_error list;
   warnings : string list;
 }
 
@@ -54,7 +50,7 @@ type pipeline_info = {
 }
 
 let empty_parse_info : parse_info =
-  { source_path = None; text_hash = None; parse_errors = []; warnings = [] }
+  { source_path = None; text_hash = None; warnings = [] }
 
 let empty_automata_info : automata_info =
   { residual_state_count = 0; residual_edge_count = 0; warnings = [] }

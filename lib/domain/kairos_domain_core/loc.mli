@@ -18,6 +18,8 @@
 
 (** Source location primitives shared by frontend and diagnostics. *)
 
-(** Source span in line/column coordinates. *)
+(** Half-open source span with one-based lines and zero-based columns. Columns
+    are counted in Unicode code points inside the domain. Protocol adapters
+    convert them when an external protocol uses another unit. *)
 type loc = { line : int; col : int; line_end : int; col_end : int }
 [@@deriving yojson]

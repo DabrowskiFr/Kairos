@@ -8,22 +8,36 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
+type source_location = Loc.loc
+
+type diagnostic = {
+  loc : source_location option;
+  message : string;
+}
+
 type t =
-  | Parse_error of string
-  | Elaboration_error of string
-  | Type_error of string
-  | Well_formedness_error of string
+  | Parse_error of diagnostic
+  | Elaboration_error of diagnostic
+  | Type_error of diagnostic
+  | Well_formedness_error of diagnostic
   | Flow_error of string
   | Why3_error of string
   | Prove_error of string
   | Io_error of string
   | Internal_error of string
 
+let diagnostic_to_string diagnostic =
+  match diagnostic.loc with
+  | None -> diagnostic.message
+  | Some loc ->
+      Printf.sprintf "%d:%d: %s" loc.line (loc.col + 1)
+        diagnostic.message
+
 let to_string = function
-  | Parse_error msg -> msg
-  | Elaboration_error msg -> msg
-  | Type_error msg -> msg
-  | Well_formedness_error msg -> msg
+  | Parse_error diagnostic -> diagnostic_to_string diagnostic
+  | Elaboration_error diagnostic -> diagnostic_to_string diagnostic
+  | Type_error diagnostic -> diagnostic_to_string diagnostic
+  | Well_formedness_error diagnostic -> diagnostic_to_string diagnostic
   | Flow_error msg -> msg
   | Why3_error msg -> msg
   | Prove_error msg -> msg

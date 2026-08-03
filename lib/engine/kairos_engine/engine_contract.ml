@@ -6,11 +6,16 @@ include Pipeline_config
 include Pipeline_proof_types
 include Pipeline_artifacts
 
+type diagnostic = Pipeline_error.diagnostic = {
+  loc : source_location option;
+  message : string;
+}
+
 type error = Pipeline_error.t =
-  | Parse_error of string
-  | Elaboration_error of string
-  | Type_error of string
-  | Well_formedness_error of string
+  | Parse_error of diagnostic
+  | Elaboration_error of diagnostic
+  | Type_error of diagnostic
+  | Well_formedness_error of diagnostic
   | Flow_error of string
   | Why3_error of string
   | Prove_error of string

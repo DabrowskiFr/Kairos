@@ -20,7 +20,9 @@
 
 type diagnostic = {
   line : int;
-  col : int;
+  col : int; (** Zero-based column, in UTF-16 code units as required by LSP. *)
+  line_end : int;
+  col_end : int; (** Zero-based UTF-16 end column. *)
   severity : int;
   source : string;
   message : string;

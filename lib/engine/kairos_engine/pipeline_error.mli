@@ -10,11 +10,18 @@
 
 (** Failures crossing orchestration and engine boundaries. *)
 
+type source_location = Loc.loc
+
+type diagnostic = {
+  loc : source_location option;
+  message : string;
+}
+
 type t =
-  | Parse_error of string
-  | Elaboration_error of string
-  | Type_error of string
-  | Well_formedness_error of string
+  | Parse_error of diagnostic
+  | Elaboration_error of diagnostic
+  | Type_error of diagnostic
+  | Well_formedness_error of diagnostic
   | Flow_error of string
   | Why3_error of string
   | Prove_error of string

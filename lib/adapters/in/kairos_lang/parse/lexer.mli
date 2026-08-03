@@ -4,7 +4,7 @@
     lexeme so parse failures can mention their immediate source context. Keyword
     tables and token-construction helpers remain private. *)
 
-exception Lexing_error of string
+exception Lexing_error of Shared.Syntax.loc * string
 (** Raised when the input cannot form a valid Kairos token. *)
 
 val last_lexeme : unit -> string
