@@ -1,6 +1,6 @@
 module Frontend = Kairos_lang.Frontend
 module Usecases =
-  Kairos_engine.Inbound.Make (Kairos_runtime_ports.Ports)
+  Kairos_engine.Use_cases.Make (Kairos_runtime_ports.Ports)
 
 let ( let* ) = Result.bind
 
@@ -22,7 +22,7 @@ let parse_input ~input_file =
     Frontend.parse_input ~input_file |> Result.map_error error_of_frontend
   in
   Ok
-    (Kairos_engine.Outbound_ports.make_verification_input
+    (Kairos_engine.Inbound_port.make_verification_input
        ~source_path:frontend.parse_info.source_path
        ~text_hash:frontend.parse_info.text_hash
        ~warnings:frontend.parse_info.warnings

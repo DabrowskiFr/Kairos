@@ -1,4 +1,4 @@
-(** Concrete driven adapters used by the default Kairos composition. *)
+(** Concrete outgoing adapters used by the default Kairos composition. *)
 
 module Ports : Kairos_engine.Outbound_ports.S
 

@@ -176,8 +176,9 @@ def check_hexagonal_engine(repo: Path) -> list[str]:
                     f"missing canonical engine contract {required.relative_to(repo)}"
                 )
     required_boundaries = [
-        "lib/engine/kairos_engine/inbound.mli",
+        "lib/engine/kairos_engine/inbound_port.mli",
         "lib/engine/kairos_engine/outbound_ports.mli",
+        "lib/engine/kairos_engine/use_cases.mli",
         "lib/composition/kairos_composition/dune",
         "lib/adapters/out/runtime/orchestration/kairos_runtime_ports/dune",
     ]

@@ -22,7 +22,7 @@ let ( let* ) = Result.bind
 
 let build_pipeline ~collect_instrumentation_info ~collect_ir_metrics
     ~proof_optimizations
-    ~(input : Kairos_engine.Outbound_ports.verification_input) =
+    ~(input : Kairos_engine.Inbound_port.verification_input) =
   let* prepared =
     Pipeline_build.prepare_program ~proof_optimizations
       ~parse_info:input.parse_info

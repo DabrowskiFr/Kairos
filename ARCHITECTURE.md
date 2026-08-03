@@ -14,6 +14,64 @@ Its purpose is to help contributors locate responsibilities, understand the
 dependencies between stages, and preserve architectural invariants as the
 project evolves.
 
+## How to read this document
+
+Start with the overview and the glossary below. They explain the complete
+data flow without implementation detail. Then read sections A to K in order:
+each section follows the value produced by the preceding section.
+
+The rest of the document is deliberately detailed. For each stage it records:
+
+- the value received by the stage;
+- the value produced by the stage;
+- the transformations the stage is allowed to perform;
+- the transformations that belong elsewhere;
+- the main files that implement the stage;
+- known limitations of the current implementation.
+
+A statement under **Architectural boundary** is a rule about ownership. A
+statement under **Current implementation boundary** or **Current limitation**
+describes the code as it exists today; it is not a design objective.
+
+### Architectural vocabulary
+
+Kairos follows a hexagonal architecture:
+
+| Term | Plain meaning in this repository |
+|---|---|
+| Domain | Program representations and verification rules that do not depend on a user interface or external tool |
+| Engine | Operations offered by Kairos and interfaces for the services needed to perform them |
+| Incoming adapter | Code that turns an external request into an engine call; the CLI, LSP and Kairos source frontend are examples |
+| Outgoing adapter | Code that implements a service requested by the engine; Spot, Why3, Graphviz and C generation are examples |
+| Composition | The single place that chooses concrete adapters and connects them to the engine |
+| Port | An OCaml interface at the engine boundary: inbound ports describe what callers can request, outbound ports describe what implementations must provide |
+
+The arrows in architecture diagrams show dependency direction, not the order
+in which functions execute. Adapters depend on engine or domain contracts;
+the engine and domain do not depend on concrete adapters.
+
+### Pipeline vocabulary
+
+| Term | Plain meaning |
+|---|---|
+| Normalized program | Source-independent description of executable nodes and their contracts |
+| Proof case | The guarantees of one source node that will be verified together |
+| Temporal monitor | Partial automaton that can continue while a temporal property is respected |
+| Reference product | Synchronization of the program control state, assumption monitor and guarantee monitor |
+| Summary | Local description of one possible step through that product |
+| Canonical obligation | Backend-independent proof problem built from one summary |
+| Proof IR | Representation that tells a proof backend whether canonical obligations are compiled individually or in groups |
+| Proof unit | One individual or grouped item compiled by Why3 |
+| Why3 goal | Solver task obtained after Why3 compiles and possibly splits a proof unit |
+| Projection | A read-only conversion that keeps only the fields needed by the next representation or user-facing view |
+| Provenance | Information that records which earlier program, proof case or obligation produced a later value |
+| Neutral configuration | Reference behaviour with optional optimizations disabled |
+| Neutral tool contract | Exchange format that contains no Kairos-domain or tool-specific implementation values |
+
+These values are successive representations, not different names for the same
+thing. Section F explains why the number of canonical obligations, proof units
+and Why3 goals may differ.
+
 ## Overview
 
 ```text
@@ -60,33 +118,39 @@ Quick navigation: [A. Entry](#a-entry) · [B. Frontend](#b-frontend) ·
 [J. Packages](#j-package-and-dependency-boundaries) ·
 [K. Validation](#k-validation-and-architectural-fitness)
 
-The normalized `Verification_model.program_model` produced by B is the common
-boundary of the two main pipelines. Verification continues from C through G. C
-generation branches directly from B to H and does not construct proof cases,
-temporal automata, products or proof obligations.
+Section B produces `Verification_model.program_model`. Both main pipelines
+start from this value:
 
-I is cross-cutting: it assembles the stages, selects requested outputs and
-exposes the public engine facade, but does not define their scientific
-semantics. J records the dependency direction that keeps the domain, external
-tool contracts, runtime and delivery adapters separate. K describes how those
-boundaries are enforced.
+- verification continues through sections C, D, E, F and G;
+- C generation goes directly to section H and never constructs proof cases,
+  monitors, products or proof obligations.
+
+Section I explains how the application calls and connects these stages and
+how optional outputs are collected. Section J explains which libraries may
+depend on each other. Section K lists the automated checks for those rules.
 
 ```text
-VS Code client --JSON-RPC--> kairos-lsp
-                                  |
-CLI ------------------------------+---> Kairos_engine.Api
-in-process client ----------------'             |
-                                      +---------+---------+
-                                      |                   |
-                                      v                   v
-                           verification B -> ... -> G  C generation B -> H
-                                      |                   |
-                                      `---------+---------'
-                                                v
-                                  typed results and artifacts
+VS Code client --JSON-RPC--> kairos-lsp --+
+CLI --------------------------------------+--> Kairos_composition.Api
+in-process client ------------------------+              |
+                                                        v
+                                             Kairos_engine inbound port
+                                                        |
+                                             +----------+----------+
+                                             |                     |
+                                             v                     v
+                                    verification B -> G      C generation B -> H
+                                             |                     |
+                                             +----------+----------+
+                                                        v
+                                             results and artifacts
 ```
 
 ## A. Entry
+
+In plain terms, this section explains how a request reaches Kairos. The CLI,
+LSP and VS Code extension collect user input and present results. They do not
+contain the algorithms described in sections B to H.
 
 The entry layer exposes Kairos operations to users and translates external
 requests into typed pipeline invocations. It does not implement any part of
@@ -103,7 +167,7 @@ the verification method.
 
 #### Role
 
-The command-line interface is the batch delivery adapter of Kairos. It decodes
+The command-line interface is Kairos's batch incoming adapter. It decodes
 command-line arguments, invokes the requested engine operation and presents
 its result.
 
@@ -127,8 +191,8 @@ implement them. In particular, it must not:
 - transform canonical verification data;
 - contain Why3-specific proof-generation logic.
 
-All scientific and backend-specific work is delegated to the corresponding
-pipeline components.
+All verification algorithms and backend-specific work are delegated to the
+pipeline components that own them.
 
 #### Main implementation
 
@@ -144,7 +208,7 @@ pipeline components.
 
 #### Role
 
-The LSP executable is the second delivery adapter. It exposes editor features
+The LSP executable is the second incoming adapter. It exposes editor features
 and Kairos-specific pipeline operations over JSON-RPC on standard input and
 output.
 
@@ -279,7 +343,7 @@ configured `kairos-lsp` executable through `vscode-languageclient`, sends
 standard and Kairos-specific LSP requests, and projects protocol responses and
 notifications into editor state and views.
 
-Its normal scientific path is:
+Its normal verification path is:
 
 ```text
 VS Code command or document event
@@ -372,6 +436,10 @@ The extension must not:
 | [`vscode/README.md`](vscode/README.md) | User-facing extension documentation |
 
 ## B. Frontend
+
+In plain terms, the frontend turns a Kairos source file into the common program
+representation used by the rest of the project. This is where source syntax,
+name resolution, typing and observer-specific transformations stop.
 
 The frontend reads Kairos source files and translates them into the internal
 program representation shared by verification and C code generation.
@@ -668,6 +736,10 @@ verification input without depending on the Kairos parser or AST.
 
 ## C. Verification-problem preparation
 
+In plain terms, this stage decides which guarantees are proved together. It
+may turn one source node into several proof cases, but it cannot change the
+node's executable behaviour.
+
 This block converts the checked program into the verification cases consumed
 by the temporal pipeline. It does not construct automata or proof obligations.
 
@@ -774,6 +846,10 @@ obligations.
 | [`lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_build.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_build.ml) | Invocation of proof-case preparation in the pipeline |
 
 ## D. Temporal construction
+
+In plain terms, this stage gives executable shape to the temporal contract.
+It first turns assumptions and guarantees into monitors, then combines those
+monitors with the program control graph. No proof obligation exists yet.
 
 This block gives an operational representation to the temporal contract of
 each proof case. It first obtains partial safety monitors for the assumptions
@@ -1203,6 +1279,11 @@ Reference-product construction does not:
 
 ## E. Canonical-obligation construction
 
+In plain terms, this stage turns the product graph into the complete,
+backend-independent list of facts that Kairos must prove. It is the last stage
+that defines proof meaning; later stages may only change how these obligations
+are presented to a prover.
+
 This block converts the reference product of every proof case into individual,
 backend-neutral verification obligations.
 
@@ -1227,9 +1308,9 @@ boundary.
 
 ### Aggregate canonical boundary
 
-`Canonical_verification.build` is the scientific aggregate boundary of this
-block. It receives the core-owned proof cases, the automata supplied for those
-cases and the selected reachability strategy. It then performs, in order:
+`Canonical_verification.build` is the single public operation that runs this
+complete block. It receives the proof cases, their supplied automata and the
+selected reachability strategy. It then performs, in order:
 
 1. reference-product construction;
 2. historical IR projection and enrichment;
@@ -2176,6 +2257,11 @@ obligations.
 
 ## F. Proof preparation
 
+In plain terms, this stage chooses an efficient representation for obligations
+whose meaning is already fixed. It can group compatible obligations or share
+repeated formulas, but every canonical obligation must remain represented
+exactly once.
+
 This block chooses how the canonical obligations will be presented to a proof
 backend.
 
@@ -2466,9 +2552,13 @@ F does not:
 | [`lib/domain/kairos_verification_obligations/verification_proof_ir.ml`](lib/domain/kairos_verification_obligations/verification_proof_ir.ml) | Core-owned proof-compilation representation and validation |
 | [`lib/domain/kairos_verification_optimization/proof_plan.ml`](lib/domain/kairos_verification_optimization/proof_plan.ml) | Optional grouping, deduplication and sharing strategies |
 | [`lib/domain/kairos_verification_optimization/contract_formula_index.ml`](lib/domain/kairos_verification_optimization/contract_formula_index.ml) | Index of structurally repeated shareable formulas |
-| [`lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_config.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_config.ml) | Reference and optimized strategy configurations |
+| [`lib/engine/kairos_engine/pipeline_config.ml`](lib/engine/kairos_engine/pipeline_config.ml) | Reference and optimized strategy configurations |
 
 ## G. Why3 backend
+
+In plain terms, this stage translates the prepared proof units into Why3,
+asks external provers to solve the resulting goals, and relates each result
+back to the canonical obligations from which it came.
 
 This block translates the completed proof IR into Why3 data, extracts
 verification conditions, optionally runs the configured provers and exposes
@@ -2999,9 +3089,13 @@ proof obligations.
 | [`lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_goal_results.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_goal_results.ml) | Conversion of Why3 execution responses |
 | [`lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_traces.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_traces.ml) | Manifest attribution and public trace construction |
 | [`lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_trace_diagnostics.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_proof/proof_trace_diagnostics.ml) | Diagnostics for non-valid goals |
-| [`lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_proof_types.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_core/pipeline_proof_types.ml) | Public goal and proof-trace types |
+| [`lib/engine/kairos_engine/pipeline_proof_types.ml`](lib/engine/kairos_engine/pipeline_proof_types.ml) | Public goal and proof-trace types |
 
 ## H. C code-generation backend
+
+In plain terms, C generation is a second consumer of the frontend result. It
+translates executable program behaviour to C99 and does not pass through the
+verification pipeline or depend on a successful proof.
 
 This block translates the normalized executable part of
 `Verification_model.program_model` into portable C99 artifacts. It is a
@@ -3147,7 +3241,12 @@ The C backend must not:
 
 ## I. Runtime integration and auxiliary outputs
 
-The runtime layer implements the engine's driven ports. The distinct
+In plain terms, this section describes the code that runs the stages in the
+right order, connects external services, and collects optional outputs such as
+graphs and metrics. This code coordinates the verification method but does not
+define it.
+
+The runtime layer implements the engine's outbound ports. The distinct
 `kairos_composition` library is the concrete composition root: it connects the
 Kairos-language incoming adapter, the engine use cases and the outgoing
 runtime adapters.
@@ -3159,11 +3258,12 @@ source-language transformation, canonical obligation or backend translation.
 
 #### Public in-process facade
 
-`Kairos_engine.Api` owns the canonical contract of the inbound port.
-`Kairos_engine.Inbound` implements the use-case surface against
-`Kairos_engine.Outbound_ports`; it does not select concrete adapters. CLI and
-LSP executables use `Kairos_composition.Api`, the default assembled service,
-without importing runtime or prover modules directly.
+`Kairos_engine.Inbound_port` owns the operations offered by the engine.
+`Kairos_engine.Use_cases` implements that port using
+`Kairos_engine.Outbound_ports`; it does not select concrete adapters. The
+outbound contract currently separates verification services from C generation.
+CLI and LSP executables use `Kairos_composition.Api`, the default assembled
+service, without importing runtime or prover modules directly.
 
 `Engine_contract` assembles focused public configuration, error and result
 types from `Pipeline_config`, `Pipeline_proof_types` and `Pipeline_artifacts`.
@@ -3189,7 +3289,7 @@ reliably.
 `Runtime_flow` implements the ordinary verification pipeline port:
 
 ```text
-Kairos_engine.Outbound_ports.verification_input
+Kairos_engine.Inbound_port.verification_input
     |
     v
 Pipeline_build.prepare_program
@@ -3293,9 +3393,10 @@ introduced.
 
 | Module | Purpose |
 |---|---|
-| [`lib/engine/kairos_engine/api.mli`](lib/engine/kairos_engine/api.mli) | Canonical inbound-port contract |
-| [`lib/engine/kairos_engine/inbound.mli`](lib/engine/kairos_engine/inbound.mli) | Use cases offered to driving adapters |
-| [`lib/engine/kairos_engine/outbound_ports.mli`](lib/engine/kairos_engine/outbound_ports.mli) | Services required from driven adapters |
+| [`lib/engine/kairos_engine/api.mli`](lib/engine/kairos_engine/api.mli) | Stable public facade over the inbound port |
+| [`lib/engine/kairos_engine/inbound_port.mli`](lib/engine/kairos_engine/inbound_port.mli) | Operations offered to incoming adapters |
+| [`lib/engine/kairos_engine/use_cases.mli`](lib/engine/kairos_engine/use_cases.mli) | Implementation of the inbound port from outbound services |
+| [`lib/engine/kairos_engine/outbound_ports.mli`](lib/engine/kairos_engine/outbound_ports.mli) | Verification and C-generation services required from outgoing adapters |
 | [`lib/engine/kairos_engine/engine_contract.ml`](lib/engine/kairos_engine/engine_contract.ml) | Public configuration, result and error assembly |
 | [`lib/composition/kairos_composition/wiring.ml`](lib/composition/kairos_composition/wiring.ml) | Concrete port assembly |
 | [`lib/adapters/out/runtime/orchestration/kairos_runtime_ports/runtime_flow.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_ports/runtime_flow.ml) | Concrete pipeline-port implementation |
@@ -3442,13 +3543,17 @@ stage result or change proof cases, obligations, solver tasks or statuses.
 
 | Module | Purpose |
 |---|---|
-| [`lib/adapters/out/runtime/orchestration/kairos_runtime_core/flow_info.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_core/flow_info.ml) | Per-run structural metadata |
+| [`lib/engine/kairos_engine/flow_info.ml`](lib/engine/kairos_engine/flow_info.ml) | Per-run structural metadata |
 | [`lib/adapters/out/runtime/kairos_runtime_telemetry/runtime_metrics.ml`](lib/adapters/out/runtime/kairos_runtime_telemetry/runtime_metrics.ml) | Runtime counter API and snapshots |
 | [`lib/adapters/out/runtime/kairos_runtime_telemetry/runtime_metrics_store.ml`](lib/adapters/out/runtime/kairos_runtime_telemetry/runtime_metrics_store.ml) | Process-local mutable store |
 | [`lib/adapters/out/runtime/orchestration/kairos_runtime_ports/engine_timing_meta.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_ports/engine_timing_meta.ml) | Snapshot delta and public timing projection |
 | [`lib/adapters/out/runtime/orchestration/kairos_runtime_diagnostics/pipeline_cost_report.ml`](lib/adapters/out/runtime/orchestration/kairos_runtime_diagnostics/pipeline_cost_report.ml) | Versioned cost-report composition |
 
 ## J. Package and dependency boundaries
+
+In plain terms, this section states which parts of the repository may import
+which other parts. These rules keep external tools and delivery code from
+becoming dependencies of the domain or engine.
 
 The installable packages encode the direction from neutral contracts and the
 scientific core toward concrete tools, runtime assembly and delivery
@@ -3523,6 +3628,10 @@ that package assembly works, but are unsupported implementation details; the
 facades and neutral contracts above remain the intended integration points.
 
 ## K. Validation and architectural fitness
+
+In plain terms, this section lists the automated checks that enforce the
+boundaries described above. It also records behaviours that are not yet
+covered, so a green build is not mistaken for complete architectural proof.
 
 Architecture is protected by executable checks as well as by this document.
 

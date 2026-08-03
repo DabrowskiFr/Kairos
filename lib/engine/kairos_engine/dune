@@ -9,8 +9,9 @@
   pipeline_proof_types
   pipeline_artifacts
   engine_contract
+  inbound_port
   outbound_ports
-  inbound
+  use_cases
   api)
  (libraries
   kairos_domain_core

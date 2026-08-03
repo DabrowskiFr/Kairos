@@ -17,20 +17,21 @@ module Mock_pipeline = struct
     Ok
       [
         {
-          Kairos_engine.Outbound_ports.file_name = "mock.c";
+          Kairos_engine.Inbound_port.file_name = "mock.c";
           contents = "/* mock */";
         };
       ]
 end
 
 module Service =
-  Kairos_engine.Inbound.Make (struct
-    module Pipeline = Mock_pipeline
+  Kairos_engine.Use_cases.Make (struct
+    module Verification = Mock_pipeline
+    module C_generation = Mock_pipeline
   end)
 
 let () =
   let input =
-    Kairos_engine.Outbound_ports.make_verification_input ~source_path:None
+    Kairos_engine.Inbound_port.make_verification_input ~source_path:None
       ~text_hash:None ~warnings:[] ~verification_model:[]
   in
   match Service.generate_c ~input with
