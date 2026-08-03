@@ -16,28 +16,16 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Surface.Ast
 open Core.Syntax
-
+open Env
+open Logic
 module S = Surface.Ast
-module Names = Names
-module Delays = Delays
-module Observers = Observers
-module State_selectors = State_selectors
-module Subst = Subst
-module Validation = Validation
-include Env
-include Logic
 
 type source = {
   type_decls : enum_decl list;
   function_decls : pure_function_decl list;
   nodes : Core.Ast.program;
 }
-
-let indexed_ref_name = Names.indexed_ref_name
-
-let subst_stmt = Subst.subst_stmt
 
 let validate_stmt_match env scrutinee branches default_branch =
   let scrutinee_ty = infer_expr_type env (lower_expr env scrutinee) in
@@ -88,7 +76,7 @@ let validate_stmt_match env scrutinee branches default_branch =
 let rec lower_stmt env stack (s : S.stmt) : Core.Ast.stmt list =
   match s.sstmt with
   | SSAssign (lhs, rhs) ->
-      [ Core.Ast_builders.mk_stmt ?loc:s.sloc (SAssign (indexed_ref_name lhs, lower_expr env rhs)) ]
+      [ Core.Ast_builders.mk_stmt ?loc:s.sloc (SAssign (Names.indexed_ref_name lhs, lower_expr env rhs)) ]
   | SSIf (cond, then_branch, else_branch) ->
       [
         Core.Ast_builders.mk_stmt ?loc:s.sloc
@@ -145,13 +133,13 @@ let rec lower_stmt env stack (s : S.stmt) : Core.Ast.stmt list =
           match (param.method_param_mode, arg.sexpr) with
           | MPIn, _ -> ()
           | MPInOut, SEVar target
-            when List.mem_assoc (indexed_ref_name target) env.variables ->
+            when List.mem_assoc (Names.indexed_ref_name target) env.variables ->
               ()
           | MPInOut, SEVar target ->
               Shared.Error.elaboration
                 (Printf.sprintf
                    "inout parameter '%s' of method '%s' requires a writable variable, but '%s' is not a node variable"
-                   param.method_param_name callee (indexed_ref_name target))
+                   param.method_param_name callee (Names.indexed_ref_name target))
           | MPInOut, _ ->
               Shared.Error.elaboration
                 (Printf.sprintf
@@ -166,13 +154,13 @@ let rec lower_stmt env stack (s : S.stmt) : Core.Ast.stmt list =
       enum_members env enum_name
       |> List.concat_map (fun value ->
              body
-             |> List.map (subst_stmt ~param ~value)
+             |> List.map (Subst.subst_stmt ~param ~value)
              |> lower_stmt_list env stack)
   | SSForRange (param, lo, hi, body) ->
       range_values (eval_nat empty_spec_context lo) (eval_nat empty_spec_context hi)
       |> List.concat_map (fun value ->
              body
-             |> List.map (subst_stmt ~param ~value:(string_of_int value))
+             |> List.map (Subst.subst_stmt ~param ~value:(string_of_int value))
              |> lower_stmt_list env stack)
 
 and lower_stmt_list env stack stmts =
@@ -192,16 +180,7 @@ let lower_method ~node_inputs env (decl : S.method_decl) : Core.Ast.method_decl 
   let lowered =
     {
     Core.Ast.method_name = decl.method_name;
-    method_params =
-      List.map
-        (fun (param : S.method_param) ->
-          {
-            Core.Ast.method_param_name = param.method_param_name;
-            method_param_ty = param.method_param_ty;
-            method_param_mode =
-              (match param.method_param_mode with MPIn -> Core.Ast.MPIn | MPInOut -> MPInOut);
-          })
-        decl.method_params;
+    method_params = decl.method_params;
     method_requires =
       List.map
         (lower_hexpr method_env empty_spec_context [])
@@ -395,20 +374,8 @@ let infer_method_effects node_variables methods =
       })
     methods
 
-let validate_unique_named_decls = Validation.validate_unique_named_decls
-let validate_control_graph = Validation.validate_control_graph
-let validate_observers = Validation.validate_observers
-let validate_method_contracts = Validation.validate_method_contracts
-let validate_method_parameters = Validation.validate_method_parameters
-let validate_method_call_graph = Validation.validate_method_call_graph
-let validate_while_variants = Validation.validate_while_variants
-let validate_spec_def_decl = Validation.validate_spec_def_decl
-let observer_updates_for_transition = Observers.observer_updates_for_transition
-let observer_locals = Observers.observer_locals
-let expand_state_invariants = State_selectors.expand_state_invariants
-
 let expand_observers_in_transition ~init_state schedule (t : S.transition) =
-  { t with body = t.body @ observer_updates_for_transition ~init_state schedule t }
+  { t with body = t.body @ Observers.observer_updates_for_transition ~init_state schedule t }
 
 let is_catch_all_transition_from state (transition : S.transition) =
   String.equal transition.src state
@@ -465,9 +432,9 @@ let lower_transition env (t : S.transition) : Core.Ast.transition =
     ()
 
 let node_env base_env (n : S.node) =
-  validate_unique_named_decls "predicate" (fun (p : S.predicate_decl) -> p.predicate_name) n.predicates;
-  validate_unique_named_decls "method" (fun (a : S.method_decl) -> a.method_name) n.methods;
-  validate_unique_named_decls "history alias" (fun (a : S.history_alias_decl) -> a.alias_name) n.history_aliases;
+  Validation.validate_unique_named_decls "predicate" (fun (p : S.predicate_decl) -> p.predicate_name) n.predicates;
+  Validation.validate_unique_named_decls "method" (fun (a : S.method_decl) -> a.method_name) n.methods;
+  Validation.validate_unique_named_decls "history alias" (fun (a : S.history_alias_decl) -> a.alias_name) n.history_aliases;
   List.iter
     (fun (p : S.predicate_decl) ->
       if List.mem_assoc p.predicate_name base_env.functions then
@@ -514,7 +481,7 @@ let node_env base_env (n : S.node) =
   in
   List.iter
     (fun (predicate : S.predicate_decl) ->
-      validate_unique_named_decls "predicate parameter"
+      Validation.validate_unique_named_decls "predicate parameter"
         (fun (param : S.typed_param) -> param.param_name)
         predicate.predicate_params;
       List.iter
@@ -556,15 +523,15 @@ let node_env base_env (n : S.node) =
   }
 
 let lower_node base_env (n : S.node) : Core.Ast.node =
-  validate_control_graph n;
+  Validation.validate_control_graph n;
   let env = node_env base_env n in
-  validate_observers n;
-  validate_method_contracts n;
-  validate_method_parameters n;
-  validate_method_call_graph n;
-  validate_while_variants n;
+  Validation.validate_observers n;
+  Validation.validate_method_contracts n;
+  Validation.validate_method_parameters n;
+  Validation.validate_method_call_graph n;
+  Validation.validate_while_variants n;
   let contracts = n.contracts in
-  let generated_observer_ghosts = observer_locals n.observers in
+  let generated_observer_ghosts = Observers.observer_locals n.observers in
   let preliminary_generated_variables =
     lower_raw_vdecls env
       generated_observer_ghosts
@@ -595,7 +562,7 @@ let lower_node base_env (n : S.node) : Core.Ast.node =
     lower_contracts ~hide_init:n.state_decls.init_is_hidden env contracts
   in
   let state_invariants =
-    expand_state_invariants n
+    State_selectors.expand_state_invariants n
     @ Delays.state_invariants ~states:n.state_decls.states
         ~init_state:n.state_decls.init_state delays
   in
@@ -661,7 +628,7 @@ let elaborate_frontend_decl (env, type_decls, function_decls) = function
 	      let env = { env with functions = (lowered.function_name, signature) :: env.functions } in
 	      (env, type_decls, lowered :: function_decls)
 	  | S.SSpecDefDecl d ->
-      validate_spec_def_decl d;
+      Validation.validate_spec_def_decl d;
       if List.mem_assoc d.spec_def_name env.spec_defs then
         Shared.Error.elaboration (Printf.sprintf "duplicate spec definition '%s'" d.spec_def_name);
 	      if List.mem_assoc d.spec_def_name env.functions then

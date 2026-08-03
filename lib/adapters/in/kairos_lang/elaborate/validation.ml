@@ -18,9 +18,7 @@
 
 open Surface.Ast
 
-module Names = Names
 module S = Surface.Ast
-module State_selectors = State_selectors
 
 let validate_unique_named_decls kind get_name decls =
   let seen = Hashtbl.create 17 in
@@ -57,8 +55,6 @@ let validate_control_graph (n : S.node) =
              transition.src transition.dst n.node_name transition.dst))
     n.transitions
 
-let indexed_ref_name = Names.indexed_ref_name
-
 let match_default_stmts = Option.value ~default:[]
 
 let is_scalar_ref_named name (r : S.indexed_ref) =
@@ -66,7 +62,7 @@ let is_scalar_ref_named name (r : S.indexed_ref) =
 
 let rec stmt_assigns_to targets (s : S.stmt) : string option =
   let assigned_ref r =
-    let name = indexed_ref_name r in
+    let name = Names.indexed_ref_name r in
     if List.mem name targets || List.mem r.ref_base targets then Some name
     else None
   in
@@ -85,7 +81,7 @@ let rec stmt_assigns_to targets (s : S.stmt) : string option =
 let rec expr_refs (e : S.expr) : string list =
   match e.sexpr with
   | SELitInt _ | SELitBool _ -> []
-  | SEVar r | SEPre r -> [ indexed_ref_name r ]
+  | SEVar r | SEPre r -> [ Names.indexed_ref_name r ]
   | SECall (_, args) -> List.concat_map expr_refs args
   | SEBin (_, a, b) | SECmp (_, a, b) -> expr_refs a @ expr_refs b
   | SEUn (_, inner) -> expr_refs inner
@@ -93,7 +89,7 @@ let rec expr_refs (e : S.expr) : string list =
 let rec expr_pre_refs (e : S.expr) : string list =
   match e.sexpr with
   | SELitInt _ | SELitBool _ | SEVar _ -> []
-  | SEPre r -> [ indexed_ref_name r ]
+  | SEPre r -> [ Names.indexed_ref_name r ]
   | SECall (_, args) -> List.concat_map expr_pre_refs args
   | SEBin (_, a, b) | SECmp (_, a, b) -> expr_pre_refs a @ expr_pre_refs b
   | SEUn (_, inner) -> expr_pre_refs inner
@@ -102,7 +98,7 @@ let rec hexpr_refs (h : S.hexpr) : string list =
   match h.shexpr with
   | SHLitInt _ | SHLitBool _ -> []
   | SHVar r | SHPreK (r, _) | SHHistoryAlias (_, r) ->
-      [ indexed_ref_name r ]
+      [ Names.indexed_ref_name r ]
   | SHPast (inner, _) | SHOld inner -> hexpr_refs inner
   | SHCall (_, args) -> List.concat_map hexpr_refs args
   | SHExpr e -> expr_refs e
@@ -152,7 +148,7 @@ let rec stmt_pre_refs (s : S.stmt) : string list =
 
 let rec stmt_assignment_targets (s : S.stmt) : string list =
   match s.sstmt with
-  | SSAssign (lhs, _) -> [ indexed_ref_name lhs ]
+  | SSAssign (lhs, _) -> [ Names.indexed_ref_name lhs ]
   | SSIf (_, then_branch, else_branch) ->
       List.concat_map stmt_assignment_targets (then_branch @ else_branch)
   | SSWhile (_, _, _, body) -> List.concat_map stmt_assignment_targets body
@@ -165,7 +161,7 @@ let rec stmt_assignment_targets (s : S.stmt) : string list =
 
 let rec stmt_must_assign target (s : S.stmt) : bool =
   match s.sstmt with
-  | SSAssign (lhs, _) -> String.equal (indexed_ref_name lhs) target
+  | SSAssign (lhs, _) -> String.equal (Names.indexed_ref_name lhs) target
   | SSIf (_, then_branch, else_branch) ->
       stmt_list_must_assign target then_branch
       && stmt_list_must_assign target else_branch

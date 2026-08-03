@@ -22,13 +22,6 @@ open Env
 
 module B = Core.Syntax_builders
 module S = Surface.Syntax
-module Names = Names
-module Subst = Subst
-
-let indexed_ref_name = Names.indexed_ref_name
-let nat_literal_of_ident = Subst.nat_literal_of_ident
-let subst_hexpr = Subst.subst_hexpr
-let subst_ltl = Subst.subst_ltl
 
 let rec ltl_of_fo (h : hexpr) : ltl =
   match h.hexpr with
@@ -209,7 +202,7 @@ let scalar_nat_value ctx (r : S.indexed_ref) : int option =
   | [] -> (
       match List.assoc_opt r.ref_base ctx.nat_params with
       | Some n -> Some n
-      | None -> nat_literal_of_ident r.ref_base)
+      | None -> Subst.nat_literal_of_ident r.ref_base)
   | _ -> None
 
 let resolve_history_source_ref ctx (r : S.indexed_ref) =
@@ -302,15 +295,15 @@ let rec lower_expr env (e : S.expr) : expr =
     | SELitInt n -> ELitInt n
     | SELitBool b -> ELitBool b
     | SEVar r when r.ref_indices = [] -> (
-        match nat_literal_of_ident r.ref_base with
+        match Subst.nat_literal_of_ident r.ref_base with
         | Some n -> ELitInt n
-        | None -> EVar (indexed_ref_name r))
-    | SEVar r -> EVar (indexed_ref_name r)
+        | None -> EVar (Names.indexed_ref_name r))
+    | SEVar r -> EVar (Names.indexed_ref_name r)
     | SEPre r ->
         Shared.Error.elaboration
           (Printf.sprintf
              "internal error: executable pre(%s) reached core lowering"
-             (indexed_ref_name r))
+             (Names.indexed_ref_name r))
     | SECall (callee, args) -> (
         match function_sig env callee with
         | Some _ -> EFunCall (callee, List.map (lower_expr env) args)
@@ -345,10 +338,10 @@ and lower_hexpr ?(allow_old = false) env ctx stack (h : S.hexpr) : hexpr =
             | { ref_base; _ } when is_scalar_ref_named ref_base r -> (
                 match List.assoc_opt ref_base ctx.hexpr_params with
                 | Some { shexpr = SHVar actual; _ } when is_scalar_ref_named ref_base actual ->
-                    mk (HVar (indexed_ref_name actual))
+                    mk (HVar (Names.indexed_ref_name actual))
                 | Some actual -> lower_hexpr ~allow_old env ctx stack actual
-                | None -> mk (HVar (indexed_ref_name r)))
-            | _ -> mk (HVar (indexed_ref_name r))
+                | None -> mk (HVar (Names.indexed_ref_name r)))
+            | _ -> mk (HVar (Names.indexed_ref_name r))
           end)
   | SHOld inner ->
       if not allow_old then
@@ -362,15 +355,15 @@ and lower_hexpr ?(allow_old = false) env ctx stack (h : S.hexpr) : hexpr =
       | { ref_base; _ } when is_scalar_ref_named ref_base r -> (
           match List.assoc_opt ref_base ctx.hexpr_params with
           | Some { shexpr = SHVar actual; _ } when is_scalar_ref_named ref_base actual ->
-              mk (HVar (indexed_ref_name actual)) |> shift_hexpr_past k
+              mk (HVar (Names.indexed_ref_name actual)) |> shift_hexpr_past k
           | Some actual ->
               lower_hexpr ~allow_old env ctx stack actual |> shift_hexpr_past k
-          | None -> mk (HPreK (indexed_ref_name r, k)))
-      | _ -> mk (HPreK (indexed_ref_name r, k)))
+          | None -> mk (HPreK (Names.indexed_ref_name r, k)))
+      | _ -> mk (HPreK (Names.indexed_ref_name r, k)))
   | SHPast (inner, k) ->
       lower_hexpr ~allow_old env ctx stack inner
       |> shift_hexpr_past (eval_nat ctx k)
-  | SHHistoryAlias (alias, r) -> expand_history_alias env alias (indexed_ref_name r)
+  | SHHistoryAlias (alias, r) -> expand_history_alias env alias (Names.indexed_ref_name r)
   | SHCall (callee, args) -> (
       match function_sig env callee with
       | Some _ ->
@@ -395,13 +388,13 @@ and lower_hexpr ?(allow_old = false) env ctx stack (h : S.hexpr) : hexpr =
       enum_members env enum_name
       |> List.map (fun value ->
              lower_hexpr ~allow_old env ctx stack
-               (subst_hexpr ~param ~value body))
+               (Subst.subst_hexpr ~param ~value body))
       |> core_hexpr_and
   | SHExists (param, enum_name, body) ->
       enum_members env enum_name
       |> List.map (fun value ->
              lower_hexpr ~allow_old env ctx stack
-               (subst_hexpr ~param ~value body))
+               (Subst.subst_hexpr ~param ~value body))
       |> core_hexpr_or
   | SHRangeForall (param, lo, hi, body) ->
       range_values (eval_nat ctx lo) (eval_nat ctx hi)
@@ -451,7 +444,7 @@ and expand_predicate env ctx stack name args =
       let body =
         List.fold_left
           (fun body ((param : S.typed_param), fresh_name) ->
-            subst_hexpr ~param:param.param_name ~value:fresh_name body)
+            Subst.subst_hexpr ~param:param.param_name ~value:fresh_name body)
           pred.predicate_body fresh_params
       in
       let ctx =
@@ -533,11 +526,11 @@ and lower_ltl env ctx (f : S.ltl) : ltl =
   | SLW (a, b) -> LW (lower_ltl env ctx a, lower_ltl env ctx b)
   | SLForall (param, enum_name, body) ->
       enum_members env enum_name
-      |> List.map (fun value -> lower_ltl env ctx (subst_ltl ~param ~value body))
+      |> List.map (fun value -> lower_ltl env ctx (Subst.subst_ltl ~param ~value body))
       |> core_ltl_and
   | SLExists (param, enum_name, body) ->
       enum_members env enum_name
-      |> List.map (fun value -> lower_ltl env ctx (subst_ltl ~param ~value body))
+      |> List.map (fun value -> lower_ltl env ctx (Subst.subst_ltl ~param ~value body))
       |> core_ltl_or
   | SLRangeForall (param, lo, hi, body) ->
       range_values (eval_nat ctx lo) (eval_nat ctx hi)
@@ -557,7 +550,7 @@ let rec lower_contract_ltls env (f : S.ltl) : ltl list =
   | SLAnd (a, b) -> lower_contract_ltls env a @ lower_contract_ltls env b
   | SLForall (param, enum_name, body) ->
       enum_members env enum_name
-      |> List.concat_map (fun value -> lower_contract_ltls env (subst_ltl ~param ~value body))
+      |> List.concat_map (fun value -> lower_contract_ltls env (Subst.subst_ltl ~param ~value body))
   | SLRangeForall (param, lo, hi, body) ->
       range_values (eval_nat empty_spec_context lo) (eval_nat empty_spec_context hi)
       |> List.concat_map (fun value ->
