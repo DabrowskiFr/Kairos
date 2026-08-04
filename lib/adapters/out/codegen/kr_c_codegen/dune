@@ -1,5 +1,6 @@
 (library
  (name kr_c_codegen)
+ (wrapped true)
  (flags (:standard -open Kr_domain_core))
 (modules
   c_codegen_types
@@ -12,7 +13,7 @@
   c_codegen_manifest
   c_codegen_node
   c_codegen_program
-  c_codegen)
+  kr_c_codegen_codegen)
  (private_modules
   c_codegen_types
   c_codegen_common

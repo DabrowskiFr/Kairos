@@ -24,7 +24,7 @@ type obligations_outputs = {
   vc_text : string;
   smt_text : string;
   metrics :
-    Kr_why3_contract.Why3_contract.execution_metrics;
+    Kr_why3_contract.Kr_why3_contract_contract.execution_metrics;
 }
 
 type compilation_manifest = Why_compile.compiled_proof_unit list

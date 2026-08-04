@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Contract = Kr_why3_contract.Why3_contract
+module Contract = Kr_why3_contract.Kr_why3_contract_contract
 
 type progress = { emit : Kr_engine.Kr_engine_pipeline_proof_types.goal_info -> unit }
 

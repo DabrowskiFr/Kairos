@@ -22,5 +22,5 @@ val build :
   status:string ->
   goal_text:string ->
   native_probe:
-    Kr_why3_contract.Why3_contract.solver_probe option ->
+    Kr_why3_contract.Kr_why3_contract_contract.solver_probe option ->
   Kr_engine.Kr_engine_pipeline_proof_types.proof_diagnostic

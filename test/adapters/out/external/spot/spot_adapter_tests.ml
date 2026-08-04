@@ -1,6 +1,6 @@
 module Contract = Kr_engine.Kr_engine_automata_contract
-module Spot = Kr_spot_adapter.Automaton_spot
-module Valuation = Kr_spot_adapter.Spot_boolean_valuation
+module Spot = Kr_spot_adapter.Kr_spot_adapter_automaton_spot
+module Valuation = Kr_spot_adapter.Kr_spot_adapter_boolean_valuation
 
 let fail fmt = Printf.ksprintf failwith fmt
 let check label condition = if not condition then fail "failed: %s" label

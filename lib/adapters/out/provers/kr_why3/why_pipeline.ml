@@ -18,7 +18,7 @@
 
 (** WhyML, VC, and SMT export from the backend-independent proof IR. *)
 
-module Why3_contract = Kr_why3_contract.Why3_contract
+module Why3_contract = Kr_why3_contract.Kr_why3_contract_contract
 
 type obligations_outputs = {
   vc_text : string;
@@ -81,7 +81,7 @@ let obligations_pass ~proof_plans : obligations_outputs =
     }
   in
   let response =
-    Kr_external_why3.Why_execution.execute_ptree ~options:execution_options
+    Kr_external_why3.Kr_external_why3_execution.execute_ptree ~options:execution_options
       compilation.ast
   in
   {

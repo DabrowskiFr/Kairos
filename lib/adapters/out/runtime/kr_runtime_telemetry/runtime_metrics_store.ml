@@ -278,7 +278,7 @@ let record_vc_smt ~elapsed_s = vc_smt_s := !vc_smt_s +. max 0.0 elapsed_s
 
 let record_why3_execution
     (metrics :
-      Kr_why3_contract.Why3_contract.execution_metrics) =
+      Kr_why3_contract.Kr_why3_contract_contract.execution_metrics) =
   why3_setup_s := !why3_setup_s +. max 0.0 metrics.setup_s;
   why3_typecheck_s := !why3_typecheck_s +. max 0.0 metrics.typecheck_s;
   why3_task_extract_s :=
@@ -305,7 +305,7 @@ let record_why3_execution
     List.map
       (fun
         (worker :
-          Kr_why3_contract.Why3_contract.worker_metrics) ->
+          Kr_why3_contract.Kr_why3_contract_contract.worker_metrics) ->
         {
           worker_id = worker.worker_id;
           worker_input_goal_count = worker.input_goal_count;

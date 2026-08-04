@@ -1,4 +1,4 @@
-module Contract = Kr_why3_contract.Why3_contract
+module Contract = Kr_why3_contract.Kr_why3_contract_contract
 
 let check label condition = if not condition then failwith ("failed: " ^ label)
 
@@ -18,7 +18,7 @@ let () =
   let lexbuf = Lexing.from_string "module Contract_execution\n  goal emitted : false\nend" in
   Why3.Loc.set_file "<adapter-test>" lexbuf;
   let ptree = Why3.Lexer.parse_mlw_file lexbuf in
-  let execution = Kr_external_why3.Why_execution.execute_ptree ~options ptree in
+  let execution = Kr_external_why3.Kr_external_why3_execution.execute_ptree ~options ptree in
   check "execution response version" (Result.is_ok (Contract.validate_execution_response execution));
   check "neutral goal descriptor produced" (List.length execution.goals = 1);
   check "proof disabled means no results" (execution.results = []);

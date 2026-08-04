@@ -2,5 +2,8 @@
 (name kr_spot_adapter)
  (flags (:standard -open Kr_engine.Kr_engine_automata_contract))
  (wrapped true)
- (modules spot_boolean_valuation automaton_spot spot_automaton_builder)
+ (modules
+  kr_spot_adapter_boolean_valuation
+  kr_spot_adapter_automaton_spot
+  kr_spot_adapter_automaton_builder)
  (libraries kr_engine unix))

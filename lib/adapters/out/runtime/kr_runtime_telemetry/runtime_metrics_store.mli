@@ -90,6 +90,6 @@ val record_vc_smt : elapsed_s:float -> unit
 (** Add elapsed wall-clock time spent generating VCs and submitting to SMT. *)
 
 val record_why3_execution :
-  Kr_why3_contract.Why3_contract.execution_metrics ->
+  Kr_why3_contract.Kr_why3_contract_contract.execution_metrics ->
   unit
 (** Import the neutral technical measurements returned by one Why3 execution. *)

@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Contract = Kr_why3_contract.Why3_contract
+module Contract = Kr_why3_contract.Kr_why3_contract_contract
 
 type progress = { emit : Kr_engine.Kr_engine_pipeline_proof_types.goal_info -> unit }
 
@@ -102,7 +102,7 @@ let execute ~progress ~(cfg : Kr_engine.Kr_engine_pipeline_config.config) ~ptree
     then stop_requested := true
   in
   let response =
-    Kr_external_why3.Why_execution.execute_ptree ~should_cancel ~on_goal_done
+    Kr_external_why3.Kr_external_why3_execution.execute_ptree ~should_cancel ~on_goal_done
       ~options ptree
   in
   Runtime_metrics.record_why3_execution response.metrics;

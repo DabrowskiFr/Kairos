@@ -1,5 +1,6 @@
 (library
  (name kr_lsp_protocol)
+ (wrapped true)
  (modules kr_lsp_protocol)
  (preprocess
   (pps ppx_deriving_yojson)))

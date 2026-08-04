@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Spot_boolean_valuation
+open Kr_spot_adapter_boolean_valuation
 module Automata_exchange = Kr_engine.Kr_engine_automata_contract
 
 type process_result = { status : Unix.process_status; stdout : string; stderr : string }

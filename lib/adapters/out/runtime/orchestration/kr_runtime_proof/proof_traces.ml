@@ -17,7 +17,7 @@
  *---------------------------------------------------------------------------*)
 
 module Goal_results = Proof_goal_results
-module Contract = Kr_why3_contract.Why3_contract
+module Contract = Kr_why3_contract.Kr_why3_contract_contract
 
 let needed (cfg : Kr_engine.Kr_engine_pipeline_config.config) : bool =
   cfg.collect_ir_metrics || cfg.compute_proof_diagnostics

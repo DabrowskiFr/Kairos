@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type goal_timing = Kr_why3_contract.Why3_contract.goal_timing = {
+type goal_timing = Kr_why3_contract.Kr_why3_contract_contract.goal_timing = {
   prepare_s : float;
   print_s : float;
   spawn_s : float;
@@ -31,7 +31,7 @@ type goal_proof_result = {
   timing : goal_timing;
 }
 
-type goal_start_event = Kr_why3_contract.Why3_contract.goal_descriptor = {
+type goal_start_event = Kr_why3_contract.Kr_why3_contract_contract.goal_descriptor = {
   goal_index : int;
   goal_name : string;
 }

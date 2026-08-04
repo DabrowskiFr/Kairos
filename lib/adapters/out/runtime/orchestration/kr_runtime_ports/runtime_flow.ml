@@ -133,7 +133,7 @@ let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
     ~proof_plans ~(vc_ids_ordered : int list) ~on_goal_done :
     Kr_engine.Kr_engine_pipeline_proof_types.goal_result list =
   let compilation = Why_pipeline.compile ~proof_plans () in
-  let module Contract = Kr_why3_contract.Why3_contract in
+  let module Contract = Kr_why3_contract.Kr_why3_contract_contract in
   let options : Contract.execution_options =
     {
       timeout_s;
@@ -148,7 +148,7 @@ let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
   in
   let finished = ref [] in
   let response =
-    Kr_external_why3.Why_execution.execute_ptree ~should_cancel
+    Kr_external_why3.Kr_external_why3_execution.execute_ptree ~should_cancel
       ~on_progress:(fun message -> Log.flow_info (Some "prove") message [])
       ~on_warning:(fun message -> Log.warning ~stage:"prove" message)
       ~on_goal_start:(fun _ -> ())

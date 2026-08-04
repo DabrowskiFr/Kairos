@@ -9,4 +9,4 @@
  *---------------------------------------------------------------------------*)
 
 let dot_png_from_text (req : Kr_lsp_protocol.dot_png_from_text_request) =
-  Kr_graphviz_render.Graphviz_render.dot_png_from_text req.dot_text
+  Kr_graphviz_render.Kr_graphviz_render_graphviz.dot_png_from_text req.dot_text

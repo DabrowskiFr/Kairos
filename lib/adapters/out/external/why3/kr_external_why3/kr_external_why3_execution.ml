@@ -1,4 +1,4 @@
-module Contract = Kr_why3_contract.Why3_contract
+module Contract = Kr_why3_contract.Kr_why3_contract_contract
 
 let worker_metrics_of_backend (worker : Why_metrics.worker_snapshot) : Contract.worker_metrics =
   {

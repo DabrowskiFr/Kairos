@@ -1,5 +1,6 @@
 (library
-(name kr_external_why3)
+ (name kr_external_why3)
+ (wrapped true)
  (flags (:standard -open Kr_why3_contract))
 (modules
   why_metrics
@@ -13,7 +14,7 @@
   why_contract_workers
   why_contract_prove
   why_native_probe
-  why_execution)
+  kr_external_why3_execution)
  (private_modules
   why_metrics
   why_task_support

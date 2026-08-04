@@ -59,13 +59,13 @@ The normal call direction is:
 CLI or LSP
     |
     v
-composition
+composition ───────► output adapters
     |
     v
 engine
     |
     v
-output adapters
+domain
 ```
 
 The domain is used by the engine but does not call the engine, adapters, CLI,

@@ -46,26 +46,26 @@ let graph_pngs ~(generate_main_png : bool) ~(program_dot : string)
     * string option =
   let dot_png, dot_png_error =
     if generate_main_png && String.trim product_dot <> "" then
-      Kr_graphviz_render.Graphviz_render.dot_png_from_text_diagnostic product_dot
+      Kr_graphviz_render.Kr_graphviz_render_graphviz.dot_png_from_text_diagnostic product_dot
     else (None, None)
   in
   let program_png, program_png_error =
     if String.trim program_dot = "" then (None, Some "Program automaton DOT is empty.")
-    else Kr_graphviz_render.Graphviz_render.dot_png_from_text_diagnostic program_dot
+    else Kr_graphviz_render.Kr_graphviz_render_graphviz.dot_png_from_text_diagnostic program_dot
   in
   let guarantee_automaton_png, guarantee_automaton_png_error =
     if String.trim guarantee_automaton_dot = "" then
       (None, Some "Guarantee automaton DOT is empty.")
-    else Kr_graphviz_render.Graphviz_render.dot_png_from_text_diagnostic guarantee_automaton_dot
+    else Kr_graphviz_render.Kr_graphviz_render_graphviz.dot_png_from_text_diagnostic guarantee_automaton_dot
   in
   let assume_automaton_png, assume_automaton_png_error =
     if String.trim assume_automaton_dot = "" then
       (None, Some "Assume automaton DOT is empty.")
-    else Kr_graphviz_render.Graphviz_render.dot_png_from_text_diagnostic assume_automaton_dot
+    else Kr_graphviz_render.Kr_graphviz_render_graphviz.dot_png_from_text_diagnostic assume_automaton_dot
   in
   let product_png, product_png_error =
     if String.trim product_dot = "" then (None, Some "Product automaton DOT is empty.")
-    else Kr_graphviz_render.Graphviz_render.dot_png_from_text_diagnostic product_dot
+    else Kr_graphviz_render.Kr_graphviz_render_graphviz.dot_png_from_text_diagnostic product_dot
   in
   ( dot_png,
     dot_png_error,

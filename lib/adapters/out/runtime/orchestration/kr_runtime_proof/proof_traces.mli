@@ -22,7 +22,7 @@ val needed : Kr_engine.Kr_engine_pipeline_config.config -> bool
 
 val build_from_execution :
   goals:
-    Kr_why3_contract.Why3_contract.goal_descriptor list ->
+    Kr_why3_contract.Kr_why3_contract_contract.goal_descriptor list ->
   manifest:Why_pipeline.compilation_manifest ->
   goal_results:Proof_goal_results.t list ->
   vc_ids_ordered:int list ->

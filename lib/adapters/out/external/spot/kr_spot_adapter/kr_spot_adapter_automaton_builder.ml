@@ -18,15 +18,15 @@
 
 module Automata_exchange = Kr_engine.Kr_engine_automata_contract
 
-let normalize_spot_monitor ~(atom_names : string list) (hoa : Automaton_spot.hoa_automaton) :
+let normalize_spot_monitor ~(atom_names : string list) (hoa : Kr_spot_adapter_automaton_spot.hoa_automaton) :
     Automata_exchange.partial_monitor =
-  if hoa.acceptance <> Automaton_spot.Acceptance_all then
+  if hoa.acceptance <> Kr_spot_adapter_automaton_spot.Acceptance_all then
     failwith
       "Spot returned an acceptance condition for a safety monitor; expected a partial \
        all-accepting monitor";
   let state_ids =
     hoa.states
-    |> List.map (fun (state : Automaton_spot.hoa_state) -> state.id)
+    |> List.map (fun (state : Kr_spot_adapter_automaton_spot.hoa_state) -> state.id)
     |> List.sort_uniq compare
   in
   if not (List.mem hoa.start state_ids) then
@@ -39,7 +39,7 @@ let normalize_spot_monitor ~(atom_names : string list) (hoa : Automaton_spot.hoa
     transitions := { Automata_exchange.source; guard; target } :: !transitions
   in
   List.iter
-    (fun (state : Automaton_spot.hoa_state) ->
+    (fun (state : Kr_spot_adapter_automaton_spot.hoa_state) ->
       let source = Hashtbl.find state_indices state.id in
       List.iter
         (fun (label, old_target) ->
@@ -51,12 +51,12 @@ let normalize_spot_monitor ~(atom_names : string list) (hoa : Automaton_spot.hoa
                   (Printf.sprintf "Spot returned a transition to undeclared state %d" old_target)
           in
           let raw_guard =
-            Automaton_spot.raw_guard_of_label ~atom_names
+            Kr_spot_adapter_automaton_spot.raw_guard_of_label ~atom_names
               ~hoa_ap_names:hoa.ap_names label
           in
           if raw_guard <> [] then
             add source
-              (Spot_boolean_valuation.terms_to_guard raw_guard)
+              (Kr_spot_adapter_boolean_valuation.terms_to_guard raw_guard)
               target)
         state.transitions)
     hoa.states;
@@ -71,9 +71,9 @@ let build ?(record_elapsed = ignore) (request : Automata_exchange.request) :
   (match Automata_exchange.validate_request request with
   | Ok () -> ()
   | Error message -> invalid_arg message);
-  let formula = Automaton_spot.string_of_spot_ltl ~atom_names:request.atoms request.formula in
-  Automaton_spot.ensure_safety ~record_elapsed formula;
-  let hoa = Automaton_spot.call_spot ~record_elapsed formula |> Automaton_spot.parse_hoa in
+  let formula = Kr_spot_adapter_automaton_spot.string_of_spot_ltl ~atom_names:request.atoms request.formula in
+  Kr_spot_adapter_automaton_spot.ensure_safety ~record_elapsed formula;
+  let hoa = Kr_spot_adapter_automaton_spot.call_spot ~record_elapsed formula |> Kr_spot_adapter_automaton_spot.parse_hoa in
   if hoa.ap_count <> List.length request.atoms then
     failwith
       (Printf.sprintf "Spot returned %d atomic propositions; expected %d" hoa.ap_count

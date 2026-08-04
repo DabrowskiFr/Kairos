@@ -1,4 +1,4 @@
-module Contract = Kr_why3_contract.Why3_contract
+module Contract = Kr_why3_contract.Kr_why3_contract_contract
 
 let fail fmt = Printf.ksprintf failwith fmt
 let check label condition = if not condition then fail "failed: %s" label

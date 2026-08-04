@@ -1,6 +1,6 @@
 (** Execute structured WhyML proof requests. *)
 
-module Contract = Kr_why3_contract.Why3_contract
+module Contract = Kr_why3_contract.Kr_why3_contract_contract
 
 val execute_ptree :
   ?should_cancel:(unit -> bool) ->

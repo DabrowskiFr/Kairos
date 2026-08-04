@@ -1,7 +1,7 @@
 (library
  (name kr_why3_contract)
  (wrapped true)
- (modules tool_protocol why3_contract)
+ (modules tool_protocol kr_why3_contract_contract)
  (libraries yojson)
  (preprocess
   (pps ppx_deriving_yojson)))

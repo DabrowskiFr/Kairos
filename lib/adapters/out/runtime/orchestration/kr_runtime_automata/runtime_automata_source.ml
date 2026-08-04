@@ -27,7 +27,7 @@ let produce_with_spot (proof_case_program : Kr_verification_cases.t) :
     (produced, Kr_engine.Kr_engine_pipeline_error.t) result =
   try
     let build_automaton request =
-      Kr_spot_adapter.Spot_automaton_builder.build
+      Kr_spot_adapter.Kr_spot_adapter_automaton_builder.build
         ~record_elapsed:(fun elapsed_s ->
           Runtime_metrics.record_spot ~elapsed_s)
         request
