@@ -199,15 +199,25 @@ kr_lang_to_model/internal/validation.ml
 kr_lang_elaborate/internal/history.ml
 ```
 
-Internal modules must not be re-exported by public modules. Use
-`(private_modules ...)` whenever necessary. The absence of an `.mli` does not
-make a module private; privacy comes from the Dune module boundary.
+Internal modules must not be re-exported by public modules. The absence of an
+`.mli` does not make a module private; privacy comes from the Dune module
+boundary.
 
-Each library uses `(include_subdirs qualified)` when it contains subdirectories
-and declares every direct dependency in `(libraries ...)`. A separate nested
-Dune library is a dependency boundary, not a parent-only visibility boundary:
-Dune cannot prevent another library that declares the dependency from using
-it. The architecture checker enforces the allowed dependency tree.
+When a library contains an `internal/` tree, use
+`(include_subdirs unqualified)` together with `(private_modules ...)`. This
+keeps the internal files organized in subdirectories while allowing Dune to
+hide them from the library's external interface. Several public
+`kr_<scope>_<role>` modules may use these internals; they must remain the only
+external entry points.
+
+Do not switch such a library to `(include_subdirs qualified)` merely to obtain
+an `Internal.*` namespace: Dune does not support listing those nested modules
+reliably in `private_modules`, so this would weaken the encapsulation. If a
+qualified namespace is genuinely required, create a separate internal Dune
+library and enforce its allowed consumers with the architecture checker. A
+nested Dune library is a dependency boundary, not a parent-only visibility
+boundary: Dune cannot prevent another library that declares the dependency
+from using it.
 
 The architecture checks verify package count, directory/name conventions,
 wrapper policy, and dependency boundaries.
