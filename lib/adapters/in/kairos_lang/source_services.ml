@@ -24,6 +24,7 @@ let source_diagnostic ~loc ~severity ~source ~message =
   in
   { line; column; line_end; column_end; severity; source; message }
 
+(* [frontend_error_source] implements the internal frontend error source operation. It returns the operation result. *)
 let frontend_error_source = function
   | Shared.Error.Parse -> "kairos-parse"
   | Shared.Error.Elaboration -> "kairos-elaboration"
@@ -34,7 +35,7 @@ let frontend_error_source = function
 let diagnostics ~filename ~text =
   try
     let _source, info =
-      Parse.Api.elaborate_source_text_with_info ~filename ~text
+      Parse.elaborate_source_text_with_info ~filename ~text
     in
     let diagnostics = ref [] in
     List.iter
@@ -43,7 +44,7 @@ let diagnostics ~filename ~text =
           source_diagnostic ~loc:None ~severity:2 ~source:"kairos-parse"
             ~message:warning
           :: !diagnostics)
-      info.Parse.Api.warnings;
+      info.Parse.warnings;
     List.rev !diagnostics
   with
   | Shared.Error.Error error ->
@@ -60,7 +61,7 @@ let diagnostics ~filename ~text =
 
 let semantic_symbols ~filename ~text =
   try
-    let source = Parse.Api.elaborate_source_text ~filename ~text in
+    let source = Parse.elaborate_source_text ~filename ~text in
     let all = Hashtbl.create 256 in
     let nodes = Hashtbl.create 64 in
     let states = Hashtbl.create 128 in
@@ -98,6 +99,7 @@ let semantic_symbols ~filename ~text =
       }
   with _ -> None
 
+(* [frontend_error (error : Shared.Error.t)] implements the internal frontend error operation. It returns the operation result. *)
 let frontend_error (error : Shared.Error.t) =
   let diagnostic = { Frontend.loc = error.loc; message = error.message } in
   match error.kind with
@@ -109,11 +111,13 @@ let frontend_error (error : Shared.Error.t) =
       Frontend.Well_formedness_error diagnostic
   | Shared.Error.Internal -> Frontend.Internal_error error.message
 
+(* [read_text input_file] implements the internal read text operation. It returns the operation result. *)
 let read_text input_file =
   try
     Ok (In_channel.with_open_bin input_file In_channel.input_all)
   with exn -> Error (Frontend.Io_error (Printexc.to_string exn))
 
+(* [dump parse render ~input_file] implements the internal dump operation. It returns the operation result. *)
 let dump parse render ~input_file =
   match read_text input_file with
   | Error _ as error -> error
@@ -124,9 +128,9 @@ let dump parse render ~input_file =
           Error (Frontend.Internal_error (Printexc.to_string exn)))
 
 let surface_dump ~input_file =
-  dump Parse.Api.parse_surface_text
-    Parse.Api.surface_source_to_json ~input_file
+  dump Parse.parse_surface_text
+    Parse.surface_source_to_json ~input_file
 
 let elaborated_dump ~input_file =
-  dump Parse.Api.elaborate_source_text Parse.Api.source_to_json
+  dump Parse.elaborate_source_text Parse.source_to_json
     ~input_file

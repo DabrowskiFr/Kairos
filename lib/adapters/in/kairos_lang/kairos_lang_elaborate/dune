@@ -1,0 +1,9 @@
+(include_subdirs qualified)
+
+(library
+ (name kairos_lang_elaborate)
+ (public_name kairos.internal.input_lang.elaborate)
+ (wrapped true)
+ (private_modules (:standard \ elaborate))
+ (libraries kairos_lang_shared kairos_lang_core kairos_lang_surface)
+ (flags (:standard -open Kairos_lang_shared -open Kairos_lang_core -open Kairos_lang_surface)))

@@ -16,26 +16,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type location = Loc.loc = {
-  line : int;
-  col : int;
-  line_end : int;
-  col_end : int;
-}
-
-type diagnostic = {
-  loc : location option;
-  message : string;
-}
-
-type error =
-  | Parse_error of diagnostic
-  | Elaboration_error of diagnostic
-  | Type_error of diagnostic
-  | Well_formedness_error of diagnostic
-  | Io_error of string
-  | Internal_error of string
-
 type parse_info = {
   source_path : string option;
   text_hash : string option;
@@ -47,12 +27,18 @@ type output = {
   verification_model : Verification_model.program_model;
 }
 
-let parse_info_of_kx_info (info : Parse.Api.parse_info) : parse_info =
-  {
-    source_path = info.source_path;
-    text_hash = info.text_hash;
-    warnings = info.warnings;
-  }
+type diagnostic = {
+  loc : Loc.loc option;
+  message : string;
+}
+
+type error =
+  | Parse_error of diagnostic
+  | Elaboration_error of diagnostic
+  | Type_error of diagnostic
+  | Well_formedness_error of diagnostic
+  | Io_error of string
+  | Internal_error of string
 
 let read_all_text (path : string) : (string, error) result =
   try
@@ -62,6 +48,13 @@ let read_all_text (path : string) : (string, error) result =
       (Io_error
         (Printf.sprintf "cannot read %S: %s"
           path (Printexc.to_string exn)))
+
+let parse_info_of_kx_info (info : Parse.parse_info) : parse_info =
+  {
+    source_path = info.source_path;
+    text_hash = info.text_hash;
+    warnings = info.warnings;
+  }
 
 let error_of_kx_error (err : Shared.Error.t) : error =
   let diagnostic = { loc = err.loc; message = err.message } in
@@ -79,12 +72,12 @@ let parse_input ~(input_file : string) : (output, error) result =
   | Ok source_text -> (
       try
         let source_kx, parse_info_kx =
-          Parse.Api.elaborate_source_text_with_info ~filename:input_file
+          Parse.elaborate_source_text_with_info ~filename:input_file
             ~text:source_text
         in
         let parse_info = parse_info_of_kx_info parse_info_kx in
         let verification_model =
-          To_model.Api.program ~type_decls:source_kx.type_decls
+          To_model.program ~type_decls:source_kx.type_decls
             ~function_decls:source_kx.function_decls source_kx.nodes
         in
         Ok { parse_info; verification_model;}

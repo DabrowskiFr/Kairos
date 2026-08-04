@@ -1,0 +1,9 @@
+(library
+ (name kairos_lang_to_model)
+ (public_name kairos.internal.input_lang.to_model)
+ (wrapped true)
+ (private_modules (:standard \ to_model))
+ (libraries kairos_lang_shared kairos_lang_core)
+ (flags (:standard -open Kairos_lang_shared -open Kairos_lang_core))
+ (preprocess
+  (pps ppx_deriving_yojson)))

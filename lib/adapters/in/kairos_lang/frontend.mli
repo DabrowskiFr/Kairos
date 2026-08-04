@@ -18,17 +18,26 @@
 
 (** Parse and elaborate a Kairos source file into the core program model. *)
 
-type location = Loc.loc = {
-  line : int;
-  col : int;
-  line_end : int;
-  col_end : int;
+type parse_info = {
+  source_path : string option;
+      (** Source origin. *)
+  text_hash : string option;
+      (** Source-content digest. *)
+  warnings : string list;
+      (** Non-fatal warnings. *)
 }
-(** Source span using one-based lines and zero-based Unicode-code-point
-    columns. *)
+(** Metadata associated with the parsed source. *)
+
+type output = {
+  parse_info : parse_info;
+      (** Source metadata and diagnostics. *)
+  verification_model : Verification_model.program_model;
+      (** Checked and normalized core program. *)
+}
+(** Successful frontend output. *)
 
 type diagnostic = {
-  loc : location option;
+  loc : Loc.loc option;
   message : string;
 }
 (** Structured frontend diagnostic. *)
@@ -48,25 +57,5 @@ type error =
       (** An unexpected frontend failure. *)
 (** Frontend failure categories. *)
 
-type parse_info = {
-  source_path : string option;
-      (** Source origin. *)
-  text_hash : string option;
-      (** Source-content digest. *)
-  warnings : string list;
-      (** Non-fatal warnings. *)
-}
-(** Metadata associated with the parsed source. *)
-
-type output = {
-  parse_info : parse_info;
-      (** Source metadata and diagnostics. *)
-  verification_model : Verification_model.program_model;
-      (** Checked and normalized core program. *)
-}
-(** Successful frontend output. *)
-
-val parse_input :
-  input_file:string ->
-  (output, error) result
+val parse_input : input_file:string -> (output, error) result
 (** Read and translate one source file. *)

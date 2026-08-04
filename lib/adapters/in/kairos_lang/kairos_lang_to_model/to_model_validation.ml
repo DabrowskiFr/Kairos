@@ -1,0 +1,29 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
+(** Semantic-validation facade for the elaborated Kairos model. *)
+
+let lookup_constructor = To_model_validation_common.lookup_constructor
+
+let validate_unique_type_decls =
+  To_model_validation_common.validate_unique_type_decls
+
+let validate_function_decls =
+  To_model_function_validation.validate_function_decls
+
+let validate_node = To_model_node_validation.validate_node
