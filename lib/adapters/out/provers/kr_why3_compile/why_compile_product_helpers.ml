@@ -20,7 +20,7 @@
 (** Emit individual or grouped WhyML helpers from one product-step proof IR. *)
 
 module Proof_ir =
-  Kr_verification_obligations.Verification_proof_ir
+  Kr_verification.Kr_verification_proof_ir
 
 module Product_specs = Why_compile_product_specs
 module Step_names = Why_product_step_names
@@ -31,11 +31,11 @@ type helper_unit = {
 }
 
 type context = {
-  node_name : Core_syntax.ident;
+  node_name : Kr_domain_core_syntax.ident;
   env : Why_compile_expr.env;
   inputs : Why3.Ptree.binder list;
   formula_sharing : Why_compile_formula_sharing.t;
-  formula_imports : Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list;
+  formula_imports : Kr_domain_core_syntax.history_free Kr_verification_ir.summary_formula list -> Why3.Ptree.decl list;
   bundles : Why_compile_bundles.t;
 }
 

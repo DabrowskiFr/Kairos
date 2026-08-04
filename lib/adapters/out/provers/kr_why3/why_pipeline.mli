@@ -42,7 +42,7 @@ type whyml_output = {
 (** Compile Kairos proof IR directly to the structured Why3 input. *)
 val compile :
   proof_plans:
-    Kr_verification_obligations.Verification_proof_ir.t list ->
+    Kr_verification.Kr_verification_proof_ir.t list ->
   unit ->
   compilation
 
@@ -52,5 +52,5 @@ val render : compilation -> whyml_output
 (** Compile Kairos IR and submit its AST directly to the Why3 adapter. *)
 val obligations_pass :
   proof_plans:
-    Kr_verification_obligations.Verification_proof_ir.t list ->
+    Kr_verification.Kr_verification_proof_ir.t list ->
   obligations_outputs

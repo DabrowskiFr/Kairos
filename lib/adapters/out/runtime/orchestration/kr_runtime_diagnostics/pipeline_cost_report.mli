@@ -21,9 +21,9 @@
 val render_json :
   input_file:string ->
   why_text_s:float ->
-  proof_optimizations:Kr_engine.Pipeline_config.proof_optimizations ->
-  infos:Kr_engine.Flow_info.pipeline_info ->
-  proof_cases:Proof_case_program.t ->
-  instrumentation:Core_syntax.history_free Ir.node_ir list ->
+  proof_optimizations:Kr_engine.Kr_engine_pipeline_config.proof_optimizations ->
+  infos:Kr_engine.Kr_engine_flow_info.pipeline_info ->
+  proof_cases:Kr_verification_cases.t ->
+  instrumentation:Kr_domain_core_syntax.history_free Kr_verification_ir.node_ir list ->
   why_text:string ->
   string

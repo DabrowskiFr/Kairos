@@ -1,0 +1,3 @@
+include Kr_domain_core_history_analysis
+include Kr_domain_core_history_layout
+include Kr_domain_core_history_lowering

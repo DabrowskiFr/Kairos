@@ -31,6 +31,6 @@ type t = {
 }
 
 val prepare :
-  semantics:Ir.node_signature ->
-  temporal_layout:Ir.temporal_layout ->
+  semantics:Kr_verification_ir.node_signature ->
+  temporal_layout:Kr_verification_ir.temporal_layout ->
   t

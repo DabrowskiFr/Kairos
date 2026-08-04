@@ -27,9 +27,3 @@
   why_contract_prove
   why_native_probe)
  (libraries kr_why3_contract why3))
-
-(test
- (name why3_adapter_tests)
- (modules why3_adapter_tests)
- (package kairos)
- (libraries kr_external_why3 kr_why3_contract))

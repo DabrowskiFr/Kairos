@@ -1,0 +1,9 @@
+(test
+ (name product_characteristics_tests)
+ (package kairos)
+ (libraries kr_domain_core kr_verification))
+
+(test
+ (name partial_monitor_obligations_tests)
+ (package kairos)
+ (libraries kr_domain_core kr_verification))

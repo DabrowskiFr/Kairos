@@ -1,0 +1,4 @@
+(test
+ (name lsp_protocol_tests)
+ (package kairos)
+ (libraries kr_lsp_protocol))

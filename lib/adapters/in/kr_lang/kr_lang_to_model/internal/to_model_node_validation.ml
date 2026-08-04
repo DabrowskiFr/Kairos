@@ -16,24 +16,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Kr_domain_core.Core_syntax
+open Kr_domain_core.Kr_domain_core_syntax
 
 open To_model_validation_common
 
-let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
+let validate_node (n : Kr_domain_core.Kr_domain_core_model.node_model) : unit =
   let node_name = n.node_name in
   let vars = n.inputs @ n.outputs @ n.locals @ n.ghosts in
-  let input_var_names = List.map (fun (v : Kr_domain_core.Core_syntax.vdecl) -> v.vname) n.inputs in
+  let input_var_names = List.map (fun (v : Kr_domain_core.Kr_domain_core_syntax.vdecl) -> v.vname) n.inputs in
   let real_var_names =
-    List.map (fun (v : Kr_domain_core.Core_syntax.vdecl) -> v.vname)
+    List.map (fun (v : Kr_domain_core.Kr_domain_core_syntax.vdecl) -> v.vname)
       (n.inputs @ n.outputs @ n.locals)
   in
-  let ghost_var_names = List.map (fun (v : Kr_domain_core.Core_syntax.vdecl) -> v.vname) n.ghosts in
+  let ghost_var_names = List.map (fun (v : Kr_domain_core.Kr_domain_core_syntax.vdecl) -> v.vname) n.ghosts in
   let public_ghost_names = n.public_ghosts in
   validate_identifier_collisions node_name n.type_decls ~vars ~states:n.states;
   let seen_vars = Hashtbl.create 32 in
   List.iter
-    (fun (v : Kr_domain_core.Core_syntax.vdecl) ->
+    (fun (v : Kr_domain_core.Kr_domain_core_syntax.vdecl) ->
       match Hashtbl.find_opt seen_vars v.vname with
       | Some () -> fail_node node_name (Printf.sprintf "duplicate variable '%s'" v.vname)
       | None -> Hashtbl.add seen_vars v.vname ())
@@ -44,7 +44,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
         fail_node node_name
           (Printf.sprintf "public ghost '%s' is not declared as a ghost variable" name))
     public_ghost_names;
-  let var_types = List.map (fun (v : Kr_domain_core.Core_syntax.vdecl) -> (v.vname, v.vty)) vars in
+  let var_types = List.map (fun (v : Kr_domain_core.Kr_domain_core_syntax.vdecl) -> (v.vname, v.vty)) vars in
   let find_var x =
     match List.assoc_opt x var_types with
     | Some ty -> ty
@@ -65,7 +65,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
   let is_public_ghost_var x = List.mem x public_ghost_names in
   let function_sigs =
     List.map
-      (fun (f : Kr_domain_core.Core_syntax.pure_function_decl) ->
+      (fun (f : Kr_domain_core.Kr_domain_core_syntax.pure_function_decl) ->
         (f.function_name, (f.function_params, f.function_return)))
       n.function_decls
   in
@@ -77,7 +77,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
   let find_method called =
     match
       List.find_opt
-        (fun (decl : Kr_domain_core.Core_syntax.method_decl) ->
+        (fun (decl : Kr_domain_core.Kr_domain_core_syntax.method_decl) ->
           String.equal decl.method_name called)
         n.methods
     with
@@ -109,7 +109,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
              x)
     | None -> ()
   in
-  let rec vars_of_expr (e : Kr_domain_core.Core_syntax.expr) : Kr_domain_core.Core_syntax.ident list =
+  let rec vars_of_expr (e : Kr_domain_core.Kr_domain_core_syntax.expr) : Kr_domain_core.Kr_domain_core_syntax.ident list =
     match e.expr with
     | ELitInt _ | ELitBool _ | ELitEnum _ -> []
     | EVar x -> [ x ]
@@ -118,7 +118,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
     | EBin (_, a, b) | ECmp (_, a, b) -> vars_of_expr a @ vars_of_expr b
   in
   let rec vars_of_hexpr :
-      type phase. phase Kr_domain_core.Core_syntax.hexpr -> Kr_domain_core.Core_syntax.ident list =
+      type phase. phase Kr_domain_core.Kr_domain_core_syntax.hexpr -> Kr_domain_core.Kr_domain_core_syntax.ident list =
    fun h ->
     match h.hexpr with
     | HLitInt _ | HLitBool _ | HLitEnum _ -> []
@@ -130,13 +130,13 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
     | HBin (_, a, b) | HCmp (_, a, b) -> vars_of_hexpr a @ vars_of_hexpr b
   in
   let rec vars_of_ltl = function
-    | Kr_domain_core.Core_syntax.LTrue | LFalse -> []
+    | Kr_domain_core.Kr_domain_core_syntax.LTrue | LFalse -> []
     | LAtom (a, _, b) -> vars_of_hexpr a @ vars_of_hexpr b
     | LNot a | LX a | LG a -> vars_of_ltl a
     | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
         vars_of_ltl a @ vars_of_ltl b
   in
-  let rec expr_ty (e : Kr_domain_core.Core_syntax.expr) : Kr_domain_core.Core_syntax.ty =
+  let rec expr_ty (e : Kr_domain_core.Kr_domain_core_syntax.expr) : Kr_domain_core.Kr_domain_core_syntax.ty =
     match e.expr with
     | ELitInt _ -> TInt
     | ELitBool _ -> TBool
@@ -149,7 +149,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
             (Printf.sprintf "function '%s' expects %d arguments but got %d"
                called (List.length params) (List.length args));
         List.iter2
-          (fun (param : Kr_domain_core.Core_syntax.vdecl) arg ->
+          (fun (param : Kr_domain_core.Kr_domain_core_syntax.vdecl) arg ->
             expect_ty
               ("argument " ^ param.vname ^ " of function '" ^ called ^ "'")
               param.vty (expr_ty arg))
@@ -183,7 +183,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
         TBool
   in
   let rec hexpr_ty :
-      type phase. phase Kr_domain_core.Core_syntax.hexpr -> Kr_domain_core.Core_syntax.ty =
+      type phase. phase Kr_domain_core.Kr_domain_core_syntax.hexpr -> Kr_domain_core.Kr_domain_core_syntax.ty =
    fun h ->
     match h.hexpr with
     | HLitInt _ -> TInt
@@ -200,7 +200,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
             (Printf.sprintf "function '%s' expects %d arguments but got %d"
                called (List.length params) (List.length args));
         List.iter2
-          (fun (param : Kr_domain_core.Core_syntax.vdecl) arg ->
+          (fun (param : Kr_domain_core.Kr_domain_core_syntax.vdecl) arg ->
             expect_ty
               ("argument " ^ param.vname ^ " of function '" ^ called ^ "'")
               param.vty (hexpr_ty arg))
@@ -247,16 +247,16 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
         expect_ty "right LTL ordered operand" TInt t2
   in
   let rec validate_ltl = function
-    | Kr_domain_core.Core_syntax.LTrue | LFalse -> ()
+    | Kr_domain_core.Kr_domain_core_syntax.LTrue | LFalse -> ()
     | LAtom atom -> validate_ltl_atom atom
     | LNot a | LX a | LG a -> validate_ltl a
     | LAnd (a, b) | LOr (a, b) | LImp (a, b) | LW (a, b) ->
         validate_ltl a;
         validate_ltl b
   in
-  let min_ticks = Kr_domain_core.Historical_initialization.min_ticks_by_state n in
+  let min_ticks = Kr_domain_core.Kr_domain_core_history.min_ticks_by_state n in
   let available_at_state state =
-    Kr_domain_core.Historical_initialization.min_ticks_for_state min_ticks state
+    Kr_domain_core.Kr_domain_core_history.min_ticks_for_state min_ticks state
   in
   let validate_history_availability context ~available required =
     match available with
@@ -270,13 +270,13 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
   in
   let validate_hexpr_history_availability context ~available formula =
     validate_history_availability context ~available
-      (Kr_domain_core.Historical_initialization.required_depth_hexpr formula)
+      (Kr_domain_core.Kr_domain_core_history.required_depth_hexpr formula)
   in
   let validate_ltl_history_availability context formula =
     validate_history_availability context ~available:(Some 0)
-      (Kr_domain_core.Historical_initialization.required_depth_ltl formula)
+      (Kr_domain_core.Kr_domain_core_history.required_depth_ltl formula)
   in
-  let rec stmt_writes_real (s : Kr_domain_core.Core_syntax.stmt) : bool =
+  let rec stmt_writes_real (s : Kr_domain_core.Kr_domain_core_syntax.stmt) : bool =
     match s.stmt with
     | SAssign (id, _) -> List.mem id real_var_names
     | SAssert _ -> false
@@ -289,7 +289,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
     | SMethodCall _ -> true
   in
   let stmt_list_writes_real body = List.exists stmt_writes_real body in
-  let rec validate_stmt ~available (s : Kr_domain_core.Core_syntax.stmt) : unit =
+  let rec validate_stmt ~available (s : Kr_domain_core.Kr_domain_core_syntax.stmt) : unit =
     match s.stmt with
     | SAssign (id, rhs) ->
         expect_ty ("assignment to " ^ id) (find_var id) (expr_ty rhs);
@@ -340,7 +340,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
             (Printf.sprintf "method '%s' expects %d arguments but got %d"
                callee (List.length decl.method_params) (List.length args));
         List.iter2
-          (fun (param : Kr_domain_core.Core_syntax.method_param) arg ->
+          (fun (param : Kr_domain_core.Kr_domain_core_syntax.method_param) arg ->
             expect_ty
               ("argument " ^ param.method_param_name ^ " of method '" ^ callee
              ^ "'")
@@ -361,7 +361,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
           decl.method_params args
   in
   List.iter
-    (fun (step : Kr_domain_core.Verification_model.program_step) ->
+    (fun (step : Kr_domain_core.Kr_domain_core_model.program_step) ->
       let source_available = available_at_state step.src_state in
       let destination_available = Option.map (fun n -> n + 1) source_available in
       Option.iter
@@ -381,7 +381,7 @@ let validate_node (n : Kr_domain_core.Verification_model.node_model) : unit =
         step.elaboration_checks)
     n.steps;
   List.iter
-    (fun (inv : Kr_domain_core.Verification_model.state_invariant) ->
+    (fun (inv : Kr_domain_core.Kr_domain_core_model.state_invariant) ->
       if not (List.mem inv.state n.states) then
         fail_node node_name (Printf.sprintf "unknown invariant state '%s'" inv.state);
       if String.equal inv.state n.init_state then

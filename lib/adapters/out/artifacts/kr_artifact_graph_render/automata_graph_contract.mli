@@ -24,11 +24,11 @@ val emit_automaton_dot :
   kind:automaton_kind ->
   initial_state:int ->
   labels:string list ->
-  grouped:Automaton_types.transition list ->
+  grouped:Kr_verification_automata_types.transition list ->
   string
 
 val render_automaton_text :
   prefix:string ->
   string list ->
-  Automaton_types.transition list ->
+  Kr_verification_automata_types.transition list ->
   string

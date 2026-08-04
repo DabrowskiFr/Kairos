@@ -22,7 +22,7 @@ let ( let* ) = Result.bind
 
 let build_pipeline ~collect_instrumentation_info ~collect_ir_metrics
     ~proof_optimizations
-    ~(input : Kr_engine.Inbound_port.verification_input) =
+    ~(input : Kr_engine.Kr_engine_inbound_port.verification_input) =
   let* prepared =
     Pipeline_build.prepare_program ~proof_optimizations
       ~parse_info:input.parse_info
@@ -45,7 +45,7 @@ let product_nodes (pipeline : Pipeline_build.build_result) =
 let instrumentation (pipeline : Pipeline_build.build_result) =
   List.map
     (fun
-      (node : Orchestration.instrumented_product_node)
+      (node : Kr_verification_orchestration.instrumented_product_node)
     ->
       node.ir)
     pipeline.verification.instrumented_nodes
@@ -74,9 +74,9 @@ let render_why_text ~proof_plans : string =
   |> fun output -> output.Why_pipeline.text
 
 let why_text ~proof_optimizations ~infos
-    ~proof_plans : Kr_engine.Pipeline_artifacts.why_outputs =
+    ~proof_plans : Kr_engine.Kr_engine_pipeline_artifacts.why_outputs =
   {
-    Kr_engine.Pipeline_artifacts.why_text = render_why_text ~proof_plans;
+    Kr_engine.Kr_engine_pipeline_artifacts.why_text = render_why_text ~proof_plans;
     flow_meta =
       Pipeline_outputs.flow_meta
         ~proof_optimizations infos;
@@ -84,7 +84,7 @@ let why_text ~proof_optimizations ~infos
 
 let cost_report_from_pipeline ~input_file ~proof_optimizations
     (pipeline : Pipeline_build.build_result) :
-    (Kr_engine.Pipeline_artifacts.cost_report_outputs, Kr_engine.Pipeline_error.t) result =
+    (Kr_engine.Kr_engine_pipeline_artifacts.cost_report_outputs, Kr_engine.Kr_engine_pipeline_error.t) result =
   let t_why = Unix.gettimeofday () in
   let why_text =
     render_why_text ~proof_plans:pipeline.proof_plans
@@ -92,7 +92,7 @@ let cost_report_from_pipeline ~input_file ~proof_optimizations
   let why_text_s = Unix.gettimeofday () -. t_why in
   Ok
     {
-      Kr_engine.Pipeline_artifacts.cost_report_json =
+      Kr_engine.Kr_engine_pipeline_artifacts.cost_report_json =
         Pipeline_cost_report.render_json ~input_file ~why_text_s
           ~proof_optimizations
           ~infos:pipeline.infos
@@ -101,17 +101,17 @@ let cost_report_from_pipeline ~input_file ~proof_optimizations
     }
 
 let obligations ~proof_plans :
-    Kr_engine.Pipeline_artifacts.obligations_outputs =
+    Kr_engine.Kr_engine_pipeline_artifacts.obligations_outputs =
   let out =
     Why_pipeline.obligations_pass ~proof_plans
   in
   Runtime_metrics.record_why3_execution out.metrics;
-  { Kr_engine.Pipeline_artifacts.vc_text = out.vc_text; smt_text = out.smt_text }
+  { Kr_engine.Kr_engine_pipeline_artifacts.vc_text = out.vc_text; smt_text = out.smt_text }
 
 let normalized_program_from_pipeline
     (pipeline : Pipeline_build.build_result) : string =
   let source_program =
-    Proof_case_program.program (proof_cases pipeline)
+    Kr_verification_cases.program (proof_cases pipeline)
   in
   Ir_text_program_view_render.render_program
     ~source_program:(Some source_program)
@@ -120,9 +120,9 @@ let normalized_program_from_pipeline
 let pretty_program_from_pipeline
     (pipeline : Pipeline_build.build_result) : string =
   let source_program =
-    Proof_case_program.program (proof_cases pipeline)
+    Kr_verification_cases.program (proof_cases pipeline)
   in
-  let program : Ir.program_ir =
+  let program : Kr_verification_ir.program_ir =
     { nodes = instrumentation pipeline }
   in
   Ir_text_proof_view_render.render_pretty_program
@@ -131,7 +131,7 @@ let pretty_program_from_pipeline
 
 let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
     ~proof_plans ~(vc_ids_ordered : int list) ~on_goal_done :
-    Kr_engine.Pipeline_proof_types.goal_result list =
+    Kr_engine.Kr_engine_pipeline_proof_types.goal_result list =
   let compilation = Why_pipeline.compile ~proof_plans () in
   let module Contract = Kr_why3_contract.Why3_contract in
   let options : Contract.execution_options =
@@ -177,14 +177,14 @@ let prove_with_events ~timeout_s ~dump_failed_smt ~should_cancel
     (fun (a, _, _, _, _, _) (b, _, _, _, _, _) -> Int.compare a b)
     !finished
 
-  let is_minimal_prove_run (cfg : Kr_engine.Pipeline_config.config) : bool =
+  let is_minimal_prove_run (cfg : Kr_engine.Kr_engine_pipeline_config.config) : bool =
     cfg.prove && not cfg.wp_only && not cfg.compute_proof_diagnostics
     && not cfg.generate_vc_text && not cfg.generate_smt_text
     && not cfg.generate_dot_png && Option.is_none cfg.proof_progress_path
 
 let instrumentation_pass ~generate_png ~input =
   let proof_optimizations =
-    Kr_engine.Pipeline_config.default_proof_optimizations
+    Kr_engine.Kr_engine_pipeline_config.default_proof_optimizations
   in
   let* pipeline =
     build_pipeline
@@ -233,7 +233,7 @@ let ir_pretty_dump ~proof_optimizations ~input =
   in
   Ok (pretty_program_from_pipeline pipeline)
 
-let run ~input (cfg : Kr_engine.Pipeline_config.config) =
+let run ~input (cfg : Kr_engine.Kr_engine_pipeline_config.config) =
   let t0 = Unix.gettimeofday () in
   let snap_before = Runtime_metrics.snapshot () in
   let t_pipeline = Unix.gettimeofday () in
@@ -255,7 +255,7 @@ let run ~input (cfg : Kr_engine.Pipeline_config.config) =
            ~snap_before out)
 
   let emit_goal_callbacks ?vc_ids_ordered ~on_outputs_ready ~on_goals_ready
-      ~on_goal_done (out : Kr_engine.Pipeline_artifacts.outputs) =
+      ~on_goal_done (out : Kr_engine.Kr_engine_pipeline_artifacts.outputs) =
     on_outputs_ready { out with goals = [] };
     let goal_names = List.map (fun (g, _, _, _, _) -> g) out.goals in
     let vc_ids_ordered =
@@ -268,36 +268,36 @@ let run ~input (cfg : Kr_engine.Pipeline_config.config) =
       out.goals
 
   let run_diagnostics_with_callbacks ~should_cancel ~input
-      (cfg : Kr_engine.Pipeline_config.config)
+      (cfg : Kr_engine.Kr_engine_pipeline_config.config)
       ~on_outputs_ready ~on_goals_ready ~on_goal_done =
     match run ~input cfg with
     | Error _ as e -> e
-    | Ok (out : Kr_engine.Pipeline_artifacts.outputs) ->
+    | Ok (out : Kr_engine.Kr_engine_pipeline_artifacts.outputs) ->
         let vc_ids_ordered = List.init (List.length out.goals) (fun i -> i + 1) in
         emit_goal_callbacks ~vc_ids_ordered ~on_outputs_ready ~on_goals_ready
           ~on_goal_done out;
-        if should_cancel () then Error (Kr_engine.Pipeline_error.Flow_error "Request cancelled")
+        if should_cancel () then Error (Kr_engine.Kr_engine_pipeline_error.Flow_error "Request cancelled")
         else Ok out
 
   let run_minimal_prove_with_callbacks ~should_cancel
-      (cfg : Kr_engine.Pipeline_config.config) pipeline ~on_outputs_ready ~on_goals_ready
+      (cfg : Kr_engine.Kr_engine_pipeline_config.config) pipeline ~on_outputs_ready ~on_goals_ready
       ~on_goal_done =
     match build_outputs ~cfg pipeline with
     | Error _ as e -> e
-    | Ok (out : Kr_engine.Pipeline_artifacts.outputs) ->
+    | Ok (out : Kr_engine.Kr_engine_pipeline_artifacts.outputs) ->
         emit_goal_callbacks ~on_outputs_ready ~on_goals_ready ~on_goal_done out;
-        if should_cancel () then Error (Kr_engine.Pipeline_error.Flow_error "Request cancelled")
+        if should_cancel () then Error (Kr_engine.Kr_engine_pipeline_error.Flow_error "Request cancelled")
         else Ok out
 
   let run_progressive_prove_with_callbacks ~should_cancel
-      (cfg : Kr_engine.Pipeline_config.config) pipeline ~on_outputs_ready ~on_goals_ready
+      (cfg : Kr_engine.Kr_engine_pipeline_config.config) pipeline ~on_outputs_ready ~on_goals_ready
       ~on_goal_done =
     let pending_cfg =
       { cfg with prove = false; compute_proof_diagnostics = false }
     in
     match build_outputs ~cfg:pending_cfg pipeline with
     | Error _ as e -> e
-    | Ok (pending_out : Kr_engine.Pipeline_artifacts.outputs) ->
+    | Ok (pending_out : Kr_engine.Kr_engine_pipeline_artifacts.outputs) ->
         emit_goal_callbacks ~on_outputs_ready ~on_goals_ready ~on_goal_done
           pending_out;
         if not cfg.prove || cfg.wp_only then Ok pending_out
@@ -312,13 +312,13 @@ let run ~input (cfg : Kr_engine.Pipeline_config.config) =
                 on_goal_done idx goal status time_s dump vcid)
           in
           if should_cancel () then
-            Error (Kr_engine.Pipeline_error.Flow_error "Request cancelled")
+            Error (Kr_engine.Kr_engine_pipeline_error.Flow_error "Request cancelled")
           else
             Ok
               (Proof_diagnostics.apply_goal_results_to_outputs ~out:pending_out
                  ~goal_results)
 
-  let run_with_callbacks ~should_cancel ~input (cfg : Kr_engine.Pipeline_config.config)
+  let run_with_callbacks ~should_cancel ~input (cfg : Kr_engine.Kr_engine_pipeline_config.config)
       ~on_outputs_ready ~on_goals_ready ~on_goal_done =
     if cfg.compute_proof_diagnostics then
       run_diagnostics_with_callbacks ~should_cancel ~input cfg ~on_outputs_ready

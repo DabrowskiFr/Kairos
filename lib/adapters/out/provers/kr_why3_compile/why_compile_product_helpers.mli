@@ -24,12 +24,12 @@ type helper_unit = {
 }
 
 val kernel_step_helper_units :
-  node_name:Core_syntax.ident ->
+  node_name:Kr_domain_core_syntax.ident ->
   env:Why_compile_expr.env ->
   inputs:Why3.Ptree.binder list ->
   formula_sharing:Why_compile_formula_sharing.t ->
   formula_imports:
-    (Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list) ->
+    (Kr_domain_core_syntax.history_free Kr_verification_ir.summary_formula list -> Why3.Ptree.decl list) ->
   bundles:Why_compile_bundles.t ->
-  Kr_verification_obligations.Verification_proof_ir.obligation list ->
+  Kr_verification.Kr_verification_proof_ir.obligation list ->
   helper_unit list

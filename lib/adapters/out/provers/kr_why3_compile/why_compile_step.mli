@@ -25,7 +25,7 @@
 (** [compile_transition_body env t] compiles the body of transition [t] into a
     WhyML expression. *)
 val compile_transition_body :
-  Why_compile_expr.env -> Ir.transition -> Why3.Ptree.expr
+  Why_compile_expr.env -> Kr_verification_ir.transition -> Why3.Ptree.expr
 
 val compile_seq :
-  Why_compile_expr.env -> Core_syntax.stmt list -> Why3.Ptree.expr
+  Why_compile_expr.env -> Kr_domain_core_syntax.stmt list -> Why3.Ptree.expr

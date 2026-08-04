@@ -18,7 +18,7 @@
 
 (** Construction of public proof traces from proof results and artifacts. *)
 
-val needed : Kr_engine.Pipeline_config.config -> bool
+val needed : Kr_engine.Kr_engine_pipeline_config.config -> bool
 
 val build_from_execution :
   goals:
@@ -26,17 +26,17 @@ val build_from_execution :
   manifest:Why_pipeline.compilation_manifest ->
   goal_results:Proof_goal_results.t list ->
   vc_ids_ordered:int list ->
-  vc_spans_ordered:Kr_engine.Pipeline_proof_types.text_span list ->
-  smt_spans_ordered:Kr_engine.Pipeline_proof_types.text_span list ->
-  Kr_engine.Pipeline_proof_types.proof_trace list
+  vc_spans_ordered:Kr_engine.Kr_engine_pipeline_proof_types.text_span list ->
+  smt_spans_ordered:Kr_engine.Kr_engine_pipeline_proof_types.text_span list ->
+  Kr_engine.Kr_engine_pipeline_proof_types.proof_trace list
 
 val build_fast :
   manifest:Why_pipeline.compilation_manifest ->
   Proof_goal_results.t list ->
-  Kr_engine.Pipeline_proof_types.proof_trace list
+  Kr_engine.Kr_engine_pipeline_proof_types.proof_trace list
 
 val goals_of_proof_traces :
-  Kr_engine.Pipeline_proof_types.proof_trace list -> Kr_engine.Pipeline_proof_types.goal_info list
+  Kr_engine.Kr_engine_pipeline_proof_types.proof_trace list -> Kr_engine.Kr_engine_pipeline_proof_types.goal_info list
 
 val goals_of_goal_results :
-  Proof_goal_results.t list -> Kr_engine.Pipeline_proof_types.goal_info list
+  Proof_goal_results.t list -> Kr_engine.Kr_engine_pipeline_proof_types.goal_info list

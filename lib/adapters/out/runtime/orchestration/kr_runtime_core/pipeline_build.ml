@@ -17,22 +17,22 @@
  *---------------------------------------------------------------------------*)
 
 module Canonical_verification =
-  Kr_verification_obligations.Canonical_verification
+  Kr_verification.Kr_verification_canonical
 
-module Verification_proof_ir =
-  Kr_verification_obligations.Verification_proof_ir
+module Kr_verification_proof_ir =
+  Kr_verification.Kr_verification_proof_ir
 
-module Proof_case_decomposition =
-  Kr_verification_optimization.Proof_case_decomposition
+module Kr_verification_case_strategy =
+  Kr_verification.Kr_verification_case_strategy
 
-module Proof_plan =
-  Kr_verification_optimization.Proof_plan
+module Kr_verification_plan =
+  Kr_verification.Kr_verification_plan
 
 let ( let* ) = Result.bind
 
 let ir_size_metrics :
     type phase.
-    phase Ir.node_ir list ->
+    phase Kr_verification_ir.node_ir list ->
     Runtime_metrics.ir_size_metrics =
  fun nodes ->
   let summary_count = ref 0 in
@@ -47,13 +47,13 @@ let ir_size_metrics :
     incr formula_occurrence_count;
     formulas := f :: !formulas
   in
-  let add_summary_formula (f : phase Ir.summary_formula) =
+  let add_summary_formula (f : phase Kr_verification_ir.summary_formula) =
     add_formula f.logic
   in
   List.iter
-    (fun (node : phase Ir.node_ir) ->
+    (fun (node : phase Kr_verification_ir.node_ir) ->
       List.iter
-        (fun (summary : phase Ir.product_step_summary) ->
+        (fun (summary : phase Kr_verification_ir.product_step_summary) ->
           incr summary_count;
           propagation_requires_count :=
             !propagation_requires_count
@@ -70,7 +70,7 @@ let ir_size_metrics :
           List.iter add_summary_formula summary.ensures;
           List.iter add_summary_formula summary.elaboration_checks;
           List.iter
-            (fun (case : phase Ir.product_case) ->
+            (fun (case : phase Kr_verification_ir.product_case) ->
               add_summary_formula case.guarantee_guard)
             summary.product_cases)
         node.summaries)
@@ -88,11 +88,11 @@ let ir_size_metrics :
   }
 
 let ir_pass_name = function
-  | Orchestration.Pre_pass -> "pre"
-  | Orchestration.Post_pass -> "post"
-  | Orchestration.Temporal_lower_pass -> "temporal_lower"
+  | Kr_verification_orchestration.Pre_pass -> "pre"
+  | Kr_verification_orchestration.Post_pass -> "post"
+  | Kr_verification_orchestration.Temporal_lower_pass -> "temporal_lower"
 
-let record_ir_fact_family (family : Ir_fact_family_metrics.snapshot) =
+let record_ir_fact_family (family : Kr_verification_fact_metrics.snapshot) =
   Runtime_metrics.record_ir_fact_family
     {
       pass_name = family.pass_name;
@@ -104,28 +104,28 @@ let record_ir_fact_family (family : Ir_fact_family_metrics.snapshot) =
     }
 
 type prepared_program = {
-  parse_info : Kr_engine.Flow_info.parse_info;
-  proof_case_program : Proof_case_program.t;
+  parse_info : Kr_engine.Kr_engine_flow_info.parse_info;
+  proof_case_program : Kr_verification_cases.t;
 }
 
 type build_result = {
   verification : Canonical_verification.t;
-  proof_plans : Verification_proof_ir.t list;
-  infos : Kr_engine.Flow_info.pipeline_info;
+  proof_plans : Kr_verification_proof_ir.t list;
+  infos : Kr_engine.Kr_engine_flow_info.pipeline_info;
 }
 
 let prepare_program
-    ~(proof_optimizations : Kr_engine.Pipeline_config.proof_optimizations)
-    ~(parse_info : Kr_engine.Flow_info.parse_info)
-    ~(verification_model : Verification_model.program_model) :
-    (prepared_program, Kr_engine.Pipeline_error.t) result =
+    ~(proof_optimizations : Kr_engine.Kr_engine_pipeline_config.proof_optimizations)
+    ~(parse_info : Kr_engine.Kr_engine_flow_info.parse_info)
+    ~(verification_model : Kr_domain_core_model.program_model) :
+    (prepared_program, Kr_engine.Kr_engine_pipeline_error.t) result =
   try
     let p_model = verification_model in
     let t_decomposition = Unix.gettimeofday () in
     let decomposition_result =
       p_model
-      |> Proof_case_program.minimal
-      |> Proof_case_decomposition.apply
+      |> Kr_verification_cases.minimal
+      |> Kr_verification_case_strategy.apply
         ~strategy:
           proof_optimizations.verification
             .proof_case_decomposition_strategy
@@ -134,24 +134,24 @@ let prepare_program
       ~elapsed_s:(Unix.gettimeofday () -. t_decomposition);
     let* proof_case_program =
       decomposition_result
-      |> Result.map_error (fun msg -> Kr_engine.Pipeline_error.Flow_error msg)
+      |> Result.map_error (fun msg -> Kr_engine.Kr_engine_pipeline_error.Flow_error msg)
     in
     Ok
       {
         parse_info;
         proof_case_program;
       }
-  with exn -> Error (Kr_engine.Pipeline_error.Flow_error (Printexc.to_string exn))
+  with exn -> Error (Kr_engine.Kr_engine_pipeline_error.Flow_error (Printexc.to_string exn))
 
 let build_from_supplied_automata
     ~(collect_instrumentation_info : bool)
     ~(collect_ir_metrics : bool)
-    ~(proof_optimizations : Kr_engine.Pipeline_config.proof_optimizations)
+    ~(proof_optimizations : Kr_engine.Kr_engine_pipeline_config.proof_optimizations)
     ~(prepared : prepared_program)
     ~(automata :
-       (Core_syntax.ident * Automaton_types.automata_spec) list)
-    ~(automata_info : Kr_engine.Flow_info.automata_info) :
-    (build_result, Kr_engine.Pipeline_error.t) result =
+       (Kr_domain_core_syntax.ident * Kr_verification_automata_types.automata_spec) list)
+    ~(automata_info : Kr_engine.Kr_engine_flow_info.automata_info) :
+    (build_result, Kr_engine.Kr_engine_pipeline_error.t) result =
   try
     let parse_info = prepared.parse_info in
     let proof_case_program = prepared.proof_case_program in
@@ -171,9 +171,9 @@ let build_from_supplied_automata
         Unix.gettimeofday () -. !pass_started_at
       in
       (match pass with
-      | Orchestration.Pre_pass -> Runtime_metrics.record_pre ~elapsed_s
-      | Orchestration.Post_pass -> Runtime_metrics.record_post ~elapsed_s
-      | Orchestration.Temporal_lower_pass ->
+      | Kr_verification_orchestration.Pre_pass -> Runtime_metrics.record_pre ~elapsed_s
+      | Kr_verification_orchestration.Post_pass -> Runtime_metrics.record_post ~elapsed_s
+      | Kr_verification_orchestration.Temporal_lower_pass ->
           Runtime_metrics.record_temporal_lower ~elapsed_s);
       (match (!pass_before, after) with
       | Some before, Some after_ ->
@@ -201,7 +201,7 @@ let build_from_supplied_automata
            Some (ir_size_metrics nodes)
          else None)
     in
-    let pass_observer : Orchestration.pass_observer =
+    let pass_observer : Kr_verification_orchestration.pass_observer =
       {
         before_historical = (fun _ nodes -> begin_pass nodes);
         after_historical = finish_historical;
@@ -233,7 +233,7 @@ let build_from_supplied_automata
         ~proof_cases:proof_case_program ~automata
         ()
       |> Result.map_error (fun message ->
-             Kr_engine.Pipeline_error.Flow_error message)
+             Kr_engine.Kr_engine_pipeline_error.Flow_error message)
     in
     let reference_product = canonical.reference_product in
     let product_nodes = reference_product.nodes in
@@ -243,32 +243,32 @@ let build_from_supplied_automata
     let p_instrumentation =
       List.map
         (fun
-          (node : Orchestration.instrumented_product_node)
+          (node : Kr_verification_orchestration.instrumented_product_node)
         ->
           node.ir)
         instrumented_product_nodes
     in
-    let ir_program : Ir.program_ir =
+    let ir_program : Kr_verification_ir.program_ir =
       { nodes = p_instrumentation }
     in
     let individual_obligations = canonical.obligations in
         let minimal_proof_plans =
-          Verification_proof_ir.minimal_program
+          Kr_verification_proof_ir.minimal_program
             individual_obligations
         in
         let* proof_plans =
-          Proof_plan.apply_program
+          Kr_verification_plan.apply_program
             ~strategy:
               proof_optimizations.verification.proof_plan_strategy
             minimal_proof_plans
           |> Result.map_error (fun msg ->
-                 Kr_engine.Pipeline_error.Flow_error msg)
+                 Kr_engine.Kr_engine_pipeline_error.Flow_error msg)
         in
         Runtime_metrics.record_proof_planning
           ~elapsed_s:
             (Unix.gettimeofday ()
             -. !proof_planning_started_at);
-        let summaries_info : Kr_engine.Flow_info.summaries_info = { warnings = [] }
+        let summaries_info : Kr_engine.Kr_engine_flow_info.summaries_info = { warnings = [] }
         in
         let instrumentation_info =
           if collect_instrumentation_info then
@@ -283,9 +283,9 @@ let build_from_supplied_automata
           else Ok None
         in
         match instrumentation_info with
-        | Error msg -> Error (Kr_engine.Pipeline_error.Flow_error msg)
+        | Error msg -> Error (Kr_engine.Kr_engine_pipeline_error.Flow_error msg)
         | Ok instrumentation_info ->
-        let infos : Kr_engine.Flow_info.pipeline_info =
+        let infos : Kr_engine.Kr_engine_flow_info.pipeline_info =
           {
             parse = Some parse_info;
             automata_generation = Some automata_info;
@@ -294,4 +294,4 @@ let build_from_supplied_automata
           }
         in
         Ok { verification = canonical; proof_plans; infos }
-  with exn -> Error (Kr_engine.Pipeline_error.Flow_error (Printexc.to_string exn))
+  with exn -> Error (Kr_engine.Kr_engine_pipeline_error.Flow_error (Printexc.to_string exn))

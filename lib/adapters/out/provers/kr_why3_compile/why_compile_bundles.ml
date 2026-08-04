@@ -16,10 +16,10 @@ open Why_compile_expr
 open Why_compile_ptree_helpers
 
 module Obligations =
-  Kr_verification_obligations.Verification_obligations
+  Kr_verification.Kr_verification_obligations
 
 module Proof_ir =
-  Kr_verification_obligations.Verification_proof_ir
+  Kr_verification.Kr_verification_proof_ir
 
 type t = {
   entries :

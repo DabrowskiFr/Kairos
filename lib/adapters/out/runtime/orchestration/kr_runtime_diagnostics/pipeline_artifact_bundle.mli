@@ -33,4 +33,4 @@ type t = {
 (** Build automata and product graph artifacts for [product_nodes]. *)
 
 val build :
-  product_nodes:Orchestration.product_node list -> t
+  product_nodes:Kr_verification_orchestration.product_node list -> t

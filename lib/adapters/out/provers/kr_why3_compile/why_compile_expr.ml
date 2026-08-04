@@ -55,7 +55,7 @@ let apply_expr (fn : Ptree.expr) (args : Ptree.expr list) : Ptree.expr =
 let apply_term (fn : Ptree.term) (args : Ptree.term list) : Ptree.term =
   List.fold_left (fun acc arg -> mk_term (Tapply (acc, arg))) fn args
 
-open Core_syntax
+open Kr_domain_core_syntax
 
 module StringSet = Set.Make (String)
 
@@ -245,4 +245,4 @@ let compile_hexpr env h = compile_hexpr_with_old ~allow_old:false env h
 let compile_method_post env h = compile_hexpr_with_old ~allow_old:true env h
 
 let compile_term (env : env) (e : expr) : Ptree.term =
-  compile_hexpr env (Core_syntax_builders.hexpr_of_expr e)
+  compile_hexpr env (Kr_domain_core_syntax_builders.hexpr_of_expr e)

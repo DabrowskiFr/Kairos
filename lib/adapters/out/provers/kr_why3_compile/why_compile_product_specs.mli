@@ -3,7 +3,7 @@
 val compile_conditions :
   Why_compile_formula_sharing.t ->
   Why_compile_expr.env ->
-  Kr_verification_obligations.Verification_obligations.conjunction ->
+  Kr_verification.Kr_verification_obligations.conjunction ->
   Why3.Ptree.term list
 
 type individual_contract = {
@@ -23,10 +23,10 @@ val individual_helper_contract :
   env:Why_compile_expr.env ->
   inputs:Why3.Ptree.binder list ->
   formula_sharing:Why_compile_formula_sharing.t ->
-  formula_imports:(Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list) ->
+  formula_imports:(Kr_domain_core_syntax.history_free Kr_verification_ir.summary_formula list -> Why3.Ptree.decl list) ->
   helper_name:string ->
   bundles:Why_compile_bundles.t ->
-  Kr_verification_obligations.Verification_proof_ir.individual ->
+  Kr_verification.Kr_verification_proof_ir.individual ->
   individual_contract
 
 val grouped_helper_contract :
@@ -34,7 +34,7 @@ val grouped_helper_contract :
   inputs:Why3.Ptree.binder list ->
   formula_sharing:Why_compile_formula_sharing.t ->
   formula_imports:
-    (Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list) ->
+    (Kr_domain_core_syntax.history_free Kr_verification_ir.summary_formula list -> Why3.Ptree.decl list) ->
   post_pred_name:string ->
-  Kr_verification_obligations.Verification_proof_ir.grouped ->
+  Kr_verification.Kr_verification_proof_ir.grouped ->
   grouped_contract

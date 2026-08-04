@@ -1,0 +1,5 @@
+(library
+ (name kr_domain_render)
+ (wrapped true)
+ (modules kr_domain_render_syntax)
+ (libraries kr_domain_core))

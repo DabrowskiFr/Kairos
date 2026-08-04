@@ -8,14 +8,14 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
-module Step_contract_projection =
-  Kr_verification_obligations.Step_contract_projection
+module Kr_verification_step_contract =
+  Kr_verification.Kr_verification_step_contract
 
-let product_step_helper_name ~(node_name : Core_syntax.ident)
+let product_step_helper_name ~(node_name : Kr_domain_core_syntax.ident)
     ~(index : int)
-    (step : Step_contract_projection.step_contract) =
+    (step : Kr_verification_step_contract.step_contract) =
   let product_source =
-    Step_contract_projection.product_source step
+    Kr_verification_step_contract.product_source step
   in
   Printf.sprintf "__kairos_proof_unit_%s_%s_ps_%s_a%d_g%d_%d"
     (String.lowercase_ascii node_name)
@@ -25,9 +25,9 @@ let product_step_helper_name ~(node_name : Core_syntax.ident)
     product_source.guarantee_state_index
     index
 
-let product_step_group_helper_name ~(node_name : Core_syntax.ident)
+let product_step_group_helper_name ~(node_name : Kr_domain_core_syntax.ident)
     ~(index : int)
-    (step : Step_contract_projection.step_contract) =
+    (step : Kr_verification_step_contract.step_contract) =
   Printf.sprintf "__kairos_proof_unit_%s_%s_group_%d"
     (String.lowercase_ascii node_name)
     (String.lowercase_ascii step.transition_id)

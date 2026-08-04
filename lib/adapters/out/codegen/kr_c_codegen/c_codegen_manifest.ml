@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module C = Core_syntax
+module C = Kr_domain_core_syntax
 module Names = C_codegen_names
 module Json = Yojson.Safe
 
@@ -53,7 +53,7 @@ let output_json (decl : C.vdecl) =
       ("passing", `String "pointer");
     ]
 
-let node_json (node : Verification_model.node_model) =
+let node_json (node : Kr_domain_core_model.node_model) =
   `Assoc
     [
       ("name", `String node.node_name);
@@ -69,10 +69,10 @@ let node_json (node : Verification_model.node_model) =
           ] );
     ]
 
-let collect_enum_decls (program : Verification_model.program_model) =
+let collect_enum_decls (program : Kr_domain_core_model.program_model) =
   let seen = Hashtbl.create 16 in
   List.concat_map
-    (fun (node : Verification_model.node_model) ->
+    (fun (node : Kr_domain_core_model.node_model) ->
       List.filter
         (fun (decl : C.enum_decl) ->
           if Hashtbl.mem seen decl.enum_name then false
@@ -99,7 +99,7 @@ let manifest_name_of_header header_name =
   in
   stem ^ "_interface.json"
 
-let emit ~header_name (program : Verification_model.program_model) =
+let emit ~header_name (program : Kr_domain_core_model.program_model) =
   let json =
     `Assoc
       [

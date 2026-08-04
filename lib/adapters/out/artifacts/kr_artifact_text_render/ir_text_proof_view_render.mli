@@ -23,6 +23,6 @@
 
 (** Render a full IR program in proof view. *)
 val render_pretty_program :
-  ?source_program:Verification_model.program_model option ->
-  Ir.program_ir ->
+  ?source_program:Kr_domain_core_model.program_model option ->
+  Kr_verification_ir.program_ir ->
   string

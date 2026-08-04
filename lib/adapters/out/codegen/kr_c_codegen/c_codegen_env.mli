@@ -18,25 +18,25 @@
 
 (** Name-resolution environments used while emitting C expressions and nodes. *)
 
-type program_env = { enum_ctor_types : (Core_syntax.ident, Core_syntax.ident) Hashtbl.t }
-type variable_scope = Core_syntax.ident -> string option
+type program_env = { enum_ctor_types : (Kr_domain_core_syntax.ident, Kr_domain_core_syntax.ident) Hashtbl.t }
+type variable_scope = Kr_domain_core_syntax.ident -> string option
 type expr_env = { program_env : program_env; variable_name : variable_scope }
 
 type node_env = {
   expr_env : expr_env;
-  node : Verification_model.node_model;
+  node : Kr_domain_core_model.node_model;
   input_names : C_codegen_common.StringSet.t;
   output_names : C_codegen_common.StringSet.t;
   local_names : C_codegen_common.StringSet.t;
   ghost_names : C_codegen_common.StringSet.t;
   writable_name : variable_scope;
-  output_pointer : Core_syntax.ident -> string;
-  inout_pointer : Core_syntax.ident -> string option;
+  output_pointer : Kr_domain_core_syntax.ident -> string;
+  inout_pointer : Kr_domain_core_syntax.ident -> string option;
 }
 
-val program_env : Core_syntax.enum_decl list -> program_env
-val enum_ctor_c_name : expr_env -> Core_syntax.ident -> (string, string) result
-val function_scope : Core_syntax.vdecl list -> Core_syntax.ident -> string option
-val node_env : program_env -> Verification_model.node_model -> node_env
-val method_env : program_env -> Verification_model.node_model -> Core_syntax.method_decl -> node_env
-val lvalue_of_ident : node_env -> Core_syntax.ident -> (string, string) result
+val program_env : Kr_domain_core_syntax.enum_decl list -> program_env
+val enum_ctor_c_name : expr_env -> Kr_domain_core_syntax.ident -> (string, string) result
+val function_scope : Kr_domain_core_syntax.vdecl list -> Kr_domain_core_syntax.ident -> string option
+val node_env : program_env -> Kr_domain_core_model.node_model -> node_env
+val method_env : program_env -> Kr_domain_core_model.node_model -> Kr_domain_core_syntax.method_decl -> node_env
+val lvalue_of_ident : node_env -> Kr_domain_core_syntax.ident -> (string, string) result

@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module C = Core_syntax
+module C = Kr_domain_core_syntax
 module Common = C_codegen_common
 module Names = C_codegen_names
 module StringSet = Common.StringSet
@@ -27,7 +27,7 @@ type expr_env = { program_env : program_env; variable_name : variable_scope }
 
 type node_env = {
   expr_env : expr_env;
-  node : Verification_model.node_model;
+  node : Kr_domain_core_model.node_model;
   input_names : StringSet.t;
   output_names : StringSet.t;
   local_names : StringSet.t;
@@ -52,7 +52,7 @@ let node_variable_name input_names output_names local_names ghost_names name =
     Some ("state->" ^ Names.field_name_of_ident name)
   else None
 
-let node_env program_env (node : Verification_model.node_model) =
+let node_env program_env (node : Kr_domain_core_model.node_model) =
   let input_names = set_of_vdecls node.inputs in
   let output_names = set_of_vdecls node.outputs in
   let local_names = set_of_vdecls node.locals in
@@ -73,7 +73,7 @@ let node_env program_env (node : Verification_model.node_model) =
     inout_pointer = (fun _ -> None);
   }
 
-let method_env program_env (node : Verification_model.node_model)
+let method_env program_env (node : Kr_domain_core_model.node_model)
     (decl : C.method_decl) =
   let base = node_env program_env node in
   let params =

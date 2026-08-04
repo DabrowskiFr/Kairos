@@ -78,11 +78,11 @@ let graph_pngs ~(generate_main_png : bool) ~(program_dot : string)
     product_png,
     product_png_error )
 
-let map_outputs ~(cfg : Kr_engine.Pipeline_config.config)
-    ~(proof_cases : Proof_case_program.t)
-    ~(infos : Kr_engine.Flow_info.pipeline_info)
+let map_outputs ~(cfg : Kr_engine.Kr_engine_pipeline_config.config)
+    ~(proof_cases : Kr_verification_cases.t)
+    ~(infos : Kr_engine.Kr_engine_flow_info.pipeline_info)
     ~(artifacts : Pipeline_artifact_bundle.t) ~(proof : Proof_runner.run_output)
-    : Kr_engine.Pipeline_artifacts.outputs =
+    : Kr_engine.Kr_engine_pipeline_artifacts.outputs =
   let program_dot, program_automaton_text =
     program_automaton_texts proof_cases
   in
@@ -98,7 +98,7 @@ let map_outputs ~(cfg : Kr_engine.Pipeline_config.config)
       ~product_dot:artifacts.product_dot
   in
   {
-    Kr_engine.Pipeline_artifacts.why_text = proof.why_text;
+    Kr_engine.Kr_engine_pipeline_artifacts.why_text = proof.why_text;
     vc_text = proof.vc_text;
     smt_text = proof.smt_text;
     dot_text = artifacts.product_dot;
@@ -120,7 +120,7 @@ let map_outputs ~(cfg : Kr_engine.Pipeline_config.config)
     vc_locs_ordered = proof.vc_locs_ordered;
     vc_spans_ordered =
       List.map
-        (fun (span : Kr_engine.Pipeline_proof_types.text_span) ->
+        (fun (span : Kr_engine.Kr_engine_pipeline_proof_types.text_span) ->
           (span.start_offset, span.end_offset))
         proof.vc_spans_ordered;
     why_spans = proof.why_spans;
@@ -142,11 +142,11 @@ let map_outputs ~(cfg : Kr_engine.Pipeline_config.config)
   }
 
 let map_automata_outputs ~(generate_png : bool)
-    ~(proof_optimizations : Kr_engine.Pipeline_config.proof_optimizations)
-    ~(proof_cases : Proof_case_program.t)
-    ~(infos : Kr_engine.Flow_info.pipeline_info)
+    ~(proof_optimizations : Kr_engine.Kr_engine_pipeline_config.proof_optimizations)
+    ~(proof_cases : Kr_verification_cases.t)
+    ~(infos : Kr_engine.Kr_engine_flow_info.pipeline_info)
     ~(artifacts : Pipeline_artifact_bundle.t) :
-    Kr_engine.Pipeline_artifacts.automata_outputs =
+    Kr_engine.Kr_engine_pipeline_artifacts.automata_outputs =
   let program_dot, program_automaton_text =
     program_automaton_texts proof_cases
   in
@@ -162,7 +162,7 @@ let map_automata_outputs ~(generate_png : bool)
       ~product_dot:artifacts.product_dot
   in
   {
-    Kr_engine.Pipeline_artifacts.dot_text = artifacts.product_dot;
+    Kr_engine.Kr_engine_pipeline_artifacts.dot_text = artifacts.product_dot;
     labels_text;
     program_automaton_text;
     guarantee_automaton_text = artifacts.guarantee_automaton_text;

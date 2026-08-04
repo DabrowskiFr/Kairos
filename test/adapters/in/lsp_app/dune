@@ -1,0 +1,4 @@
+(test
+ (name lsp_diagnostics_tests)
+ (package kairos)
+ (libraries kr_lsp_app))

@@ -1,7 +1,7 @@
 (** WhyML emission for formulas selected in the proof IR.
 
     Formula equivalence and reuse decisions are already recorded in
-    {!Kr_verification_obligations.Verification_proof_ir}; this module only
+    {!Kr_verification.Kr_verification_proof_ir}; this module only
     emits declarations, imports, calls, and their WhyML parameters. *)
 
 type t
@@ -9,7 +9,7 @@ type t
 val build :
   env:Why_compile_expr.env ->
   inputs:Why3.Ptree.binder list ->
-  Kr_verification_obligations.Verification_proof_ir.t ->
+  Kr_verification.Kr_verification_proof_ir.t ->
   t
 
 val definition_modules :
@@ -22,11 +22,11 @@ val definition_modules :
 val imports_for :
   t ->
   module_name:string ->
-  Core_syntax.history_free Ir.summary_formula list ->
+  Kr_domain_core_syntax.history_free Kr_verification_ir.summary_formula list ->
   Why3.Ptree.decl list
 
 val compile :
   t ->
   env:Why_compile_expr.env ->
-  Core_syntax.history_free Ir.summary_formula ->
+  Kr_domain_core_syntax.history_free Kr_verification_ir.summary_formula ->
   Why3.Ptree.term

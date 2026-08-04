@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-type loc = Kr_domain_core.Loc.loc = {
+type loc = Kr_domain_core.Kr_domain_core_locations.loc = {
   line : int;
   col : int;
   line_end : int;
@@ -33,21 +33,21 @@ let loc_of_positions (start_pos : Lexing.position)
     col_end = end_pos.pos_cnum - end_pos.pos_bol;
   }
 
-type ident = Kr_domain_core.Core_syntax.ident [@@deriving yojson]
+type ident = Kr_domain_core.Kr_domain_core_syntax.ident [@@deriving yojson]
 
-type ty = Kr_domain_core.Core_syntax.ty = TInt | TBool | TReal | TCustom of string
+type ty = Kr_domain_core.Kr_domain_core_syntax.ty = TInt | TBool | TReal | TCustom of string
 [@@deriving yojson]
 
-type enum_decl = Kr_domain_core.Core_syntax.enum_decl = {
+type enum_decl = Kr_domain_core.Kr_domain_core_syntax.enum_decl = {
   enum_name : ident;
   enum_constructors : ident list;
 }
 [@@deriving yojson]
 
-type binop = Kr_domain_core.Core_syntax.binop = Add | Sub | Mul | Div | And | Or
+type binop = Kr_domain_core.Kr_domain_core_syntax.binop = Add | Sub | Mul | Div | And | Or
 [@@deriving yojson]
 
-type unop = Kr_domain_core.Core_syntax.unop = Neg | Not [@@deriving yojson]
+type unop = Kr_domain_core.Kr_domain_core_syntax.unop = Neg | Not [@@deriving yojson]
 
-type relop = Kr_domain_core.Core_syntax.relop = REq | RNeq | RLt | RLe | RGt | RGe
+type relop = Kr_domain_core.Kr_domain_core_syntax.relop = REq | RNeq | RLt | RLe | RGt | RGe
 [@@deriving yojson]

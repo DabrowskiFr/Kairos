@@ -18,7 +18,7 @@
 
 (** C emission for executable pure functions. *)
 
-val emit_function_prototype : Core_syntax.pure_function_decl -> string
+val emit_function_prototype : Kr_domain_core_syntax.pure_function_decl -> string
 
 val emit_function_definition :
-  C_codegen_env.program_env -> Core_syntax.pure_function_decl -> (string list, string) result
+  C_codegen_env.program_env -> Kr_domain_core_syntax.pure_function_decl -> (string list, string) result

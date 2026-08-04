@@ -20,7 +20,7 @@ module Contract = Kr_why3_contract.Why3_contract
 
 let build ~(status : string) ~(goal_text : string)
     ~(native_probe : Contract.solver_probe option) :
-    Kr_engine.Pipeline_proof_types.proof_diagnostic =
+    Kr_engine.Kr_engine_pipeline_proof_types.proof_diagnostic =
   let status_norm = String.lowercase_ascii (String.trim status) in
   let native_probe_status =
     Option.map

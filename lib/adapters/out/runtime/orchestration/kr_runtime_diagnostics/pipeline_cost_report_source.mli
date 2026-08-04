@@ -18,6 +18,6 @@
 
 (** Source-program section of the pipeline cost report. *)
 
-val source_node_json : Verification_model.node_model -> Yojson.Safe.t
+val source_node_json : Kr_domain_core_model.node_model -> Yojson.Safe.t
 
-val source_json : Proof_case_program.t -> Yojson.Safe.t
+val source_json : Kr_verification_cases.t -> Yojson.Safe.t

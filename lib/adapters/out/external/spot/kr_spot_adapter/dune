@@ -1,12 +1,6 @@
 (library
 (name kr_spot_adapter)
- (flags (:standard -open Kr_automata_contract.Kr_automata_contract_api))
+ (flags (:standard -open Kr_engine.Kr_engine_automata_contract))
  (wrapped true)
  (modules spot_boolean_valuation automaton_spot spot_automaton_builder)
- (libraries kr_automata_contract unix))
-
-(test
- (name spot_adapter_tests)
- (modules spot_adapter_tests)
- (package kairos)
- (libraries kr_spot_adapter kr_automata_contract))
+ (libraries kr_engine unix))

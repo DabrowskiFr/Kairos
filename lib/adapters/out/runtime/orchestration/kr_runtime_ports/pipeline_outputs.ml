@@ -19,17 +19,17 @@
 (** Executes output and proof production for the concrete engine flow. *)
 include Pipeline_outputs_helpers
 
-let is_prove_only_run (cfg : Kr_engine.Pipeline_config.config) : bool =
+let is_prove_only_run (cfg : Kr_engine.Kr_engine_pipeline_config.config) : bool =
   cfg.prove && not cfg.wp_only && not cfg.generate_vc_text
   && not cfg.generate_smt_text && not cfg.generate_dot_png
   && not cfg.compute_proof_diagnostics
   && Option.is_none cfg.proof_progress_path
 
-let minimal_outputs_of_proof ~(cfg : Kr_engine.Pipeline_config.config)
-    ~(infos : Kr_engine.Flow_info.pipeline_info)
-    (proof : Proof_runner.run_output) : Kr_engine.Pipeline_artifacts.outputs =
+let minimal_outputs_of_proof ~(cfg : Kr_engine.Kr_engine_pipeline_config.config)
+    ~(infos : Kr_engine.Kr_engine_flow_info.pipeline_info)
+    (proof : Proof_runner.run_output) : Kr_engine.Kr_engine_pipeline_artifacts.outputs =
   {
-    Kr_engine.Pipeline_artifacts.why_text = proof.why_text;
+    Kr_engine.Kr_engine_pipeline_artifacts.why_text = proof.why_text;
     vc_text = "";
     smt_text = "";
     dot_text = "";
@@ -51,7 +51,7 @@ let minimal_outputs_of_proof ~(cfg : Kr_engine.Pipeline_config.config)
     vc_locs_ordered = proof.vc_locs_ordered;
     vc_spans_ordered =
       List.map
-        (fun (span : Kr_engine.Pipeline_proof_types.text_span) ->
+        (fun (span : Kr_engine.Kr_engine_pipeline_proof_types.text_span) ->
           (span.start_offset, span.end_offset))
         proof.vc_spans_ordered;
     why_spans = proof.why_spans;
@@ -72,13 +72,13 @@ let minimal_outputs_of_proof ~(cfg : Kr_engine.Pipeline_config.config)
     product_png_error = None;
   }
 
-let build_outputs ~(cfg : Kr_engine.Pipeline_config.config)
-    ~(proof_cases : Proof_case_program.t)
-    ~(product_nodes : Orchestration.product_node list)
+let build_outputs ~(cfg : Kr_engine.Kr_engine_pipeline_config.config)
+    ~(proof_cases : Kr_verification_cases.t)
+    ~(product_nodes : Kr_verification_orchestration.product_node list)
     ~(proof_plans :
-       Kr_verification_obligations.Verification_proof_ir.t list)
-    ~(infos : Kr_engine.Flow_info.pipeline_info) :
-  (Kr_engine.Pipeline_artifacts.outputs, Kr_engine.Pipeline_error.t) result =
+       Kr_verification.Kr_verification_proof_ir.t list)
+    ~(infos : Kr_engine.Kr_engine_flow_info.pipeline_info) :
+  (Kr_engine.Kr_engine_pipeline_artifacts.outputs, Kr_engine.Kr_engine_pipeline_error.t) result =
   if is_prove_only_run cfg then (
     let t_proof = Unix.gettimeofday () in
     match Proof_runner.run ~cfg ~proof_plans with

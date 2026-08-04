@@ -37,7 +37,7 @@ let join_blocks_with_spans ~sep blocks =
       Buffer.add_string b s;
       offset := !offset + String.length s;
       spans :=
-        { Kr_engine.Pipeline_proof_types.start_offset = start_offset; end_offset = !offset } :: !spans)
+        { Kr_engine.Kr_engine_pipeline_proof_types.start_offset = start_offset; end_offset = !offset } :: !spans)
     blocks;
   (Buffer.contents b, List.rev !spans)
 
@@ -45,7 +45,7 @@ let join_blocks_with_spans ~sep blocks =
 
 let bool_s b = if b then "true" else "false"
 
-let optimization_meta (proof_optimizations : Kr_engine.Pipeline_config.proof_optimizations option) =
+let optimization_meta (proof_optimizations : Kr_engine.Kr_engine_pipeline_config.proof_optimizations option) =
   match proof_optimizations with
   | None -> []
   | Some opts ->
@@ -53,37 +53,37 @@ let optimization_meta (proof_optimizations : Kr_engine.Pipeline_config.proof_opt
         ( "proof_optimizations",
           [
             ( "proof_case_decomposition_strategy",
-              Kr_engine.Pipeline_config.string_of_proof_case_decomposition_strategy
+              Kr_engine.Kr_engine_pipeline_config.string_of_proof_case_decomposition_strategy
                 opts.verification.proof_case_decomposition_strategy );
             ( "reachability_strategy",
-              Kr_engine.Pipeline_config.string_of_reachability_strategy
+              Kr_engine.Kr_engine_pipeline_config.string_of_reachability_strategy
                 opts.verification.reachability_strategy );
             ( "group_step_contracts",
               bool_s
-                (Kr_engine.Pipeline_config.groups_step_contracts
+                (Kr_engine.Kr_engine_pipeline_config.groups_step_contracts
                    opts.verification.proof_plan_strategy) );
             ( "deduplicate_obligation_conditions",
               bool_s
-                (Kr_engine.Pipeline_config.deduplicates_obligation_conditions
+                (Kr_engine.Kr_engine_pipeline_config.deduplicates_obligation_conditions
                    opts.verification.proof_plan_strategy) );
             ( "share_contract_formulas",
               bool_s
-                (Kr_engine.Pipeline_config.shares_contract_formulas
+                (Kr_engine.Kr_engine_pipeline_config.shares_contract_formulas
                    opts.verification.proof_plan_strategy) );
             ( "bundle_individual_postconditions",
               bool_s
-                (Kr_engine.Pipeline_config.bundles_individual_postconditions
+                (Kr_engine.Kr_engine_pipeline_config.bundles_individual_postconditions
                    opts.verification.proof_plan_strategy) );
           ] );
       ]
 
 let flow_meta ?proof_optimizations
-    (infos : Kr_engine.Flow_info.pipeline_info) :
+    (infos : Kr_engine.Kr_engine_flow_info.pipeline_info) :
     (string * (string * string) list) list =
-  let p = Option.value ~default:Kr_engine.Flow_info.empty_parse_info infos.parse in
-  let a = Option.value ~default:Kr_engine.Flow_info.empty_automata_info infos.automata_generation in
-  let s = Option.value ~default:Kr_engine.Flow_info.empty_summaries_info infos.summaries in
-  let i = Option.value ~default:Kr_engine.Flow_info.empty_instrumentation_info infos.instrumentation in
+  let p = Option.value ~default:Kr_engine.Kr_engine_flow_info.empty_parse_info infos.parse in
+  let a = Option.value ~default:Kr_engine.Kr_engine_flow_info.empty_automata_info infos.automata_generation in
+  let s = Option.value ~default:Kr_engine.Kr_engine_flow_info.empty_summaries_info infos.summaries in
+  let i = Option.value ~default:Kr_engine.Kr_engine_flow_info.empty_instrumentation_info infos.instrumentation in
   [
     ("user", [ ("source_path", Option.value ~default:"" p.source_path); ("warnings", string_of_int (List.length p.warnings)) ]);
     ("automata", [ ("states", string_of_int a.residual_state_count); ("edges", string_of_int a.residual_edge_count) ]);
@@ -109,8 +109,8 @@ let flow_meta ?proof_optimizations
 (** [program_automaton_texts] helper value. *)
 
 let program_automaton_texts
-    (proof_cases : Proof_case_program.t) : string * string =
-  match Proof_case_program.program proof_cases with
+    (proof_cases : Kr_verification_cases.t) : string * string =
+  match Kr_verification_cases.program proof_cases with
   | [] -> ("", "")
   | node :: _ ->
       let graph =

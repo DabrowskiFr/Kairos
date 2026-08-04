@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Automata_exchange = Kr_automata_contract.Kr_automata_contract_api.Automata_exchange
+module Automata_exchange = Kr_engine.Kr_engine_automata_contract
 
 let normalize_spot_monitor ~(atom_names : string list) (hoa : Automaton_spot.hoa_automaton) :
     Automata_exchange.partial_monitor =

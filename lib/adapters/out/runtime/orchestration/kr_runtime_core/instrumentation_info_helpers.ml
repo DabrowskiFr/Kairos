@@ -21,11 +21,11 @@
     This module provides lookups, product liveness predicates and aggregation
     helpers used by {!Instrumentation_info_builder}. *)
 
-open Core_syntax
+open Kr_domain_core_syntax
 (** [analysis_of_node] helper value. *)
 
-let analysis_of_node ~(analyses : (ident * Temporal_automata.node_data) list) (node : 'phase Ir.node_ir) :
-    (Temporal_automata.node_data, string) result =
+let analysis_of_node ~(analyses : (ident * Kr_verification_temporal_automata.node_data) list) (node : 'phase Kr_verification_ir.node_ir) :
+    (Kr_verification_temporal_automata.node_data, string) result =
   Result_utils.find_assoc
     ~missing:(fun node_name -> Printf.sprintf "Missing product analysis for IR node %s" node_name)
     node.semantics.sem_nname analyses
@@ -33,19 +33,19 @@ let analysis_of_node ~(analyses : (ident * Temporal_automata.node_data) list) (n
 (** [accumulate_case_counts] helper value. *)
 
 let product_case_count
-    (summaries : 'phase Ir.product_step_summary list) : int =
+    (summaries : 'phase Kr_verification_ir.product_step_summary list) : int =
   List.fold_left
-    (fun count (summary : 'phase Ir.product_step_summary) ->
+    (fun count (summary : 'phase Kr_verification_ir.product_step_summary) ->
       count + List.length summary.product_cases)
     0
     summaries
 
 (** [merge_instrumentation_info] helper value. *)
 
-let merge_instrumentation_info (left : Kr_engine.Flow_info.instrumentation_info)
-    (right : Kr_engine.Flow_info.instrumentation_info) : Kr_engine.Flow_info.instrumentation_info =
+let merge_instrumentation_info (left : Kr_engine.Kr_engine_flow_info.instrumentation_info)
+    (right : Kr_engine.Kr_engine_flow_info.instrumentation_info) : Kr_engine.Kr_engine_flow_info.instrumentation_info =
   {
-    Kr_engine.Flow_info.warnings = left.warnings @ right.warnings;
+    Kr_engine.Kr_engine_flow_info.warnings = left.warnings @ right.warnings;
     require_automata_state_count =
       left.require_automata_state_count + right.require_automata_state_count;
     require_automata_edge_count =

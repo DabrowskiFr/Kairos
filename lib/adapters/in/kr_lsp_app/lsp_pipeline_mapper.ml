@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Contract = Kr_engine.Api.Contract
+module Contract = Kr_engine.Kr_engine_contract
 
 let loc_of_engine (location : Contract.source_location) : Kr_lsp_protocol.loc =
   {

@@ -18,15 +18,15 @@
 
 (** Kairos-owned conversion to and from the neutral automata contract. *)
 
-type atom_map = (Core_syntax.ltl_atom * Core_syntax.ident) list
+type atom_map = (Kr_domain_core_syntax.ltl_atom * Kr_domain_core_syntax.ident) list
 
 val request_of_core :
-  atom_map:atom_map -> Core_syntax.ltl -> Kr_automata_contract.Kr_automata_contract_api.Automata_exchange.request
+  atom_map:atom_map -> Kr_domain_core_syntax.ltl -> Kr_engine.Kr_engine_automata_contract.request
 
 val monitor_of_response :
   atom_map:atom_map ->
-  Kr_automata_contract.Kr_automata_contract_api.Automata_exchange.response ->
-  Automaton_types.deterministic_partial_monitor
+  Kr_engine.Kr_engine_automata_contract.response ->
+  Kr_verification_automata_types.deterministic_partial_monitor
 (** Convert a response whose producer guarantees the deterministic-monitor
     contract. This adapter validates the wire format, not propositional
     determinism. *)

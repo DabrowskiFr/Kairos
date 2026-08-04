@@ -15,35 +15,35 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
-open Core_syntax
-open Pretty
+open Kr_domain_core_syntax
+open Kr_domain_render.Kr_domain_render_syntax
 
 let indent_str (n : int) : string = String.make (2 * max 0 n) ' '
 
 let rec render_stmt (s : stmt) (indent_level : int) : string list =
   match s.stmt with
-  | SAssign (id, e) -> [ indent_str indent_level ^ id ^ " := " ^ Pretty.string_of_expr e ^ ";" ]
+  | SAssign (id, e) -> [ indent_str indent_level ^ id ^ " := " ^ Kr_domain_render.Kr_domain_render_syntax.string_of_expr e ^ ";" ]
   | SAssert formula ->
-      [ indent_str indent_level ^ "assert " ^ Pretty.string_of_fo formula ^ ";" ]
+      [ indent_str indent_level ^ "assert " ^ Kr_domain_render.Kr_domain_render_syntax.string_of_fo formula ^ ";" ]
   | SSkip -> [ indent_str indent_level ^ "skip;" ]
   | SMethodCall (name, args) ->
       [
         indent_str indent_level ^ name ^ "("
-        ^ String.concat ", " (List.map Pretty.string_of_expr args)
+        ^ String.concat ", " (List.map Kr_domain_render.Kr_domain_render_syntax.string_of_expr args)
         ^ ");";
       ]
   | SIf (c, t, e) ->
-      [ indent_str indent_level ^ "if " ^ Pretty.string_of_expr c ^ " then" ]
+      [ indent_str indent_level ^ "if " ^ Kr_domain_render.Kr_domain_render_syntax.string_of_expr c ^ " then" ]
       @ List.concat_map (fun st -> render_stmt st (indent_level + 1)) t
       @ [ indent_str indent_level ^ "else" ]
       @ List.concat_map (fun st -> render_stmt st (indent_level + 1)) e
       @ [ indent_str indent_level ^ "end;" ]
   | SWhile (c, invariants, variant, body) ->
-      [ indent_str indent_level ^ "while " ^ Pretty.string_of_expr c ]
+      [ indent_str indent_level ^ "while " ^ Kr_domain_render.Kr_domain_render_syntax.string_of_expr c ]
       @ List.map
           (fun invariant ->
             indent_str (indent_level + 1) ^ "invariant: "
-            ^ Pretty.string_of_fo invariant ^ ";")
+            ^ Kr_domain_render.Kr_domain_render_syntax.string_of_fo invariant ^ ";")
           invariants
       @
       (match variant with
@@ -51,13 +51,13 @@ let rec render_stmt (s : stmt) (indent_level : int) : string list =
       | Some variant ->
           [
             indent_str (indent_level + 1) ^ "variant: "
-            ^ Pretty.string_of_expr variant ^ ";";
+            ^ Kr_domain_render.Kr_domain_render_syntax.string_of_expr variant ^ ";";
           ])
       @ [ indent_str indent_level ^ "do" ]
       @ List.concat_map (fun st -> render_stmt st (indent_level + 1)) body
       @ [ indent_str indent_level ^ "end;" ]
   | SMatch (e, branches, dflt) ->
-      [ indent_str indent_level ^ "match " ^ Pretty.string_of_expr e ^ " with" ]
+      [ indent_str indent_level ^ "match " ^ Kr_domain_render.Kr_domain_render_syntax.string_of_expr e ^ " with" ]
       @ List.concat_map
           (fun (ctor, body) ->
             [ indent_str (indent_level + 1) ^ "| " ^ ctor ^ " ->" ]
@@ -70,9 +70,9 @@ let rec render_stmt (s : stmt) (indent_level : int) : string list =
         @ List.concat_map (fun st -> render_stmt st (indent_level + 2)) dflt
         @ [ indent_str indent_level ^ "end;" ]
 
-let render_transition ?(indent : int = 0) (t : Ir.transition) : string =
+let render_transition ?(indent : int = 0) (t : Kr_verification_ir.transition) : string =
   let guard_s =
-    match t.guard_expr with None -> "" | Some g -> " when " ^ Pretty.string_of_expr g
+    match t.guard_expr with None -> "" | Some g -> " when " ^ Kr_domain_render.Kr_domain_render_syntax.string_of_expr g
   in
   let header = indent_str indent ^ "transition " ^ t.src_state ^ " -> " ^ t.dst_state ^ guard_s ^ " {" in
   let body = List.concat_map (fun s -> render_stmt s (indent + 1)) t.body_stmts in
@@ -97,35 +97,35 @@ let render_function_decl (f : pure_function_decl) : string =
     ^ String.concat ", " (List.map render_vdecl f.function_params)
     ^ "): " ^ render_ty f.function_return
   in
-  let reqs = List.map (fun req -> "  requires " ^ Pretty.string_of_fo req ^ ";") f.function_requires in
-  let enss = List.map (fun ens -> "  ensures " ^ Pretty.string_of_fo ens ^ ";") f.function_ensures in
-  String.concat "\n" ([ header ] @ reqs @ enss @ [ "  = " ^ Pretty.string_of_expr f.function_body ^ ";" ])
+  let reqs = List.map (fun req -> "  requires " ^ Kr_domain_render.Kr_domain_render_syntax.string_of_fo req ^ ";") f.function_requires in
+  let enss = List.map (fun ens -> "  ensures " ^ Kr_domain_render.Kr_domain_render_syntax.string_of_fo ens ^ ";") f.function_ensures in
+  String.concat "\n" ([ header ] @ reqs @ enss @ [ "  = " ^ Kr_domain_render.Kr_domain_render_syntax.string_of_expr f.function_body ^ ";" ])
 
-let program_transitions_of_node ~(source_program : Verification_model.program_model option)
-    (n : 'phase Ir.node_ir) :
-    Ir.transition list =
+let program_transitions_of_node ~(source_program : Kr_domain_core_model.program_model option)
+    (n : 'phase Kr_verification_ir.node_ir) :
+    Kr_verification_ir.transition list =
   match source_program with
   | Some source_program -> (
       match
         List.find_opt
-          (fun (source_node : Verification_model.node_model) ->
+          (fun (source_node : Kr_domain_core_model.node_model) ->
             String.equal source_node.node_name n.semantics.sem_nname)
           source_program
       with
-      | Some source_node -> Ir_transition.prioritized_program_transitions_of_node source_node
+      | Some source_node -> Kr_verification_transition.prioritized_program_transitions_of_node source_node
       | None ->
           n.summaries
-          |> List.map (fun (summary : 'phase Ir.product_step_summary) ->
+          |> List.map (fun (summary : 'phase Kr_verification_ir.product_step_summary) ->
                  summary.identity.program_step)
           |> List.sort_uniq Stdlib.compare)
   | None ->
       n.summaries
-      |> List.map (fun (summary : 'phase Ir.product_step_summary) ->
+      |> List.map (fun (summary : 'phase Kr_verification_ir.product_step_summary) ->
              summary.identity.program_step)
       |> List.sort_uniq Stdlib.compare
 
-let render_node_with_source ~(source_program : Verification_model.program_model option)
-    (n : 'phase Ir.node_ir) : string =
+let render_node_with_source ~(source_program : Kr_domain_core_model.program_model option)
+    (n : 'phase Kr_verification_ir.node_ir) : string =
   let sem = n.semantics in
   let line_params name vs =
     if vs = [] then None
@@ -147,10 +147,10 @@ let render_node_with_source ~(source_program : Verification_model.program_model 
     |> List.filter_map Fun.id
   in
   let assumes =
-    List.map (fun a -> "assume " ^ Pretty.string_of_ltl a ^ ";") n.source_info.assumes
+    List.map (fun a -> "assume " ^ Kr_domain_render.Kr_domain_render_syntax.string_of_ltl a ^ ";") n.source_info.assumes
   in
   let guarantees =
-    List.map (fun g -> "guarantee " ^ Pretty.string_of_ltl g ^ ";") n.source_info.guarantees
+    List.map (fun g -> "guarantee " ^ Kr_domain_render.Kr_domain_render_syntax.string_of_ltl g ^ ";") n.source_info.guarantees
   in
   let trans =
     List.map (render_transition ~indent:1) (program_transitions_of_node ~source_program n)
@@ -158,10 +158,10 @@ let render_node_with_source ~(source_program : Verification_model.program_model 
   let body = List.map (fun l -> indent_str 1 ^ l) (fields @ assumes @ guarantees) @ trans in
   String.concat "\n" ([ "node " ^ sem.sem_nname ^ " {" ] @ body @ [ "}" ])
 
-let render_node ?(source_program : Verification_model.program_model option = None)
-    (n : 'phase Ir.node_ir) : string =
+let render_node ?(source_program : Kr_domain_core_model.program_model option = None)
+    (n : 'phase Kr_verification_ir.node_ir) : string =
   render_node_with_source ~source_program n
 
-let render_program ?(source_program : Verification_model.program_model option = None)
-    (p : 'phase Ir.node_ir list) : string =
+let render_program ?(source_program : Kr_domain_core_model.program_model option = None)
+    (p : 'phase Kr_verification_ir.node_ir list) : string =
   String.concat "\n\n" (List.map (render_node_with_source ~source_program) p)

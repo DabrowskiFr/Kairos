@@ -22,7 +22,7 @@ open Why_task_support
 let task_to_why3 (task : Task.task) : string =
   let buffer = Buffer.create 4096 in
   let fmt = Format.formatter_of_buffer buffer in
-  Pretty.print_task fmt task;
+  Why3.Pretty.print_task fmt task;
   Format.pp_print_flush fmt ();
   Buffer.contents buffer
 
@@ -38,7 +38,7 @@ let dump_why3_tasks_with_attrs_impl (tasks : Task.task list) : string list =
   let task_to_string task =
     let buffer = Buffer.create 4096 in
     let fmt = Format.formatter_of_buffer buffer in
-    Pretty.print_task fmt task;
+    Why3.Pretty.print_task fmt task;
     Format.pp_print_flush fmt ();
     let prop_lines =
       Task.task_decls task

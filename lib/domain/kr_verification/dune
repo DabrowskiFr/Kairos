@@ -1,0 +1,20 @@
+(include_subdirs unqualified)
+
+(library
+ (name kr_verification)
+ (wrapped true)
+ (flags (:standard -open Kr_domain_core))
+ (private_modules
+  fo_contradiction
+  fo_current_input
+  fo_time
+  formula_canonical
+  automata_preparation
+  from_model
+  ir_formula
+  post
+  pre
+  product_build
+  product_invariant
+  temporal_lower)
+ (libraries kr_domain_core kr_domain_render))

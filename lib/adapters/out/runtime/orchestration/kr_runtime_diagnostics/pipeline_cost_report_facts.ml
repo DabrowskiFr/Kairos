@@ -16,8 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Core_syntax
-open Pretty
+open Kr_domain_core_syntax
+open Kr_domain_render.Kr_domain_render_syntax
 open Pipeline_cost_report_common
 open Pipeline_cost_report_syntax
 
@@ -119,13 +119,13 @@ let formula_population_json_of_facts facts =
       ("top_repeated_facts", json_list json_fact_stat top);
     ]
 
-let collect_summary_facts table (node : Core_syntax.history_free Ir.node_ir) =
+let collect_summary_facts table (node : Kr_domain_core_syntax.history_free Kr_verification_ir.node_ir) =
   let node_name = node.semantics.sem_nname in
-  let add_summary_formula origin phase (f : Core_syntax.history_free Ir.summary_formula) =
+  let add_summary_formula origin phase (f : Kr_domain_core_syntax.history_free Kr_verification_ir.summary_formula) =
     add_fact table ~origin:(origin_for_node node_name origin) ~phase f.logic
   in
   List.iter
-    (fun (summary : Core_syntax.history_free Ir.product_step_summary) ->
+    (fun (summary : Kr_domain_core_syntax.history_free Kr_verification_ir.product_step_summary) ->
       List.iter
         (add_summary_formula "canonical.propagation_requires" "previous_tick")
         summary.propagation_requires;
@@ -137,13 +137,13 @@ let collect_summary_facts table (node : Core_syntax.history_free Ir.node_ir) =
         (add_summary_formula "elaboration.checks" "current_tick")
         summary.elaboration_checks;
       List.iter
-        (fun (case : Core_syntax.history_free Ir.product_case) ->
+        (fun (case : Kr_domain_core_syntax.history_free Kr_verification_ir.product_case) ->
           add_summary_formula "canonical.product_case.guarantee_guard"
             "step_tick_context" case.guarantee_guard)
         summary.product_cases)
     node.summaries
 
-let collect_source_ltl_facts table (node : Verification_model.node_model) =
+let collect_source_ltl_facts table (node : Kr_domain_core_model.node_model) =
   let origin suffix = origin_for_node node.node_name suffix in
   let rec go origin phase = function
     | LTrue | LFalse -> ()
@@ -158,7 +158,7 @@ let collect_source_ltl_facts table (node : Verification_model.node_model) =
   List.iter (go (origin "source.assume.atom") "source_ltl") node.assumes;
   List.iter (go (origin "source.guarantee.atom") "source_ltl") node.guarantees;
   List.iter
-    (fun (inv : Verification_model.state_invariant) ->
+    (fun (inv : Kr_domain_core_model.state_invariant) ->
       add_fact table ~origin:(origin "source.state_invariant") ~phase:"source_fo"
         inv.formula)
     node.state_invariants
@@ -166,7 +166,7 @@ let collect_source_ltl_facts table (node : Verification_model.node_model) =
 let collect_all_facts ~proof_cases ~instrumentation =
   let table = Hashtbl.create 4096 in
   List.iter (collect_source_ltl_facts table)
-    (Proof_case_program.source_program proof_cases);
+    (Kr_verification_cases.source_program proof_cases);
   List.iter (collect_summary_facts table) instrumentation;
   fact_stats table
 

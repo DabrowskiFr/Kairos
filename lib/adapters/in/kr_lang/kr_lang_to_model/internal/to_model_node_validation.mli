@@ -22,6 +22,6 @@
     expressions, contracts, transitions and ghost-variable usage must all be
     well typed and mutually consistent. *)
 
-val validate_node : Kr_domain_core.Verification_model.node_model -> unit
+val validate_node : Kr_domain_core.Kr_domain_core_model.node_model -> unit
 (** Raise a typed frontend error when the node is not a valid verification
     model. *)

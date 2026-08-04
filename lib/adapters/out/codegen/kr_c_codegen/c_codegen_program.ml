@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module C = Core_syntax
+module C = Kr_domain_core_syntax
 module Common = C_codegen_common
 module Env = C_codegen_env
 module Functions = C_codegen_functions
@@ -39,12 +39,12 @@ let dedup_by key xs =
 
 let collect_type_decls program =
   program
-  |> List.concat_map (fun (n : Verification_model.node_model) -> n.type_decls)
+  |> List.concat_map (fun (n : Kr_domain_core_model.node_model) -> n.type_decls)
   |> dedup_by (fun (decl : C.enum_decl) -> decl.enum_name)
 
 let collect_function_decls program =
   program
-  |> List.concat_map (fun (n : Verification_model.node_model) -> n.function_decls)
+  |> List.concat_map (fun (n : Kr_domain_core_model.node_model) -> n.function_decls)
   |> dedup_by (fun (decl : C.pure_function_decl) -> decl.function_name)
 
 let rec expr_function_calls acc (e : C.expr) =
@@ -89,7 +89,7 @@ let rec stmt_function_calls acc (s : C.stmt) =
   | C.SSkip -> acc
   | C.SMethodCall (_, args) -> List.fold_left expr_function_calls acc args
 
-let step_function_calls acc (step : Verification_model.program_step) =
+let step_function_calls acc (step : Kr_domain_core_model.program_step) =
   let acc =
     match step.guard_expr with None -> acc | Some guard -> expr_function_calls acc guard
   in
@@ -103,7 +103,7 @@ let executable_function_names program all_functions =
     all_functions;
   let initial =
     List.fold_left
-      (fun acc (node : Verification_model.node_model) ->
+      (fun acc (node : Kr_domain_core_model.node_model) ->
         List.fold_left step_function_calls acc node.steps)
       Common.StringSet.empty program
   in
@@ -164,13 +164,13 @@ let emit_source ~header_name program =
   in
   let method_prototypes =
     List.concat_map
-      (fun (node : Verification_model.node_model) ->
+      (fun (node : Kr_domain_core_model.node_model) ->
         List.map (Node.method_prototype node) node.methods)
       program
   in
   let* method_blocks =
     Common.concat_map_result
-      (fun (node : Verification_model.node_model) ->
+      (fun (node : Kr_domain_core_model.node_model) ->
         Common.map_result (Node.emit_method_definition env node) node.methods)
       program
   in

@@ -23,11 +23,11 @@
     unchanged and the reference product uses their raw states directly. *)
 
 val run :
-  Proof_case_program.t ->
+  Kr_verification_cases.t ->
   build_automaton:
-    (Kr_automata_contract.Kr_automata_contract_api.Automata_exchange.request ->
-    Kr_automata_contract.Kr_automata_contract_api.Automata_exchange.response) ->
-  ( (Core_syntax.ident * Automaton_types.automata_spec) list
-    * Kr_engine.Flow_info.automata_info,
+    (Kr_engine.Kr_engine_automata_contract.request ->
+    Kr_engine.Kr_engine_automata_contract.response) ->
+  ( (Kr_domain_core_syntax.ident * Kr_verification_automata_types.automata_spec) list
+    * Kr_engine.Kr_engine_flow_info.automata_info,
     string )
   result

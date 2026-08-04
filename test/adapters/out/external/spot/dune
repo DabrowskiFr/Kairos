@@ -1,0 +1,4 @@
+(test
+ (name spot_adapter_tests)
+ (package kairos)
+ (libraries kr_spot_adapter kr_engine))

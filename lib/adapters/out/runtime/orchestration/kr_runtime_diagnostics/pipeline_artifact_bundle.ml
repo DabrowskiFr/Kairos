@@ -32,7 +32,7 @@ type node_artifacts = {
 }
 
 let build_node_artifacts
-    (product_node : Orchestration.product_node) :
+    (product_node : Kr_verification_orchestration.product_node) :
     node_artifacts =
   let node_name = product_node.proof_case.model.node_name in
   let analysis = product_node.analysis in
@@ -47,7 +47,7 @@ let build_node_artifacts
   in
   { require_graph; ensures_graph; product_graph }
 
-let build ~(product_nodes : Orchestration.product_node list) : t =
+let build ~(product_nodes : Kr_verification_orchestration.product_node list) : t =
   let node_artifacts =
     List.map build_node_artifacts product_nodes
   in

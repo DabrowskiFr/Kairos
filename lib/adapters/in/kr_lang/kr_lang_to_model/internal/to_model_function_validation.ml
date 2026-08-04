@@ -16,18 +16,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Kr_domain_core.Core_syntax
+open Kr_domain_core.Kr_domain_core_syntax
 
 open To_model_validation_common
 
-let validate_function_decls (type_decls : Kr_domain_core.Core_syntax.enum_decl list)
-    (function_decls : Kr_domain_core.Core_syntax.pure_function_decl list) : unit =
+let validate_function_decls (type_decls : Kr_domain_core.Kr_domain_core_syntax.enum_decl list)
+    (function_decls : Kr_domain_core.Kr_domain_core_syntax.pure_function_decl list) : unit =
   let fail_function fname msg =
     Kr_lang_shared.Kr_lang_shared_error.type_error (Printf.sprintf "Type error in function %s: %s" fname msg)
   in
   let function_names = Hashtbl.create (List.length function_decls * 2 + 1) in
   List.iter
-    (fun (f : Kr_domain_core.Core_syntax.pure_function_decl) ->
+    (fun (f : Kr_domain_core.Kr_domain_core_syntax.pure_function_decl) ->
       if String.equal f.function_name "result" then
         fail_function f.function_name "'result' is reserved for function postconditions";
       match Hashtbl.find_opt function_names f.function_name with
@@ -36,7 +36,7 @@ let validate_function_decls (type_decls : Kr_domain_core.Core_syntax.enum_decl l
     function_decls;
   let function_sigs =
     List.map
-      (fun (f : Kr_domain_core.Core_syntax.pure_function_decl) ->
+      (fun (f : Kr_domain_core.Kr_domain_core_syntax.pure_function_decl) ->
         (f.function_name, (f.function_params, f.function_return)))
       function_decls
   in
@@ -56,7 +56,7 @@ let validate_function_decls (type_decls : Kr_domain_core.Core_syntax.enum_decl l
         (Printf.sprintf "%s has type %s but %s was expected" context
            (type_name actual) (type_name expected))
   in
-  let rec expr_ty fname var_types (e : Kr_domain_core.Core_syntax.expr) : Kr_domain_core.Core_syntax.ty =
+  let rec expr_ty fname var_types (e : Kr_domain_core.Kr_domain_core_syntax.expr) : Kr_domain_core.Kr_domain_core_syntax.ty =
     let find_var x =
       match List.assoc_opt x var_types with
       | Some ty -> ty
@@ -74,7 +74,7 @@ let validate_function_decls (type_decls : Kr_domain_core.Core_syntax.enum_decl l
             (Printf.sprintf "function '%s' expects %d arguments but got %d"
                called (List.length params) (List.length args));
         List.iter2
-          (fun (param : Kr_domain_core.Core_syntax.vdecl) arg ->
+          (fun (param : Kr_domain_core.Kr_domain_core_syntax.vdecl) arg ->
             expect_ty fname
               ("argument " ^ param.vname ^ " of function '" ^ called ^ "'")
               param.vty (expr_ty fname var_types arg))
@@ -112,9 +112,9 @@ let validate_function_decls (type_decls : Kr_domain_core.Core_syntax.enum_decl l
   let rec hexpr_ty :
       type phase.
       string ->
-      (string * Kr_domain_core.Core_syntax.ty) list ->
-      phase Kr_domain_core.Core_syntax.hexpr ->
-      Kr_domain_core.Core_syntax.ty =
+      (string * Kr_domain_core.Kr_domain_core_syntax.ty) list ->
+      phase Kr_domain_core.Kr_domain_core_syntax.hexpr ->
+      Kr_domain_core.Kr_domain_core_syntax.ty =
    fun fname var_types h ->
     let find_var x =
       match List.assoc_opt x var_types with
@@ -138,7 +138,7 @@ let validate_function_decls (type_decls : Kr_domain_core.Core_syntax.enum_decl l
             (Printf.sprintf "function '%s' expects %d arguments but got %d"
                called (List.length params) (List.length args));
         List.iter2
-          (fun (param : Kr_domain_core.Core_syntax.vdecl) arg ->
+          (fun (param : Kr_domain_core.Kr_domain_core_syntax.vdecl) arg ->
             expect_ty fname
               ("argument " ^ param.vname ^ " of function '" ^ called ^ "'")
               param.vty (hexpr_ty fname var_types arg))
@@ -176,10 +176,10 @@ let validate_function_decls (type_decls : Kr_domain_core.Core_syntax.enum_decl l
         TBool
   in
   List.iter
-    (fun (f : Kr_domain_core.Core_syntax.pure_function_decl) ->
+    (fun (f : Kr_domain_core.Kr_domain_core_syntax.pure_function_decl) ->
       let seen_params = Hashtbl.create 8 in
       List.iter
-        (fun (param : Kr_domain_core.Core_syntax.vdecl) ->
+        (fun (param : Kr_domain_core.Kr_domain_core_syntax.vdecl) ->
           if String.equal param.vname "result" then
             fail_function f.function_name
               "function parameter 'result' is reserved for postconditions";
@@ -190,7 +190,7 @@ let validate_function_decls (type_decls : Kr_domain_core.Core_syntax.enum_decl l
           | None -> Hashtbl.add seen_params param.vname ())
         f.function_params;
       let param_types =
-        List.map (fun (v : Kr_domain_core.Core_syntax.vdecl) -> (v.vname, v.vty))
+        List.map (fun (v : Kr_domain_core.Kr_domain_core_syntax.vdecl) -> (v.vname, v.vty))
           f.function_params
       in
       expect_ty f.function_name "function body" f.function_return

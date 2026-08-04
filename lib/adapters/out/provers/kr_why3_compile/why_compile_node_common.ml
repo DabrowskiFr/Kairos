@@ -21,14 +21,14 @@
 
 open Why3
 open Ptree
-open Core_syntax
+open Kr_domain_core_syntax
 open Why_compile_expr
 
 let why_type_name name =
   if String.equal name "state" then "state"
   else "kr_" ^ String.uncapitalize_ascii name
 
-let compile_state_type (semantics : Ir.node_signature) =
+let compile_state_type (semantics : Kr_verification_ir.node_signature) =
   Dtype
     [
       {
@@ -45,7 +45,7 @@ let compile_state_type (semantics : Ir.node_signature) =
       };
     ]
 
-let compile_enum_types (semantics : Ir.node_signature) =
+let compile_enum_types (semantics : Kr_verification_ir.node_signature) =
   semantics.sem_type_decls
   |> List.map (fun (decl : enum_decl) ->
          Dtype
@@ -75,7 +75,7 @@ let mutable_field (v : vdecl) =
     f_ghost = false;
   }
 
-let compile_vars_type (semantics : Ir.node_signature) =
+let compile_vars_type (semantics : Kr_verification_ir.node_signature) =
   let fields : Ptree.field list =
     {
       f_loc = loc;
@@ -101,9 +101,9 @@ let compile_vars_type (semantics : Ir.node_signature) =
       };
     ]
 
-open Pre_k_layout
+open Kr_domain_core.Kr_domain_core_history
 
-let compile_inputs temporal_layout (semantics : Ir.node_signature) =
+let compile_inputs temporal_layout (semantics : Kr_verification_ir.node_signature) =
   let vars_param =
     (loc, Some (ident "vars"), false, Some (PTtyapp (qid1 "vars", [])))
   in
@@ -116,7 +116,7 @@ let compile_inputs temporal_layout (semantics : Ir.node_signature) =
   let pre_k_binders =
     let seen = Hashtbl.create 16 in
     temporal_layout
-    |> List.concat_map (fun (info : Pre_k_layout.pre_k_info) ->
+    |> List.concat_map (fun (info : Kr_domain_core.Kr_domain_core_history.pre_k_info) ->
            info.names
            |> List.filter_map (fun name ->
                   if Hashtbl.mem seen name then None
@@ -140,7 +140,7 @@ type t = {
   common_decls : Ptree.decl list;
 }
 
-let module_name_of_node (name : Core_syntax.ident) : string =
+let module_name_of_node (name : Kr_domain_core_syntax.ident) : string =
   String.capitalize_ascii name
 
 let imports =
@@ -251,8 +251,8 @@ let compile_method_decl base_env (decl : method_decl) =
   in
   Dlet (ident decl.method_name, false, Expr.RKnone, fn)
 
-let prepare ~(semantics : Ir.node_signature)
-    ~(temporal_layout : Ir.temporal_layout) : t =
+let prepare ~(semantics : Kr_verification_ir.node_signature)
+    ~(temporal_layout : Kr_verification_ir.temporal_layout) : t =
   let module_name = module_name_of_node semantics.sem_nname in
   let type_state = compile_state_type semantics in
   let type_enum_decls = compile_enum_types semantics in

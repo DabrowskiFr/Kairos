@@ -16,26 +16,26 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Core_syntax
-open Core_syntax_builders
+open Kr_domain_core_syntax
+open Kr_domain_core_syntax_builders
 open Automata_graph_dot
 open Automata_graph_format
 
 let render_program_lines ~(node_name : ident)
-    (node : Verification_model.node_model) =
+    (node : Kr_domain_core_model.node_model) =
   let states =
     node.states
     |> List.map (fun st -> Printf.sprintf "[%s] P[%s]" node_name st)
   in
   let transitions =
     node.steps
-    |> List.map (fun (t : Verification_model.program_step) ->
+    |> List.map (fun (t : Kr_domain_core_model.program_step) ->
            let guard =
              match t.guard_expr with
              | None -> "⊤"
              | Some g ->
                  g |> hexpr_of_expr
-                 |> Core_syntax.historical_of_history_free
+                 |> Kr_domain_core_syntax.historical_of_history_free
                  |> pretty_plain_dot_formula
            in
            Printf.sprintf "[%s] P[%s -> %s] %s" node_name t.src_state
@@ -43,10 +43,10 @@ let render_program_lines ~(node_name : ident)
   in
   states @ transitions
 
-let prepare_program_graph (node : Verification_model.node_model) =
+let prepare_program_graph (node : Kr_domain_core_model.node_model) =
   let transitions_from_state state_name =
     List.filter
-      (fun (step : Verification_model.program_step) ->
+      (fun (step : Kr_domain_core_model.program_step) ->
         String.equal step.src_state state_name)
       node.steps
   in
@@ -70,7 +70,7 @@ let prepare_program_graph (node : Verification_model.node_model) =
     List.concat_map
       (fun st ->
         transitions_from_state st
-        |> List.map (fun (t : Verification_model.program_step) ->
+        |> List.map (fun (t : Kr_domain_core_model.program_step) ->
                let guard =
                  match t.guard_expr with
                  | None -> "⊤"
@@ -87,7 +87,7 @@ let prepare_program_graph (node : Verification_model.node_model) =
   in
   (nodes, edges)
 
-let emit_program_dot ~(node_name : ident) (node : Verification_model.node_model) =
+let emit_program_dot ~(node_name : ident) (node : Kr_domain_core_model.node_model) =
   let nodes, edges = prepare_program_graph node in
   let buf = Buffer.create 1024 in
   Buffer.add_string buf "digraph ProgramAutomaton {\n";

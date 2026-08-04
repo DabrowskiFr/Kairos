@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Core_syntax
+open Kr_domain_core_syntax
 open Pipeline_cost_report_common
 
 let rec expr_size (e : expr) =

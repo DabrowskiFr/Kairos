@@ -1,0 +1,4 @@
+(test
+ (name automata_contract_tests)
+ (package kairos)
+ (libraries kr_engine))

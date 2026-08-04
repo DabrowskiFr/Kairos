@@ -24,11 +24,11 @@ type parse_info = {
 
 type output = {
   parse_info : parse_info;
-  verification_model : Kr_domain_core.Verification_model.program_model;
+  verification_model : Kr_domain_core.Kr_domain_core_model.program_model;
 }
 
 type diagnostic = {
-  loc : Kr_domain_core.Loc.loc option;
+  loc : Kr_domain_core.Kr_domain_core_locations.loc option;
   message : string;
 }
 

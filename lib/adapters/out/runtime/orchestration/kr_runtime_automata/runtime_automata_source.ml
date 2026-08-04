@@ -17,14 +17,14 @@
  *---------------------------------------------------------------------------*)
 
 type produced = {
-  automata : (Core_syntax.ident * Automaton_types.automata_spec) list;
-  automata_info : Kr_engine.Flow_info.automata_info;
+  automata : (Kr_domain_core_syntax.ident * Kr_verification_automata_types.automata_spec) list;
+  automata_info : Kr_engine.Kr_engine_flow_info.automata_info;
 }
 
 let ( let* ) = Result.bind
 
-let produce_with_spot (proof_case_program : Proof_case_program.t) :
-    (produced, Kr_engine.Pipeline_error.t) result =
+let produce_with_spot (proof_case_program : Kr_verification_cases.t) :
+    (produced, Kr_engine.Kr_engine_pipeline_error.t) result =
   try
     let build_automaton request =
       Kr_spot_adapter.Spot_automaton_builder.build
@@ -37,9 +37,9 @@ let produce_with_spot (proof_case_program : Proof_case_program.t) :
       Automata_generation.run proof_case_program
         ~build_automaton
       |> Result.map_error (fun message ->
-             Kr_engine.Pipeline_error.Flow_error message)
+             Kr_engine.Kr_engine_pipeline_error.Flow_error message)
     in
     Runtime_metrics.record_automata_generation
       ~elapsed_s:(Unix.gettimeofday () -. t_automata);
     Ok { automata; automata_info }
-  with exn -> Error (Kr_engine.Pipeline_error.Flow_error (Printexc.to_string exn))
+  with exn -> Error (Kr_engine.Kr_engine_pipeline_error.Flow_error (Printexc.to_string exn))

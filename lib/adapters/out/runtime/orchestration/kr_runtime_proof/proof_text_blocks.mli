@@ -21,4 +21,4 @@
 val join_with_spans :
   sep:string ->
   string list ->
-  string * Kr_engine.Pipeline_proof_types.text_span list
+  string * Kr_engine.Kr_engine_pipeline_proof_types.text_span list

@@ -30,7 +30,7 @@ let sanitize_csv_value value =
       | c -> c)
     value
 
-let solver_sum_s (goals : Kr_engine.Pipeline_proof_types.goal_info list) : float =
+let solver_sum_s (goals : Kr_engine.Kr_engine_pipeline_proof_types.goal_info list) : float =
   List.fold_left (fun acc (_, _, time_s, _, _) -> acc +. time_s) 0.0 goals
 
 let goal_status_is_pending (_, status, _, _, _) =

@@ -18,15 +18,15 @@
 
 (** C emission for enum declarations and node state/step functions. *)
 
-val emit_enum_decl : Core_syntax.enum_decl -> string list
-val emit_node_header : Verification_model.node_model -> string list
-val emit_init_function : Verification_model.node_model -> string list
-val method_prototype : Verification_model.node_model -> Core_syntax.method_decl -> string
+val emit_enum_decl : Kr_domain_core_syntax.enum_decl -> string list
+val emit_node_header : Kr_domain_core_model.node_model -> string list
+val emit_init_function : Kr_domain_core_model.node_model -> string list
+val method_prototype : Kr_domain_core_model.node_model -> Kr_domain_core_syntax.method_decl -> string
 val emit_method_definition :
   C_codegen_env.program_env ->
-  Verification_model.node_model ->
-  Core_syntax.method_decl ->
+  Kr_domain_core_model.node_model ->
+  Kr_domain_core_syntax.method_decl ->
   (string list, string) result
 
 val emit_step_function :
-  C_codegen_env.program_env -> Verification_model.node_model -> (string list, string) result
+  C_codegen_env.program_env -> Kr_domain_core_model.node_model -> (string list, string) result

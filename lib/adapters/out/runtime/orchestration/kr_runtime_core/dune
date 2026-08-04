@@ -1,6 +1,6 @@
 (library
  (name kr_runtime_core)
- (flags (:standard -open Kr_engine -open Kr_domain_core -open Kr_domain_verification -open Kr_verification_obligations -open Kr_verification_optimization -open Kr_runtime_telemetry))
+ (flags (:standard -open Kr_engine -open Kr_domain_core -open Kr_verification -open Kr_runtime_telemetry))
  (wrapped true)
 (modules
   result_utils
@@ -10,7 +10,5 @@
  (libraries
   kr_engine
   kr_domain_core
-  kr_domain_verification
-  kr_verification_obligations
-  kr_verification_optimization
+  kr_verification
   kr_runtime_telemetry))

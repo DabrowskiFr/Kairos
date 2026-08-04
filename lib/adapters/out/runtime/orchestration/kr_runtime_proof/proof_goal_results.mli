@@ -18,7 +18,7 @@
 
 module Contract = Kr_why3_contract.Why3_contract
 
-type progress = { emit : Kr_engine.Pipeline_proof_types.goal_info -> unit }
+type progress = { emit : Kr_engine.Kr_engine_pipeline_proof_types.goal_info -> unit }
 
 type t = {
   result_index : int;
@@ -35,7 +35,7 @@ val pending : index:int -> goal_name:string -> vcid:string option -> t
 
 val execute :
   progress:progress option ->
-  cfg:Kr_engine.Pipeline_config.config ->
+  cfg:Kr_engine.Kr_engine_pipeline_config.config ->
   ptree:Why3.Ptree.mlw_file ->
   split_vc:bool ->
   emit_vc_text:bool ->
@@ -47,4 +47,4 @@ val results_of_response :
   vc_ids_ordered:int list -> Contract.execution_response -> t list
 
 val vc_ids_from_result_indices : t list -> int list
-val to_goal_info : t -> Kr_engine.Pipeline_proof_types.goal_info
+val to_goal_info : t -> Kr_engine.Kr_engine_pipeline_proof_types.goal_info

@@ -16,24 +16,24 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Core_syntax
-open Core_syntax_builders
-open Pretty
+open Kr_domain_core_syntax
+open Kr_domain_core_syntax_builders
+open Kr_domain_render.Kr_domain_render_syntax
 open Automata_graph_dot
 open Automata_graph_format
 
-module PT = Product_types
+module PT = Kr_verification_product
 
 let string_of_state (s : PT.product_state) : string =
   Printf.sprintf "(%s, A%d, G%d)" s.prog_state
     s.assume_state_index s.guarantee_state_index
 
-let detailed_state (_analysis : Temporal_automata.node_data)
+let detailed_state (_analysis : Kr_verification_temporal_automata.node_data)
     (state : PT.product_state) =
   string_of_state state
 
 let render_product_lines ~(node_name : ident)
-    (analysis : Temporal_automata.node_data) =
+    (analysis : Kr_verification_temporal_automata.node_data) =
   let states =
     PT.states analysis.exploration
     |> List.map (fun st ->
@@ -83,7 +83,7 @@ let product_state_index_map (states : PT.product_state list) =
   List.iteri (fun i st -> Hashtbl.replace tbl st i) states;
   tbl
 
-let pretty_product_state (_analysis : Temporal_automata.node_data)
+let pretty_product_state (_analysis : Kr_verification_temporal_automata.node_data)
     (state : PT.product_state) : string =
   Printf.sprintf "(%s, A%s, G%s)" state.prog_state
     (subscript_digits state.assume_state_index)
@@ -92,7 +92,7 @@ let pretty_product_state (_analysis : Temporal_automata.node_data)
 let product_edge_color = "#222222"
 
 let product_node_fill (s : PT.product_state)
-    ~(analysis : Temporal_automata.node_data) =
+    ~(analysis : Kr_verification_temporal_automata.node_data) =
   if PT.compare_state s analysis.exploration.initial_state = 0 then
     ("#d9e8ff", "#3f6fb5")
   else ("white", "#6b7280")
@@ -100,9 +100,9 @@ let product_node_fill (s : PT.product_state)
 type merged_product_edge = {
   src : PT.product_state;
   dst : PT.product_state;
-  prog_guard : Core_syntax.historical Core_syntax.hexpr;
-  assume_guard : Core_syntax.historical Core_syntax.hexpr;
-  guarantee_guard : Core_syntax.historical Core_syntax.hexpr;
+  prog_guard : Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr;
+  assume_guard : Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr;
+  guarantee_guard : Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr;
 }
 
 type product_edge_visual = {
@@ -111,7 +111,7 @@ type product_edge_visual = {
 }
 
 let merge_product_steps_for_dot
-    (analysis : Temporal_automata.node_data) : merged_product_edge list =
+    (analysis : Kr_verification_temporal_automata.node_data) : merged_product_edge list =
   let tbl = Hashtbl.create 64 in
   List.iter
     (fun (prefix : PT.product_prefix) ->
@@ -165,7 +165,7 @@ let merge_product_steps_for_dot
 let product_edge_visual : product_edge_visual =
   { color = product_edge_color; style = "solid" }
 
-let prepare_product_graph (analysis : Temporal_automata.node_data) =
+let prepare_product_graph (analysis : Kr_verification_temporal_automata.node_data) =
   let states = PT.states analysis.exploration in
   let state_indices = product_state_index_map states in
   let nodes =
@@ -234,7 +234,7 @@ let prepare_product_graph (analysis : Temporal_automata.node_data) =
   in
   (nodes, edges, List.rev !detail_rev, anchor)
 
-let emit_product_dot (analysis : Temporal_automata.node_data) =
+let emit_product_dot (analysis : Kr_verification_temporal_automata.node_data) =
   let nodes, edges, transition_defs, anchor = prepare_product_graph analysis in
   let buf = Buffer.create 2048 in
   Buffer.add_string buf "digraph Product {\n";

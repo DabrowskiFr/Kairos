@@ -21,10 +21,10 @@ open Why_compile_expr
 open Why_compile_ptree_helpers
 
 module Obligations =
-  Kr_verification_obligations.Verification_obligations
+  Kr_verification.Kr_verification_obligations
 
 module Proof_ir =
-  Kr_verification_obligations.Verification_proof_ir
+  Kr_verification.Kr_verification_proof_ir
 
 let formula_term_with_rec formula_sharing env rec_name formula =
   Why_compile_formula_sharing.compile formula_sharing

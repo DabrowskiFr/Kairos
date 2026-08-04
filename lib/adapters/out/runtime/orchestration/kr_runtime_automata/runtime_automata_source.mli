@@ -24,10 +24,10 @@
     correction kernel. *)
 
 type produced = {
-  automata : (Core_syntax.ident * Automaton_types.automata_spec) list;
-  automata_info : Kr_engine.Flow_info.automata_info;
+  automata : (Kr_domain_core_syntax.ident * Kr_verification_automata_types.automata_spec) list;
+  automata_info : Kr_engine.Kr_engine_flow_info.automata_info;
 }
 
 val produce_with_spot :
-  Proof_case_program.t ->
-  (produced, Kr_engine.Pipeline_error.t) result
+  Kr_verification_cases.t ->
+  (produced, Kr_engine.Kr_engine_pipeline_error.t) result

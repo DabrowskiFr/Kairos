@@ -78,11 +78,11 @@ val ir_pretty_dump :
 
 val surface_dump :
   input_file:string ->
-  (string, Kr_engine.Api.Contract.error) result
+  (string, Kr_engine.Kr_engine_contract.error) result
 
 val elaborated_dump :
   input_file:string ->
-  (string, Kr_engine.Api.Contract.error) result
+  (string, Kr_engine.Kr_engine_contract.error) result
 
 val frontend_check :
   input_file:string ->

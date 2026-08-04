@@ -31,32 +31,32 @@ let flow_meta_json ~proof_optimizations infos =
                json_assoc (List.map (fun (k, v) -> (k, json_string v)) fields) );
            ])
 
-let proof_optimizations_json (opts : Kr_engine.Pipeline_config.proof_optimizations) =
+let proof_optimizations_json (opts : Kr_engine.Kr_engine_pipeline_config.proof_optimizations) =
   json_assoc
     [
       ( "proof_case_decomposition_strategy",
         json_string
-          (Kr_engine.Pipeline_config.string_of_proof_case_decomposition_strategy
+          (Kr_engine.Kr_engine_pipeline_config.string_of_proof_case_decomposition_strategy
              opts.verification.proof_case_decomposition_strategy) );
       ( "reachability_strategy",
         json_string
-          (Kr_engine.Pipeline_config.string_of_reachability_strategy
+          (Kr_engine.Kr_engine_pipeline_config.string_of_reachability_strategy
              opts.verification.reachability_strategy) );
       ( "group_step_contracts",
         json_bool
-          (Kr_engine.Pipeline_config.groups_step_contracts
+          (Kr_engine.Kr_engine_pipeline_config.groups_step_contracts
              opts.verification.proof_plan_strategy) );
       ( "deduplicate_obligation_conditions",
         json_bool
-          (Kr_engine.Pipeline_config.deduplicates_obligation_conditions
+          (Kr_engine.Kr_engine_pipeline_config.deduplicates_obligation_conditions
              opts.verification.proof_plan_strategy) );
       ( "share_contract_formulas",
         json_bool
-          (Kr_engine.Pipeline_config.shares_contract_formulas
+          (Kr_engine.Kr_engine_pipeline_config.shares_contract_formulas
              opts.verification.proof_plan_strategy) );
       ( "bundle_individual_postconditions",
         json_bool
-          (Kr_engine.Pipeline_config.bundles_individual_postconditions
+          (Kr_engine.Kr_engine_pipeline_config.bundles_individual_postconditions
              opts.verification.proof_plan_strategy) );
     ]
 

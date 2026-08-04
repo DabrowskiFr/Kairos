@@ -1,0 +1,4 @@
+(test
+ (name inbound_ports_tests)
+ (package kairos)
+ (libraries kr_engine))

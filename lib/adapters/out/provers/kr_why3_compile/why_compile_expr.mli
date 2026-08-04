@@ -36,8 +36,8 @@ type env = {
   rec_name : string;
   rec_vars : string list;
   ref_vars : string list;
-  input_vars : Core_syntax.vdecl list;
-  methods : Core_syntax.method_decl list;
+  input_vars : Kr_domain_core_syntax.vdecl list;
+  methods : Kr_domain_core_syntax.method_decl list;
   used_inputs : used_inputs ref option;
 }
 
@@ -71,32 +71,32 @@ val term_eq : Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
 val term_implies : Why3.Ptree.term -> Why3.Ptree.term -> Why3.Ptree.term
 
 (** Translates a Kairos type into the corresponding Why3 type. *)
-val default_pty : Core_syntax.ty -> Why3.Ptree.pty
+val default_pty : Kr_domain_core_syntax.ty -> Why3.Ptree.pty
 
 (** [field env name] builds the expression [vars.name]. *)
-val field : env -> Core_syntax.ident -> Why3.Ptree.expr
+val field : env -> Kr_domain_core_syntax.ident -> Why3.Ptree.expr
 
 (** Tests whether a variable name is stored in the record. *)
-val is_rec_var : env -> Core_syntax.ident -> bool
-val is_ref_var : env -> Core_syntax.ident -> bool
-val ref_contents_expr : Core_syntax.ident -> Why3.Ptree.expr
+val is_rec_var : env -> Kr_domain_core_syntax.ident -> bool
+val is_ref_var : env -> Kr_domain_core_syntax.ident -> bool
+val ref_contents_expr : Kr_domain_core_syntax.ident -> Why3.Ptree.expr
 
 (** [term_of_var env name] builds the term for variable [name]. *)
-val term_of_var : env -> Core_syntax.ident -> Why3.Ptree.term
+val term_of_var : env -> Kr_domain_core_syntax.ident -> Why3.Ptree.term
 
 (** [compile_expr env e] compiles an immediate Kairos expression to a Why3
     expression. Local and output variables are accessed through the [vars]
     record; inputs are direct parameters. *)
-val compile_expr : env -> Core_syntax.expr -> Why3.Ptree.expr
+val compile_expr : env -> Kr_domain_core_syntax.expr -> Why3.Ptree.expr
 
 (** [compile_term env e] compiles an immediate Kairos expression to a Why3
     term (logical form, used inside contracts). *)
-val compile_term : env -> Core_syntax.expr -> Why3.Ptree.term
+val compile_term : env -> Kr_domain_core_syntax.expr -> Why3.Ptree.term
 
 (** [compile_hexpr env f] compiles a canonical first-order formula from the IR
     to a Why3 term. *)
 val compile_hexpr :
-  env -> Core_syntax.history_free Core_syntax.hexpr -> Why3.Ptree.term
+  env -> Kr_domain_core_syntax.history_free Kr_domain_core_syntax.hexpr -> Why3.Ptree.term
 
 val compile_method_post :
-  env -> Core_syntax.history_free Core_syntax.hexpr -> Why3.Ptree.term
+  env -> Kr_domain_core_syntax.history_free Kr_domain_core_syntax.hexpr -> Why3.Ptree.term

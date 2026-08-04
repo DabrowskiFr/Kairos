@@ -22,16 +22,16 @@
     transitions), not at proof internals. *)
 
 (** Render one normalized transition. *)
-val render_transition : ?indent:int -> Ir.transition -> string
+val render_transition : ?indent:int -> Kr_verification_ir.transition -> string
 
 (** Render one IR node in "program view". *)
 val render_node :
-  ?source_program:Verification_model.program_model option ->
-  'phase Ir.node_ir ->
+  ?source_program:Kr_domain_core_model.program_model option ->
+  'phase Kr_verification_ir.node_ir ->
   string
 
 (** Render a full IR program in "program view". *)
 val render_program :
-  ?source_program:Verification_model.program_model option ->
-  'phase Ir.node_ir list ->
+  ?source_program:Kr_domain_core_model.program_model option ->
+  'phase Kr_verification_ir.node_ir list ->
   string

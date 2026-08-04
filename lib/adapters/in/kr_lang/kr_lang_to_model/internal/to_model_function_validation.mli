@@ -23,6 +23,6 @@
     contracts. *)
 
 val validate_function_decls :
-  Kr_domain_core.Core_syntax.enum_decl list -> Kr_domain_core.Core_syntax.pure_function_decl list -> unit
+  Kr_domain_core.Kr_domain_core_syntax.enum_decl list -> Kr_domain_core.Kr_domain_core_syntax.pure_function_decl list -> unit
 (** Validate all declarations together so calls between functions can be
     checked. Raises a typed frontend error on failure. *)

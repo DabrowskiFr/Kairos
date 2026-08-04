@@ -1,0 +1,155 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frédéric Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+
+open Kr_domain_core_syntax
+
+type program_step = {
+  src_state : ident;
+  dst_state : ident;
+  guard_expr : expr option;
+  body_stmts : stmt list;
+  elaboration_checks : historical hexpr list;
+}
+
+type state_invariant = {
+  state : ident;
+  formula : historical hexpr;
+}
+
+type node_model = {
+  node_name : ident;
+  type_decls : enum_decl list;
+  function_decls : pure_function_decl list;
+  methods : method_decl list;
+  inputs : vdecl list;
+  outputs : vdecl list;
+  locals : vdecl list;
+  ghosts : vdecl list;
+  public_ghosts : ident list;
+  states : ident list;
+  init_state : ident;
+  steps : program_step list;
+  assumes : ltl list;
+  guarantees : ltl list;
+  state_invariants : state_invariant list;
+}
+
+type program_model = node_model list
+
+type guard_formula =
+  | GTrue
+  | GFalse
+  | GExpr of expr
+
+let guard_formula_of_expr (e : expr) : guard_formula =
+  match e.expr with
+  | ELitBool true -> GTrue
+  | ELitBool false -> GFalse
+  | _ -> GExpr e
+
+let guard_formula_of_guard = function
+  | None -> GTrue
+  | Some g -> guard_formula_of_expr g
+
+let expr_of_formula = function
+  | GExpr e -> e
+  | GTrue -> Kr_domain_core_syntax_builders.mk_bool true
+  | GFalse -> Kr_domain_core_syntax_builders.mk_bool false
+
+let guard_of_formula = function
+  | GTrue -> None
+  | GFalse -> Some (Kr_domain_core_syntax_builders.mk_bool false)
+  | GExpr e -> Some e
+
+let not_formula = function
+  | GTrue -> GFalse
+  | GFalse -> GTrue
+  | GExpr e -> GExpr (Kr_domain_core_syntax_builders.mk_expr (EUn (Not, e)))
+
+let and_formula a b =
+  match (a, b) with
+  | GFalse, _ | _, GFalse -> GFalse
+  | GTrue, x | x, GTrue -> x
+  | _ ->
+      GExpr
+        (Kr_domain_core_syntax_builders.mk_expr
+           (EBin (And, expr_of_formula a, expr_of_formula b)))
+
+let or_formula a b =
+  match (a, b) with
+  | GTrue, _ | _, GTrue -> GTrue
+  | GFalse, x | x, GFalse -> x
+  | _ ->
+      GExpr
+        (Kr_domain_core_syntax_builders.mk_expr
+           (EBin (Or, expr_of_formula a, expr_of_formula b)))
+
+let prioritized_steps (steps : program_step list) : program_step list =
+  let previous_guards_by_src : (ident, guard_formula) Hashtbl.t = Hashtbl.create 16 in
+  steps
+  |> List.map (fun (step : program_step) ->
+         let original_guard = guard_formula_of_guard step.guard_expr in
+         let previous_guard =
+           Hashtbl.find_opt previous_guards_by_src step.src_state
+           |> Option.value ~default:GFalse
+         in
+         let effective_guard = and_formula original_guard (not_formula previous_guard) in
+         let updated_previous_guard = or_formula previous_guard original_guard in
+         Hashtbl.replace previous_guards_by_src step.src_state updated_previous_guard;
+         ({ step with guard_expr = guard_of_formula effective_guard } : program_step))
+
+let original_guards_by_state (steps : program_step list) : (ident, guard_formula) Hashtbl.t =
+  let tbl = Hashtbl.create 16 in
+  List.iter
+    (fun (step : program_step) ->
+      let previous =
+        Hashtbl.find_opt tbl step.src_state |> Option.value ~default:GFalse
+      in
+      let guard = guard_formula_of_guard step.guard_expr in
+      Hashtbl.replace tbl step.src_state (or_formula previous guard))
+    steps;
+  tbl
+
+let implicit_default_step ~(original_guards : (ident, guard_formula) Hashtbl.t)
+    (state : ident) : program_step option =
+  let any_explicit_guard =
+    Hashtbl.find_opt original_guards state |> Option.value ~default:GFalse
+  in
+  match not_formula any_explicit_guard with
+  | GFalse -> None
+  | default_guard ->
+      Some
+        {
+          src_state = state;
+          dst_state = state;
+          guard_expr = guard_of_formula default_guard;
+          body_stmts = [];
+          elaboration_checks = [];
+        }
+
+let implicit_default_steps ~(states : ident list) (steps : program_step list) :
+    program_step list =
+  let original_guards = original_guards_by_state steps in
+  List.filter_map (implicit_default_step ~original_guards) states
+
+let normalize_node_semantics (node : node_model) : node_model =
+  let explicit_steps = prioritized_steps node.steps in
+  {
+    node with
+    steps = explicit_steps @ implicit_default_steps ~states:node.states node.steps;
+  }

@@ -16,10 +16,10 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Core_syntax
-open Core_syntax_builders
+open Kr_domain_core_syntax
+open Kr_domain_core_syntax_builders
 
-module Automata_exchange = Kr_automata_contract.Kr_automata_contract_api.Automata_exchange
+module Automata_exchange = Kr_engine.Kr_engine_automata_contract
 
 let ( let* ) = Result.bind
 
@@ -27,7 +27,7 @@ let build_prepared_formula
     ~(build_automaton :
        Automata_exchange.request -> Automata_exchange.response)
     (prepared : Automata_preparation.prepared_formula) :
-    (Automaton_types.deterministic_partial_monitor, string) result =
+    (Kr_verification_automata_types.deterministic_partial_monitor, string) result =
   let monitor =
     Automata_exchange_adapter.request_of_core
       ~atom_map:prepared.atoms prepared.formula
@@ -38,7 +38,7 @@ let build_prepared_formula
   Ok monitor
 
 let trivial_assumption_monitor :
-    Automaton_types.deterministic_partial_monitor =
+    Kr_verification_automata_types.deterministic_partial_monitor =
   {
     initial_state = 0;
     state_count = 1;
@@ -49,7 +49,7 @@ let build_prepared_node
     ~(build_automaton :
        Automata_exchange.request -> Automata_exchange.response)
     (prepared : Automata_preparation.prepared_node) :
-    (Automaton_types.automata_spec, string) result =
+    (Kr_verification_automata_types.automata_spec, string) result =
   let* guarantee_monitor =
     build_prepared_formula ~build_automaton prepared.guarantee
   in
@@ -61,27 +61,27 @@ let build_prepared_node
   in
   Ok
     {
-      Automaton_types.guarantee_monitor;
+      Kr_verification_automata_types.guarantee_monitor;
       assume_monitor;
     }
 
-let run (proof_case_program : Proof_case_program.t)
+let run (proof_case_program : Kr_verification_cases.t)
     ~(build_automaton :
        Automata_exchange.request -> Automata_exchange.response) :
-    ( (ident * Automaton_types.automata_spec) list
-      * Kr_engine.Flow_info.automata_info,
+    ( (ident * Kr_verification_automata_types.automata_spec) list
+      * Kr_engine.Kr_engine_flow_info.automata_info,
       string )
     result =
   let* prepared_nodes =
     Automata_preparation.prepare_program
-      (Proof_case_program.program proof_case_program)
+      (Kr_verification_cases.program proof_case_program)
   in
   let rec build_nodes automata_rev state_count edge_count = function
     | [] ->
         Ok
           ( List.rev automata_rev,
             {
-              Kr_engine.Flow_info.residual_state_count = state_count;
+              Kr_engine.Kr_engine_flow_info.residual_state_count = state_count;
               residual_edge_count = edge_count;
               warnings = [];
             } )

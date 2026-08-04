@@ -224,10 +224,10 @@ def check_hexagonal_engine(repo: Path) -> list[str]:
         ],
     )
 
-    api = text(repo / "lib/engine/kr_engine/api.mli")
-    if not re.search(r"module\s+Contract\s*=\s*Engine_contract", api):
+    contract = text(repo / "lib/engine/kr_engine/kr_engine_contract.mli")
+    if not re.search(r"include\s+module\s+type\s+of\s+Kr_engine_pipeline_config", contract):
         violations.append(
-            "lib/engine/kr_engine/api.mli must expose Engine_contract as its public contract"
+            "lib/engine/kr_engine/kr_engine_contract.mli must expose the engine contract"
         )
     violations += require_absent(
         repo,
@@ -237,10 +237,10 @@ def check_hexagonal_engine(repo: Path) -> list[str]:
         ],
     )
     for module_name in (
-        "pipeline_config",
-        "pipeline_error",
-        "pipeline_proof_types",
-        "pipeline_artifacts",
+        "kr_engine_pipeline_config",
+        "kr_engine_pipeline_error",
+        "kr_engine_pipeline_proof_types",
+        "kr_engine_pipeline_artifacts",
     ):
         for suffix in (".ml", ".mli"):
             required = (
@@ -253,9 +253,9 @@ def check_hexagonal_engine(repo: Path) -> list[str]:
                     f"missing canonical engine contract {required.relative_to(repo)}"
                 )
     required_boundaries = [
-        "lib/engine/kr_engine/inbound_port.mli",
-        "lib/engine/kr_engine/outbound_ports.mli",
-        "lib/engine/kr_engine/use_cases.mli",
+        "lib/engine/kr_engine/kr_engine_inbound_port.mli",
+        "lib/engine/kr_engine/kr_engine_outbound_ports.mli",
+        "lib/engine/kr_engine/kr_engine_use_cases.mli",
         "lib/composition/kr_composition/dune",
         "lib/adapters/out/runtime/orchestration/kr_runtime_ports/dune",
     ]
@@ -332,8 +332,8 @@ def check_correction_dependencies(repo: Path) -> list[str]:
     violations += require_absent(
         repo,
         [
-            "lib/domain/kr_domain_verification/automata_generation.ml",
-            "lib/domain/kr_domain_verification/automata_generation.mli",
+            "lib/domain/kr_verification/automata_generation.ml",
+            "lib/domain/kr_verification/automata_generation.mli",
             "lib/domain/kr_domain_core/ir.ml",
             "lib/domain/kr_domain_core/ir.mli",
             "lib/domain/kr_domain_core/ir_shared_types.ml",
@@ -346,9 +346,9 @@ def check_correction_dependencies(repo: Path) -> list[str]:
             "lib/domain/kr_domain_core/log.mli",
         ],
     )
-    for module_name in ("ir", "ir_shared_types", "ir_formula", "ir_transition"):
+    for module_name in ("kr_verification_ir",):
         for suffix in (".ml", ".mli"):
-            required = repo / "lib/domain/kr_domain_verification" / f"{module_name}{suffix}"
+            required = repo / "lib/domain/kr_verification" / f"{module_name}{suffix}"
             if not required.is_file():
                 violations.append(
                     f"verification IR module is missing: {required.relative_to(repo)}"

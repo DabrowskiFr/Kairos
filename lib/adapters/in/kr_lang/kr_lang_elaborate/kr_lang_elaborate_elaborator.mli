@@ -21,7 +21,7 @@
     It validates surface-only constructs, expands indexed declarations and
     finite loops or quantifiers, orders observers, introduces required private
     ghosts, infers method effects, and lowers nodes to [Kr_lang_core.Kr_lang_core_ast]. Parsing and the
-    later translation to [Kr_domain_core.Verification_model] are outside this module. *)
+    later translation to [Kr_domain_core.Kr_domain_core_model] are outside this module. *)
 
 type source = {
   type_decls : Kr_lang_core.Kr_lang_core_syntax.enum_decl list;

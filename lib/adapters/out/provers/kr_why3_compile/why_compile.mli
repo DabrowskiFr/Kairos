@@ -21,7 +21,7 @@
     This module exposes only the entry point needed by the proof pipeline.
     Node-local WhyML construction details remain private and may not alter the
     completed
-    {!Kr_verification_obligations.Verification_proof_ir.t}. *)
+    {!Kr_verification.Kr_verification_proof_ir.t}. *)
 
 type compiled_proof_unit = {
   generated_symbol : string;
@@ -41,6 +41,6 @@ type compilation = {
 
 val compile_program_ast :
   proof_plans:
-    Kr_verification_obligations.Verification_proof_ir.t list ->
+    Kr_verification.Kr_verification_proof_ir.t list ->
   unit ->
   compilation

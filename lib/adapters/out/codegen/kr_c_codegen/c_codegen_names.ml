@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module C = Core_syntax
+module C = Kr_domain_core_syntax
 module StringSet = C_codegen_common.StringSet
 
 let c_keywords =
@@ -95,7 +95,7 @@ let zero_value = function
 
 let enum_type_name name = sanitize_ident name ^ "_t"
 let enum_ctor_name type_name ctor = "KAIROS_" ^ upper_ident type_name ^ "_" ^ upper_ident ctor
-let node_base_name (node : Verification_model.node_model) = sanitize_ident node.node_name
+let node_base_name (node : Kr_domain_core_model.node_model) = sanitize_ident node.node_name
 let state_type_name node = node_base_name node ^ "_state_t"
 let control_state_type_name node = node_base_name node ^ "_control_state_t"
 let init_function_name node = node_base_name node ^ "_init"

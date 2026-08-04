@@ -20,5 +20,5 @@
 
 val build :
   ?record_elapsed:(float -> unit) ->
-  Kr_automata_contract.Kr_automata_contract_api.Automata_exchange.request ->
-  Kr_automata_contract.Kr_automata_contract_api.Automata_exchange.response
+  Kr_engine.Kr_engine_automata_contract.request ->
+  Kr_engine.Kr_engine_automata_contract.response

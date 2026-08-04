@@ -1,6 +1,6 @@
 (library
  (name kr_why3_compile)
- (flags (:standard -open Kr_domain_core -open Kr_domain_verification -open Kr_verification_obligations))
+ (flags (:standard -open Kr_domain_core -open Kr_verification))
  (wrapped true)
 (modules
   why_compile_expr
@@ -17,6 +17,5 @@
   why_compile_step)
  (libraries
   kr_domain_core
-  kr_domain_verification
-  kr_verification_obligations
+  kr_verification
   why3))

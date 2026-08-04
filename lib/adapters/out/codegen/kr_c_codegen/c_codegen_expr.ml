@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module C = Core_syntax
+module C = Kr_domain_core_syntax
 module Common = C_codegen_common
 module Env = C_codegen_env
 module Names = C_codegen_names

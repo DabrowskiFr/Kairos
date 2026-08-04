@@ -17,24 +17,24 @@
  *---------------------------------------------------------------------------*)
 
 module Proof_ir =
-  Kr_verification_obligations.Verification_proof_ir
+  Kr_verification.Kr_verification_proof_ir
 
 type run_output = {
   why_text : string;
   why_spans : (int * (int * int)) list;
   vc_text : string;
-  vc_spans_ordered : Kr_engine.Pipeline_proof_types.text_span list;
+  vc_spans_ordered : Kr_engine.Kr_engine_pipeline_proof_types.text_span list;
   smt_text : string;
-  smt_spans_ordered : Kr_engine.Pipeline_proof_types.text_span list;
+  smt_spans_ordered : Kr_engine.Kr_engine_pipeline_proof_types.text_span list;
   vc_ids_ordered : int list;
-  vc_locs : (int * Loc.loc) list;
-  vc_locs_ordered : Loc.loc list;
-  goals : Kr_engine.Pipeline_proof_types.goal_info list;
-  proof_traces : Kr_engine.Pipeline_proof_types.proof_trace list;
+  vc_locs : (int * Kr_domain_core_locations.loc) list;
+  vc_locs_ordered : Kr_domain_core_locations.loc list;
+  goals : Kr_engine.Kr_engine_pipeline_proof_types.goal_info list;
+  proof_traces : Kr_engine.Kr_engine_pipeline_proof_types.proof_trace list;
 }
 
-let run ~(cfg : Kr_engine.Pipeline_config.config) ~(proof_plans : Proof_ir.t list) :
-    (run_output, Kr_engine.Pipeline_error.t) result =
+let run ~(cfg : Kr_engine.Kr_engine_pipeline_config.config) ~(proof_plans : Proof_ir.t list) :
+    (run_output, Kr_engine.Kr_engine_pipeline_error.t) result =
   try
     let progress = Proof_progress_output.open_csv cfg.proof_progress_path in
     let t_why_gen = Unix.gettimeofday () in
@@ -135,4 +135,4 @@ let run ~(cfg : Kr_engine.Pipeline_config.config) ~(proof_plans : Proof_ir.t lis
           goals;
           proof_traces;
         }
-  with exn -> Error (Kr_engine.Pipeline_error.Flow_error (Printexc.to_string exn))
+  with exn -> Error (Kr_engine.Kr_engine_pipeline_error.Flow_error (Printexc.to_string exn))

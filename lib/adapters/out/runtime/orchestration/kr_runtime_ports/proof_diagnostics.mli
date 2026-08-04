@@ -20,12 +20,12 @@
 
 val generic_diagnostic_for_status :
   status:string ->
-  Kr_engine.Pipeline_proof_types.proof_diagnostic ->
-  Kr_engine.Pipeline_proof_types.proof_diagnostic
+  Kr_engine.Kr_engine_pipeline_proof_types.proof_diagnostic ->
+  Kr_engine.Kr_engine_pipeline_proof_types.proof_diagnostic
 
 (** [apply_goal_results_to_outputs] service entrypoint. *)
 
 val apply_goal_results_to_outputs :
-  out:Kr_engine.Pipeline_artifacts.outputs ->
+  out:Kr_engine.Kr_engine_pipeline_artifacts.outputs ->
   goal_results:(int * string * string * float * string option * string option) list ->
-  Kr_engine.Pipeline_artifacts.outputs
+  Kr_engine.Kr_engine_pipeline_artifacts.outputs

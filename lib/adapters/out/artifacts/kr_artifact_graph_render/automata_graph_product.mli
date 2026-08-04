@@ -18,9 +18,9 @@
 
 (** Product-automaton graph renderer. *)
 
-val emit_product_dot : Temporal_automata.node_data -> string
+val emit_product_dot : Kr_verification_temporal_automata.node_data -> string
 
 val render_product_lines :
-  node_name:Core_syntax.ident ->
-  Temporal_automata.node_data ->
+  node_name:Kr_domain_core_syntax.ident ->
+  Kr_verification_temporal_automata.node_data ->
   string list

@@ -21,7 +21,7 @@
     This module computes graph and summary counters from IR nodes and product
     analyses to populate flow metadata used by outputs and evaluation tools. *)
 
-open Core_syntax
+open Kr_domain_core_syntax
 (** Helper value. *)
 
 let ( let* ) = Result.bind
@@ -32,8 +32,8 @@ module Info_helpers = Instrumentation_info_helpers
 
 (** [instrumentation_info_of_node] helper value. *)
 
-let instrumentation_info_of_node ~(analyses : (ident * Temporal_automata.node_data) list)
-    (node : Core_syntax.history_free Ir.node_ir) : (Kr_engine.Flow_info.instrumentation_info, string) result =
+let instrumentation_info_of_node ~(analyses : (ident * Kr_verification_temporal_automata.node_data) list)
+    (node : Kr_domain_core_syntax.history_free Kr_verification_ir.node_ir) : (Kr_engine.Kr_engine_flow_info.instrumentation_info, string) result =
   let* analysis = Info_helpers.analysis_of_node ~analyses node in
   let require_automata_state_count =
     analysis.assume_monitor.state_count
@@ -48,10 +48,10 @@ let instrumentation_info_of_node ~(analyses : (ident * Temporal_automata.node_da
     List.length analysis.guarantee_monitor.transitions
   in
   let product_edge_count =
-    Product_types.step_count analysis.exploration
+    Kr_verification_product.step_count analysis.exploration
   in
   let product_state_count =
-    List.length (Product_types.states analysis.exploration)
+    List.length (Kr_verification_product.states analysis.exploration)
   in
   let canonical_summary_count = List.length node.summaries in
   let canonical_product_case_count =
@@ -59,7 +59,7 @@ let instrumentation_info_of_node ~(analyses : (ident * Temporal_automata.node_da
   in
   Ok
     {
-      Kr_engine.Flow_info.warnings = [];
+      Kr_engine.Kr_engine_flow_info.warnings = [];
       require_automata_state_count;
       require_automata_edge_count;
       ensures_automata_state_count;
@@ -73,12 +73,12 @@ let instrumentation_info_of_node ~(analyses : (ident * Temporal_automata.node_da
 (** [instrumentation_info_of_ir] helper value. *)
 
 let instrumentation_info_of_ir
-    ~(product_nodes : Orchestration.product_node list)
-    (program : Ir.program_ir)
-    : (Kr_engine.Flow_info.instrumentation_info, string) result =
+    ~(product_nodes : Kr_verification_orchestration.product_node list)
+    (program : Kr_verification_ir.program_ir)
+    : (Kr_engine.Kr_engine_flow_info.instrumentation_info, string) result =
   let analyses =
     List.map
-      (fun (node : Orchestration.product_node) ->
+      (fun (node : Kr_verification_orchestration.product_node) ->
         (node.proof_case.model.node_name, node.analysis))
       product_nodes
   in
@@ -88,4 +88,4 @@ let instrumentation_info_of_ir
   node_results |> Result_utils.all
   |> Result.map
        (List.fold_left Info_helpers.merge_instrumentation_info
-          Kr_engine.Flow_info.empty_instrumentation_info)
+          Kr_engine.Kr_engine_flow_info.empty_instrumentation_info)

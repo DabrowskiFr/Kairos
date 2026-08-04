@@ -20,7 +20,7 @@
 
 open Why3
 open Ptree
-open Core_syntax
+open Kr_domain_core_syntax
 open Why_compile_expr
 open Why_compile_ptree_helpers
 
@@ -34,7 +34,7 @@ let explicit_noop () =
          mk_expr (Econst (Constant.int_const (Why3.BigInt.of_int 0))),
          mk_expr (Etuple []) ))
 
-let rec compile_seq (env : env) (lst : Core_syntax.stmt list) : Ptree.expr =
+let rec compile_seq (env : env) (lst : Kr_domain_core_syntax.stmt list) : Ptree.expr =
   let compile_assignment x rhs =
     if is_rec_var env x then begin
       note_input env env.rec_name;
@@ -60,7 +60,7 @@ let rec compile_seq (env : env) (lst : Core_syntax.stmt list) : Ptree.expr =
       mk_expr (Eassign [ (mk_expr (Eident (qid1 x)), None, rhs) ])
     end
   in
-  let compile_stmt (stmt : Core_syntax.stmt) : Ptree.expr =
+  let compile_stmt (stmt : Kr_domain_core_syntax.stmt) : Ptree.expr =
     match stmt.stmt with
     | SSkip -> mk_expr (Etuple [])
     | SAssign (x, e) ->
@@ -167,7 +167,7 @@ let rec compile_seq (env : env) (lst : Core_syntax.stmt list) : Ptree.expr =
           :: List.map
                (fun (input : vdecl) ->
                  compile_expr env
-                   (Core_syntax_builders.mk_expr (EVar input.vname)))
+                   (Kr_domain_core_syntax_builders.mk_expr (EVar input.vname)))
                env.input_vars
         in
         let call =
@@ -189,7 +189,7 @@ let rec compile_seq (env : env) (lst : Core_syntax.stmt list) : Ptree.expr =
                    ( qid1 "ref",
                      [
                        compile_expr env
-                         (Core_syntax_builders.mk_expr (EVar name));
+                         (Kr_domain_core_syntax_builders.mk_expr (EVar name));
                      ] ))
             in
             mk_expr (Elet (ident temp, false, Expr.RKnone, initial, body)))
@@ -203,7 +203,7 @@ let rec compile_seq (env : env) (lst : Core_syntax.stmt list) : Ptree.expr =
         (Esequence
            (compile_stmt stmt, compile_seq env rest))
 
-let compile_transition_body (env : env) (t : Ir.transition) : Ptree.expr =
+let compile_transition_body (env : env) (t : Kr_verification_ir.transition) : Ptree.expr =
   note_input env env.rec_name;
   let assign_dst =
     mk_expr

@@ -23,6 +23,6 @@ type frontend_summary = {
 
 val source_diagnostics : filename:string -> text:string -> source_diagnostic list
 val semantic_symbols : filename:string -> text:string -> semantic_symbols option
-val surface_dump : input_file:string -> (string, Kr_engine.Api.Contract.error) result
-val elaborated_dump : input_file:string -> (string, Kr_engine.Api.Contract.error) result
-val frontend_summary : input_file:string -> (frontend_summary, Kr_engine.Api.Contract.error) result
+val surface_dump : input_file:string -> (string, Kr_engine.Kr_engine_contract.error) result
+val elaborated_dump : input_file:string -> (string, Kr_engine.Kr_engine_contract.error) result
+val frontend_summary : input_file:string -> (frontend_summary, Kr_engine.Kr_engine_contract.error) result

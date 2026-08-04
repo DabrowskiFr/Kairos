@@ -21,7 +21,7 @@
 
 open Why3
 open Ptree
-open Core_syntax
+open Kr_domain_core_syntax
 open Why_compile_expr
 open Why_compile_ptree_helpers
 

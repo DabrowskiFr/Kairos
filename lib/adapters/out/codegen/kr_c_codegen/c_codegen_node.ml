@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module C = Core_syntax
+module C = Kr_domain_core_syntax
 module Common = C_codegen_common
 module Env = C_codegen_env
 module Expr = C_codegen_expr
@@ -39,7 +39,7 @@ let node_control_enum node =
     List.mapi
       (fun index state ->
         Common.line 1 (Names.control_state_ctor node state ^ " = " ^ string_of_int index))
-      node.Verification_model.states
+      node.Kr_domain_core_model.states
   in
   [ "typedef enum {"; String.concat ",\n" ctors; "} " ^ Names.control_state_type_name node ^ ";" ]
 
@@ -49,7 +49,7 @@ let node_state_struct node =
     @ List.map
         (fun (v : C.vdecl) ->
           Common.line 1 (Names.c_type_name v.vty ^ " " ^ Names.field_name v ^ ";"))
-        (node.Verification_model.outputs @ node.locals @ node.ghosts)
+        (node.Kr_domain_core_model.outputs @ node.locals @ node.ghosts)
   in
   [ "typedef struct {" ] @ fields @ [ "} " ^ Names.state_type_name node ^ ";" ]
 
@@ -124,7 +124,7 @@ let emit_init_function node =
     List.map
       (fun (v : C.vdecl) ->
         Common.line 1 ("state->" ^ Names.field_name v ^ " = " ^ Names.zero_value v.vty ^ ";"))
-      (node.Verification_model.outputs @ node.locals @ node.ghosts)
+      (node.Kr_domain_core_model.outputs @ node.locals @ node.ghosts)
   in
   [
     "void " ^ Names.init_function_name node ^ "(" ^ Names.state_type_name node ^ " *state) {";
@@ -132,7 +132,7 @@ let emit_init_function node =
   ]
   @ field_init_lines @ [ "}" ]
 
-let emit_transition env level (step : Verification_model.program_step) =
+let emit_transition env level (step : Kr_domain_core_model.program_step) =
   let* body_lines = Stmt.emit_stmts env (level + 1) step.body_stmts in
   let finish_lines =
     [
@@ -152,7 +152,7 @@ let emit_transition env level (step : Verification_model.program_step) =
 
 let emit_state_case env steps state =
   let state_steps =
-    List.filter (fun (s : Verification_model.program_step) -> String.equal s.src_state state) steps
+    List.filter (fun (s : Kr_domain_core_model.program_step) -> String.equal s.src_state state) steps
   in
   let* transition_lines = Common.concat_map_result (emit_transition env 2) state_steps in
   Ok

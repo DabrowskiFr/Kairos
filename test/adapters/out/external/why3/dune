@@ -1,0 +1,9 @@
+(test
+ (name why3_contract_tests)
+ (package kairos)
+ (libraries kr_why3_contract))
+
+(test
+ (name why3_adapter_tests)
+ (package kairos)
+ (libraries kr_external_why3 kr_why3_contract))

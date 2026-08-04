@@ -22,15 +22,15 @@
     translated node. *)
 
 val lookup_constructor :
-  Kr_domain_core.Core_syntax.enum_decl list -> Kr_domain_core.Core_syntax.ident -> Kr_domain_core.Core_syntax.ty option
+  Kr_domain_core.Kr_domain_core_syntax.enum_decl list -> Kr_domain_core.Kr_domain_core_syntax.ident -> Kr_domain_core.Kr_domain_core_syntax.ty option
 (** Return the enum type that owns a constructor, if any. *)
 
-val validate_unique_type_decls : Kr_domain_core.Core_syntax.enum_decl list -> unit
+val validate_unique_type_decls : Kr_domain_core.Kr_domain_core_syntax.enum_decl list -> unit
 (** Check enum names, constructors and reserved-name constraints. *)
 
 val validate_function_decls :
-  Kr_domain_core.Core_syntax.enum_decl list -> Kr_domain_core.Core_syntax.pure_function_decl list -> unit
+  Kr_domain_core.Kr_domain_core_syntax.enum_decl list -> Kr_domain_core.Kr_domain_core_syntax.pure_function_decl list -> unit
 (** Type-check the complete set of pure-function declarations. *)
 
-val validate_node : Kr_domain_core.Verification_model.node_model -> unit
+val validate_node : Kr_domain_core.Kr_domain_core_model.node_model -> unit
 (** Check one translated node before it is exposed to the engine. *)

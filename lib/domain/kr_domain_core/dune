@@ -1,19 +1,14 @@
+(include_subdirs unqualified)
+
 (library
  (name kr_domain_core)
  (wrapped true)
-(modules
-  loc
-  core_syntax
-  core_syntax_builders
+ (private_modules
   core_fo_simplifier_keys
   core_fo_simplifier_bool
-  core_fo_simplifier
-  pretty
-  verification_model
-  historical_initialization
-  pre_k_layout
-  pre_k_lowering)
- (private_modules core_fo_simplifier_keys core_fo_simplifier_bool)
+  kr_domain_core_history_analysis
+  kr_domain_core_history_layout
+  kr_domain_core_history_lowering)
  (libraries yojson)
  (preprocess
   (pps ppx_deriving.show ppx_deriving_yojson)))

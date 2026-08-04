@@ -1,6 +1,6 @@
 (library
  (name kr_lang)
  (wrapped true)
- (libraries kr_lang_parse kr_lang_to_model kr_domain_verification)
+ (libraries kr_lang_parse kr_lang_to_model kr_verification)
  (preprocess
   (pps sedlex.ppx ppx_deriving_yojson)))

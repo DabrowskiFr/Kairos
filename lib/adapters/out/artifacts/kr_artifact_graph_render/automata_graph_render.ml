@@ -18,7 +18,7 @@
 
 (** Public facade for Graphviz renderers of contract-verification automata. *)
 
-open Core_syntax
+open Kr_domain_core_syntax
 
 type graph = {
   dot : string;
@@ -31,11 +31,11 @@ let qualify_lines ~node_name text =
   |> String.concat "\n"
 
 let monitor_labels
-    (monitor : Automaton_types.deterministic_partial_monitor) =
+    (monitor : Kr_verification_automata_types.deterministic_partial_monitor) =
   List.init monitor.state_count string_of_int
 
 let render_ensures_automaton ~(node_name : ident)
-    ~(analysis : Temporal_automata.node_data) : graph =
+    ~(analysis : Kr_verification_temporal_automata.node_data) : graph =
   let monitor = analysis.guarantee_monitor in
   let labels = monitor_labels monitor in
   let dot =
@@ -52,7 +52,7 @@ let render_ensures_automaton ~(node_name : ident)
   { dot; labels }
 
 let render_require_automaton ~(node_name : ident)
-    ~(analysis : Temporal_automata.node_data) : graph =
+    ~(analysis : Kr_verification_temporal_automata.node_data) : graph =
   let monitor = analysis.assume_monitor in
   let labels = monitor_labels monitor in
   let dot =
@@ -69,7 +69,7 @@ let render_require_automaton ~(node_name : ident)
   { dot; labels }
 
 let render_product ~(node_name : ident)
-    ~(analysis : Temporal_automata.node_data) : graph =
+    ~(analysis : Kr_verification_temporal_automata.node_data) : graph =
   let dot = Automata_graph_product.emit_product_dot analysis in
   let labels =
     Automata_graph_product.render_product_lines ~node_name analysis
@@ -78,7 +78,7 @@ let render_product ~(node_name : ident)
   { dot; labels }
 
 let render_program_automaton ~(node_name : ident)
-    ~(node : Verification_model.node_model) : graph =
+    ~(node : Kr_domain_core_model.node_model) : graph =
   let dot = Automata_graph_program.emit_program_dot ~node_name node in
   let labels =
     Automata_graph_program.render_program_lines ~node_name node

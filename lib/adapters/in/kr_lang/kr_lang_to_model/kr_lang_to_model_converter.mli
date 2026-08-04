@@ -26,10 +26,10 @@
 (** Translate and validate one elaborated node, using the surrounding type and
     pure-function declarations. *)
 val node :
-  type_decls:Kr_domain_core.Core_syntax.enum_decl list ->
-  function_decls:Kr_domain_core.Core_syntax.pure_function_decl list ->
+  type_decls:Kr_domain_core.Kr_domain_core_syntax.enum_decl list ->
+  function_decls:Kr_domain_core.Kr_domain_core_syntax.pure_function_decl list ->
   Kr_lang_core.Kr_lang_core_ast.node ->
-  Kr_domain_core.Verification_model.node_model
+  Kr_domain_core.Kr_domain_core_model.node_model
 
 (** Translate a complete elaborated program and attach the shared declarations
     to every resulting node model. *)
@@ -37,4 +37,4 @@ val program :
   ?type_decls:Kr_lang_core.Kr_lang_core_syntax.enum_decl list ->
   ?function_decls:Kr_lang_core.Kr_lang_core_syntax.pure_function_decl list ->
   Kr_lang_core.Kr_lang_core_ast.program ->
-  Kr_domain_core.Verification_model.program_model
+  Kr_domain_core.Kr_domain_core_model.program_model

@@ -73,17 +73,18 @@ LSP, solvers, or runtime code.
 
 ## Engine interfaces
 
-`kairos_engine` defines two sides of its boundary:
+`kr_engine` defines two sides of its boundary:
 
-- `Inbound_port` contains the operations that callers can ask Kairos to
+- `kr_engine_inbound_port` contains the operations that callers can ask Kairos to
   perform. It is an engine interface, not an adapter.
-- `Outbound_ports` contains the services that the engine needs in order to
+- `kr_engine_outbound_ports` contains the services that the engine needs in order to
   perform those operations. It currently separates verification from C
   generation.
 
-Incoming adapters such as the CLI and LSP call `Inbound_port`. The engine never
+Incoming adapters such as the CLI and LSP call `kr_engine_inbound_port`. The engine never
 calls an incoming adapter. Outgoing adapters implement services from
-`Outbound_ports`. `Use_cases` implements `Inbound_port` by calling the selected
+`kr_engine_outbound_ports`. `kr_engine_use_cases` implements
+`kr_engine_inbound_port` by calling the selected
 outbound services.
 
 Callers such as the CLI and LSP use a service built by a composition. They must

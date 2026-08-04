@@ -70,7 +70,7 @@ type ltl_o = {
 [@@deriving yojson]
 (** Temporal formula carrying a stable identifier and source location. *)
 
-type vdecl = Kr_domain_core.Core_syntax.vdecl = {
+type vdecl = Kr_domain_core.Kr_domain_core_syntax.vdecl = {
   vname : ident;
   vty : ty;
 }

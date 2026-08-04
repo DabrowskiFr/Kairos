@@ -37,7 +37,7 @@ let fmt_s = Engine_timing_fields.fmt_s
 
 let with_timing_flow_meta ~(t0 : float) ~(t_build_done : float)
     ~(snap_before : Runtime_metrics.snapshot)
-    (out : Kr_engine.Pipeline_artifacts.outputs) : Kr_engine.Pipeline_artifacts.outputs =
+    (out : Kr_engine.Kr_engine_pipeline_artifacts.outputs) : Kr_engine.Kr_engine_pipeline_artifacts.outputs =
   let t_end = Unix.gettimeofday () in
   let counters =
     Runtime_metrics.diff ~before:snap_before

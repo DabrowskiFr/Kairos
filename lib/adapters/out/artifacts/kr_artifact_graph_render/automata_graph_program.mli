@@ -19,11 +19,11 @@
 (** Program-control automaton graph renderer. *)
 
 val emit_program_dot :
-  node_name:Core_syntax.ident ->
-  Verification_model.node_model ->
+  node_name:Kr_domain_core_syntax.ident ->
+  Kr_domain_core_model.node_model ->
   string
 
 val render_program_lines :
-  node_name:Core_syntax.ident ->
-  Verification_model.node_model ->
+  node_name:Kr_domain_core_syntax.ident ->
+  Kr_domain_core_model.node_model ->
   string list

@@ -18,7 +18,7 @@
 
 (** Boolean implicant conversion local to the Spot adapter. *)
 
-module Automata_exchange = Kr_automata_contract.Kr_automata_contract_api.Automata_exchange
+module Automata_exchange = Kr_engine.Kr_engine_automata_contract
 
 type term = (string * bool option) list
 

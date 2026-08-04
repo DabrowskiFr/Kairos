@@ -58,7 +58,7 @@ val automata_log_enabled : bool
 (** Whether Spot debug logging is enabled by environment. *)
 
 val string_of_spot_ltl :
-  atom_names:string list -> Kr_automata_contract.Kr_automata_contract_api.Automata_exchange.ltl -> string
+  atom_names:string list -> Kr_engine.Kr_engine_automata_contract.ltl -> string
 (** Render a Kairos LTL formula into Spot syntax with the given atom map. *)
 
 val ensure_safety : record_elapsed:(float -> unit) -> string -> unit

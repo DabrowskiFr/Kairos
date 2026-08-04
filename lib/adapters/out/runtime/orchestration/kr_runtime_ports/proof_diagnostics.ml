@@ -17,8 +17,8 @@
  *---------------------------------------------------------------------------*)
 
 (** Proof diagnostics finalization used by the concrete engine flow. *)
-module Proof = Kr_engine.Pipeline_proof_types
-module Artifacts = Kr_engine.Pipeline_artifacts
+module Proof = Kr_engine.Kr_engine_pipeline_proof_types
+module Artifacts = Kr_engine.Kr_engine_pipeline_artifacts
 
 let generic_diagnostic_for_status ~(status : string)
     (diagnostic : Proof.proof_diagnostic) : Proof.proof_diagnostic =

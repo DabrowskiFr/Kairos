@@ -1,6 +1,6 @@
 (library
 (name kr_runtime_automata)
- (flags (:standard -open Kr_domain_core -open Kr_domain_verification -open Kr_verification_obligations -open Kr_verification_optimization -open Kr_engine -open Kr_runtime_core -open Kr_runtime_telemetry -open Kr_automata_contract.Kr_automata_contract_api -open Kr_spot_adapter -open Kr_why3_contract))
+ (flags (:standard -open Kr_domain_core -open Kr_verification -open Kr_engine -open Kr_runtime_core -open Kr_runtime_telemetry -open Kr_engine.Kr_engine_automata_contract -open Kr_spot_adapter -open Kr_why3_contract))
  (wrapped true)
 (modules
   automata_exchange_adapter
@@ -8,8 +8,8 @@
   runtime_automata_source)
  (libraries
   kr_domain_core
-  kr_domain_verification
+  kr_verification
   kr_runtime_core
-  kr_automata_contract
+  kr_engine
   kr_spot_adapter
   kr_runtime_telemetry))

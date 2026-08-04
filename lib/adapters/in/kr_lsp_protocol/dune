@@ -3,9 +3,3 @@
  (modules kr_lsp_protocol)
  (preprocess
   (pps ppx_deriving_yojson)))
-
-(test
- (name lsp_protocol_tests)
- (modules lsp_protocol_tests)
- (package kairos)
- (libraries kr_lsp_protocol))

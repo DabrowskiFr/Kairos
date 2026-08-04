@@ -18,12 +18,12 @@
 
 (** Cost-report syntax metrics over the Kairos core AST. *)
 
-val expr_size : Core_syntax.expr -> int
-val hexpr_size : 'phase Core_syntax.hexpr -> int
-val stmt_size : Core_syntax.stmt -> int
-val hexpr_max_pre_depth : 'phase Core_syntax.hexpr -> int
+val expr_size : Kr_domain_core_syntax.expr -> int
+val hexpr_size : 'phase Kr_domain_core_syntax.hexpr -> int
+val stmt_size : Kr_domain_core_syntax.stmt -> int
+val hexpr_max_pre_depth : 'phase Kr_domain_core_syntax.hexpr -> int
 val hexpr_free_variables :
-  'phase Core_syntax.hexpr -> Pipeline_cost_report_common.StringSet.t
-val ltl_size : Core_syntax.ltl -> int
-val ltl_temporal_depth : Core_syntax.ltl -> int
-val ltl_max_pre_depth : Core_syntax.ltl -> int
+  'phase Kr_domain_core_syntax.hexpr -> Pipeline_cost_report_common.StringSet.t
+val ltl_size : Kr_domain_core_syntax.ltl -> int
+val ltl_temporal_depth : Kr_domain_core_syntax.ltl -> int
+val ltl_max_pre_depth : Kr_domain_core_syntax.ltl -> int

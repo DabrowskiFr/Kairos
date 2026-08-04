@@ -19,19 +19,19 @@
 (** Mechanical WhyML translation of completed proof IRs.
 
     Logical grouping, factorization, and sharing decisions are owned by
-    {!Kr_verification_obligations.Verification_proof_ir}; this module only
+    {!Kr_verification.Kr_verification_proof_ir}; this module only
     orders their Why3 representation and builds the compilation manifest. *)
 
 open Why3
 
 module Proof_ir =
-  Kr_verification_obligations.Verification_proof_ir
+  Kr_verification.Kr_verification_proof_ir
 
 module Obligations =
-  Kr_verification_obligations.Verification_obligations
+  Kr_verification.Kr_verification_obligations
 
-module Step_contract_projection =
-  Kr_verification_obligations.Step_contract_projection
+module Kr_verification_step_contract =
+  Kr_verification.Kr_verification_step_contract
 
 module Bundles = Why_compile_bundles
 module Modules = Why_compile_modules
@@ -61,11 +61,11 @@ type node_compilation = {
   manifest : compiled_proof_unit list;
 }
 
-let product_state_source (state : Ir.product_state) =
+let product_state_source (state : Kr_verification_ir.product_state) =
   Printf.sprintf "(P=%s,A=%d,G=%d)" state.prog_state
     state.assume_state_index state.guarantee_state_index
 
-let transition_source (contract : Step_contract_projection.step_contract) =
+let transition_source (contract : Kr_verification_step_contract.step_contract) =
   Printf.sprintf "%s -> %s (%s)" contract.program_step.src_state
     contract.program_step.dst_state contract.transition_id
 
@@ -74,7 +74,7 @@ let individual_manifest ~node_name ~generated_symbol
     (plan : Proof_ir.individual) =
   let contract = plan.member.contract in
   let product_source =
-    Step_contract_projection.product_source contract
+    Kr_verification_step_contract.product_source contract
   in
   {
     generated_symbol;
@@ -103,7 +103,7 @@ let grouped_manifest ~node_name ~generated_symbol
     (List.hd plan.members).Obligations.contract
   in
   let product_source =
-    Step_contract_projection.product_source contract
+    Kr_verification_step_contract.product_source contract
   in
   {
     generated_symbol;

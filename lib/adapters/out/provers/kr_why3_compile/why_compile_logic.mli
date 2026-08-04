@@ -18,4 +18,4 @@
 
 (** Why3 pure-function compilation. *)
 
-val compile_pure_function_decl : Core_syntax.pure_function_decl -> Why3.Ptree.decl
+val compile_pure_function_decl : Kr_domain_core_syntax.pure_function_decl -> Why3.Ptree.decl

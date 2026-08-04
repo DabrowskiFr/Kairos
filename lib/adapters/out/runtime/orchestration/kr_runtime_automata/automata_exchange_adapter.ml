@@ -16,9 +16,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-open Core_syntax
-open Core_syntax_builders
-module Automata_exchange = Kr_automata_contract.Kr_automata_contract_api.Automata_exchange
+open Kr_domain_core_syntax
+open Kr_domain_core_syntax_builders
+module Automata_exchange = Kr_engine.Kr_engine_automata_contract
 
 type atom_map = (ltl_atom * ident) list
 
@@ -61,7 +61,7 @@ let rec hexpr_of_guard ~atom_map = function
       mk_hexpr (HBin (Or, hexpr_of_guard ~atom_map left, hexpr_of_guard ~atom_map right))
 
 let monitor_of_response ~atom_map (response : Automata_exchange.response) :
-    Automaton_types.deterministic_partial_monitor =
+    Kr_verification_automata_types.deterministic_partial_monitor =
   (match Automata_exchange.validate_response response with
   | Ok () -> ()
   | Error message -> invalid_arg message);
@@ -76,7 +76,7 @@ let monitor_of_response ~atom_map (response : Automata_exchange.response) :
       monitor.transitions
   in
   {
-    Automaton_types.initial_state = monitor.initial_state;
+    Kr_verification_automata_types.initial_state = monitor.initial_state;
     state_count = monitor.state_count;
     transitions;
   }

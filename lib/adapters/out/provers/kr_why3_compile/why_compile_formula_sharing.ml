@@ -21,7 +21,7 @@ open Why_compile_expr
 open Why_compile_ptree_helpers
 
 module Proof_ir =
-  Kr_verification_obligations.Verification_proof_ir
+  Kr_verification.Kr_verification_proof_ir
 
 type shared_formula = {
   name : string;
@@ -31,7 +31,7 @@ type shared_formula = {
 
 type t = {
   by_occurrence :
-    (Ir_shared_types.formula_id, shared_formula) Hashtbl.t;
+    (Kr_verification_ir_shared.formula_id, shared_formula) Hashtbl.t;
   definitions : (shared_formula * Ptree.decl) list;
 }
 
@@ -48,7 +48,7 @@ let definition_modules sharing ~module_name:node_module ~imports ~common_import 
 let imports_for sharing ~module_name:node_module formulas =
   let used_names =
     List.fold_left
-      (fun names (formula : Core_syntax.history_free Ir.summary_formula) ->
+      (fun names (formula : Kr_domain_core_syntax.history_free Kr_verification_ir.summary_formula) ->
         match
           Hashtbl.find_opt sharing.by_occurrence
             formula.meta.oid
@@ -82,7 +82,7 @@ let record_param name =
   (loc, Some (ident name), false, Ptree.PTtyapp (qid1 "vars", []))
 
 let make_shared_formula ~env ~inputs ~id
-    (formula : Core_syntax.history_free Ir.summary_formula) =
+    (formula : Kr_domain_core_syntax.history_free Kr_verification_ir.summary_formula) =
   let record_name = "__shared_vars" in
   let body, used =
     collect_used_inputs env (fun env ->
@@ -129,7 +129,7 @@ let build ~env ~inputs plan =
   }
 
 let compile sharing ~env
-    (formula : Core_syntax.history_free Ir.summary_formula) =
+    (formula : Kr_domain_core_syntax.history_free Kr_verification_ir.summary_formula) =
   match
     Hashtbl.find_opt sharing.by_occurrence formula.meta.oid
   with

@@ -21,12 +21,12 @@
 open Pipeline_cost_report_common
 open Pipeline_cost_report_syntax
 
-let source_node_json (node : Verification_model.node_model) =
+let source_node_json (node : Kr_domain_core_model.node_model) =
   let assumes = node.assumes in
   let guarantees = node.guarantees in
   let transition_body_sizes =
     List.map
-      (fun (step : Verification_model.program_step) ->
+      (fun (step : Kr_domain_core_model.program_step) ->
         sum_int (List.map stmt_size step.body_stmts))
       node.steps
   in
@@ -55,7 +55,7 @@ let source_node_json (node : Verification_model.node_model) =
 
 let source_json proof_cases =
   let nodes =
-    Proof_case_program.source_program proof_cases
+    Kr_verification_cases.source_program proof_cases
   in
   json_assoc
     [

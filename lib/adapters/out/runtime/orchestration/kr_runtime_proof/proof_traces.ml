@@ -19,7 +19,7 @@
 module Goal_results = Proof_goal_results
 module Contract = Kr_why3_contract.Why3_contract
 
-let needed (cfg : Kr_engine.Pipeline_config.config) : bool =
+let needed (cfg : Kr_engine.Kr_engine_pipeline_config.config) : bool =
   cfg.collect_ir_metrics || cfg.compute_proof_diagnostics
   || cfg.generate_vc_text || cfg.generate_smt_text
   || Option.is_some cfg.proof_progress_path
@@ -34,7 +34,7 @@ let base_trace ~idx ~goal_name ~status ~time_s
     ~(timing : Contract.goal_timing) ~solver_status ~vc_id ~vc_span
     ~smt_span ~dump_path ~diagnostic =
   {
-    Kr_engine.Pipeline_proof_types.goal_index = idx;
+    Kr_engine.Kr_engine_pipeline_proof_types.goal_index = idx;
     stable_id = Printf.sprintf "vc-%03d" (idx + 1);
     goal_name;
     status;
@@ -81,7 +81,7 @@ let manifest_index (manifest : Why_pipeline.compilation_manifest) =
   index
 
 let apply_manifest manifest goal_name
-    (trace : Kr_engine.Pipeline_proof_types.proof_trace) =
+    (trace : Kr_engine.Kr_engine_pipeline_proof_types.proof_trace) =
   match Hashtbl.find_opt manifest (goal_name_lookup_key goal_name) with
   | None -> trace
   | Some (entry : Why_compile.compiled_proof_unit) ->
@@ -99,9 +99,9 @@ let apply_manifest manifest goal_name
 let build_from_execution ~goals ~manifest
     ~(goal_results : Proof_goal_results.t list)
     ~(vc_ids_ordered : int list)
-    ~(vc_spans_ordered : Kr_engine.Pipeline_proof_types.text_span list)
-    ~(smt_spans_ordered : Kr_engine.Pipeline_proof_types.text_span list) :
-    Kr_engine.Pipeline_proof_types.proof_trace list =
+    ~(vc_spans_ordered : Kr_engine.Kr_engine_pipeline_proof_types.text_span list)
+    ~(smt_spans_ordered : Kr_engine.Kr_engine_pipeline_proof_types.text_span list) :
+    Kr_engine.Kr_engine_pipeline_proof_types.proof_trace list =
   let manifest = manifest_index manifest in
   let goal_result_tbl = Hashtbl.create (List.length goal_results * 2 + 1) in
   List.iter
@@ -141,7 +141,7 @@ let build_from_execution ~goals ~manifest
          Some (apply_manifest manifest goal_name trace))
 
 let build_fast ~manifest (goal_results : Proof_goal_results.t list) :
-    Kr_engine.Pipeline_proof_types.proof_trace list =
+    Kr_engine.Kr_engine_pipeline_proof_types.proof_trace list =
   let manifest = manifest_index manifest in
   goal_results
   |> List.map (fun goal_result ->
@@ -164,13 +164,13 @@ let build_fast ~manifest (goal_results : Proof_goal_results.t list) :
          in
          apply_manifest manifest goal_name trace)
 
-let goals_of_proof_traces (proof_traces : Kr_engine.Pipeline_proof_types.proof_trace list) :
-    Kr_engine.Pipeline_proof_types.goal_info list =
+let goals_of_proof_traces (proof_traces : Kr_engine.Kr_engine_pipeline_proof_types.proof_trace list) :
+    Kr_engine.Kr_engine_pipeline_proof_types.goal_info list =
   List.map
-    (fun (trace : Kr_engine.Pipeline_proof_types.proof_trace) ->
+    (fun (trace : Kr_engine.Kr_engine_pipeline_proof_types.proof_trace) ->
       (trace.goal_name, trace.status, trace.time_s, trace.dump_path, trace.vc_id))
     proof_traces
 
 let goals_of_goal_results (goal_results : Proof_goal_results.t list) :
-    Kr_engine.Pipeline_proof_types.goal_info list =
+    Kr_engine.Kr_engine_pipeline_proof_types.goal_info list =
   List.map Proof_goal_results.to_goal_info goal_results

@@ -26,31 +26,31 @@
 *)
 
 type prepared_program = {
-  parse_info : Kr_engine.Flow_info.parse_info;
-  proof_case_program : Proof_case_program.t;
+  parse_info : Kr_engine.Kr_engine_flow_info.parse_info;
+  proof_case_program : Kr_verification_cases.t;
 }
 
 type build_result = {
   verification :
-    Kr_verification_obligations.Canonical_verification.t;
+    Kr_verification.Kr_verification_canonical.t;
   proof_plans :
-    Kr_verification_obligations.Verification_proof_ir.t list;
-  infos : Kr_engine.Flow_info.pipeline_info;
+    Kr_verification.Kr_verification_proof_ir.t list;
+  infos : Kr_engine.Kr_engine_flow_info.pipeline_info;
 }
 (** Locally assembled pipeline result. Its three components must be projected
     explicitly before being passed to proof, artifact, or metadata consumers. *)
 
 val prepare_program :
-  proof_optimizations:Kr_engine.Pipeline_config.proof_optimizations ->
-  parse_info:Kr_engine.Flow_info.parse_info ->
-  verification_model:Verification_model.program_model ->
-  (prepared_program, Kr_engine.Pipeline_error.t) result
+  proof_optimizations:Kr_engine.Kr_engine_pipeline_config.proof_optimizations ->
+  parse_info:Kr_engine.Kr_engine_flow_info.parse_info ->
+  verification_model:Kr_domain_core_model.program_model ->
+  (prepared_program, Kr_engine.Kr_engine_pipeline_error.t) result
 
 val build_from_supplied_automata :
   collect_instrumentation_info:bool ->
   collect_ir_metrics:bool ->
-  proof_optimizations:Kr_engine.Pipeline_config.proof_optimizations ->
+  proof_optimizations:Kr_engine.Kr_engine_pipeline_config.proof_optimizations ->
   prepared:prepared_program ->
-  automata:(Core_syntax.ident * Automaton_types.automata_spec) list ->
-  automata_info:Kr_engine.Flow_info.automata_info ->
-  (build_result, Kr_engine.Pipeline_error.t) result
+  automata:(Kr_domain_core_syntax.ident * Kr_verification_automata_types.automata_spec) list ->
+  automata_info:Kr_engine.Kr_engine_flow_info.automata_info ->
+  (build_result, Kr_engine.Kr_engine_pipeline_error.t) result

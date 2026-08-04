@@ -81,7 +81,7 @@ type ltl =
 type ltl_o = { value : ltl; oid : int; loc : loc option } [@@deriving yojson]
 
 (** Typed variable declaration. *)
-type vdecl = Kr_domain_core.Core_syntax.vdecl = { vname : ident; vty : ty }
+type vdecl = Kr_domain_core.Kr_domain_core_syntax.vdecl = { vname : ident; vty : ty }
 [@@deriving yojson]
 
 (** Pure first-order function declaration.

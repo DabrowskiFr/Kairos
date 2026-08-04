@@ -9,12 +9,12 @@ val create :
   env:Why_compile_expr.env ->
   inputs:Why3.Ptree.binder list ->
   formula_imports:
-    (Core_syntax.history_free Ir.summary_formula list -> Why3.Ptree.decl list) ->
+    (Kr_domain_core_syntax.history_free Kr_verification_ir.summary_formula list -> Why3.Ptree.decl list) ->
   compile_conditions:
     (Why_compile_expr.env ->
-    Kr_verification_obligations.Verification_obligations.conjunction ->
+    Kr_verification.Kr_verification_obligations.conjunction ->
     Why3.Ptree.term list) ->
-  Kr_verification_obligations.Verification_proof_ir.shared_postcondition list ->
+  Kr_verification.Kr_verification_proof_ir.shared_postcondition list ->
   t
 
 val predicate_decl_and_call :

@@ -1,0 +1,83 @@
+(*---------------------------------------------------------------------------
+ * Kairos - deductive verification for synchronous programs
+ * Copyright (C) 2026 Frederic Dabrowski
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *---------------------------------------------------------------------------*)
+open Kr_domain_core_syntax
+open Kr_domain_core_syntax_builders
+
+let shift_hexpr_forward ~(is_input : ident -> bool) (h : historical hexpr) : historical hexpr =
+  let rec go (h : historical hexpr) =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ | HLitEnum _ -> h
+    | HVar v -> if is_input v then mk_hpre_k v 1 else h
+    | HOld inner -> with_hexpr_desc h (HOld (go inner))
+    | HPreK (v, k) -> mk_hpre_k v (k + 1)
+    | HPred (id, hs) -> with_hexpr_desc h (HPred (id, List.map go hs))
+    | HFunCall (fn, hs) -> with_hexpr_desc h (HFunCall (fn, List.map go hs))
+    | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
+    | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
+    | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
+  in
+  go h
+
+let shift_hexpr_entry_to_post ~(is_input : ident -> bool) (h : historical hexpr) : historical hexpr =
+  let rec go (h : historical hexpr) =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ | HLitEnum _ -> h
+    | HVar v -> if is_input v then h else mk_hpre_k v 1
+    | HOld inner -> with_hexpr_desc h (HOld (go inner))
+    | HPreK _ -> h
+    | HPred (id, hs) -> with_hexpr_desc h (HPred (id, List.map go hs))
+    | HFunCall (fn, hs) -> with_hexpr_desc h (HFunCall (fn, List.map go hs))
+    | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
+    | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
+    | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
+  in
+  go h
+
+let shift_hexpr_backward ~(is_input : ident -> bool) (h : historical hexpr) : historical hexpr =
+  let rec go (h : historical hexpr) =
+    match h.hexpr with
+    | HLitInt _ | HLitBool _ | HLitEnum _ -> h
+    | HVar v ->
+        if is_input v then
+          failwith
+            (Printf.sprintf
+               "shift_hexpr_backward: cannot backward-shift current input %s; \
+                current inputs have no predecessor-time counterpart"
+               v);
+        h
+    | HOld inner -> with_hexpr_desc h (HOld (go inner))
+    | HPreK (v, k) -> if k <= 1 then mk_hvar v else mk_hpre_k v (k - 1)
+    | HPred (id, hs) -> with_hexpr_desc h (HPred (id, List.map go hs))
+    | HFunCall (fn, hs) -> with_hexpr_desc h (HFunCall (fn, List.map go hs))
+    | HUn (op, inner) -> with_hexpr_desc h (HUn (op, go inner))
+    | HBin (op, a, b) -> with_hexpr_desc h (HBin (op, go a, go b))
+    | HCmp (op, a, b) -> with_hexpr_desc h (HCmp (op, go a, go b))
+  in
+  go h
+
+let shift_formula_forward_inputs ~(is_input : ident -> bool) (f : Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr) :
+    Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr =
+  shift_hexpr_forward ~is_input f
+
+let shift_formula_entry_to_post ~(is_input : ident -> bool)
+    (f : Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr) : Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr =
+  shift_hexpr_entry_to_post ~is_input f
+
+let shift_formula_backward_inputs ~(is_input : ident -> bool) (f : Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr) :
+    Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr =
+  shift_hexpr_backward ~is_input f

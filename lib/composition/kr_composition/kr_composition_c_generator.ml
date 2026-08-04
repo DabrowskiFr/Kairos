@@ -1,4 +1,4 @@
-type generated_file = Kr_engine.Api.generated_file = {
+type generated_file = Kr_engine.Kr_engine_contract.generated_file = {
   file_name : string;
   contents : string;
 }

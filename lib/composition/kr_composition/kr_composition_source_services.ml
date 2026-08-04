@@ -43,7 +43,7 @@ let frontend_summary ~input_file =
       let nodes = frontend.Frontend.verification_model in
       let count_contracts select =
         nodes
-        |> List.map (fun (node : Kr_domain_core.Verification_model.node_model) ->
+        |> List.map (fun (node : Kr_domain_core.Kr_domain_core_model.node_model) ->
                List.length (select node))
         |> List.fold_left ( + ) 0
       in

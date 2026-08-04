@@ -19,15 +19,15 @@
 (** Map application pipeline records to public LSP protocol records. *)
 
 val map_outputs :
-  Kr_engine.Api.Contract.outputs -> Kr_lsp_protocol.outputs
+  Kr_engine.Kr_engine_contract.outputs -> Kr_lsp_protocol.outputs
 
 val map_automata :
-  Kr_engine.Api.Contract.automata_outputs ->
+  Kr_engine.Kr_engine_contract.automata_outputs ->
   Kr_lsp_protocol.automata_outputs
 
 val map_why :
-  Kr_engine.Api.Contract.why_outputs -> Kr_lsp_protocol.why_outputs
+  Kr_engine.Kr_engine_contract.why_outputs -> Kr_lsp_protocol.why_outputs
 
 val map_oblig :
-  Kr_engine.Api.Contract.obligations_outputs ->
+  Kr_engine.Kr_engine_contract.obligations_outputs ->
   Kr_lsp_protocol.obligations_outputs

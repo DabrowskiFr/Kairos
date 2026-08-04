@@ -4,6 +4,6 @@ val manifest_name_of_header : string -> string
 
 val emit :
   header_name:string ->
-  Verification_model.program_model ->
+  Kr_domain_core_model.program_model ->
   string
 

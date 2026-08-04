@@ -1,4 +1,4 @@
-module Contract = Kr_engine.Api.Contract
+module Contract = Kr_engine.Kr_engine_contract
 module Flow = Internal.Wiring
 
 type config = Contract.config
@@ -59,7 +59,7 @@ let normalized_program ~input_file =
 
 let ir_pretty_dump ~input_file =
   Flow.ir_pretty_dump
-    ~proof_optimizations:Kr_engine.Pipeline_config.default_proof_optimizations ~input_file
+    ~proof_optimizations:Kr_engine.Kr_engine_pipeline_config.default_proof_optimizations ~input_file
 
 let normalized_program_with_options ~proof_optimizations ~input_file =
   Flow.normalized_program ~proof_optimizations ~input_file
