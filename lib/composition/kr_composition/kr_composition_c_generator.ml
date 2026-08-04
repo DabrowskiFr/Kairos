@@ -3,4 +3,4 @@ type generated_file = Kr_engine.Kr_engine_contract.generated_file = {
   contents : string;
 }
 
-let generate_c = Internal.Wiring.generate_c
+let generate_c = Wiring.generate_c

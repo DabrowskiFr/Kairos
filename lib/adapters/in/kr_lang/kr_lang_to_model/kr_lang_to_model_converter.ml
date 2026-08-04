@@ -25,7 +25,7 @@ let rec expr ~(type_decls : Kr_domain_core.Kr_domain_core_syntax.enum_decl list)
     | Kr_lang_core.Kr_lang_core_syntax.ELitInt n -> Kr_domain_core.Kr_domain_core_syntax.ELitInt n
     | Kr_lang_core.Kr_lang_core_syntax.ELitBool b -> Kr_domain_core.Kr_domain_core_syntax.ELitBool b
     | Kr_lang_core.Kr_lang_core_syntax.EVar v -> (
-        match Internal.To_model_validation.lookup_constructor type_decls v with
+        match To_model_validation.lookup_constructor type_decls v with
         | Some _ -> Kr_domain_core.Kr_domain_core_syntax.ELitEnum v
         | None -> Kr_domain_core.Kr_domain_core_syntax.EVar v)
     | Kr_lang_core.Kr_lang_core_syntax.EFunCall (fn, args) ->
@@ -50,7 +50,7 @@ let rec hexpr ~(type_decls : Kr_domain_core.Kr_domain_core_syntax.enum_decl list
     | Kr_lang_core.Kr_lang_core_syntax.HLitInt n -> Kr_domain_core.Kr_domain_core_syntax.HLitInt n
     | Kr_lang_core.Kr_lang_core_syntax.HLitBool b -> Kr_domain_core.Kr_domain_core_syntax.HLitBool b
     | Kr_lang_core.Kr_lang_core_syntax.HVar v -> (
-        match Internal.To_model_validation.lookup_constructor type_decls v with
+        match To_model_validation.lookup_constructor type_decls v with
         | Some _ -> Kr_domain_core.Kr_domain_core_syntax.HLitEnum v
         | None -> Kr_domain_core.Kr_domain_core_syntax.HVar v)
     | Kr_lang_core.Kr_lang_core_syntax.HOld inner ->
@@ -203,7 +203,7 @@ let node ~(type_decls : Kr_domain_core.Kr_domain_core_syntax.enum_decl list)
           spec.spec_invariants_state_rel;
     }
   in
-  Internal.To_model_validation.validate_node lowered;
+  To_model_validation.validate_node lowered;
   Kr_domain_core.Kr_domain_core_model.normalize_node_semantics lowered
 
 let program ?(type_decls : Kr_lang_core.Kr_lang_core_syntax.enum_decl list = [])
@@ -212,6 +212,6 @@ let program ?(type_decls : Kr_lang_core.Kr_lang_core_syntax.enum_decl list = [])
   let function_decls =
     List.map (lower_function_decl ~type_decls) function_decls
   in
-  Internal.To_model_validation.validate_unique_type_decls type_decls;
-  Internal.To_model_validation.validate_function_decls type_decls function_decls;
+  To_model_validation.validate_unique_type_decls type_decls;
+  To_model_validation.validate_function_decls type_decls function_decls;
   List.map (node ~type_decls ~function_decls) p

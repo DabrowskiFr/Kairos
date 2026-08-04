@@ -56,7 +56,7 @@ let parse_surface_text_with_info ~(filename : string) ~(text : string) :
     let previous_lexeme = ref None in
     let current_lexeme = ref None in
     let initial_pos = { Lexing.pos_fname = filename; pos_lnum = 1; pos_bol = 0; pos_cnum = 0 } in
-    let module I = Internal.Parser.MenhirInterpreter in
+    let module I = Parser.MenhirInterpreter in
     let record_lexeme lexeme =
       previous_lexeme := !current_lexeme;
       current_lexeme :=
@@ -65,15 +65,15 @@ let parse_surface_text_with_info ~(filename : string) ~(text : string) :
         | Lexeme lexeme -> Some lexeme)
     in
     let supplier () =
-      let tok = Internal.Lexer.token lb in
-      record_lexeme (Internal.Lexer.last_lexeme ());
+      let tok = Lexer.token lb in
+      record_lexeme (Lexer.last_lexeme ());
       let startp, endp = Sedlexing.lexing_positions lb in
       (tok, startp, endp)
     in
     let handle_error checkpoint_before_token _checkpoint_at_error =
       let start_pos, end_pos = Sedlexing.lexing_positions lb in
       let loc = Kr_lang_shared.Kr_lang_shared_syntax.loc_of_positions start_pos end_pos in
-      let lexeme = error_lexeme (Internal.Lexer.last_lexeme ()) in
+      let lexeme = error_lexeme (Lexer.last_lexeme ()) in
       let expected_message =
         (* Use the checkpoint before the failing token so that [acceptable]
            reports tokens valid at the error location. *)
@@ -86,7 +86,7 @@ let parse_surface_text_with_info ~(filename : string) ~(text : string) :
               else accepted_names remaining names rest
         in
         match
-          accepted_names max_expected_tokens [] Internal.Lexer.expected_tokens
+          accepted_names max_expected_tokens [] Lexer.expected_tokens
         with
         | [] -> ""
         | tokens -> "; expected " ^ String.concat ", " tokens
@@ -101,11 +101,11 @@ let parse_surface_text_with_info ~(filename : string) ~(text : string) :
         (Printf.sprintf "Unexpected token %s%s%s"
            (display_error_lexeme lexeme) context expected_message)
     in
-    let checkpoint = Internal.Parser.Incremental.source_file initial_pos in
+    let checkpoint = Parser.Incremental.source_file initial_pos in
     let surface_source = I.loop_handle_undo Fun.id handle_error supplier checkpoint in
     (surface_source, make_parse_info filename file_hash)
   with
-  | Internal.Lexer.Lexing_error (loc, msg) ->
+  | Lexer.Lexing_error (loc, msg) ->
       Kr_lang_shared.Kr_lang_shared_error.parse ~loc (Printf.sprintf "Lexing error: %s" msg)
 
 let elaborate_source_text_with_info ~(filename : string) ~(text : string) :

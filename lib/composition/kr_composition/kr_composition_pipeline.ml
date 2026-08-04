@@ -1,5 +1,5 @@
 module Contract = Kr_engine.Kr_engine_contract
-module Flow = Internal.Wiring
+module Flow = Wiring
 
 type config = Contract.config
 type error = Contract.error

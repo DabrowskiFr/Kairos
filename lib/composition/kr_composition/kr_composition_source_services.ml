@@ -1,6 +1,6 @@
 module Frontend = Kr_lang.Kr_lang_frontend
 module Source_services = Kr_lang.Kr_lang_source_services
-module Flow = Internal.Wiring
+module Flow = Wiring
 
 type source_diagnostic = Source_services.source_diagnostic = {
   line : int;
