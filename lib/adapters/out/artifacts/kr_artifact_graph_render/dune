@@ -1,0 +1,12 @@
+(library
+(name kr_artifact_graph_render)
+ (flags (:standard -open Kr_domain_core -open Kr_domain_verification))
+ (wrapped true)
+(modules
+  automata_graph_dot
+  automata_graph_format
+  automata_graph_contract
+  automata_graph_product
+  automata_graph_program
+  automata_graph_render)
+ (libraries kr_domain_core kr_domain_verification))

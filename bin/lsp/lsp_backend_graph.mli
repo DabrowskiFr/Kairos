@@ -11,5 +11,5 @@
 (** Thin LSP-facing wrapper around graph rendering services. *)
 
 val dot_png_from_text :
-  Kairos_lsp_protocol.dot_png_from_text_request ->
+  Kr_lsp_protocol.dot_png_from_text_request ->
   string option

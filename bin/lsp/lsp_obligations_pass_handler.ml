@@ -16,7 +16,7 @@ let obligations_pass oc ~id ~params =
       match Lsp_backend_usecases.obligations_pass req with
       | Ok out ->
           send_result oc ~id_json:id
-            ~result_json:(Kairos_lsp_protocol.yojson_of_obligations_outputs out)
+            ~result_json:(Kr_lsp_protocol.yojson_of_obligations_outputs out)
       | Error msg ->
           send_error oc ~id_json:(Some id) ~code:(-32001) ~message:msg)
   | _ ->

@@ -1,0 +1,14 @@
+(library
+ (name kr_automata_contract)
+ (wrapped true)
+ (modules kr_automata_contract_api automata_exchange)
+ (private_modules automata_exchange)
+ (libraries yojson)
+ (preprocess
+  (pps ppx_deriving_yojson)))
+
+(test
+ (name automata_contract_tests)
+ (modules automata_contract_tests)
+ (package kairos)
+ (libraries kr_automata_contract))

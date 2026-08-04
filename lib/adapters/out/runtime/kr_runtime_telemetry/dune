@@ -1,0 +1,6 @@
+(library
+(name kr_runtime_telemetry)
+ (flags (:standard -open Kr_why3_contract))
+ (wrapped true)
+ (modules runtime_metrics_types runtime_metrics_store runtime_metrics)
+ (libraries kr_why3_contract unix))

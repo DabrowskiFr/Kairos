@@ -20,6 +20,12 @@ depends: [
   "fmt"
   "logs"
   "sedlex"
+  "why3"
+  "bos"
+  "fpath"
+  "cmdliner"
+  "jsonrpc"
+  "lsp"
 ]
 build: [
   ["dune" "build" "-p" name "-j" jobs "@install"]

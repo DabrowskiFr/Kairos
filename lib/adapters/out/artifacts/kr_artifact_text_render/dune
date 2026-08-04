@@ -1,0 +1,6 @@
+(library
+(name kr_artifact_text_render)
+ (flags (:standard -open Kr_domain_core -open Kr_domain_verification))
+ (wrapped true)
+ (modules ir_text_proof_view_render ir_text_program_view_render)
+ (libraries kr_domain_core kr_domain_verification))

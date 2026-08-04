@@ -1,0 +1,18 @@
+(library
+(name kr_verification_obligations)
+ (flags (:standard -open Kr_domain_core -open Kr_domain_verification))
+ (wrapped true)
+(modules
+  step_contract_projection
+  canonical_verification
+  verification_obligations
+  verification_proof_ir)
+ (libraries kr_domain_core kr_domain_verification))
+
+(test
+ (name partial_monitor_obligations_tests)
+ (modules partial_monitor_obligations_tests)
+ (libraries
+  kr_domain_core
+  kr_domain_verification
+  kr_verification_obligations))

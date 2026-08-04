@@ -14,4 +14,4 @@ val run :
   Lsp_run_preflight.ready ->
   Lsp_run_notifications.t ->
   should_cancel:(unit -> bool) ->
-  (Kairos_lsp_protocol.outputs, string) result
+  (Kr_lsp_protocol.outputs, string) result

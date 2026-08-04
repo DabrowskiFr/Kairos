@@ -16,8 +16,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-let pipeline_config_of_protocol (cfg : Kairos_lsp_protocol.config) =
-  Kairos_composition.Api.make_config ~input_file:cfg.input_file
+let pipeline_config_of_protocol (cfg : Kr_lsp_protocol.config) =
+  Kr_composition.Kr_composition_pipeline.make_config ~input_file:cfg.input_file
     ~wp_only:cfg.wp_only ~timeout_s:cfg.timeout_s
     ~compute_proof_diagnostics:cfg.compute_proof_diagnostics ~prove:cfg.prove
     ?proof_jobs:cfg.proof_jobs ~generate_why_text:false

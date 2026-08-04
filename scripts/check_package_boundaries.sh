@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-if [ "$#" -ne 1 ]; then
-  echo "usage: $0 core|runtime|cli|lsp" >&2
+if [ "$#" -ne 1 ] || [ "$1" != "kairos" ]; then
+  echo "usage: $0 kairos" >&2
   exit 2
 fi
 
@@ -42,40 +42,10 @@ trap cleanup EXIT
 
 base_packages=(
   kairos
-  kairos-automata-contract
-  kairos-spot-adapter
-  kairos-why3-contract
-  kairos-why3-adapter
 )
 
-case "$boundary" in
-  core)
-    target_package="kairos"
-    prerequisite_packages=()
-    ;;
-  runtime)
-    target_package="kairos-engine-runtime"
-    prerequisite_packages=("${base_packages[@]}")
-    ;;
-  cli)
-    target_package="kairos-cli"
-    prerequisite_packages=(
-      "${base_packages[@]}"
-      kairos-engine-runtime
-    )
-    ;;
-  lsp)
-    target_package="kairos-lsp"
-    prerequisite_packages=(
-      "${base_packages[@]}"
-      kairos-engine-runtime
-    )
-    ;;
-  *)
-    echo "unknown package boundary: $boundary" >&2
-    exit 2
-    ;;
-esac
+target_package="kairos"
+prerequisite_packages=()
 
 for package in "${prerequisite_packages[@]}" "$target_package"; do
   manifest="$repo_root/$package.install"

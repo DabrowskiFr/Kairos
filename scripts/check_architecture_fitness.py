@@ -106,9 +106,9 @@ def check_library_layout(repo: Path) -> list[str]:
             violations.append(f"{relative}: one library per dune file is required")
         for library_name in library_names:
             directory_name = dune_file.parent.name
-            if not library_name.startswith("kairos_"):
+            if not library_name.startswith("kr_"):
                 violations.append(
-                    f"{relative}: library name {library_name!r} must start with 'kairos_'"
+                    f"{relative}: library name {library_name!r} must start with 'kr_'"
                 )
             if directory_name != library_name:
                 violations.append(
@@ -121,6 +121,83 @@ def check_library_layout(repo: Path) -> list[str]:
             violations.append(
                 f"{relative}: wrapped false requires an adjacent justification"
             )
+    return violations
+
+
+def check_explicit_language_interfaces(repo: Path) -> list[str]:
+    """Require a named root interface for every language sub-library."""
+    violations: list[str] = []
+    root = repo / "lib" / "adapters" / "in" / "kr_lang"
+    for dune_file in sorted(root.rglob("dune")):
+        source = text(dune_file)
+        match = re.search(r"\(library\s+\(name\s+([^\s()]+)\)", source)
+        if not match:
+            continue
+        name = match.group(1)
+        root_interfaces = [dune_file.parent / f"{name}{suffix}" for suffix in (".ml", ".mli")]
+        if all(interface.is_file() for interface in root_interfaces):
+            continue
+        modules = [
+            path.stem
+            for path in dune_file.parent.iterdir()
+            if path.suffix in {".ml", ".mli"}
+        ]
+        if not modules or not all(module.startswith(f"{name}_") for module in modules):
+            violations.append(
+                f"{dune_file.relative_to(repo)}: missing explicit root interface "
+                f"{name}.ml/.mli and modules are not uniformly prefixed"
+            )
+    return violations
+
+
+def check_nested_library_visibility(repo: Path) -> list[str]:
+    """Ensure nested libraries are referenced only by their parent library."""
+    libraries: dict[str, Path] = {}
+    dune_files: list[Path] = []
+    for path in sorted((repo / "lib").rglob("dune")):
+        source = text(path)
+        match = re.search(r"\(library\s+\(name\s+([^\s()]+)\)", source)
+        if match:
+            libraries[match.group(1)] = path.parent
+            dune_files.append(path)
+
+    nested: dict[str, tuple[Path, Path]] = {}
+    for name, path in libraries.items():
+        ancestors = [candidate for candidate in libraries.values() if candidate != path]
+        parents = [
+            candidate for candidate in ancestors
+            if candidate in path.parents
+        ]
+        if parents:
+            root = min(parents, key=lambda candidate: len(candidate.parts))
+            nested[name] = (path, root)
+
+    violations: list[str] = []
+    for dune_file in dune_files:
+        source = text(dune_file)
+        match = re.search(r"\(library\s+\(name\s+([^\s()]+)\)", source)
+        if not match:
+            continue
+        owner = match.group(1)
+        dependencies = re.findall(
+            r"\(libraries\s+([^)]*)\)", source, flags=re.DOTALL
+        )
+        used = {
+            dependency
+            for block in dependencies
+            for dependency in re.findall(r"\bkr_[a-z0-9_]+\b", block)
+        }
+        for dependency in sorted(used):
+            if dependency not in nested:
+                continue
+            _, root = nested[dependency]
+            owner_path = libraries.get(owner)
+            if owner_path is None or (owner_path != root and root not in owner_path.parents):
+                violations.append(
+                    f"{dune_file.relative_to(repo)} directly depends on "
+                    f"nested library {dependency!r}; only its parent "
+                    f"{root.relative_to(repo)} may do so"
+                )
     return violations
 
 
@@ -147,10 +224,10 @@ def check_hexagonal_engine(repo: Path) -> list[str]:
         ],
     )
 
-    api = text(repo / "lib/engine/kairos_engine/api.mli")
+    api = text(repo / "lib/engine/kr_engine/api.mli")
     if not re.search(r"module\s+Contract\s*=\s*Engine_contract", api):
         violations.append(
-            "lib/engine/kairos_engine/api.mli must expose Engine_contract as its public contract"
+            "lib/engine/kr_engine/api.mli must expose Engine_contract as its public contract"
         )
     violations += require_absent(
         repo,
@@ -168,7 +245,7 @@ def check_hexagonal_engine(repo: Path) -> list[str]:
         for suffix in (".ml", ".mli"):
             required = (
                 repo
-                / "lib/engine/kairos_engine"
+                / "lib/engine/kr_engine"
                 / f"{module_name}{suffix}"
             )
             if not required.is_file():
@@ -176,17 +253,17 @@ def check_hexagonal_engine(repo: Path) -> list[str]:
                     f"missing canonical engine contract {required.relative_to(repo)}"
                 )
     required_boundaries = [
-        "lib/engine/kairos_engine/inbound_port.mli",
-        "lib/engine/kairos_engine/outbound_ports.mli",
-        "lib/engine/kairos_engine/use_cases.mli",
-        "lib/composition/kairos_composition/dune",
-        "lib/adapters/out/runtime/orchestration/kairos_runtime_ports/dune",
+        "lib/engine/kr_engine/inbound_port.mli",
+        "lib/engine/kr_engine/outbound_ports.mli",
+        "lib/engine/kr_engine/use_cases.mli",
+        "lib/composition/kr_composition/dune",
+        "lib/adapters/out/runtime/orchestration/kr_runtime_ports/dune",
     ]
     for relative in required_boundaries:
         if not (repo / relative).is_file():
             violations.append(f"missing hexagonal boundary: {relative}")
 
-    engine_dune = text(repo / "lib/engine/kairos_engine/dune")
+    engine_dune = text(repo / "lib/engine/kr_engine/dune")
     forbidden_dependencies = re.findall(
         r"\bkairos_(?:lang|runtime\w*|why3\w*|external\w*|artifact\w*|c_codegen|graphviz\w*|spot\w*)\b",
         engine_dune,
@@ -199,7 +276,7 @@ def check_hexagonal_engine(repo: Path) -> list[str]:
 
     violations += scan(
         repo,
-        ["lib/engine/kairos_engine"],
+        ["lib/engine/kr_engine"],
         [
             (
                 r"\bKairos_(?:lang|runtime|why3|external|artifact|c_codegen|graphviz|spot)",
@@ -213,7 +290,7 @@ def check_hexagonal_engine(repo: Path) -> list[str]:
 def check_minimal_prove_path(repo: Path) -> list[str]:
     path = (
         repo
-        / "lib/adapters/out/runtime/orchestration/kairos_runtime_ports"
+        / "lib/adapters/out/runtime/orchestration/kr_runtime_ports"
         / "pipeline_outputs.ml"
     )
     source = strip_ocaml_comments(text(path))
@@ -237,8 +314,8 @@ def check_correction_dependencies(repo: Path) -> list[str]:
     violations = scan(
         repo,
         [
-            "lib/adapters/out/artifacts/kairos_artifact_graph_render",
-            "lib/adapters/out/artifacts/kairos_artifact_text_render",
+            "lib/adapters/out/artifacts/kr_artifact_graph_render",
+            "lib/adapters/out/artifacts/kr_artifact_text_render",
         ],
         [
             (r"\bZ3\b|\bFo_z3_solver\b|kairos_external_z3", "solver dependency in renderer"),
@@ -246,7 +323,7 @@ def check_correction_dependencies(repo: Path) -> list[str]:
     )
     violations += scan(
         repo,
-        ["lib/adapters/out/runtime/orchestration/kairos_runtime_core"],
+        ["lib/adapters/out/runtime/orchestration/kr_runtime_core"],
         [
             (r"\bSpot_", "runtime core must not invoke Spot"),
             (r"\bAutomata_generation\.run\b", "runtime core must not own automata generation"),
@@ -255,23 +332,23 @@ def check_correction_dependencies(repo: Path) -> list[str]:
     violations += require_absent(
         repo,
         [
-            "lib/domain/kairos_domain_verification/automata_generation.ml",
-            "lib/domain/kairos_domain_verification/automata_generation.mli",
-            "lib/domain/kairos_domain_core/ir.ml",
-            "lib/domain/kairos_domain_core/ir.mli",
-            "lib/domain/kairos_domain_core/ir_shared_types.ml",
-            "lib/domain/kairos_domain_core/ir_shared_types.mli",
-            "lib/domain/kairos_domain_core/ir_formula.ml",
-            "lib/domain/kairos_domain_core/ir_formula.mli",
-            "lib/domain/kairos_domain_core/ir_transition.ml",
-            "lib/domain/kairos_domain_core/ir_transition.mli",
-            "lib/domain/kairos_domain_core/log.ml",
-            "lib/domain/kairos_domain_core/log.mli",
+            "lib/domain/kr_domain_verification/automata_generation.ml",
+            "lib/domain/kr_domain_verification/automata_generation.mli",
+            "lib/domain/kr_domain_core/ir.ml",
+            "lib/domain/kr_domain_core/ir.mli",
+            "lib/domain/kr_domain_core/ir_shared_types.ml",
+            "lib/domain/kr_domain_core/ir_shared_types.mli",
+            "lib/domain/kr_domain_core/ir_formula.ml",
+            "lib/domain/kr_domain_core/ir_formula.mli",
+            "lib/domain/kr_domain_core/ir_transition.ml",
+            "lib/domain/kr_domain_core/ir_transition.mli",
+            "lib/domain/kr_domain_core/log.ml",
+            "lib/domain/kr_domain_core/log.mli",
         ],
     )
     for module_name in ("ir", "ir_shared_types", "ir_formula", "ir_transition"):
         for suffix in (".ml", ".mli"):
-            required = repo / "lib/domain/kairos_domain_verification" / f"{module_name}{suffix}"
+            required = repo / "lib/domain/kr_domain_verification" / f"{module_name}{suffix}"
             if not required.is_file():
                 violations.append(
                     f"verification IR module is missing: {required.relative_to(repo)}"
@@ -286,7 +363,7 @@ def check_external_contracts(repo: Path) -> list[str]:
     )
     violations += scan(
         repo,
-        ["packages/kairos_automata_contract", "packages/kairos_why3_contract"],
+        ["lib/domain/kr_automata_contract", "lib/adapters/out/external/why3/kr_why3_contract"],
         [
             (r"\bCore_syntax\b|\bVerification_model\b", "Kairos domain dependency in tool contract"),
             (r"\bPipeline_types\b|\bRuntime_", "engine runtime dependency in tool contract"),
@@ -295,7 +372,7 @@ def check_external_contracts(repo: Path) -> list[str]:
     )
     violations += scan(
         repo,
-        ["packages/kairos_external_why3"],
+        ["lib/adapters/out/external/why3/kr_external_why3"],
         [
             (
                 r"\bExternal_timing\b|\bRuntime_metrics\b|\bkairos_(?:external_)?timing\b",
@@ -324,8 +401,8 @@ def check_delivery_boundaries(repo: Path) -> list[str]:
         [
             "bin/cli",
             "bin/lsp",
-            "lib/adapters/in/kairos_lsp_app",
-            "lib/adapters/in/kairos_lsp_protocol",
+            "lib/adapters/in/kr_lsp_app",
+            "lib/adapters/in/kr_lsp_protocol",
         ],
         common,
     )
@@ -361,34 +438,8 @@ def check_package_boundaries(repo: Path) -> list[str]:
     if "kairos-engine-contract" in packages:
         violations.append("the duplicate kairos-engine-contract package still exists")
 
-    requirements = {
-        "kairos-cli": {"kairos-engine-runtime", "cmdliner"},
-        "kairos-lsp": {"kairos-engine-runtime", "jsonrpc", "lsp"},
-        "kairos-engine-runtime": {
-            "kairos",
-            "kairos-automata-contract",
-            "kairos-why3-contract",
-            "kairos-spot-adapter",
-            "kairos-why3-adapter",
-        },
-    }
-    for package, required in requirements.items():
-        missing = required - packages.get(package, set())
-        if missing:
-            violations.append(f"{package} is missing dependencies: {', '.join(sorted(missing))}")
-
-    forbidden_core = {
-        "cmdliner",
-        "jsonrpc",
-        "lsp",
-        "why3",
-        "kairos-engine-runtime",
-        "kairos-cli",
-        "kairos-lsp",
-    }
-    leaked = forbidden_core & packages.get("kairos", set())
-    if leaked:
-        violations.append("kairos core depends on delivery/runtime tools: " + ", ".join(sorted(leaked)))
+    if "kairos" not in packages:
+        violations.append("the monolithic kairos package is missing")
     return violations
 
 
@@ -396,6 +447,8 @@ def main() -> int:
     repo = Path(__file__).resolve().parents[1]
     checks = [
         check_library_layout,
+        check_explicit_language_interfaces,
+        check_nested_library_visibility,
         check_hexagonal_engine,
         check_minimal_prove_path,
         check_correction_dependencies,

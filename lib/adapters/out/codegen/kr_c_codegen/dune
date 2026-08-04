@@ -1,0 +1,26 @@
+(library
+ (name kr_c_codegen)
+ (flags (:standard -open Kr_domain_core))
+(modules
+  c_codegen_types
+  c_codegen_common
+  c_codegen_names
+  c_codegen_env
+  c_codegen_expr
+  c_codegen_stmt
+  c_codegen_functions
+  c_codegen_manifest
+  c_codegen_node
+  c_codegen_program
+  c_codegen)
+ (private_modules
+  c_codegen_types
+  c_codegen_common
+  c_codegen_names
+  c_codegen_env
+  c_codegen_expr
+  c_codegen_stmt
+  c_codegen_functions
+  c_codegen_node
+  c_codegen_program)
+ (libraries kr_domain_core yojson))

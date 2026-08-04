@@ -11,14 +11,14 @@
 open Lsp_request_helpers
 
 type decoded = {
-  cfg : Kairos_lsp_protocol.config;
+  cfg : Kr_lsp_protocol.config;
   engine : Engine_service.engine;
   input_file : string;
 }
 
 let config_from_compat_params ~input_file params =
   {
-    Kairos_lsp_protocol.input_file;
+    Kr_lsp_protocol.input_file;
     engine =
       Option.value
         (Lsp_request_decode.get_param_string params "engine")
@@ -31,7 +31,7 @@ let config_from_compat_params ~input_file params =
     proof_jobs =
       Some
         (Lsp_request_decode.get_param_int params "proofJobs"
-           (Kairos_composition.Api.default_proof_jobs ()));
+           (Kr_composition.Kr_composition_pipeline.default_proof_jobs ()));
     generate_vc_text =
       Lsp_request_decode.get_param_bool params "generateVcText" false;
     generate_smt_text =
@@ -41,7 +41,7 @@ let config_from_compat_params ~input_file params =
   }
 
 let decode (params : Yojson.Safe.t) : decoded option =
-  let cfg_from_protocol = decode_or_none Kairos_lsp_protocol.config_of_yojson params in
+  let cfg_from_protocol = decode_or_none Kr_lsp_protocol.config_of_yojson params in
   let input_file =
     match cfg_from_protocol with
     | Some cfg -> Some cfg.input_file

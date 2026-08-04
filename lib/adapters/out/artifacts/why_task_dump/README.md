@@ -1,4 +1,4 @@
 # Why3 task dumps
 
 Why3 and SMT task rendering is part of the independent
-`kairos-why3-adapter` package under `packages/kairos_external_why3/`.
+`kairos` package under `lib/adapters/out/external/why3/kairos_external_why3/`.

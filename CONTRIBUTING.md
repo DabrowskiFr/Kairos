@@ -124,81 +124,92 @@ default implementation.
 
 ## Dune libraries
 
+Kairos uses one opam package, `kairos`. There are no separate package
+manifests for individual adapters, contracts, phases, or executables. Every
+test and executable belongs to that package with `(package kairos)`.
+
 The architecture directories (`lib/domain`, `lib/engine`, `lib/adapters/in`,
 `lib/adapters/out`, and `lib/composition`) organize the repository; they are
 not libraries themselves. A directory becomes a library only when it contains
-the first `dune` file declaring a `(library ...)` stanza.
+its own `dune` file declaring one `(library ...)` stanza.
 
-Each concrete library follows these rules:
+### Global architectural decomposition
 
-- Put one library in each directory and `dune` file.
-- Give the directory and the Dune `(name ...)` field exactly the same name.
-- Use the generic name scheme `kairos_<scope>[_<layer>]` for both names:
-  `kairos_` is written once, `<scope>` identifies the subsystem, and the
-  optional `<layer>` identifies its responsibility. For example,
-  `kairos_lang_shared`, `kairos_lang_core`, and `kairos_lang_elaborate`.
-- Put library source files inside that directory, not in one of its parent
-  architecture directories.
-- Use `wrapped true` by default. If `wrapped false` is necessary, add a comment
-  next to it explaining which existing API requires flat module names.
-- Expose a small public facade. Mark implementation modules private when other
-  libraries do not need them.
-- When a library is split into phases, give each phase its own Dune library and
-  dependency direction. Name the directory and library with the same
-  `kairos_` prefix (for example, `kairos_lang_elaborate`), and expose only its
-  façade module through the wrapper. A phase must not reach into the private
-  implementation modules of another phase.
-- List every library used directly by the code in the Dune `(libraries ...)`
-  field. Do not rely on a dependency of another library.
-- Keep Dune and OPAM dependencies consistent. Explain why a new external
-  dependency is needed.
-- Put types and utilities shared by several phases in a dedicated common
-  library. Do not make a downstream phase reach into another phase's private
-  implementation to reuse them.
-- Name such a library `kairos_<scope>_shared`; use this suffix only for code
-  genuinely shared by multiple libraries in that scope.
-- A library client may depend only on the documented façade of a dependency;
-  it must not use that dependency's private implementation modules.
-- Split a library into sub-libraries only along a real responsibility or phase
-  boundary. The dependency graph must remain acyclic and point from
-  foundations toward higher-level orchestration.
-
-For example, an input-language adapter may be organized as:
+The project follows a hexagonal architecture:
 
 ```text
-kairos_lang_shared → kairos_lang_core → kairos_lang_surface
-                                          ↘
-                         kairos_lang_elaborate → kairos_lang_parse
-                         kairos_lang_to_model
-
-kairos_lang_parse + kairos_lang_to_model → kairos_lang
+lib/domain/          pure domain models and semantics
+lib/engine/          use cases and ports
+lib/adapters/in/    input adapters: language, LSP, CLI
+lib/adapters/out/   output adapters: Why3, C, runtime, files
+lib/composition/    concrete wiring of ports and adapters
 ```
 
-The parent architecture directory contains these libraries but is not itself
-their namespace or dependency layer.
-
-The first directory that contains a Dune `(library ...)` declaration is the
-library directory. Its parent directories describe architecture; its child
-directories organize the library's own modules.
+Dependencies point inward:
 
 ```text
-lib/                                      architecture
-└── adapters/                             architecture
-    └── out/                              architecture
-        └── runtime/                      architecture
-            └── orchestration/            architecture
-                └── kairos_runtime_proof/ library
-                    └── dune              (name kairos_runtime_proof)
+adapters → composition → engine → domain
 ```
 
-Names have different forms in different contexts:
+- The domain must not depend on an upper layer.
+- The engine defines ports and use cases, but does not depend on concrete
+  adapters.
+- Adapters implement engine ports.
+- Composition is the only layer that selects and connects concrete
+  implementations.
+- A layer must not access another layer's implementation details.
 
-- Dune library and directory: `kairos_runtime_proof`
-- OCaml module: `Kairos_runtime_proof`
-- Installed package or public name: may use hyphens
+### Scope and library layout
 
-The architecture check verifies the directory name, library name, `kairos_`
-prefix, and justification for `wrapped false`.
+A Dune library `kr_<scope>` defines a scope. The directory and the Dune
+`(name ...)` field must have exactly the same name. These libraries are
+internal to the project: do not add `public_name`. Use `(wrapped true)` for
+every library and keep the dependency graph acyclic.
+
+A module used outside its scope is placed at the library root and uses the
+complete library prefix followed by a role:
+
+```text
+kr_<scope>_<role>.ml
+kr_<scope>_<role>.mli
+```
+
+Examples include `kr_lang_surface_ast.ml`, `kr_lang_core_syntax.ml`, and
+`kr_lang_frontend.ml`. The `.mli` defines the module's public surface.
+
+Public module names must describe their responsibility. The generic suffix
+`_api` is not allowed: it hides the purpose of the module. If no meaningful
+responsibility name can be found, the module should be split before it is
+made public. A thin facade may use a justified grouping name, but never a
+generic `api` name.
+
+A module used only inside its scope is placed under:
+
+```text
+kr_<scope>/internal/
+```
+
+For example:
+
+```text
+kr_lang_parse/internal/lexer.ml
+kr_lang_parse/internal/parser.mly
+kr_lang_to_model/internal/validation.ml
+kr_lang_elaborate/internal/history.ml
+```
+
+Internal modules must not be re-exported by public modules. Use
+`(private_modules ...)` whenever necessary. The absence of an `.mli` does not
+make a module private; privacy comes from the Dune module boundary.
+
+Each library uses `(include_subdirs qualified)` when it contains subdirectories
+and declares every direct dependency in `(libraries ...)`. A separate nested
+Dune library is a dependency boundary, not a parent-only visibility boundary:
+Dune cannot prevent another library that declares the dependency from using
+it. The architecture checker enforces the allowed dependency tree.
+
+The architecture checks verify package count, directory/name conventions,
+wrapper policy, and dependency boundaries.
 
 ## OCaml code
 

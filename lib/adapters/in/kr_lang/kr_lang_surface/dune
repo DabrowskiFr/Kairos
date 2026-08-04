@@ -1,0 +1,8 @@
+(include_subdirs qualified)
+
+(library
+(name kr_lang_surface)
+ (wrapped true)
+ (libraries kr_lang_shared kr_lang_core)
+ (preprocess
+  (pps ppx_deriving_yojson)))

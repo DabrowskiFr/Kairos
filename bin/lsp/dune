@@ -1,7 +1,8 @@
 (executable
- (name kairos_lsp)
- (public_name kairos-lsp)
- (package kairos-lsp)
+ (name kr_lsp)
+ (flags (:standard -open Kr_lsp_app -open Kr_lsp_protocol -open Kr_engine -open Kr_lang -open Kr_runtime_ports -open Kr_runtime_core -open Kr_runtime_diagnostics -open Kr_runtime_proof -open Kr_why3))
+ (public_name kairos.lsp)
+ (package kairos)
  (modules
   lsp_transport_io
   lsp_trace
@@ -75,17 +76,17 @@
   lsp_call_dispatch
   lsp_packet_handler
   lsp_server_loop
-  kairos_lsp
+  kr_lsp
   lsp_backend_config
   lsp_backend_usecases
   lsp_backend_graph
   lsp_graph_decode
   engine_service)
  (libraries
-  kairos_composition
-  kairos_graphviz_render
-  kairos_lsp_protocol
-  kairos_lsp_app
+  kr_composition
+  kr_graphviz_render
+  kr_lsp_protocol
+  kr_lsp_app
   yojson
   unix
   str

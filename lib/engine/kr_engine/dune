@@ -1,0 +1,24 @@
+(library
+ (name kr_engine)
+ (flags (:standard -open Kr_domain_core -open Kr_domain_verification -open Kr_verification_optimization))
+ (wrapped true)
+(modules
+  flow_info
+  pipeline_config
+  pipeline_error
+  pipeline_proof_types
+  pipeline_artifacts
+  engine_contract
+  inbound_port
+  outbound_ports
+  use_cases
+  api)
+ (libraries
+  kr_domain_core
+  kr_domain_verification
+  kr_verification_optimization))
+
+(test
+ (name inbound_ports_tests)
+ (modules inbound_ports_tests)
+ (libraries kr_engine))

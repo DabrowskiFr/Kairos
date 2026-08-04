@@ -25,10 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         boundary:
-          - core
-          - runtime
-          - cli
-          - lsp
+          - kairos
     steps:
       - uses: actions/checkout@v4
       - uses: ocaml/setup-ocaml@v3

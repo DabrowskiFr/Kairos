@@ -19,35 +19,35 @@
 (** Execute application verification use-cases for the LSP server. *)
 
 val instrumentation_pass :
-  Kairos_lsp_protocol.instrumentation_pass_request ->
-  (Kairos_lsp_protocol.automata_outputs, string) result
+  Kr_lsp_protocol.instrumentation_pass_request ->
+  (Kr_lsp_protocol.automata_outputs, string) result
 
 val why_pass :
-  Kairos_lsp_protocol.why_pass_request ->
-  (Kairos_lsp_protocol.why_outputs, string) result
+  Kr_lsp_protocol.why_pass_request ->
+  (Kr_lsp_protocol.why_outputs, string) result
 
 val obligations_pass :
-  Kairos_lsp_protocol.obligations_pass_request ->
-  (Kairos_lsp_protocol.obligations_outputs, string) result
+  Kr_lsp_protocol.obligations_pass_request ->
+  (Kr_lsp_protocol.obligations_outputs, string) result
 
 val normalized_program :
-  Kairos_lsp_protocol.text_dump_request ->
+  Kr_lsp_protocol.text_dump_request ->
   (string, string) result
 
 val ir_pretty_dump :
-  Kairos_lsp_protocol.text_dump_request ->
+  Kr_lsp_protocol.text_dump_request ->
   (string, string) result
 
 val run :
   engine:Engine_service.engine ->
-  Kairos_lsp_protocol.config ->
-  (Kairos_lsp_protocol.outputs, string) result
+  Kr_lsp_protocol.config ->
+  (Kr_lsp_protocol.outputs, string) result
 
 val run_with_callbacks :
   engine:Engine_service.engine ->
   should_cancel:(unit -> bool) ->
-  Kairos_lsp_protocol.config ->
-  on_outputs_ready:(Kairos_lsp_protocol.outputs -> unit) ->
+  Kr_lsp_protocol.config ->
+  on_outputs_ready:(Kr_lsp_protocol.outputs -> unit) ->
   on_goals_ready:(string list * int list -> unit) ->
   on_goal_done:(int -> string -> string -> float -> string option -> string option -> unit) ->
-  (Kairos_lsp_protocol.outputs, string) result
+  (Kr_lsp_protocol.outputs, string) result

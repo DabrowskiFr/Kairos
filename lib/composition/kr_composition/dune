@@ -1,0 +1,11 @@
+(include_subdirs qualified)
+
+(library
+ (name kr_composition)
+ (wrapped true)
+ (private_modules (:standard \ kr_composition_pipeline kr_composition_source_services kr_composition_c_generator))
+ (libraries
+  kr_engine
+  kr_lang
+  kr_domain_core
+  kr_runtime_ports))

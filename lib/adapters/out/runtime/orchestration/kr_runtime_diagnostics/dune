@@ -1,0 +1,20 @@
+(library
+(name kr_runtime_diagnostics)
+ (flags (:standard -open Kr_domain_core -open Kr_domain_verification -open Kr_verification_obligations -open Kr_verification_optimization -open Kr_engine -open Kr_runtime_core -open Kr_runtime_telemetry -open Kr_artifact_graph_render -open Kr_why3_contract))
+ (wrapped true)
+(modules
+  pipeline_outputs_helpers
+  pipeline_artifact_bundle_text
+  pipeline_artifact_bundle
+  pipeline_cost_report_common
+  pipeline_cost_report_syntax
+  pipeline_cost_report_source
+  pipeline_cost_report_why3
+  pipeline_cost_report_facts
+  pipeline_cost_report)
+ (libraries
+  kr_domain_core
+  kr_domain_verification
+  kr_runtime_core
+  kr_artifact_graph_render
+  yojson))

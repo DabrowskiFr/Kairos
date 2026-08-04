@@ -11,7 +11,7 @@
 (** Notifications emitted while a [kairos/run] request is executing. *)
 
 type t = {
-  on_outputs_ready : Kairos_lsp_protocol.outputs -> unit;
+  on_outputs_ready : Kr_lsp_protocol.outputs -> unit;
   on_goals_ready : string list * int list -> unit;
   on_goal_done :
     int ->

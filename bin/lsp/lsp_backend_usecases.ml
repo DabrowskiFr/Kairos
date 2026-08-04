@@ -16,7 +16,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  *---------------------------------------------------------------------------*)
 
-module Engine = Kairos_composition.Api
+module Engine = Kr_composition.Kr_composition_pipeline
 
 let map_error = Engine.error_to_string
 
@@ -30,7 +30,7 @@ let engine_of_string s =
   Option.value (Engine_service.engine_of_string s)
     ~default:Engine_service.Default
 
-let instrumentation_pass (req : Kairos_lsp_protocol.instrumentation_pass_request) =
+let instrumentation_pass (req : Kr_lsp_protocol.instrumentation_pass_request) =
   with_engine (engine_of_string req.engine) (fun () ->
       match
         Engine.instrumentation_pass ~generate_png:req.generate_png
@@ -39,7 +39,7 @@ let instrumentation_pass (req : Kairos_lsp_protocol.instrumentation_pass_request
       | Ok out -> Ok (Lsp_pipeline_mapper.map_automata out)
       | Error e -> Error (map_error e))
 
-let why_pass (req : Kairos_lsp_protocol.why_pass_request) =
+let why_pass (req : Kr_lsp_protocol.why_pass_request) =
   with_engine (engine_of_string req.engine) (fun () ->
       match
         Engine.why_pass ~input_file:req.input_file
@@ -47,7 +47,7 @@ let why_pass (req : Kairos_lsp_protocol.why_pass_request) =
       | Ok out -> Ok (Lsp_pipeline_mapper.map_why out)
       | Error e -> Error (map_error e))
 
-let obligations_pass (req : Kairos_lsp_protocol.obligations_pass_request) =
+let obligations_pass (req : Kr_lsp_protocol.obligations_pass_request) =
   with_engine (engine_of_string req.engine) (fun () ->
       match
         Engine.obligations_pass ~input_file:req.input_file
@@ -55,7 +55,7 @@ let obligations_pass (req : Kairos_lsp_protocol.obligations_pass_request) =
       | Ok out -> Ok (Lsp_pipeline_mapper.map_oblig out)
       | Error e -> Error (map_error e))
 
-let normalized_program (req : Kairos_lsp_protocol.text_dump_request) =
+let normalized_program (req : Kr_lsp_protocol.text_dump_request) =
   with_engine (engine_of_string req.engine) (fun () ->
       match
         Engine.normalized_program ~input_file:req.input_file
@@ -63,7 +63,7 @@ let normalized_program (req : Kairos_lsp_protocol.text_dump_request) =
       | Ok text -> Ok text
       | Error e -> Error (map_error e))
 
-let ir_pretty_dump (req : Kairos_lsp_protocol.text_dump_request) =
+let ir_pretty_dump (req : Kr_lsp_protocol.text_dump_request) =
   with_engine (engine_of_string req.engine) (fun () ->
       match
         Engine.ir_pretty_dump ~input_file:req.input_file
@@ -71,14 +71,14 @@ let ir_pretty_dump (req : Kairos_lsp_protocol.text_dump_request) =
       | Ok text -> Ok text
       | Error e -> Error (map_error e))
 
-let run ~engine (cfg : Kairos_lsp_protocol.config) =
+let run ~engine (cfg : Kr_lsp_protocol.config) =
   with_engine engine (fun () ->
       match Engine.run (Lsp_backend_config.pipeline_config_of_protocol cfg) with
       | Ok out -> Ok (Lsp_pipeline_mapper.map_outputs out)
       | Error e -> Error (map_error e))
 
 let run_with_callbacks ~engine ~should_cancel
-    (cfg : Kairos_lsp_protocol.config)
+    (cfg : Kr_lsp_protocol.config)
     ~on_outputs_ready ~on_goals_ready ~on_goal_done =
   with_engine engine (fun () ->
       match

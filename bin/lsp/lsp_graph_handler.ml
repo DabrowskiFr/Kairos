@@ -14,7 +14,7 @@ let dot_png_from_text oc ~id ~params =
   match Lsp_graph_decode.dot_text params with
   | Some dot ->
       let out =
-        Lsp_backend_graph.dot_png_from_text { Kairos_lsp_protocol.dot_text = dot }
+        Lsp_backend_graph.dot_png_from_text { Kr_lsp_protocol.dot_text = dot }
       in
       send_result oc ~id_json:id
         ~result_json:(match out with None -> `Null | Some s -> `String s)

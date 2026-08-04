@@ -19,14 +19,14 @@ val write_text_output : string -> string -> [> `Ok of unit ]
 
 val write_generated_files :
   out_dir:string ->
-  Kairos_composition.Api.generated_file list ->
+  Kr_composition.Kr_composition_c_generator.generated_file list ->
   [> `Error of bool * string | `Ok of unit ]
 
 val write_timing_dump :
   string -> (string * (string * string) list) list -> unit
 
 val write_goals_dump :
-  string -> Kairos_composition.Api.Contract.proof_trace list -> unit
+  string -> Kr_composition.Kr_composition_pipeline.Contract.proof_trace list -> unit
 
 val write_automata_bundle :
   out:string ->

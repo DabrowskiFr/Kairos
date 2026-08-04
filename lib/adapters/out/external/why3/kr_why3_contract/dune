@@ -1,0 +1,13 @@
+(library
+ (name kr_why3_contract)
+ (wrapped true)
+ (modules tool_protocol why3_contract)
+ (libraries yojson)
+ (preprocess
+  (pps ppx_deriving_yojson)))
+
+(test
+ (name why3_contract_tests)
+ (modules why3_contract_tests)
+ (package kairos)
+ (libraries kr_why3_contract))

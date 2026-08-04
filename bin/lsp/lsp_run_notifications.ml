@@ -11,7 +11,7 @@
 open Lsp_transport
 
 type t = {
-  on_outputs_ready : Kairos_lsp_protocol.outputs -> unit;
+  on_outputs_ready : Kr_lsp_protocol.outputs -> unit;
   on_goals_ready : string list * int list -> unit;
   on_goal_done :
     int ->
@@ -31,12 +31,12 @@ let create ~out_channel ~id ~progress ~prove =
       ~message:
         (if prove then "Proof results ready; publishing goals ..."
          else "Artifacts ready");
-    let payload : Kairos_lsp_protocol.outputs_ready_notification =
+    let payload : Kr_lsp_protocol.outputs_ready_notification =
       { request_id = Lsp_request_id_view.protocol_request_id id; payload = out }
     in
     send_notification out_channel ~method_name:"kairos/outputsReady"
       ~params_json:
-        (Kairos_lsp_protocol.yojson_of_outputs_ready_notification payload)
+        (Kr_lsp_protocol.yojson_of_outputs_ready_notification payload)
   in
   let on_goals_ready (names, vc_ids) =
     total_goals := max (List.length names) (List.length vc_ids);
@@ -45,7 +45,7 @@ let create ~out_channel ~id ~progress ~prove =
         (if !total_goals > 0 then
            Printf.sprintf "Publishing %d proof goals ..." !total_goals
          else "Publishing proof goals ...");
-    let payload : Kairos_lsp_protocol.goals_ready_notification =
+    let payload : Kr_lsp_protocol.goals_ready_notification =
       {
         request_id = Lsp_request_id_view.protocol_request_id id;
         payload = { names; vc_ids };
@@ -53,7 +53,7 @@ let create ~out_channel ~id ~progress ~prove =
     in
     send_notification out_channel ~method_name:"kairos/goalsReady"
       ~params_json:
-        (Kairos_lsp_protocol.yojson_of_goals_ready_notification payload)
+        (Kr_lsp_protocol.yojson_of_goals_ready_notification payload)
   in
   let on_goal_done idx goal status time_s dump_path vcid =
     incr completed_goals;
@@ -63,13 +63,13 @@ let create ~out_channel ~id ~progress ~prove =
            Printf.sprintf "Goal %d/%d: %s" !completed_goals !total_goals
              status
          else Printf.sprintf "Goal %d: %s" (idx + 1) status);
-    let payload : Kairos_lsp_protocol.goal_done_notification =
+    let payload : Kr_lsp_protocol.goal_done_notification =
       {
         request_id = Lsp_request_id_view.protocol_request_id id;
         payload = { idx; goal; status; time_s; dump_path; vcid };
       }
     in
     send_notification out_channel ~method_name:"kairos/goalDone"
-      ~params_json:(Kairos_lsp_protocol.yojson_of_goal_done_notification payload)
+      ~params_json:(Kr_lsp_protocol.yojson_of_goal_done_notification payload)
   in
   { on_outputs_ready; on_goals_ready; on_goal_done }

@@ -18,8 +18,10 @@
 
 open Cli_types
 
-module Engine = Kairos_composition.Api
-module Pipeline = Kairos_composition.Api.Contract
+module Engine = Kr_composition.Kr_composition_pipeline
+module Pipeline = Kr_composition.Kr_composition_pipeline.Contract
+module Source = Kr_composition.Kr_composition_source_services
+module C_generator = Kr_composition.Kr_composition_c_generator
 
 let proof_optimizations_of_args args =
   let base =
@@ -85,7 +87,7 @@ let proof_optimizations_of_args args =
     guarantee_count : int;
   }
 
-  type c_generation_data = Kairos_composition.Api.generated_file list
+  type c_generation_data = C_generator.generated_file list
 
   let instrumentation_pass = Engine.instrumentation_pass
   let why_pass = Engine.why_pass_with_options
@@ -124,11 +126,11 @@ let proof_optimizations_of_args args =
   let normalized_program = Engine.normalized_program_with_options
   let ir_pretty_dump = Engine.ir_pretty_dump_with_options
   let run = Engine.run
-  let surface_dump = Engine.surface_dump
-  let elaborated_dump = Engine.elaborated_dump
+  let surface_dump = Source.surface_dump
+  let elaborated_dump = Source.elaborated_dump
 
   let frontend_check ~input_file =
-    match Engine.frontend_summary ~input_file with
+    match Source.frontend_summary ~input_file with
     | Error _ as e -> e
     | Ok summary ->
         Ok
@@ -138,7 +140,7 @@ let proof_optimizations_of_args args =
             guarantee_count = summary.guarantee_count;
           }
 
-  let c_generation = Engine.generate_c
+  let c_generation = C_generator.generate_c
 
   let run_dump_data ~input_file ~timeout_s ~prove ~generate_why_text
       ~generate_vc_text ~generate_smt_text ~dump_failed_smt ~proof_progress_path

@@ -1,0 +1,9 @@
+(include_subdirs qualified)
+
+(library
+(name kr_lang_to_model)
+ (private_modules (:standard \ kr_lang_to_model_converter))
+ (wrapped true)
+ (libraries kr_lang_shared kr_lang_core)
+ (preprocess
+  (pps ppx_deriving_yojson)))

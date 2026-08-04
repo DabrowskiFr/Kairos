@@ -1,13 +1,13 @@
 (executable
  (name kairos)
  (public_name kairos)
- (package kairos-cli)
+ (package kairos)
  (modules cli_types cli_pipeline_service cli_output cli_runtime kairos)
- (libraries kairos_composition bos fpath cmdliner))
+ (libraries kr_composition bos fpath cmdliner))
 
 (rule
  (alias runtest)
- (package kairos-cli)
+ (package kairos)
  (action
   (with-stdout-to
    %{null}

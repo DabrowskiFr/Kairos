@@ -1,0 +1,9 @@
+(include_subdirs qualified)
+
+(library
+(name kr_lang_parse)
+ (private_modules (:standard \ kr_lang_parse_parser))
+ (wrapped true)
+ (libraries kr_lang_shared kr_lang_core kr_lang_surface kr_lang_elaborate menhirLib sedlex yojson)
+ (preprocess
+  (pps sedlex.ppx ppx_deriving_yojson)))

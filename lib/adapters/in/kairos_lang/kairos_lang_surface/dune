@@ -1,9 +1,0 @@
-(include_subdirs qualified)
-
-(library
- (name kairos_lang_surface)
- (public_name kairos.internal.input_lang.surface)
- (wrapped true)
- (libraries kairos_lang_shared kairos_lang_core)
- (preprocess
-  (pps ppx_deriving_yojson)))

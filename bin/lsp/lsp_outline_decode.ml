@@ -17,7 +17,7 @@ type t = {
 }
 
 let of_params params =
-  match decode_or_none Kairos_lsp_protocol.outline_request_of_yojson params with
+  match decode_or_none Kr_lsp_protocol.outline_request_of_yojson params with
   | Some req ->
       {
         uri = req.uri;

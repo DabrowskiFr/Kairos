@@ -1,0 +1,5 @@
+(library
+ (name kr_graphviz_render)
+ (wrapped true)
+ (modules graphviz_render)
+ (libraries bos fpath))

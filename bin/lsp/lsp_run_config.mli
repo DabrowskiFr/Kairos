@@ -11,10 +11,10 @@
 (** Decode [kairos/run] request parameters into backend configuration. *)
 
 type decoded = {
-  cfg : Kairos_lsp_protocol.config;
+  cfg : Kr_lsp_protocol.config;
   engine : Engine_service.engine;
   input_file : string;
 }
 
 val decode : Yojson.Safe.t -> decoded option
-val lsp_config : decoded -> Kairos_lsp_protocol.config
+val lsp_config : decoded -> Kr_lsp_protocol.config

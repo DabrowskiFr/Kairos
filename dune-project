@@ -5,17 +5,3 @@
 (using rocq 0.11)
 (package
  (name kairos))
-(package
- (name kairos-cli))
-(package
- (name kairos-lsp))
-(package
- (name kairos-engine-runtime))
-(package
- (name kairos-automata-contract))
-(package
- (name kairos-spot-adapter))
-(package
- (name kairos-why3-contract))
-(package
- (name kairos-why3-adapter))

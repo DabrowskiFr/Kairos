@@ -1,0 +1,8 @@
+(include_subdirs qualified)
+
+(library
+(name kr_lang_shared)
+ (wrapped true)
+ (libraries kr_domain_core yojson)
+ (preprocess
+  (pps ppx_deriving_yojson)))

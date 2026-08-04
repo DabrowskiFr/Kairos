@@ -1,7 +1,0 @@
-(library
- (name kairos_runtime_telemetry)
- (public_name kairos-engine-runtime.internal.runtime_telemetry)
- ; Flat module names are retained for the existing cross-library API.
- (wrapped false)
- (modules runtime_metrics_types runtime_metrics_store runtime_metrics)
- (libraries kairos_why3_contract unix))

@@ -1,0 +1,13 @@
+(library
+ (name kr_why3)
+ (flags (:standard -open Kr_domain_core -open Kr_domain_verification -open Kr_verification_obligations -open Kr_why3_compile -open Kr_external_why3 -open Kr_why3_contract))
+ (wrapped true)
+ (modules why_pipeline)
+ (libraries
+  kr_domain_core
+  kr_domain_verification
+  kr_verification_obligations
+  kr_why3_contract
+  kr_why3_compile
+  kr_external_why3
+  why3))

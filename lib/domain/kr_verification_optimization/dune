@@ -1,0 +1,10 @@
+(library
+ (name kr_verification_optimization)
+ (flags (:standard -open Kr_domain_core -open Kr_domain_verification -open Kr_verification_obligations))
+ (wrapped true)
+ (modules proof_case_decomposition proof_plan contract_formula_index)
+ (private_modules contract_formula_index)
+ (libraries
+  kr_domain_core
+  kr_domain_verification
+  kr_verification_obligations))

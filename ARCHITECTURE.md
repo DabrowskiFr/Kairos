@@ -227,7 +227,7 @@ domain, frontend internals or Why3 compiler directly. The current
 | Kairos custom request | Typed engine invocation and protocol-level projection of its result |
 
 The protocol record types and JSON encoders are isolated in
-`kairos-lsp.protocol`. Common JSON helpers and engine-result mappers live in
+`kairos.lsp.protocol`. Common JSON helpers and engine-result mappers live in
 `kairos-lsp.app`; route-specific decoders and configuration mapping are split
 between that library and `bin/lsp`. The executable owns transport, lifecycle,
 routing and mutable server state.
@@ -3555,22 +3555,12 @@ In plain terms, this section states which parts of the repository may import
 which other parts. These rules keep external tools and delivery code from
 becoming dependencies of the domain or engine.
 
-The installable packages encode the direction from neutral contracts and the
-scientific core toward concrete tools, runtime assembly and delivery
-adapters:
+The `kairos` package contains the complete project: neutral contracts,
+concrete tool adapter libraries, scientific core, runtime assembly and
+delivery executables:
 
 ```text
-kairos-spot-adapter --------> kairos-automata-contract
-kairos-why3-adapter --------> kairos-why3-contract
-
-kairos-engine-runtime ------> kairos
-                         |---> kairos-automata-contract
-                         |---> kairos-spot-adapter
-                         |---> kairos-why3-contract
-                         `---> kairos-why3-adapter
-
-kairos-cli -----------------> kairos-engine-runtime
-kairos-lsp -----------------> kairos-engine-runtime
+kairos (all libraries and executables)
 ```
 
 Arrows denote dependencies. The diagram shows Kairos package-to-package edges;
@@ -3581,17 +3571,18 @@ The npm-distributed VS Code client lies outside this OCaml package graph. Its
 operational dependency is:
 
 ```text
-kairos-vscode -- JSON-RPC/LSP --> kairos-lsp --> kairos-engine-runtime
+kairos-vscode -- JSON-RPC/LSP --> kairos-lsp (within kairos)
 ```
 
 It does not import an engine library directly.
 
 The principal boundary rules are:
 
-1. `kairos` contains the core syntax, normalized program model, frontend and
-   verification-domain transformations. It does not depend on Why3, the
-   concrete engine runtime, CLI, LSP or their protocol libraries.
-2. `kairos-automata-contract` and `kairos-why3-contract` contain only the
+1. `kairos` contains the core syntax, normalized program model, frontend,
+   verification-domain transformations, neutral contracts and concrete tool
+   adapters. It does not depend on the concrete engine runtime, CLI, LSP or
+   their protocol libraries.
+2. The automata and Why3 contract libraries contain only the
    versioned neutral exchange values and JSON support required at their tool
    boundaries. They do not depend on the Kairos domain, runtime or tool
    implementation.
@@ -3599,7 +3590,7 @@ The principal boundary rules are:
    contract and does not receive program models or canonical obligations. The
    installed library also exposes lower-level Spot/HOA utility modules; these
    are tool-adapter APIs, not Kairos verification-domain inputs.
-4. `kairos-why3-adapter` depends on the neutral Why3 contract and Why3 itself,
+4. The Why3 adapter depends on the neutral Why3 contract and Why3 itself,
    but not on Kairos domain values, runtime orchestration or telemetry.
 5. `kairos_engine` owns inbound and outbound port contracts and depends only
    on domain libraries. Outgoing adapters implement its outbound ports and
@@ -3621,11 +3612,11 @@ Additional code-level boundaries refine that package graph:
   canonical engine contract must not be mirrored by adapter DTOs.
 
 These are package-level dependency and ownership constraints, not a complete
-library graph. Each package contains several Dune libraries, including public
-names such as `kairos.domain_*`, `kairos-lsp.protocol` and
-`kairos-engine-runtime.internal.*`. The `.internal` libraries are installed so
-that package assembly works, but are unsupported implementation details; the
-facades and neutral contracts above remain the intended integration points.
+library graph. The package contains several Dune libraries, including public
+names such as `kairos.domain_*`, `kairos.lsp.protocol` and
+`kairos.internal.*`. The `.internal` libraries are installed so that package
+assembly works, but are unsupported implementation details; the facades and
+neutral contracts above remain the intended integration points.
 
 ## K. Validation and architectural fitness
 
@@ -3688,11 +3679,9 @@ history-slot ghost-assignment patterns. This preserves the E.2/G boundary:
 temporal lowering creates logical binders before the backend, not executable
 Why3 instrumentation inside it.
 
-`scripts/check_package_boundaries.sh` builds four targets in isolation:
-`core`, `runtime`, `cli` and `lsp`. It first installs only the declared
-prerequisite packages into a temporary prefix, then builds the target against
-that prefix. This detects undeclared monorepository dependencies that a normal
-whole-tree build could hide.
+`scripts/check_package_boundaries.sh kairos` builds the complete project
+package in isolation. This detects undeclared monorepository dependencies that
+a normal whole-tree build could hide.
 
 The GitHub workflows
 [`architecture.yml`](.github/workflows/architecture.yml) and

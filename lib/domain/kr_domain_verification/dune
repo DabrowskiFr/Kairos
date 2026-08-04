@@ -1,0 +1,34 @@
+(library
+ (name kr_domain_verification)
+ (wrapped true)
+ (flags (:standard -open Kr_domain_core -open Kr_domain_verification))
+(modules
+  ir_shared_types
+  ir
+  ir_formula
+  ir_transition
+  automaton_types
+  product_types
+  temporal_automata
+  product_build
+  fo_time
+  fo_contradiction
+  fo_current_input
+  product_characteristics
+  product_reachability
+  product_invariant
+  ir_fact_family_metrics
+  from_model
+  pre
+  post
+  formula_canonical
+  automata_preparation
+  proof_case_program
+  temporal_lower
+  orchestration)
+ (libraries kr_domain_core))
+
+(test
+ (name product_characteristics_tests)
+ (modules product_characteristics_tests)
+ (libraries kr_domain_verification))

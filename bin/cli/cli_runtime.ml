@@ -20,7 +20,7 @@ open Cli_types
 open Cli_output
 
 module Pipeline_service = Cli_pipeline_service
-module Engine = Kairos_composition.Api
+module Engine = Kr_composition.Kr_composition_pipeline
 
 let proof_optimizations_of_args = Cli_pipeline_service.proof_optimizations_of_args
 

@@ -8,9 +8,9 @@
  * (at your option) any later version.
  *---------------------------------------------------------------------------*)
 
-let protocol_request_id (id : Jsonrpc.Id.t) : Kairos_lsp_protocol.rpc_request_id =
-  match Kairos_lsp_protocol.rpc_request_id_of_yojson (Jsonrpc.Id.yojson_of_t id) with
+let protocol_request_id (id : Jsonrpc.Id.t) : Kr_lsp_protocol.rpc_request_id =
+  match Kr_lsp_protocol.rpc_request_id_of_yojson (Jsonrpc.Id.yojson_of_t id) with
   | Ok request_id -> request_id
   | Error _ ->
-      Kairos_lsp_protocol.Rpc_string_id
+      Kr_lsp_protocol.Rpc_string_id
         (Jsonrpc.Id.yojson_of_t id |> Yojson.Safe.to_string)

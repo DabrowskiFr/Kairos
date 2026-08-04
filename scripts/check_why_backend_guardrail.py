@@ -54,8 +54,8 @@ def main() -> int:
     repo = Path(__file__).resolve().parents[1]
 
     backend_roots = [
-        repo / "lib" / "adapters" / "out" / "provers" / "kairos_why3",
-        repo / "lib" / "adapters" / "out" / "provers" / "kairos_why3_compile",
+        repo / "lib" / "adapters" / "out" / "provers" / "kr_why3",
+        repo / "lib" / "adapters" / "out" / "provers" / "kr_why3_compile",
     ]
     violations = []
     violations.extend(scan_dir(repo, backend_roots, FORBIDDEN_BACKEND))

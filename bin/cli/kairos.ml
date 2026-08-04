@@ -145,7 +145,7 @@ let cmd =
   in
   let proof_jobs =
     Arg.(
-      value & opt int (Kairos_composition.Api.default_proof_jobs ())
+      value & opt int (Kr_composition.Kr_composition_pipeline.default_proof_jobs ())
       & info [ "proof-jobs" ] ~docs:docs_proof ~docv:"JOBS"
           ~doc:
             "Maximum number of Why3 prover calls to keep in flight. The default \

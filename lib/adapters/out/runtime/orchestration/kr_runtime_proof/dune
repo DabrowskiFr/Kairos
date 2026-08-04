@@ -1,0 +1,21 @@
+(library
+(name kr_runtime_proof)
+ (flags (:standard -open Kr_domain_core -open Kr_domain_verification -open Kr_verification_obligations -open Kr_verification_optimization -open Kr_engine -open Kr_runtime_core -open Kr_runtime_telemetry -open Kr_why3 -open Kr_why3_compile -open Kr_external_why3 -open Kr_why3_contract))
+ (wrapped true)
+(modules
+  proof_goal_results
+  proof_progress_output
+  proof_text_blocks
+  proof_trace_diagnostics
+  proof_traces
+  proof_runner)
+ (libraries
+  kr_domain_core
+  kr_verification_obligations
+  kr_why3_contract
+  kr_runtime_core
+  kr_why3
+  kr_why3_compile
+  kr_runtime_telemetry
+  kr_external_why3
+  why3))

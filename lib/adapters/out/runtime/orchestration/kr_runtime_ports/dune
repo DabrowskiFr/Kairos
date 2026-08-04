@@ -1,0 +1,43 @@
+(library
+ (name kr_runtime_ports)
+ (flags (:standard -open Kr_engine -open Kr_domain_core -open Kr_domain_verification -open Kr_why3_contract -open Kr_runtime_core -open Kr_runtime_automata -open Kr_runtime_proof -open Kr_runtime_diagnostics -open Kr_why3 -open Kr_artifact_graph_render -open Kr_artifact_text_render -open Kr_graphviz_render -open Kr_external_why3 -open Kr_runtime_telemetry -open Kr_c_codegen))
+ (wrapped true)
+ (modules
+  kr_runtime_ports
+  runtime_flow
+  log
+  output_mapper
+  pipeline_outputs
+  engine_timing_fields
+  engine_timing_meta
+  engine_vc_taxonomy
+  proof_diagnostics
+  runtime_defaults)
+ (private_modules
+  runtime_flow
+  log
+  output_mapper
+  pipeline_outputs
+  engine_timing_fields
+  engine_timing_meta
+  engine_vc_taxonomy
+  proof_diagnostics
+  runtime_defaults)
+ (libraries
+  kr_engine
+  kr_domain_core
+  kr_why3_contract
+  kr_runtime_core
+  kr_runtime_automata
+  kr_runtime_proof
+  kr_runtime_diagnostics
+  kr_why3
+  kr_artifact_graph_render
+  kr_artifact_text_render
+  kr_graphviz_render
+  kr_external_why3
+  kr_runtime_telemetry
+  kr_c_codegen
+  logs
+  unix
+  str))

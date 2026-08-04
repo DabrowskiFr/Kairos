@@ -1,0 +1,22 @@
+(library
+ (name kr_why3_compile)
+ (flags (:standard -open Kr_domain_core -open Kr_domain_verification -open Kr_verification_obligations))
+ (wrapped true)
+(modules
+  why_compile_expr
+  why_compile_ptree_helpers
+  why_compile_formula_sharing
+  why_compile_logic
+  why_product_step_names
+  why_compile_bundles
+  why_compile_product_specs
+  why_compile_product_helpers
+  why_compile_modules
+  why_compile_node_common
+  why_compile
+  why_compile_step)
+ (libraries
+  kr_domain_core
+  kr_domain_verification
+  kr_verification_obligations
+  why3))

@@ -10,4 +10,4 @@
 
 (** Conversion from JSON-RPC ids to Kairos protocol request ids. *)
 
-val protocol_request_id : Jsonrpc.Id.t -> Kairos_lsp_protocol.rpc_request_id
+val protocol_request_id : Jsonrpc.Id.t -> Kr_lsp_protocol.rpc_request_id
