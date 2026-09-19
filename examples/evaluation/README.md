@@ -73,6 +73,8 @@ are written under `_build/validation/vstte-medical/`.
 
 The two `.kairos` sources are copied verbatim from the submitted VSTTE artifact.
 The paper reports 86/86 goals for the light case and 694/694 for the full case.
-With the current simplified backend, the 2026-07-27 validation produces 83/83
-and 656/656 valid goals respectively: helper grouping changes the number of
-Why3 goals, not the source programs or their contracts.
+At commit `3c1e135f701db35d671f161042b2adda08eeeeea`, the 2026-09-05
+validation produces 16/16 and 75/75 valid goals respectively. The newer
+product-step grouping changes the number and shape of Why3 goals, not the source
+programs or their contracts; the canonical frontiers remain 131 and 1,629
+product cases respectively.
