@@ -18,8 +18,10 @@
   check_c_codegen.sh
   check_elaboration_frontier.sh
   check_reference_stability.sh
+  check_body_effect_summaries.sh
   check_vstte_medical_examples.sh
   frontend/observer_implicit_self_loop.kairos
+  frontend/body_effect_summaries.kairos
   frontend/spec_past_formula_frontier.kairos
   ../examples/medical_infusion_light.kairos
   ../examples/evaluation/case_studies/medical_infusion_controller.kairos
@@ -33,6 +35,7 @@
    (run bash ./check_elaboration_frontier.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_c_codegen.sh %{exe:../bin/cli/kairos.exe})
    (run bash ./check_reference_stability.sh %{exe:../bin/cli/kairos.exe})
+   (run bash ./check_body_effect_summaries.sh %{exe:../bin/cli/kairos.exe})
    (run
     bash
     ../scripts/validate_ok_ko.sh

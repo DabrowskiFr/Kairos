@@ -195,12 +195,22 @@ let cmd =
             "Disable grouping of product-step obligations by executable \
              transition. Obligations remain individual.")
   in
+  let body_effect_summaries =
+    Arg.(
+      value & flag
+      & info [ "body-effect-summaries" ] ~docs:docs_proof
+          ~doc:
+            "Enable symbolic body-effect summaries in incoming product \
+             characteristics. Disabled by default. This explicit opt-in also \
+             applies with --no-proof-optimizations.")
+  in
   let cli_args_term =
     (* Cmdliner still declares options one by one, but we now assemble them into
        a record before entering the operational logic. *)
     let make_cli_args file check_frontend prove timeout_s proof_jobs
         stop_on_first_nonvalid no_proof_optimizations proof_case_strategy
-        no_step_contract_grouping dump_automata dump_product dump_automata_short
+        no_step_contract_grouping body_effect_summaries dump_automata dump_product
+        dump_automata_short
         dump_surface dump_elaborated dump_normalized_program dump_ir_pretty
         dump_cost_report emit_c dump_timings dump_goals dump_failed_smt dump_why
         dump_why3_vc dump_smt2 =
@@ -214,6 +224,7 @@ let cmd =
         no_proof_optimizations;
         proof_case_strategy;
         no_step_contract_grouping;
+        body_effect_summaries;
         dump_automata;
         dump_product;
         dump_automata_short;
@@ -234,7 +245,7 @@ let cmd =
     Term.(
       const make_cli_args $ file $ check_frontend $ prove $ timeout_s
       $ proof_jobs $ stop_on_first_nonvalid $ no_proof_optimizations
-      $ proof_case_strategy $ no_step_contract_grouping
+      $ proof_case_strategy $ no_step_contract_grouping $ body_effect_summaries
       $ dump_automata $ dump_product $ dump_automata_short $ dump_surface
       $ dump_elaborated $ dump_normalized_program $ dump_ir_pretty
       $ dump_cost_report $ emit_c $ dump_timings $ dump_goals $ dump_failed_smt

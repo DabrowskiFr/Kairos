@@ -799,6 +799,7 @@ optimized default for normal executions:
 |---|---|---|
 | Proof-case decomposition | `Monolithic` | `Separate_guarantees` |
 | Product reachability | `Trivial` | `Contradiction_closure` |
+| Symbolic body-effect summaries | Disabled | Disabled (opt in with `--body-effect-summaries`) |
 | Proof Plan | `Direct` | `Planned { steps = Group_steps; conditions = Deduplicate; formulas = Share_repeated; postconditions = Bundle_repeated }` |
 
 The reference configuration makes every optional transformation observable by
@@ -1767,13 +1768,18 @@ For each incoming product case, Kairos combines:
 - the source program-control annotation;
 - the executable program guard;
 - the assumption-monitor guard;
-- the guarantee-monitor guard;
-- a conservative symbolic description of the program body.
+- the guarantee-monitor guard.
+
+With the explicit `--body-effect-summaries` option, Kairos also conjoins a
+conservative symbolic description of the program body. This analysis is
+disabled in both default and reference configurations; its implementation is
+retained but is not executed unless requested. The policy is stored with the
+characteristic table so construction and preservation use the same mode.
 
 The incoming contributions are transported to the next tick-entry frame and
 combined by disjunction.
 
-The body analysis retains effects of simple assignments. For compound
+When enabled, the body analysis retains effects of simple assignments. For compound
 statements such as conditionals, loops and matches, it forgets values assigned
 by the compound body when it cannot retain them safely. For a method call, it
 uses the method's inferred write set and its `inout` arguments to forget the

@@ -31,6 +31,7 @@ type entry = {
 type t = {
   entries : entry list;
   by_state : (string, entry) Hashtbl.t;
+  body_effect_summaries : bool;
 }
 
 let simplify_fo (f : Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr) : Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr =
@@ -207,7 +208,8 @@ let guard_fo_of_transition (t : Abs.transition) : Kr_domain_core_syntax.historic
       hexpr_of_expr guard |> Kr_domain_core_syntax.historical_of_history_free
       |> simplify_fo
 
-let incoming_post_formula ~(node : Kr_domain_core_syntax.historical Abs.node_ir)
+let incoming_post_formula ~body_effect_summaries
+    ~(node : Kr_domain_core_syntax.historical Abs.node_ir)
     (summary : Kr_domain_core_syntax.historical Abs.product_step_summary)
     (case : Kr_domain_core_syntax.historical Abs.product_case) :
     Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr =
@@ -217,19 +219,20 @@ let incoming_post_formula ~(node : Kr_domain_core_syntax.historical Abs.node_ir)
     control_annotation_formula node
       (Abs.product_source summary).prog_state
   in
-  let body_effect =
-    transition_effect_formula ~node summary.identity.program_step
-  in
-  mk_hand
-    (mk_hand
+  let contribution =
+    mk_hand
       (mk_hand
         (mk_hand
           (shift_formula_entry_to_post ~is_input source_annotation)
           (shift_formula_entry_to_post ~is_input program_guard))
         summary.identity.assume_guard)
-      case.guarantee_guard.logic)
-    body_effect
-  |> simplify_fo
+      case.guarantee_guard.logic
+  in
+  if body_effect_summaries then
+    mk_hand contribution
+      (transition_effect_formula ~node summary.identity.program_step)
+    |> simplify_fo
+  else simplify_fo contribution
 
 type incoming_entry = {
   dst : Abs.product_state;
@@ -267,15 +270,15 @@ let add_incoming dst ~program_entry_formula incoming =
   in
   loop [] incoming
 
-let build_table entries =
+let build_table ~body_effect_summaries entries =
   let by_state = Hashtbl.create (List.length entries * 2 + 1) in
   List.iter
     (fun (entry : entry) ->
       Hashtbl.replace by_state (product_state_key entry.product_state) entry)
     entries;
-  { entries; by_state }
+  { entries; by_state; body_effect_summaries }
 
-let build ~(initial_state : Abs.product_state)
+let build ~body_effect_summaries ~(initial_state : Abs.product_state)
     ~(node : Kr_domain_core_syntax.historical Abs.node_ir) : t =
   let is_input = is_input_of_node node in
   let characteristic_states = states_needing_characteristic node in
@@ -285,7 +288,7 @@ let build ~(initial_state : Abs.product_state)
         List.fold_left
           (fun acc (case : Kr_domain_core_syntax.historical Abs.product_case) ->
             let program_post_formula =
-              incoming_post_formula ~node pc case
+              incoming_post_formula ~body_effect_summaries ~node pc case
             in
             let program_entry_formula =
               shift_formula_forward_inputs ~is_input program_post_formula
@@ -314,7 +317,7 @@ let build ~(initial_state : Abs.product_state)
                    Some { product_state = dst; entry_fact })
     |> List.sort_uniq Stdlib.compare
   in
-  build_table entries
+  build_table ~body_effect_summaries entries
 
 let entry_of_product_state (t : t) (st : Abs.product_state) : entry option =
   Hashtbl.find_opt t.by_state (product_state_key st)
@@ -335,7 +338,10 @@ let preservation_ensures (t : t) ~(node : Kr_domain_core_syntax.historical Abs.n
          with
          | None -> None
          | Some _ ->
-             let contribution = incoming_post_formula ~node pc case in
+             let contribution =
+               incoming_post_formula
+                 ~body_effect_summaries:t.body_effect_summaries ~node pc case
+             in
              if same_formula case.guarantee_guard.logic contribution then None
              else
                Some

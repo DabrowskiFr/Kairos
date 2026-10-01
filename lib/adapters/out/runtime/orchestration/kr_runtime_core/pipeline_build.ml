@@ -230,6 +230,8 @@ let build_from_supplied_automata
         ~pass_observer ~observe_stage
         ~reachability_strategy:
           proof_optimizations.verification.reachability_strategy
+        ~body_effect_summaries:
+          proof_optimizations.verification.body_effect_summaries
         ~proof_cases:proof_case_program ~automata
         ()
       |> Result.map_error (fun message ->

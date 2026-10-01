@@ -296,6 +296,7 @@ let build_reference_product
 let build_instrumented_ir
     ?observe_fact_family
     ?(pass_observer = silent_pass_observer)
+    ?(body_effect_summaries = false)
     (reference_product : reference_product) :
     (instrumented_product_node list, string) result =
   let product_nodes = reference_product.nodes in
@@ -341,7 +342,8 @@ let build_instrumented_ir
             (let initial_state =
                product_node.analysis.exploration.initial_state
              in
-             Kr_verification_characteristics.build ~initial_state ~node);
+             Kr_verification_characteristics.build ~body_effect_summaries
+               ~initial_state ~node);
         ])
       product_nodes initial_nodes
   in

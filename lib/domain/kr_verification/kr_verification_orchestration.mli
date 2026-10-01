@@ -83,9 +83,12 @@ val build_reference_product :
   reference_product_input ->
   (reference_product, string) result
 
-(** Run the instrumentation-oriented IR passes over product summaries. *)
+(** Run the instrumentation-oriented IR passes over product summaries.
+    [body_effect_summaries] defaults to [false] and controls only optional
+    symbolic body effects, not temporal facts or their preservation. *)
 val build_instrumented_ir :
   ?observe_fact_family:(Kr_verification_fact_metrics.snapshot -> unit) ->
   ?pass_observer:pass_observer ->
+  ?body_effect_summaries:bool ->
   reference_product ->
   (instrumented_product_node list, string) result

@@ -22,14 +22,16 @@
     incoming product case, the post-state contribution is the conjunction of:
     the source control-state annotation and executable guard transported from
     tick entry to the post-state frame, the selected assumption-automaton
-    guard, the compatible guarantee-automaton guard, and a conservative
-    symbolic summary of the transition body's effect. The destination
-    characteristic is the disjunction of those contributions, transported to
-    the next tick-entry frame with {!Fo_time.shift_formula_forward_inputs}.
+    guard, and the compatible guarantee-automaton guard. Callers disable
+    body-effect summaries by default; explicitly opting in also conjoins a
+    conservative symbolic summary of the transition body's effect. The
+    destination characteristic is the disjunction of those contributions,
+    transported to the next tick-entry frame with
+    {!Fo_time.shift_formula_forward_inputs}.
 
-    Characteristics are generated only for product states from which a
-    product prefix. Their preservation is emitted as an ordinary postcondition
-    on every incoming product case. Consequently, an
+    Characteristics are generated only for noninitial product states that are
+    sources of a generated summary. Their preservation is emitted as an
+    ordinary postcondition on every incoming product case. Consequently, an
     imprecise body summary can reject a valid program but cannot justify an
     invalid one: the backend must prove the propagated contribution after
     executing the actual transition body.
@@ -43,13 +45,18 @@
 type t
 
 val build :
+  body_effect_summaries:bool ->
   initial_state:Kr_verification_ir.product_state ->
   node:Kr_domain_core_syntax.historical Kr_verification_ir.node_ir ->
   t
 (** Compute the characteristic table for one node, excluding the exact initial
     product state because its entry facts have no incoming step establishing
-    them at the first tick. This function has no global cache; callers that need
-    the table across several passes must share the returned value explicitly. *)
+    them at the first tick. Pass [body_effect_summaries:false] by default;
+    [true] opts into symbolic body-effect summaries. The selected policy is
+    retained in the table and also controls {!preservation_ensures}. When
+    disabled, body-effect analysis is not performed. This function has no
+    global cache; callers that need the table across several passes must share
+    the returned value explicitly. *)
 
 val entry_facts_of_product_state :
   t -> Kr_verification_ir.product_state -> Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr list
@@ -62,4 +69,5 @@ val preservation_ensures :
   Kr_domain_core_syntax.historical Kr_verification_ir.product_step_summary ->
   Kr_domain_core_syntax.historical Kr_domain_core_syntax.hexpr list
 (** Preservation obligations induced by the destinations of one product
-    summary, in product-case order and without deduplicating occurrences. *)
+    summary, in product-case order and without deduplicating occurrences.
+    Uses the body-effect policy chosen when the table was built. *)

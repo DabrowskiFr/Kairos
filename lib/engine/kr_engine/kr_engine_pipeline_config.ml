@@ -85,6 +85,7 @@ let bundles_individual_postconditions = function
 type verification_optimizations = {
   proof_case_decomposition_strategy : proof_case_decomposition_strategy;
   reachability_strategy : reachability_strategy;
+  body_effect_summaries : bool;
   proof_plan_strategy : proof_plan_strategy;
 }
 
@@ -98,6 +99,7 @@ let reference_proof_optimizations =
       {
         proof_case_decomposition_strategy = Monolithic;
         reachability_strategy = Trivial;
+        body_effect_summaries = false;
         proof_plan_strategy = Direct;
       };
   }
@@ -108,6 +110,7 @@ let default_proof_optimizations =
       {
         proof_case_decomposition_strategy = Separate_guarantees;
         reachability_strategy = Contradiction_closure;
+        body_effect_summaries = false;
         proof_plan_strategy =
           Planned
             {

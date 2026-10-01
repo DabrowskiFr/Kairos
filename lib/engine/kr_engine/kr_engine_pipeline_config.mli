@@ -66,6 +66,9 @@ val bundles_individual_postconditions : proof_plan_strategy -> bool
 type verification_optimizations = {
   proof_case_decomposition_strategy : proof_case_decomposition_strategy;
   reachability_strategy : reachability_strategy;
+  body_effect_summaries : bool;
+      (** Opt-in symbolic body effects in incoming characteristics. Disabled in
+          both default and reference profiles. *)
   proof_plan_strategy : proof_plan_strategy;
 }
 

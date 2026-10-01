@@ -36,6 +36,19 @@ Example:
 dune exec -j 1 -- kairos --prove --timeout-s 1 tests/ok/resettable_delay.kairos
 ```
 
+Symbolic body-effect summaries are disabled by default. To opt in:
+
+```bash
+dune exec -j 1 -- kairos --prove --body-effect-summaries tests/ok/resettable_delay.kairos
+```
+
+This option adds facts computed from reaction bodies to incoming product
+characteristics and checks their preservation. Without it, temporal guards,
+user annotations, history transport, and guarantee progress/preservation
+remain active. The reference profile (`--no-proof-optimizations`) also leaves
+body-effect summaries disabled; an explicit `--body-effect-summaries` overrides
+that default. The option affects proof generation, not executable behavior.
+
 To list all available CLI commands and options:
 
 ```bash

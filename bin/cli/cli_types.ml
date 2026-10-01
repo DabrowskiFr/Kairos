@@ -32,6 +32,7 @@ type cli_args = {
   no_proof_optimizations : bool;
   proof_case_strategy : proof_case_strategy option;
   no_step_contract_grouping : bool;
+  body_effect_summaries : bool;
   dump_automata : string option;
   dump_automata_short : string option;
   dump_product : string option;

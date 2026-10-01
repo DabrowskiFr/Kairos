@@ -37,6 +37,7 @@ let proof_optimizations_of_args args =
             ~default:base.verification.proof_case_decomposition_strategy;
         reachability_strategy =
           base.verification.reachability_strategy;
+        body_effect_summaries = args.body_effect_summaries;
         proof_plan_strategy =
           (match base.verification.proof_plan_strategy with
           | Pipeline.Direct -> Pipeline.Direct

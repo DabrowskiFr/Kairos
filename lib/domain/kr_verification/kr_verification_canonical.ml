@@ -22,8 +22,8 @@ type t = {
 let ( let* ) = Result.bind
 
 let build ?observe_fact_family ?pass_observer
-    ?(observe_stage = fun _ -> ()) ~reachability_strategy
-    ~proof_cases ~automata () =
+    ?(observe_stage = fun _ -> ()) ?(body_effect_summaries = false)
+    ~reachability_strategy ~proof_cases ~automata () =
   let input : Kr_verification_orchestration.reference_product_input =
     {
       proof_case_program = proof_cases;
@@ -37,7 +37,7 @@ let build ?observe_fact_family ?pass_observer
   observe_stage Reference_product_built;
   let* instrumented_nodes =
     Kr_verification_orchestration.build_instrumented_ir ?observe_fact_family
-      ?pass_observer reference_product
+      ?pass_observer ~body_effect_summaries reference_product
   in
   observe_stage Instrumented_ir_built;
   let partition_inputs =

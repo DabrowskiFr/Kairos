@@ -32,6 +32,7 @@ val build :
   ?observe_fact_family:(Kr_verification_fact_metrics.snapshot -> unit) ->
   ?pass_observer:Kr_verification_orchestration.pass_observer ->
   ?observe_stage:(stage -> unit) ->
+  ?body_effect_summaries:bool ->
   reachability_strategy:Kr_verification_reachability.strategy ->
   proof_cases:Kr_verification_cases.t ->
   automata:
@@ -39,4 +40,6 @@ val build :
   unit ->
   (t, string) result
 (** Builds the reference product, runs the typed enrichment/lowering passes,
-    and projects their result to canonical individual obligations. *)
+    and projects their result to canonical individual obligations.
+    [body_effect_summaries] defaults to [false]; [true] adds symbolic body
+    effects to incoming characteristics and their preservation obligations. *)
